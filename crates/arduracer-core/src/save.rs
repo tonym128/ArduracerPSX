@@ -98,4 +98,35 @@ impl SaveData {
         }
         improved
     }
+
+    /// Serializes save data into a standard 8 KB PlayStation Memory Card block buffer.
+    pub fn to_block_bytes(&self, block: &mut [u8; 8192]) {
+        block.fill(0);
+        let src = unsafe {
+            core::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                core::mem::size_of::<Self>(),
+            )
+        };
+        block[..src.len()].copy_from_slice(src);
+    }
+
+    /// Attempts to deserialize save data from a Memory Card block buffer.
+    /// Returns Some(SaveData) if magic, version, and checksum are valid, None otherwise.
+    pub fn from_block_bytes(slice: &[u8]) -> Option<Self> {
+        let size = core::mem::size_of::<Self>();
+        if slice.len() < size {
+            return None;
+        }
+        let mut save = Self::default();
+        let dst =
+            unsafe { core::slice::from_raw_parts_mut(&mut save as *mut Self as *mut u8, size) };
+        dst.copy_from_slice(&slice[..size]);
+
+        if save.is_valid() {
+            Some(save)
+        } else {
+            None
+        }
+    }
 }

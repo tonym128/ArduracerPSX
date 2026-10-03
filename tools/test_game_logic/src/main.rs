@@ -85,6 +85,30 @@ fn main() {
         "SaveData corruption detection on single-bit flip",
         test_save_bit_flip_detection
     );
+    run_test!(
+        "Drift boost charging tiers (Mini/Super Turbo)",
+        test_drift_boost_charging
+    );
+    run_test!(
+        "Counter-steering stabilizes drift slip angle",
+        test_counter_steering
+    );
+    run_test!(
+        "Barrier collision bounce & kinetic energy scrub",
+        test_barrier_collision
+    );
+    run_test!(
+        "Ghost 30Hz recording & 6-byte frame compression",
+        test_ghost_recording
+    );
+    run_test!(
+        "Ghost sub-tick linear & angular interpolation",
+        test_ghost_interpolation
+    );
+    run_test!(
+        "SaveData 8KB Memory Card block round-trip",
+        test_save_block_round_trip
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -197,7 +221,11 @@ fn test_vehicle_steering() {
 }
 
 fn test_drift_mechanics() {
-    let mut car = VehicleState::default();
+    let mut car = VehicleState {
+        velocity: Vec2::new(Fixed::ZERO, -Fixed::from_int(3)),
+        speed: Fixed::from_int(3),
+        ..Default::default()
+    };
     let drift_input = VehicleInput {
         throttle: Fixed::ONE,
         brake: Fixed::ZERO,
@@ -359,5 +387,208 @@ fn test_save_bit_flip_detection() {
     assert!(
         !save.is_valid(),
         "Corrupted save must be caught by checksum"
+    );
+}
+
+fn test_drift_boost_charging() {
+    let mut car = VehicleState {
+        velocity: Vec2::new(Fixed::ZERO, -Fixed::from_int(3)),
+        speed: Fixed::from_int(3),
+        ..Default::default()
+    };
+    let initiate_input = VehicleInput {
+        throttle: Fixed::ONE,
+        steer: Fixed::ONE,
+        handbrake: true,
+        ..Default::default()
+    };
+
+    // Initiate drift
+    car.tick(initiate_input, SurfaceType::Tarmac);
+    assert!(car.drift.is_drifting(), "Car must enter drift mode");
+
+    // Maintain drift by counter-steering gently to prevent spin-out
+    let maintain_input = VehicleInput {
+        throttle: Fixed::ONE,
+        steer: -Fixed::from_raw(1024), // gentle counter-steer
+        handbrake: true,
+        ..Default::default()
+    };
+
+    // Maintain drift for 50 ticks -> Level 1 Mini-Turbo
+    for _ in 0..50 {
+        car.tick(maintain_input, SurfaceType::Tarmac);
+    }
+    assert_eq!(
+        car.drift.boost_tier(),
+        1,
+        "Must reach Boost Tier 1 (Mini-Turbo)"
+    );
+
+    // Maintain drift for another 50 ticks (100 total) -> Level 2 Super-Turbo
+    for _ in 0..50 {
+        car.tick(maintain_input, SurfaceType::Tarmac);
+    }
+    assert_eq!(
+        car.drift.boost_tier(),
+        2,
+        "Must reach Boost Tier 2 (Super-Turbo)"
+    );
+
+    // Release handbrake -> should trigger turbo boost ticks and impulse
+    let release_input = VehicleInput {
+        throttle: Fixed::ONE,
+        handbrake: false,
+        ..Default::default()
+    };
+    car.tick(release_input, SurfaceType::Tarmac);
+    assert!(!car.drift.is_drifting(), "Drift must end upon release");
+    assert!(car.boost_ticks > 0, "Boost timer must activate");
+}
+
+fn test_counter_steering() {
+    let mut car = VehicleState {
+        velocity: Vec2::new(Fixed::ZERO, -Fixed::from_int(3)),
+        speed: Fixed::from_int(3),
+        ..Default::default()
+    };
+    // Slide right (direction = 1)
+    let right_slide = VehicleInput {
+        throttle: Fixed::ONE,
+        steer: Fixed::ONE,
+        handbrake: true,
+        ..Default::default()
+    };
+    car.tick(right_slide, SurfaceType::Tarmac);
+
+    let initial_slip = match car.drift {
+        DriftState::Drifting { slip_angle, .. } => slip_angle,
+        _ => panic!("Expected drifting state"),
+    };
+
+    // Counter-steer to the left while sliding right
+    let counter_steer = VehicleInput {
+        throttle: Fixed::ONE,
+        steer: -Fixed::ONE,
+        handbrake: true,
+        ..Default::default()
+    };
+    for _ in 0..10 {
+        car.tick(counter_steer, SurfaceType::Tarmac);
+    }
+
+    let stabilized_slip = match car.drift {
+        DriftState::Drifting { slip_angle, .. } => slip_angle,
+        _ => panic!("Expected drifting state"),
+    };
+
+    assert!(
+        stabilized_slip < initial_slip,
+        "Counter-steering must reduce/stabilize slip angle (before: {}, after: {})",
+        initial_slip,
+        stabilized_slip
+    );
+}
+
+fn test_barrier_collision() {
+    let mut car = VehicleState {
+        velocity: Vec2::new(Fixed::from_int(10), Fixed::ZERO), // moving right (+X)
+        speed: Fixed::from_int(10),
+        ..Default::default()
+    };
+
+    // Hit a vertical wall on the right (surface normal points left: -X)
+    let wall_normal = Vec2::new(-Fixed::ONE, Fixed::ZERO);
+    car.handle_barrier_collision(wall_normal);
+
+    // Car must bounce back (-X velocity) and scrub speed
+    assert!(
+        car.velocity.x < Fixed::ZERO,
+        "Velocity X must reverse on bounce"
+    );
+    assert!(
+        car.speed < Fixed::from_int(10),
+        "Speed must scrub on collision"
+    );
+    assert!(car.drift.is_spinning(), "Wall impact must induce spin");
+}
+
+fn test_ghost_recording() {
+    let mut recorder = GhostRecorder::<300>::new(1);
+    recorder.start();
+
+    let start_pos = Vec2::new(Fixed::from_int(10), Fixed::from_int(20));
+    for tick in 0..60 {
+        let pos = Vec2::new(start_pos.x + Fixed::from_int(tick), start_pos.y);
+        recorder.record_tick(pos, 1024, FLAG_DRIFTING);
+    }
+    recorder.finish(60);
+
+    // 60 ticks @ 30 Hz sampling (every 2 ticks) = 30 frames
+    assert_eq!(
+        recorder.frame_count, 30,
+        "30Hz sampling must yield 30 frames per 60 ticks"
+    );
+    assert_eq!(recorder.lap_time_ticks, 60);
+
+    // Test decoding of first recorded frame
+    let f0 = recorder.frames[0];
+    assert_eq!(f0.heading_byte, (1024 >> 4) as u8);
+    assert_eq!(f0.flags, FLAG_DRIFTING);
+    assert_eq!(f0.decode_heading(), 1024);
+}
+
+fn test_ghost_interpolation() {
+    let frames = [
+        GhostFrame::encode(Vec2::new(Fixed::from_int(0), Fixed::ZERO), 0, 0),
+        GhostFrame::encode(Vec2::new(Fixed::from_int(10), Fixed::ZERO), 1024, 0),
+    ];
+    let player = GhostPlayer::new(&frames, 2);
+
+    // Sample exactly at tick 0 (frame 0)
+    let s0 = player.sample_at_tick(0);
+    assert_eq!(s0.position.x.to_int(), 0);
+    assert_eq!(s0.heading, 0);
+
+    // Sample at tick 1 (halfway between frame 0 and frame 1)
+    let s1 = player.sample_at_tick(1);
+    assert_eq!(
+        s1.position.x.to_int(),
+        5,
+        "Sub-tick linear interpolation must yield midpoint"
+    );
+    assert_eq!(
+        s1.heading, 512,
+        "Angular interpolation must yield halfway angle"
+    );
+
+    // Sample at tick 2 (frame 1)
+    let s2 = player.sample_at_tick(2);
+    assert_eq!(s2.position.x.to_int(), 10);
+    assert_eq!(s2.heading, 1024);
+}
+
+fn test_save_block_round_trip() {
+    let mut original = SaveData::default();
+    original.update_best_lap(0, 1845, 3); // Gold medal on Track 1
+    original.update_best_lap(5, 2300, 2); // Silver medal on Track 6
+    assert!(original.is_valid());
+
+    let mut block = [0u8; 8192];
+    original.to_block_bytes(&mut block);
+
+    // Deserialize from raw 8KB block
+    let restored = SaveData::from_block_bytes(&block).expect("Must restore valid save from block");
+    assert_eq!(restored.best_lap_ticks[0], 1845);
+    assert_eq!(restored.medals_earned[0], 3);
+    assert_eq!(restored.best_lap_ticks[5], 2300);
+    assert_eq!(restored.checksum, original.checksum);
+    assert!(restored.is_valid());
+
+    // Corrupt one byte in the block -> must fail deserialization
+    block[5] ^= 0xFF;
+    assert!(
+        SaveData::from_block_bytes(&block).is_none(),
+        "Corrupt block must be rejected"
     );
 }
