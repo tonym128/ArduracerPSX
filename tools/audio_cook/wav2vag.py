@@ -8,6 +8,7 @@ Also provides synthetic procedural sound generators for racing sound effects
 (engine revs, tire screeches, wall impacts, and turbo whoosh).
 """
 
+import subprocess
 import sys
 import os
 import struct
@@ -251,81 +252,79 @@ def export_rust_soundbank(out_rs_path):
 
     print(f"Generated Rust soundbank -> {out_rs_path}")
 
-def generate_cdda_synth(track_id, duration_sec=4.0, sample_rate=44100):
-    """Generates a stereo 44.1kHz 16-bit arcade soundtrack pattern."""
-    num_samples = int(duration_sec * sample_rate)
-    # Ensure exact alignment to 588 stereo samples (2352 bytes sector)
-    remainder = num_samples % 588
-    if remainder != 0:
-        num_samples += (588 - remainder)
+# CD-DA mastering. Red Book audio is 44.1 kHz, 16-bit, stereo, interleaved
+# left-then-right, and the drive addresses it in 2352-byte sectors -- exactly
+# 588 stereo frames per sector. Every track is padded with silence to a whole
+# number of sectors so mkisopsx never has to truncate a partial sector.
+CDDA_SAMPLE_RATE = 44100
+CDDA_BYTES_PER_FRAME = 4  # 2 channels * 16 bits
+CDDA_FRAMES_PER_SECTOR = 2352 // CDDA_BYTES_PER_FRAME
+CDDA_CHANNELS = 2
 
-    pcm_bytes = bytearray()
-    
-    # Base musical parameters by track
-    params = {
-        2: {"tempo": 138.0, "root": 220.0, "scale": [0, 3, 7, 10, 12]},       # Title: Minor Pentatonic
-        3: {"tempo": 145.0, "root": 261.63, "scale": [0, 4, 7, 9, 12]},       # Circuit: Major Driving
-        4: {"tempo": 120.0, "root": 196.0, "scale": [0, 2, 4, 7, 9, 12]},     # Coastal: Synthwave
-        5: {"tempo": 150.0, "root": 146.83, "scale": [0, 3, 5, 6, 7, 10, 12]},# Cyber: Acid/Techno
-        6: {"tempo": 140.0, "root": 164.81, "scale": [0, 3, 7, 8, 12]},       # Canyon: Phrygian
-        7: {"tempo": 130.0, "root": 261.63, "scale": [0, 4, 7, 11, 12, 16]},  # Victory: Triumphant Major
-    }
-    cfg = params.get(track_id, params[2])
-    tempo = cfg["tempo"]
-    root = cfg["root"]
-    scale = cfg["scale"]
-    beat_sec = 60.0 / tempo
-    sixteenth = beat_sec / 4.0
+# GAME.md section 6.1 track roles -> the AssetSource master that fills them.
+# Kept as an explicit table so the disc layout stays auditable: every source is
+# used exactly once and no role is left to chance.
+CDDA_TRACKS = [
+    (2, "track02_title.raw", "Asphalt_Overdrive.mp3", "Title / Menu - Neon Overdrive (synthwave)"),
+    (3, "track03_circuit.raw", "Asphalt_Adrenaline.mp3", "Cup 1 - Asphalt Adrenaline (Eurobeat)"),
+    (4, "track04_coastal.raw", "Asphalt_Pursuit.mp3", "Cup 2 - Night Drift City (D&B)"),
+    (5, "track05_cyber.raw", "Burn_the_Asphalt.mp3", "Cup 3 - Canyon Rush (arcade techno)"),
+    (6, "track06_canyon.raw", "Maximum_Throttle.mp3", "Cup 4 - Apex Predator (hard trance)"),
+    (7, "track07_victory.raw", "The_Victory_Lap.mp3", "Victory / Podium Fanfare"),
+]
 
-    for i in range(num_samples):
-        t = i / sample_rate
-        beat_idx = int(t / beat_sec)
-        sub_idx = int(t / sixteenth) % len(scale)
-        sub_t = (t % sixteenth) / sixteenth
 
-        # Lead melody note
-        semitone = scale[sub_idx]
-        lead_freq = root * (2.0 ** (semitone / 12.0))
-        lead_env = math.exp(-6.0 * sub_t)
-        lead_val = (math.sin(2 * math.pi * lead_freq * t) + 0.3 * math.sin(4 * math.pi * lead_freq * t)) * lead_env
+def decode_to_cdda_pcm(mp3_path):
+    """Decodes an MP3 to sector-ready CD-DA PCM via ffmpeg.
 
-        # Bass octave
-        bass_freq = (root / 2.0)
-        bass_env = math.exp(-3.0 * ((t % beat_sec) / beat_sec))
-        bass_val = math.sin(2 * math.pi * bass_freq * t) * bass_env
-
-        # Rhythm kick on beat
-        kick_t = (t % beat_sec)
-        kick_env = math.exp(-24.0 * kick_t)
-        kick_freq = 150.0 * math.exp(-30.0 * kick_t) + 45.0
-        kick_val = math.sin(2 * math.pi * kick_freq * kick_t) * kick_env
-
-        # Stereo mix
-        left = int(max(-32767, min(32767, (lead_val * 0.45 + bass_val * 0.35 + kick_val * 0.4) * 22000)))
-        right = int(max(-32767, min(32767, (lead_val * 0.40 + bass_val * 0.40 + kick_val * 0.4) * 22000)))
-
-        pcm_bytes.extend(struct.pack("<hh", left, right))
-
-    return bytes(pcm_bytes)
-
-def cook_cdda_tracks(out_dir):
-    """Synthesizes all 6 Redbook CD-DA audio tracks for Tracks 2 through 7."""
-    os.makedirs(out_dir, exist_ok=True)
-    track_names = [
-        (2, "track02_title.raw"),
-        (3, "track03_circuit.raw"),
-        (4, "track04_coastal.raw"),
-        (5, "track05_cyber.raw"),
-        (6, "track06_canyon.raw"),
-        (7, "track07_victory.raw"),
+    ffmpeg does the resampling and stereo downmix so the master keeps its
+    original length; we only normalise the container to what the drive needs.
+    """
+    cmd = [
+        "ffmpeg", "-v", "error", "-nostdin", "-i", mp3_path,
+        "-f", "s16le", "-acodec", "pcm_s16le",
+        "-ar", str(CDDA_SAMPLE_RATE), "-ac", str(CDDA_CHANNELS),
+        "-",
     ]
-    for tid, fname in track_names:
+    try:
+        out = subprocess.run(cmd, check=True, stdout=subprocess.PIPE).stdout
+    except FileNotFoundError:
+        raise SystemExit(
+            "error: ffmpeg is required to master CD-DA tracks from AssetSource/*.mp3"
+        )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"error: ffmpeg failed on {mp3_path} (exit {exc.returncode})")
+
+    # Drop a partial trailing frame so the padding arithmetic stays whole.
+    whole = len(out) - (len(out) % CDDA_BYTES_PER_FRAME)
+    out = out[:whole]
+
+    # Pad with silence up to the next sector boundary.
+    rem_frames = (len(out) // CDDA_BYTES_PER_FRAME) % CDDA_FRAMES_PER_SECTOR
+    if rem_frames:
+        pad = (CDDA_FRAMES_PER_SECTOR - rem_frames) * CDDA_BYTES_PER_FRAME
+        out += b"\x00" * pad
+    return out
+
+
+def cook_cdda_tracks(out_dir, source_dir):
+    """Masters the 6 Red Book CD-DA audio tracks for disc tracks 2 through 7."""
+    os.makedirs(out_dir, exist_ok=True)
+    for tid, fname, source_name, role in CDDA_TRACKS:
+        mp3 = os.path.join(source_dir, source_name)
+        if not os.path.exists(mp3):
+            raise SystemExit(f"error: missing CD-DA source {mp3}")
+        pcm = decode_to_cdda_pcm(mp3)
         path = os.path.join(out_dir, fname)
-        pcm = generate_cdda_synth(tid, duration_sec=4.0)
         with open(path, "wb") as f:
             f.write(pcm)
         sectors = len(pcm) // 2352
-        print(f"Mastered CD-DA Track {tid:02d} -> {path} ({len(pcm)} bytes, {sectors} sectors)")
+        seconds = sectors * CDDA_FRAMES_PER_SECTOR / CDDA_SAMPLE_RATE
+        print(
+            f"Mastered CD-DA Track {tid:02d} -> {path} "
+            f"({source_name}, {role}: {len(pcm)} bytes, {sectors} sectors, {seconds:.1f}s)"
+        )
+
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--cook-soundbank":
@@ -333,7 +332,8 @@ def main():
         export_rust_soundbank(out_path)
     elif len(sys.argv) > 1 and sys.argv[1] == "--cook-cdda":
         out_dir = sys.argv[2] if len(sys.argv) > 2 else "assets/cdda"
-        cook_cdda_tracks(out_dir)
+        source_dir = sys.argv[3] if len(sys.argv) > 3 else "AssetSource"
+        cook_cdda_tracks(out_dir, source_dir)
     elif len(sys.argv) > 2:
         in_wav = sys.argv[1]
         out_vag = sys.argv[2]
@@ -348,7 +348,7 @@ def main():
             f.write(vag_data)
         print(f"Wrote {out_vag} ({len(vag_data)} bytes)")
     else:
-        print("Usage: wav2vag.py <input.wav> <output.vag> [--loop] | --cook-soundbank [out.rs] | --cook-cdda [out_dir]")
+        print("Usage: wav2vag.py <input.wav> <output.vag> [--loop] | --cook-soundbank [out.rs] | --cook-cdda [out_dir] [source_dir]")
 
 if __name__ == "__main__":
     main()

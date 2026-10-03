@@ -15,8 +15,8 @@ import subprocess
 import sys
 import tempfile
 
-# 2x CD speed (150 sectors/s) / 15 fps.
-SECTORS_PER_FRAME = 10
+# 1x CD speed (75 sectors/s) / 15 fps = exactly 5 sectors per frame.
+SECTORS_PER_FRAME = 5
 
 
 def find_repo_root():
@@ -214,7 +214,7 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
 
     os.makedirs(os.path.dirname(os.path.abspath(str_out)), exist_ok=True)
 
-    # 1. Encode 320x240 @ 15 fps Version-2 STR video stream (10 sectors/frame)
+    # 1. Encode 320x240 @ 15 fps Version-2 STR video stream at 1x speed (5 sectors/frame)
     print(f"Encoding {mp4_path} -> {str_out} with psxavenc...")
     cmd = [
         psxavenc,
@@ -227,7 +227,7 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
         "-r",
         "15",
         "-x",
-        "2",
+        "1",
         mp4_path,
         str_out,
     ]

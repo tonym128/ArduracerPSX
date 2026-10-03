@@ -91,11 +91,11 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
 
     let cols = FONT_5X7[idx];
     for (col_idx, col_bits) in cols.iter().enumerate() {
-        let mut row = 0;
+        let mut row = 0u16;
         while row < 7 {
-            if (col_bits & (1 << row)) != 0 {
+            if (col_bits & bit_mask(row)) != 0 {
                 let start_row = row;
-                while row < 7 && (col_bits & (1 << row)) != 0 {
+                while row < 7 && (col_bits & bit_mask(row)) != 0 {
                     row += 1;
                 }
                 let span = (row - start_row) as u16;
@@ -107,6 +107,18 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
             }
         }
     }
+}
+
+/// Column bit mask for glyph row `row` (0..7).
+///
+/// The `u8` type must be explicit. With `col_bits & (1 << row)` the literal `1`
+/// is inferred through a `&u8` reference operand and the MIPS target lowers the
+/// comparison to something that is always false, so *every glyph renders as
+/// nothing*. Typing the mask keeps the shift in 8-bit space and is correct on
+/// every target. See REVIEW.md §Video/menu defect log.
+#[inline]
+fn bit_mask(row: u16) -> u8 {
+    1u8 << row
 }
 
 /// Draws an ASCII string at screen position (x, y) with given color and scale.

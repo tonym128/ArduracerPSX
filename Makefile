@@ -154,7 +154,7 @@ iso: exe
 assets:
 	@mkdir -p $(ROOT)/assets/cdda
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
-	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda
+	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
 disc: assets exe
 	@mkdir -p $(DIST)
