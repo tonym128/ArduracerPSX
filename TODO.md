@@ -27,9 +27,9 @@
 | Lints (`-D warnings`) | `make clippy` | clean |
 | Game-logic suite | `make test` | **40 / 40** |
 | Circuit playability | `make playtest` | **24 / 24** (player + 5 AI rivals, 5 laps each) |
-| MIPS build + RAM budget | `make exe` | 303 KB / 2 MB static (**14.5 %**) |
-| Disc mastering | `make disc` | 12.24 MB BIN + CUE, 7 tracks (Intro FMV + CD-DA) |
-| Visuals & Input Gate | `make ci && make ci-disc` | **PASS** (64-dir rotated cars, edge-triggered menus, no draw offset clipping) |
+| MIPS build + RAM budget | `make exe` | 307 KB / 2 MB static (**14.6 %**) |
+| Disc mastering | `make disc` | 185 MB BIN + CUE, 7 tracks (Plattypus 15 FPS FMV + full CD-DA soundtrack) |
+| Video Playback Gate | `make ci && make ci-disc` | **PASS** (15 FPS BS v2, 5 sectors/frame, 6-slot FIFO ring, DMA2 VRAM upload) |
 
 See [`REVIEW.md`](REVIEW.md) for the TASK-1001 four-perspective audit, the full
 defect log, and the documented deviations.
