@@ -168,7 +168,7 @@
 
 ## Phase 3: PSX Hardware Rendering Engine (`game/src/gpu`)
 
-- [ ] **TASK-301**: Double-buffered 320×240 @ 60 FPS display engine.
+- [x] **TASK-301**: Double-buffered 320×240 @ 60 FPS display engine.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/display.rs`
   - **Specs**:
@@ -177,7 +177,7 @@
     - Double-buffered Ordering Table (OT) allocation and DMA Channel 2 dispatch.
   - **Review Perspective**: Senior Systems Engineer.
 
-- [ ] **TASK-302**: High-performance track tile blitter.
+- [x] **TASK-302**: High-performance track tile blitter.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/tile_blitter.rs`
   - **Specs**:
@@ -186,7 +186,7 @@
     - Texture page caching to minimize VRAM page switches.
   - **Review Perspective**: Senior Systems Engineer (I-Cache and DMA efficiency).
 
-- [ ] **TASK-303**: 64-direction vehicle sprite renderer.
+- [x] **TASK-303**: 64-direction vehicle sprite renderer.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/car_renderer.rs`
   - **Specs**:
@@ -195,7 +195,7 @@
     - Dynamic vehicle shadow projected onto track surface.
   - **Review Perspective**: Game Designer, Senior Systems Engineer.
 
-- [ ] **TASK-304**: Dynamic camera controller.
+- [x] **TASK-304**: Dynamic camera controller.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/camera.rs`
   - **Specs**:
@@ -204,7 +204,7 @@
     - GTE-assisted banking roll/tilt when drifting through corners.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-305**: Semi-transparent particle engine.
+- [x] **TASK-305**: Semi-transparent particle engine.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/particles.rs`
   - **Specs**:
@@ -213,7 +213,7 @@
     - Fixed pre-allocated particle arena (zero dynamic allocations).
   - **Review Perspective**: Senior Systems Engineer, Game Designer.
 
-- [ ] **TASK-306**: Persistent VRAM skidmark buffer.
+- [x] **TASK-306**: Persistent VRAM skidmark buffer.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/skidmarks.rs`
   - **Specs**:
