@@ -89,23 +89,21 @@ impl PauseMenu {
     }
 
     /// Renders the dimmed pause panel.
-    pub fn render(&self, draw_y: i16) {
-        let base_y = draw_y as u16;
+    pub fn render(&self, _draw_y: i16) {
+        // Drop shadow and panel backing
+        gpu::draw_rect_flat(68, 54, 184, 132, 8, 10, 14);
+        gpu::draw_rect_flat(70, 56, 180, 128, 16, 20, 30);
+        gpu::draw_rect_flat(72, 58, 176, 124, 26, 30, 42);
+        gpu::draw_rect_flat(72, 58, 176, 2, 220, 40, 60);
 
-        // Dim the frozen race frame, then draw the panel on top.
-        gpu::fill_rect(0, base_y, 320, 240, 0, 0, 0);
-        gpu::fill_rect(70, base_y + 56, 180, 128, 16, 20, 30);
-        gpu::fill_rect(72, base_y + 58, 176, 124, 26, 30, 42);
-        gpu::fill_rect(72, base_y + 58, 176, 2, 220, 40, 60);
-
-        draw_text(102, base_y + 68, "PAUSED", (255, 220, 0), 2);
+        draw_text(102, 68, "PAUSED", (255, 220, 0), 2);
 
         let items = ["RESUME", "RESTART RACE", "QUIT TO MENU"];
         for (idx, label) in items.iter().enumerate() {
-            let y = base_y + 100 + (idx as u16) * 22;
+            let y = 100 + (idx as u16) * 22;
             let selected = (idx as u8) == self.selected_idx;
             if selected {
-                gpu::fill_rect(82, y - 3, 156, 16, 200, 30, 50);
+                gpu::draw_rect_flat(82, (y - 3) as i16, 156, 16, 200, 30, 50);
                 draw_text(100, y, label, (255, 255, 255), 1);
                 draw_text(88, y, ">", (255, 240, 0), 1);
             } else {
@@ -113,12 +111,6 @@ impl PauseMenu {
             }
         }
 
-        draw_text(
-            80,
-            base_y + 168,
-            "CROSS SELECT   START RESUME",
-            (110, 130, 155),
-            1,
-        );
+        draw_text(80, 168, "CROSS SELECT   START RESUME", (110, 130, 155), 1);
     }
 }

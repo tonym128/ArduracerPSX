@@ -91,11 +91,19 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
 
     let cols = FONT_5X7[idx];
     for (col_idx, col_bits) in cols.iter().enumerate() {
-        for row in 0..7 {
+        let mut row = 0;
+        while row < 7 {
             if (col_bits & (1 << row)) != 0 {
-                let px = x + (col_idx as u16) * scale;
-                let py = y + (row as u16) * scale;
-                gpu::fill_rect(px, py, scale, scale, color.0, color.1, color.2);
+                let start_row = row;
+                while row < 7 && (col_bits & (1 << row)) != 0 {
+                    row += 1;
+                }
+                let span = (row - start_row) as u16;
+                let px = (x + (col_idx as u16) * scale) as i16;
+                let py = (y + (start_row as u16) * scale) as i16;
+                gpu::draw_rect_flat(px, py, scale, span * scale, color.0, color.1, color.2);
+            } else {
+                row += 1;
             }
         }
     }

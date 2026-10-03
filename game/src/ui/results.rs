@@ -17,6 +17,7 @@ pub struct ResultsScreen {
     pub rank: u8,
     pub points: u8,
     pub anim_timer: u32,
+    pub prev_buttons: u16,
 }
 
 impl ResultsScreen {
@@ -31,6 +32,7 @@ impl ResultsScreen {
             rank: safe_rank,
             points,
             anim_timer: 0,
+            prev_buttons: 0xFFFF,
         }
     }
 
@@ -40,22 +42,28 @@ impl ResultsScreen {
     pub fn update(&mut self, pad: &PadState) -> (bool, bool) {
         self.anim_timer = self.anim_timer.wrapping_add(1);
         let b = pad.buttons;
-        let cont = b.is_held(button::CROSS) || b.is_held(button::START);
-        let exit = b.is_held(button::CIRCLE);
+        let prev = psx_pad::ButtonState::from_bits(self.prev_buttons);
+        self.prev_buttons = b.bits();
+
+        // 30-frame (~0.5s) initial lockout so player does not accidentally
+        // skip the results screen with inputs held across the finish line.
+        let can_input = self.anim_timer > 30;
+        let cont = can_input
+            && (b.pressed_since(prev, button::CROSS) || b.pressed_since(prev, button::START));
+        let exit = can_input && b.pressed_since(prev, button::CIRCLE);
         (cont, exit)
     }
 
-    /// Renders the race results screen.
-    pub fn render(&self, draw_y: i16) {
-        let base_y = draw_y as u16;
+    /// Renders the race results screen with screen-relative coordinates.
+    pub fn render(&self, _draw_y: i16) {
+        // Background card and shadow
+        gpu::draw_rect_flat(18, 14, 284, 212, 10, 12, 18);
+        gpu::draw_rect_flat(20, 16, 280, 208, 18, 22, 32);
+        gpu::draw_rect_flat(22, 18, 276, 204, 26, 32, 46);
 
-        // Background panel
-        gpu::fill_rect(20, base_y + 16, 280, 208, 16, 20, 28);
-        gpu::fill_rect(22, base_y + 18, 276, 204, 24, 28, 40);
-
-        // Header
-        draw_text(90, base_y + 24, "RACE FINISHED!", (255, 220, 0), 2);
-        gpu::fill_rect(40, base_y + 44, 240, 2, 220, 40, 60);
+        // Header banner
+        draw_text(84, 24, "RACE FINISHED!", (255, 220, 0), 2);
+        gpu::draw_rect_flat(36, 44, 248, 2, 220, 40, 60);
 
         // Medal Banner
         let (medal_str, medal_col) = match self.medal {
@@ -66,41 +74,41 @@ impl ResultsScreen {
             Medal::None => ("NO MEDAL - KEEP PRACTICING!", (150, 160, 170)),
         };
 
-        // Pulsing medal box
-        gpu::fill_rect(36, base_y + 54, 248, 26, 35, 40, 55);
-        draw_text(48, base_y + 62, medal_str, medal_col, 1);
+        // Highlighted medal badge
+        gpu::draw_rect_flat(36, 54, 248, 26, 36, 44, 62);
+        draw_text(48, 62, medal_str, medal_col, 1);
 
         // Best Lap Time Display
         let best_sec = self.best_lap_ticks / 60;
         let best_cs = ((self.best_lap_ticks % 60) * 100) / 60;
 
-        draw_text(40, base_y + 96, "BEST LAP: ", (0, 220, 255), 1);
+        draw_text(40, 94, "BEST LAP: ", (0, 220, 255), 1);
         let m_sec_ten = b'0' + ((best_sec / 10) % 10) as u8;
         let m_sec_one = b'0' + (best_sec % 10) as u8;
         let cs_ten = b'0' + ((best_cs / 10) % 10) as u8;
         let cs_one = b'0' + (best_cs % 10) as u8;
 
-        draw_char(120, base_y + 96, m_sec_ten, (255, 255, 255), 1);
-        draw_char(127, base_y + 96, m_sec_one, (255, 255, 255), 1);
-        draw_char(134, base_y + 96, b'.', (255, 255, 255), 1);
-        draw_char(141, base_y + 96, cs_ten, (255, 255, 255), 1);
-        draw_char(148, base_y + 96, cs_one, (255, 255, 255), 1);
-        draw_char(158, base_y + 96, b'S', (180, 180, 180), 1);
+        draw_char(120, 94, m_sec_ten, (255, 255, 255), 1);
+        draw_char(127, 94, m_sec_one, (255, 255, 255), 1);
+        draw_char(134, 94, b'.', (255, 255, 255), 1);
+        draw_char(141, 94, cs_ten, (255, 255, 255), 1);
+        draw_char(148, 94, cs_one, (255, 255, 255), 1);
+        draw_char(158, 94, b'S', (180, 180, 180), 1);
 
         // Total Race Time Display
         let tot_sec = self.total_race_ticks / 60;
         let tot_min = tot_sec / 60;
         let tot_sec_rem = tot_sec % 60;
 
-        draw_text(40, base_y + 118, "TOTAL TIME: ", (0, 220, 255), 1);
+        draw_text(40, 114, "TOTAL TIME: ", (0, 220, 255), 1);
         let min_char = b'0' + (tot_min.min(9) as u8);
         let sec_ten = b'0' + ((tot_sec_rem / 10) % 10) as u8;
         let sec_one = b'0' + (tot_sec_rem % 10) as u8;
 
-        draw_char(130, base_y + 118, min_char, (255, 255, 255), 1);
-        draw_char(137, base_y + 118, b':', (255, 255, 255), 1);
-        draw_char(144, base_y + 118, sec_ten, (255, 255, 255), 1);
-        draw_char(151, base_y + 118, sec_one, (255, 255, 255), 1);
+        draw_char(130, 114, min_char, (255, 255, 255), 1);
+        draw_char(137, 114, b':', (255, 255, 255), 1);
+        draw_char(144, 114, sec_ten, (255, 255, 255), 1);
+        draw_char(151, 114, sec_one, (255, 255, 255), 1);
 
         // Position & Championship Points Display
         let (pos_str, pos_col) = match self.rank {
@@ -111,18 +119,18 @@ impl ResultsScreen {
             5 => ("POSITION: 5TH  (+2 PTS)", (160, 180, 200)),
             _ => ("POSITION: 6TH  (+1 PT)", (140, 150, 170)),
         };
-        draw_text(40, base_y + 138, pos_str, pos_col, 1);
+        draw_text(40, 134, pos_str, pos_col, 1);
 
         // Action Buttons
-        gpu::fill_rect(40, base_y + 158, 240, 28, 220, 25, 45);
-        draw_text(
-            60,
-            base_y + 166,
-            "CROSS: NEXT RACE / RETRY",
-            (255, 255, 255),
-            1,
-        );
+        let prompt_pulse = (self.anim_timer >> 3) & 1 == 0;
+        let btn_col = if prompt_pulse {
+            (230, 35, 55)
+        } else {
+            (190, 25, 45)
+        };
+        gpu::draw_rect_flat(40, 156, 240, 24, btn_col.0, btn_col.1, btn_col.2);
+        draw_text(56, 164, "CROSS: NEXT RACE / RETRY", (255, 255, 255), 1);
 
-        draw_text(76, base_y + 196, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
+        draw_text(76, 192, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
     }
 }

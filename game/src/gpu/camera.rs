@@ -56,12 +56,12 @@ impl Camera {
     }
 
     /// Transforms a world position into screen coordinates (0..320, 0..240).
-    pub fn world_to_screen(&self, world_pos: Vec2, draw_offset_y: i16) -> (i16, i16) {
+    pub fn world_to_screen(&self, world_pos: Vec2, _draw_offset_y: i16) -> (i16, i16) {
         let rel_x = (world_pos.x - self.pos.x).raw() / FP_ONE;
         let rel_y = (world_pos.y - self.pos.y).raw() / FP_ONE;
 
         let screen_x = (SCREEN_W / 2) + (rel_x as i16);
-        let screen_y = (SCREEN_H / 2) + (rel_y as i16) + draw_offset_y;
+        let screen_y = (SCREEN_H / 2) + (rel_y as i16);
         (screen_x, screen_y)
     }
 }

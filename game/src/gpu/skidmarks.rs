@@ -93,13 +93,19 @@ impl SkidmarkBuffer {
             }
 
             let (lx, ly) = camera.world_to_screen(m.left_pos, draw_y);
-            if lx >= 0 && lx < 320 && ly >= 0 && ly < 240 + draw_y {
-                gpu::fill_rect(lx as u16, ly as u16, 2, 2, 22, 22, 26);
-            }
-
             let (rx, ry) = camera.world_to_screen(m.right_pos, draw_y);
-            if rx >= 0 && rx < 320 && ry >= 0 && ry < 240 + draw_y {
-                gpu::fill_rect(rx as u16, ry as u16, 2, 2, 22, 22, 26);
+
+            let (cr, cg, cb) = if m.life > 60 {
+                (18, 18, 22) // Deep fresh black rubber
+            } else {
+                (28, 30, 36) // Faded rubber streak
+            };
+
+            if lx > -8 && lx < 328 && ly > -8 && ly < 248 {
+                gpu::draw_rect_flat(lx - 1, ly - 1, 3, 3, cr, cg, cb);
+            }
+            if rx > -8 && rx < 328 && ry > -8 && ry < 248 {
+                gpu::draw_rect_flat(rx - 1, ry - 1, 3, 3, cr, cg, cb);
             }
         }
     }

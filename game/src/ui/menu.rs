@@ -1,6 +1,7 @@
-//! Main Menu Screen.
+//! Main Menu Screen for PlayStation 1.
 //!
-//! Provides selection between Time Attack, Grand Prix, Tuning Garage, and Records.
+//! Provides edge-triggered selection between Time Trial, Grand Prix,
+//! Tuning Garage, and Records & Medals with smooth arcade styling.
 
 use crate::ui::font::draw_text;
 use psx_gpu as gpu;
@@ -18,6 +19,8 @@ pub struct MainMenu {
     pub selected_idx: u8,
     pub prev_up: bool,
     pub prev_down: bool,
+    pub prev_confirm: bool,
+    pub anim_timer: u32,
 }
 
 impl MainMenu {
@@ -26,11 +29,15 @@ impl MainMenu {
             selected_idx: 0,
             prev_up: false,
             prev_down: false,
+            prev_confirm: true, // Edge-trigger: must release before confirming
+            anim_timer: 0,
         }
     }
 
-    /// Handles menu navigation and confirms selection.
+    /// Handles menu navigation and confirms selection on fresh press.
     pub fn update(&mut self, pad: &PadState) -> Option<MenuItem> {
+        self.anim_timer = self.anim_timer.wrapping_add(1);
+
         let b = pad.buttons;
         let up = b.is_held(button::UP);
         let down = b.is_held(button::DOWN);
@@ -52,7 +59,11 @@ impl MainMenu {
         self.prev_up = up;
         self.prev_down = down;
 
-        if b.is_held(button::CROSS) || b.is_held(button::START) {
+        let confirm_held = b.is_held(button::CROSS) || b.is_held(button::START);
+        let confirmed = confirm_held && !self.prev_confirm;
+        self.prev_confirm = confirm_held;
+
+        if confirmed {
             match self.selected_idx {
                 0 => Some(MenuItem::TimeTrial),
                 1 => Some(MenuItem::GrandPrix),
@@ -66,16 +77,15 @@ impl MainMenu {
     }
 
     /// Renders the main menu screen.
-    pub fn render(&self, draw_y: i16) {
-        let base_y = draw_y as u16;
+    pub fn render(&self, _draw_y: i16) {
+        // Outer border & shadow
+        gpu::draw_rect_flat(18, 18, 284, 204, 12, 14, 20);
+        gpu::draw_rect_flat(20, 20, 280, 200, 24, 28, 38);
+        gpu::draw_rect_flat(22, 22, 276, 196, 32, 36, 48);
 
-        // Background panel
-        gpu::fill_rect(20, base_y + 20, 280, 200, 20, 22, 30);
-        gpu::fill_rect(22, base_y + 22, 276, 196, 28, 32, 42);
-
-        // Header
-        draw_text(110, base_y + 36, "MAIN MENU", (255, 220, 0), 2);
-        gpu::fill_rect(40, base_y + 58, 240, 2, 220, 40, 60);
+        // Header Title
+        draw_text(110, 36, "MAIN MENU", (255, 225, 30), 2);
+        gpu::draw_rect_flat(40, 58, 240, 2, 220, 40, 60);
 
         let items = [
             "1. TIME TRIAL",
@@ -85,27 +95,33 @@ impl MainMenu {
         ];
 
         for (idx, label) in items.iter().enumerate() {
-            let y = base_y + 78 + (idx as u16) * 30;
+            let y = 78 + (idx as i16) * 30;
             let is_sel = (idx as u8) == self.selected_idx;
 
             if is_sel {
-                // Highlight box
-                gpu::fill_rect(50, y - 4, 220, 22, 220, 30, 50);
-                draw_text(60, y, label, (255, 255, 255), 1);
-                // Cursor arrow
-                draw_text(245, y, "<", (255, 240, 0), 1);
+                // Pulsing highlight box
+                let pulse = (self.anim_timer / 15) % 2 == 0;
+                let bg_color = if pulse {
+                    (220, 35, 55) // Bright crimson
+                } else {
+                    (180, 25, 45) // Deep crimson
+                };
+                gpu::draw_rect_flat(50, y - 4, 220, 22, bg_color.0, bg_color.1, bg_color.2);
+                draw_text(60, y as u16, label, (255, 255, 255), 1);
+                // Pulsing cursor arrows
+                draw_text(240, y as u16, "<<", (255, 235, 40), 1);
             } else {
-                gpu::fill_rect(50, y - 4, 220, 22, 35, 40, 50);
-                draw_text(60, y, label, (180, 190, 205), 1);
+                gpu::draw_rect_flat(50, y - 4, 220, 22, 40, 45, 58);
+                draw_text(60, y as u16, label, (180, 190, 205), 1);
             }
         }
 
         // Footer instructions
         draw_text(
             52,
-            base_y + 196,
+            196,
             "D-PAD: SELECT   CROSS: CONFIRM",
-            (120, 140, 160),
+            (140, 155, 175),
             1,
         );
     }

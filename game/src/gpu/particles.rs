@@ -102,27 +102,28 @@ impl ParticleSystem {
                 continue;
             }
             let (sx, sy) = camera.world_to_screen(p.pos, draw_y);
-            if sx < -8 || sx > 328 || sy < -8 || sy > 248 {
+            if sx < -16 || sx > 336 || sy < -16 || sy > 256 {
                 continue;
             }
 
             match p.ptype {
                 ParticleType::TireSmoke => {
-                    // Expanding fading smoke puff (3x3 to 5x5)
-                    let size = if p.life < 10 { 5 } else { 3 };
-                    gpu::fill_rect(
-                        (sx - size / 2) as u16,
-                        (sy - size / 2) as u16,
-                        size as u16,
-                        size as u16,
-                        180,
-                        185,
-                        190,
-                    );
+                    // Expanding fading smoke puff (3x3 to 7x7)
+                    if p.life > 14 {
+                        gpu::draw_rect_flat(sx - 1, sy - 1, 3, 3, 230, 235, 240);
+                    } else if p.life > 7 {
+                        gpu::draw_rect_flat(sx - 2, sy - 2, 5, 5, 180, 185, 195);
+                    } else {
+                        gpu::draw_rect_flat(sx - 3, sy - 3, 7, 7, 130, 135, 145);
+                    }
                 }
                 ParticleType::Sparks => {
-                    // 2x2 bright yellow spark pixel
-                    gpu::fill_rect((sx - 1) as u16, (sy - 1) as u16, 2, 2, 255, 220, 60);
+                    let (sr, sg, sb) = if p.life > 6 {
+                        (255, 240, 80) // Brilliant yellow-white
+                    } else {
+                        (255, 120, 20) // Hot ember orange
+                    };
+                    gpu::draw_rect_flat(sx - 1, sy - 1, 2, 2, sr, sg, sb);
                 }
                 ParticleType::None => {}
             }

@@ -24,4 +24,4 @@ psoxide
 .cargo-lock
 __pycache__/
 /scratch/
-/assets/
+assets

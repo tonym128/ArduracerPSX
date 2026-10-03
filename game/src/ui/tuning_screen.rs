@@ -1,10 +1,11 @@
-//! Car Tuning Garage UI Screen.
+//! Car Tuning Garage UI Screen for PlayStation 1.
 //!
 //! Provides interactive 5-slider tuning allocating a 20-point performance budget
 //! across Top Speed, Acceleration, Handling/Grip, Drift Stability, and Gearing,
-//! complete with real-time stats and visual vehicle preview.
+//! complete with real-time stats and a rotating 3D turntable vehicle preview.
 
 use crate::ui::font::{draw_char, draw_text};
+use arduracer_core::math;
 use arduracer_core::tuning::CarTuning;
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
@@ -16,6 +17,8 @@ pub struct TuningScreen {
     pub prev_down: bool,
     pub prev_left: bool,
     pub prev_right: bool,
+    pub prev_exit: bool,
+    pub prev_reset: bool,
     pub preview_angle: u16,
 }
 
@@ -28,13 +31,15 @@ impl TuningScreen {
             prev_down: false,
             prev_left: false,
             prev_right: false,
+            prev_exit: true, // Edge-trigger: must release before exiting
+            prev_reset: false,
             preview_angle: 0,
         }
     }
 
     /// Updates tuning navigation and adjustments. Returns true when player presses CIRCLE/START to exit.
     pub fn update(&mut self, pad: &PadState) -> bool {
-        self.preview_angle = (self.preview_angle + 32) % 4096;
+        self.preview_angle = (self.preview_angle + 24) % 4096;
 
         let b = pad.buttons;
         let up = b.is_held(button::UP);
@@ -84,30 +89,33 @@ impl TuningScreen {
             }
         }
 
-        // Presets via TRIANGLE
-        if b.is_held(button::TRIANGLE) {
+        // Presets via TRIANGLE (edge-triggered)
+        let reset_held = b.is_held(button::TRIANGLE);
+        if reset_held && !self.prev_reset {
             self.tuning = CarTuning::default();
         }
+        self.prev_reset = reset_held;
 
         self.prev_up = up;
         self.prev_down = down;
         self.prev_left = left;
         self.prev_right = right;
 
-        b.is_held(button::CIRCLE) || b.is_held(button::START)
+        let exit_held = b.is_held(button::CIRCLE) || b.is_held(button::START);
+        let exited = exit_held && !self.prev_exit;
+        self.prev_exit = exit_held;
+        exited
     }
 
     /// Renders the tuning garage interface.
-    pub fn render(&self, draw_y: i16) {
-        let base_y = draw_y as u16;
-
+    pub fn render(&self, _draw_y: i16) {
         // Background
-        gpu::fill_rect(10, base_y + 10, 300, 220, 18, 22, 28);
-        gpu::fill_rect(12, base_y + 12, 296, 216, 25, 30, 38);
+        gpu::draw_rect_flat(10, 10, 300, 220, 16, 20, 28);
+        gpu::draw_rect_flat(12, 12, 296, 216, 25, 30, 38);
 
         // Header
-        draw_text(90, base_y + 18, "TUNING GARAGE", (255, 220, 0), 2);
-        gpu::fill_rect(30, base_y + 36, 260, 2, 220, 40, 60);
+        draw_text(90, 18, "TUNING GARAGE", (255, 220, 0), 2);
+        gpu::draw_rect_flat(30, 36, 260, 2, 220, 40, 60);
 
         // Points budget summary
         let total_points = self.tuning.top_speed
@@ -117,9 +125,9 @@ impl TuningScreen {
             + self.tuning.gearing;
         let remaining = 20u8.saturating_sub(total_points);
 
-        draw_text(24, base_y + 46, "POINTS REMAINING: ", (0, 220, 255), 1);
+        draw_text(24, 46, "POINTS REMAINING: ", (0, 220, 255), 1);
         let rem_char = b'0' + remaining.min(9);
-        draw_char(132, base_y + 46, rem_char, (255, 255, 255), 1);
+        draw_char(132, 46, rem_char, (255, 255, 255), 1);
 
         // Sliders
         let sliders = [
@@ -131,16 +139,16 @@ impl TuningScreen {
         ];
 
         for (idx, (name, val)) in sliders.iter().enumerate() {
-            let y = base_y + 64 + (idx as u16) * 26;
+            let y = 64 + (idx as i16) * 26;
             let is_sel = (idx as u8) == self.selected_slider;
 
             if is_sel {
-                gpu::fill_rect(18, y - 2, 180, 22, 220, 30, 50);
+                gpu::draw_rect_flat(18, y - 2, 180, 22, 220, 30, 50);
             }
 
             draw_text(
                 22,
-                y + 2,
+                (y + 2) as u16,
                 name,
                 if is_sel {
                     (255, 255, 255)
@@ -151,32 +159,61 @@ impl TuningScreen {
             );
 
             // Slider gauge: 10 notches
-            let gauge_x = 105u16;
+            let gauge_x = 105i16;
             let gauge_y = y + 4;
-            gpu::fill_rect(gauge_x, gauge_y, 80, 10, 20, 20, 30);
+            gpu::draw_rect_flat(gauge_x, gauge_y, 80, 10, 20, 20, 30);
             let fill_w = (*val as u16) * 8;
             if fill_w > 0 {
-                gpu::fill_rect(gauge_x + 1, gauge_y + 1, fill_w - 1, 8, 255, 200, 0);
+                gpu::draw_rect_flat(gauge_x + 1, gauge_y + 1, fill_w - 1, 8, 255, 200, 0);
             }
         }
 
         // Vehicle Preview Turntable (Top Right panel)
-        gpu::fill_rect(210, base_y + 64, 86, 86, 15, 18, 24);
-        gpu::fill_rect(212, base_y + 66, 82, 82, 35, 40, 50);
-        draw_text(224, base_y + 70, "CAR 01", (0, 220, 255), 1);
+        gpu::draw_rect_flat(210, 64, 86, 86, 14, 16, 22);
+        gpu::draw_rect_flat(212, 66, 82, 82, 30, 36, 48);
+        draw_text(224, 70, "CAR 01", (0, 220, 255), 1);
 
-        // Simple rotating preview car chassis
-        let pv_cx = 253u16;
-        let pv_cy = base_y + 115;
-        gpu::fill_rect(pv_cx - 8, pv_cy - 14, 16, 28, 220, 25, 45); // Red body
-        gpu::fill_rect(pv_cx - 4, pv_cy - 6, 8, 12, 30, 45, 65); // Windshield
-        gpu::fill_rect(pv_cx - 3, pv_cy - 12, 6, 3, 255, 240, 150); // Lights
+        // Rotating preview car on turntable
+        let pv_cx = 253i16;
+        let pv_cy = 115i16;
+        let cos_a = math::cos(self.preview_angle).raw() as i32;
+        let sin_a = math::sin(self.preview_angle).raw() as i32;
+
+        let tf = |u: i32, v: i32| -> (i16, i16) {
+            let x = pv_cx as i32 + ((u * cos_a + v * sin_a) >> 12);
+            let y = pv_cy as i32 + ((u * sin_a - v * cos_a) >> 12);
+            (x as i16, y as i16)
+        };
+
+        // Rotating turntable shadow
+        let p_sh = [tf(-6, 12), tf(6, 12), tf(-7, -12), tf(7, -12)];
+        let p_sh_offset = [
+            (p_sh[0].0 + 2, p_sh[0].1 + 2),
+            (p_sh[1].0 + 2, p_sh[1].1 + 2),
+            (p_sh[2].0 + 2, p_sh[2].1 + 2),
+            (p_sh[3].0 + 2, p_sh[3].1 + 2),
+        ];
+        gpu::draw_quad_flat(p_sh_offset, 16, 20, 28);
+
+        // Rotating car body
+        let p_body = [tf(-6, 12), tf(6, 12), tf(-7, -12), tf(7, -12)];
+        gpu::draw_quad_flat(p_body, 220, 25, 45);
+
+        // Rotating windshield glass
+        let p_glass = [tf(-4, 4), tf(4, 4), tf(-5, -4), tf(5, -4)];
+        gpu::draw_quad_flat(p_glass, 25, 40, 60);
+
+        // Headlights
+        let hl_l = tf(-4, 11);
+        let hl_r = tf(4, 11);
+        gpu::draw_line_mono(hl_l.0, hl_l.1, hl_l.0 + 1, hl_l.1, 255, 240, 150);
+        gpu::draw_line_mono(hl_r.0, hl_r.1, hl_r.0 + 1, hl_r.1, 255, 240, 150);
 
         // Instructions Footer
         draw_text(
             24,
-            base_y + 200,
-            "L/R: TUNE   TRI: RESET   CIR/STA: EXIT",
+            200,
+            "L/R: TUNE  TRI: RESET  CIR/STA: SAVE & EXIT",
             (130, 150, 170),
             1,
         );
