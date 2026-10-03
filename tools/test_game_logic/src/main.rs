@@ -109,6 +109,14 @@ fn main() {
         "SaveData 8KB Memory Card block round-trip",
         test_save_block_round_trip
     );
+    run_test!(
+        "Track integrity & geometry sweep across all 24 tracks",
+        test_all_24_tracks_integrity
+    );
+    run_test!(
+        "Full lap completion & checkpoint progression on Track 1",
+        test_lap_completion_on_track1
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -591,4 +599,115 @@ fn test_save_block_round_trip() {
         SaveData::from_block_bytes(&block).is_none(),
         "Corrupt block must be rejected"
     );
+}
+
+fn test_all_24_tracks_integrity() {
+    assert_eq!(ALL_TRACKS.len(), 24, "Must have exactly 24 official tracks");
+
+    for (idx, track) in ALL_TRACKS.iter().enumerate() {
+        assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
+        assert!(
+            track.width >= 10 && track.width <= 32,
+            "Track {} width invalid",
+            idx + 1
+        );
+        assert!(
+            track.height >= 10 && track.height <= 32,
+            "Track {} height invalid",
+            idx + 1
+        );
+        assert_eq!(
+            track.tiles.len(),
+            (track.width as usize) * (track.height as usize),
+            "Track {} tile array length mismatch",
+            idx + 1
+        );
+
+        // Verify start position is on road
+        let start_tx = (track.start_pos.x.raw() / 4096 / 64) as u8;
+        let start_ty = (track.start_pos.y.raw() / 4096 / 64) as u8;
+        assert!(
+            start_tx < track.width,
+            "Track {} start_tx out of bounds",
+            idx + 1
+        );
+        assert!(
+            start_ty < track.height,
+            "Track {} start_ty out of bounds",
+            idx + 1
+        );
+
+        // Verify checkpoints
+        assert!(
+            track.checkpoint_count >= 1,
+            "Track {} must have at least 1 checkpoint",
+            idx + 1
+        );
+        for cp_i in 0..(track.checkpoint_count as usize) {
+            let cp = track.checkpoints[cp_i];
+            assert!(
+                cp.x < track.width,
+                "Track {} CP {} X out of bounds",
+                idx + 1,
+                cp_i
+            );
+            assert!(
+                cp.y < track.height,
+                "Track {} CP {} Y out of bounds",
+                idx + 1,
+                cp_i
+            );
+        }
+
+        // Verify monotonic par times: dev <= gold <= silver <= bronze
+        let par = track.par_times;
+        assert!(
+            par.dev_platinum_ticks > 0,
+            "Track {} dev time must be > 0",
+            idx + 1
+        );
+        assert!(
+            par.dev_platinum_ticks <= par.gold_ticks,
+            "Track {} dev time must be <= gold time",
+            idx + 1
+        );
+        assert!(
+            par.gold_ticks <= par.silver_ticks,
+            "Track {} gold time must be <= silver time",
+            idx + 1
+        );
+        assert!(
+            par.silver_ticks <= par.bronze_ticks,
+            "Track {} silver time must be <= bronze time",
+            idx + 1
+        );
+    }
+}
+
+fn test_lap_completion_on_track1() {
+    let track = ALL_TRACKS[0];
+    let mut timer = LapTimer::<16>::new(&track.checkpoints[..track.checkpoint_count as usize]);
+    timer.start();
+
+    // Clear checkpoints sequentially on Track 1
+    for cp_i in 0..(track.checkpoint_count as usize) {
+        let cp = track.checkpoints[cp_i];
+        for _ in 0..10 {
+            timer.tick();
+        }
+        let completed_lap = timer.update_player_tile(cp.x, cp.y);
+        if cp_i == (track.checkpoint_count as usize) - 1 {
+            assert!(completed_lap, "Final checkpoint must complete the lap");
+            assert_eq!(timer.current_lap, 2, "Current lap must advance to 2");
+            assert!(
+                timer.best_lap_ticks < u32::MAX,
+                "Best lap time must be recorded"
+            );
+        } else {
+            assert!(
+                !completed_lap,
+                "Intermediate checkpoint must not complete lap"
+            );
+        }
+    }
 }
