@@ -1,5 +1,6 @@
 //! Vehicle state, dynamics, and drift simulation.
 
+use crate::drift::DriftState;
 use crate::math::{self, Fixed, Vec2};
 use crate::surface::SurfaceType;
 use crate::tuning::CarTuning;
@@ -32,6 +33,10 @@ pub struct VehicleState {
     pub speed: Fixed,
     /// Whether the car is currently in a drift slide.
     pub is_drifting: bool,
+    /// Detailed drift state machine (boost tiers, slip angle).
+    pub drift: DriftState,
+    /// Remaining ticks of turbo boost (e.g. from drift release or boost pad).
+    pub boost_ticks: u16,
     /// Current engine RPM (0..8000 scale).
     pub engine_rpm: u16,
     /// Current gear (1..5).
@@ -49,6 +54,8 @@ impl Default for VehicleState {
             visual_angle: 0,
             speed: Fixed::ZERO,
             is_drifting: false,
+            drift: DriftState::Grip,
+            boost_ticks: 0,
             engine_rpm: 1000,
             gear: 1,
             tuning: CarTuning::default(),
@@ -65,9 +72,27 @@ impl VehicleState {
             visual_angle: start_heading,
             speed: Fixed::ZERO,
             is_drifting: false,
+            drift: DriftState::Grip,
+            boost_ticks: 0,
             engine_rpm: 1000,
             gear: 1,
             tuning,
+        }
+    }
+
+    /// Handles elastic/inelastic collision against a solid track barrier with surface normal.
+    pub fn handle_barrier_collision(&mut self, normal: Vec2) {
+        let v_dot_n = self.velocity.dot(normal);
+        // Only bounce if heading into the wall
+        if v_dot_n < Fixed::ZERO {
+            // Restitution coefficient 0.35 (35% bounce)
+            let restitution = Fixed::from_raw(1433);
+            let impulse_mag = -(Fixed::ONE + restitution) * v_dot_n;
+            self.velocity = self.velocity + normal.scale(impulse_mag);
+            // Glancing speed penalty (30% speed scrub)
+            self.velocity = self.velocity.scale(Fixed::from_raw(2867));
+            self.speed = self.velocity.length();
+            self.drift.trigger_spinout();
         }
     }
 
@@ -84,7 +109,7 @@ impl VehicleState {
             self.heading = new_heading as u16;
         }
 
-        // 2. Acceleration / Engine thrust
+        // 2. Acceleration / Engine thrust & Boost
         let base_accel = Fixed::from_raw(60); // Base forward push per tick
         let accel = self.tuning.scaled_acceleration(base_accel);
 
@@ -93,6 +118,13 @@ impl VehicleState {
         if input.throttle > Fixed::ZERO {
             let thrust = accel * input.throttle;
             self.velocity = self.velocity + forward_dir.scale(thrust);
+        }
+
+        // Apply active turbo boost impulse
+        if self.boost_ticks > 0 {
+            self.boost_ticks -= 1;
+            let boost_thrust = Fixed::from_raw(80);
+            self.velocity = self.velocity + forward_dir.scale(boost_thrust);
         }
 
         // 3. Braking & Reverse
@@ -107,15 +139,28 @@ impl VehicleState {
             }
         }
 
-        // 4. Drift & Lateral Grip Dynamics
+        // 4. Drift & Lateral Traction Dynamics
         let grip = surface.grip_factor();
-        let is_handbrake = input.handbrake;
 
-        let lateral_friction = if is_handbrake || surface == SurfaceType::OilSlick {
-            self.is_drifting = true;
+        // Handle drift initiation and release
+        if input.handbrake && !self.drift.is_drifting() && self.speed > Fixed::from_raw(3000) {
+            let drift_dir = if input.steer < Fixed::ZERO { -1 } else { 1 };
+            self.drift.initiate_drift(drift_dir);
+        } else if !input.handbrake && self.drift.is_drifting() {
+            // Releasing handbrake releases mini-turbo boost!
+            let boost_impulse = self.drift.release_drift();
+            if boost_impulse > Fixed::ZERO {
+                self.boost_ticks = 30; // 0.5s of turbo boost
+                self.velocity = self.velocity + forward_dir.scale(boost_impulse);
+            }
+        }
+
+        self.drift.tick(input.steer, self.speed, &self.tuning);
+        self.is_drifting = self.drift.is_drifting();
+
+        let lateral_friction = if self.is_drifting || surface == SurfaceType::OilSlick {
             Fixed::from_raw(3700) // Lower lateral hold -> slide
         } else {
-            self.is_drifting = false;
             Fixed::from_raw(3950) // High lateral grip
         };
 
@@ -133,12 +178,18 @@ impl VehicleState {
         // 5. Terminal Velocity Clamp
         let base_top_speed = Fixed::from_raw(14000); // Top speed in Q20.12
         let max_speed = self.tuning.scaled_top_speed(base_top_speed);
-        let speed_mag = self.velocity.length();
+        // Allow temporary exceedance when under turbo boost
+        let effective_top = if self.boost_ticks > 0 {
+            max_speed + Fixed::from_raw(3000)
+        } else {
+            max_speed
+        };
 
-        if speed_mag > max_speed {
-            let scale_down = max_speed / speed_mag;
+        let speed_mag = self.velocity.length();
+        if speed_mag > effective_top {
+            let scale_down = effective_top / speed_mag;
             self.velocity = self.velocity.scale(scale_down);
-            self.speed = max_speed;
+            self.speed = effective_top;
         } else {
             self.speed = speed_mag;
         }
@@ -147,11 +198,19 @@ impl VehicleState {
         self.position = self.position + self.velocity.scale(Fixed::from_raw(120));
 
         // 7. Visual Angle Smoothing (drift slip angle visual representation)
-        if self.is_drifting {
-            // Visual angle leads or trails slightly
-            self.visual_angle = self.heading.wrapping_add(128);
-        } else {
-            self.visual_angle = self.heading;
+        match self.drift {
+            DriftState::Drifting { slip_angle, .. } => {
+                let visual = (self.heading as i32 + (slip_angle as i32)) & 0x0FFF;
+                self.visual_angle = visual as u16;
+            }
+            DriftState::SpinOut { remaining_ticks } => {
+                // Wild spin animation
+                let spin_offset = remaining_ticks * 128;
+                self.visual_angle = self.heading.wrapping_add(spin_offset) & 0x0FFF;
+            }
+            DriftState::Grip => {
+                self.visual_angle = self.heading;
+            }
         }
 
         // 8. Dynamic Engine RPM & Gear calculation for audio
