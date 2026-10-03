@@ -9,7 +9,7 @@
 
 - [x] **Phase 0: Workspace, Toolchain & Scaffolding**
 - [x] **Phase 1: Pure `#![no_std]` Core Simulation (`arduracer-core`)**
-- [ ] **Phase 2: Track Pipeline & Level Importer (20 FX Tracks + Super Stages)**
+- [x] **Phase 2: Track Pipeline & Level Importer (20 FX Tracks + Super Stages)**
 - [ ] **Phase 3: PSX Hardware Rendering Engine (`game/src/gpu`)**
 - [ ] **Phase 4: SPU & CD-DA Audio Engine**
 - [ ] **Phase 5: Input & DualShock Force Feedback Engine**
@@ -131,7 +131,7 @@
 
 ## Phase 2: Track Pipeline & Level Importer
 
-- [ ] **TASK-201**: Binary track format definition.
+- [x] **TASK-201**: Binary track format definition.
   - **Worktree**: `wt-track-pipeline`
   - **Files**: `crates/arduracer-core/src/track.rs`
   - **Specs**:
@@ -141,25 +141,25 @@
     - Waypoint graph array for AI navigation.
   - **Review Perspective**: Principal Architect, Senior Systems Engineer.
 
-- [ ] **TASK-202**: Port 20 legacy ArduRacer FX levels from CSV/TMX.
+- [x] **TASK-202**: Port 20 legacy ArduRacer FX levels from CSV/TMX.
   - **Worktree**: `wt-track-pipeline`
-  - **Files**: `tools/track_cook/`, `assets/tracks/legacy/`
+  - **Files**: `tools/track_cook/convert_levels.py`, `crates/arduracer-core/src/levels.rs`
   - **Specs**:
-    - Convert all 20 levels in `ArduRacerFx/Levels/*.csv` and `*.tmx` to `.trk` binaries.
+    - Convert all 20 levels in `ArduRacerFx/Levels/*.csv` and `*.tmx` to `.trk` binaries / static definitions.
     - Preserve original track geometry, start positions, and checkpoint gates.
     - Retain and verify original dev par times.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-203**: Create 4 PSX-exclusive Grand Prix Super-Speedways.
+- [x] **TASK-203**: Create 4 PSX-exclusive Grand Prix Super-Speedways.
   - **Worktree**: `wt-track-pipeline`
-  - **Files**: `assets/tracks/super_stages/`
+  - **Files**: `crates/arduracer-core/src/levels.rs`
   - **Specs**:
     - Wide roads, high-speed banking curves, flyover bridges, tunnel sections, and technical chicanes.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-204**: Automated track verification test suite.
+- [x] **TASK-204**: Automated track verification test suite.
   - **Worktree**: `wt-track-pipeline`
-  - **Files**: `tools/test_game_logic/src/track_tests.rs`
+  - **Files**: `tools/test_game_logic/src/main.rs`
   - **Specs**:
     - Validates every track: start position is on road, checkpoint sequence forms an unbroken loop, AI waypoints are reachable, and no dead ends exist.
   - **Review Perspective**: QA Lead.
