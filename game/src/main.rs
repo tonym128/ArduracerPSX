@@ -15,6 +15,7 @@ pub mod input;
 pub mod memcard;
 pub mod state;
 pub mod ui;
+pub mod video;
 
 use arduracer_core::{
     compute_standings, cos, sin, AiRacer, ChampionshipSession, Fixed, LapTimer, TrackDef, Vec2,
@@ -81,6 +82,9 @@ pub struct ArduracerGame {
 
 impl ArduracerGame {
     pub fn new() -> Self {
+        // Attempt FMV attract intro playback from CD-ROM (skipped if missing or button pressed)
+        let _ = video::play_video("INTRO.STR");
+
         psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
         let fb = FrameBuffer::new(SCREEN_WIDTH, SCREEN_HEIGHT);
         psx_gpu_mod::set_draw_area(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
