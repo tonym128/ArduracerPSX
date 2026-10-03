@@ -327,7 +327,7 @@
 
 ## Phase 7: Ghost Car & Memory Card System
 
-- [ ] **TASK-701**: Real-time Ghost Car rendering.
+- [x] **TASK-701**: Real-time Ghost Car rendering.
   - **Worktree**: `wt-ghost-memcard`
   - **Files**: `game/src/ghost_player.rs`
   - **Specs**:
@@ -335,7 +335,7 @@
     - Smooth interpolation between 30Hz telemetry keyframes.
   - **Review Perspective**: Senior Systems Engineer, Game Designer.
 
-- [ ] **TASK-702**: PlayStation Memory Card driver.
+- [x] **TASK-702**: PlayStation Memory Card driver.
   - **Worktree**: `wt-ghost-memcard`
   - **Files**: `game/src/memcard.rs`
   - **Specs**:
