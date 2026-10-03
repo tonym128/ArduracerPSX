@@ -3,7 +3,8 @@
 //! Renders speed bar, tachometer, lap counter, checkpoint progress,
 //! digital timer, and dynamic corner minimap.
 
-use arduracer_core::{LapTimer, TrackDef, VehicleState};
+use crate::ui::font::draw_text;
+use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState};
 use psx_gpu as gpu;
 
 pub const HUD_MARGIN: u16 = 8;
@@ -13,6 +14,8 @@ pub fn render_hud<const N: usize>(
     player: &VehicleState,
     timer: &LapTimer<N>,
     track: &TrackDef,
+    rank: u8,
+    rivals: &[AiRacer],
     draw_y: i16,
 ) {
     let base_y = draw_y as u16;
@@ -66,6 +69,17 @@ pub fn render_hud<const N: usize>(
         gpu::fill_rect(x, base_y + 22, 6, 4, cr, cg, cb);
     }
 
+    // 2b. Race Position Display (Top Center)
+    let (rank_str, rank_col) = match rank {
+        1 => ("1ST", (255, 215, 0)),
+        2 => ("2ND", (210, 210, 220)),
+        3 => ("3RD", (205, 127, 50)),
+        4 => ("4TH", (180, 200, 220)),
+        5 => ("5TH", (160, 180, 200)),
+        _ => ("6TH", (140, 150, 170)),
+    };
+    draw_text(145, base_y + 10, rank_str, rank_col, 1);
+
     // 3. Corner Minimap (Bottom Left: 48x48)
     let map_x = 10u16;
     let map_y = base_y + 180;
@@ -75,6 +89,22 @@ pub fn render_hud<const N: usize>(
     gpu::fill_rect(map_x, map_y + 47, 48, 1, 80, 85, 95);
     gpu::fill_rect(map_x, map_y, 1, 48, 80, 85, 95);
     gpu::fill_rect(map_x + 47, map_y, 1, 48, 80, 85, 95);
+
+    // Rival blips on minimap
+    for rival in rivals {
+        let r_tx = rival.state.position.x.to_int() / 64;
+        let r_ty = rival.state.position.y.to_int() / 64;
+        let r_bx = map_x
+            + (((r_tx as i32 * 44) / (track.width as i32).max(1))
+                .max(2)
+                .min(44)) as u16;
+        let r_by = map_y
+            + (((r_ty as i32 * 44) / (track.height as i32).max(1))
+                .max(2)
+                .min(44)) as u16;
+        let (rc, gc, bc) = rival.profile.color;
+        gpu::fill_rect(r_bx, r_by, 2, 2, rc, gc, bc);
+    }
 
     // Player position blip on minimap
     let p_tx = player.position.x.to_int() / 64;

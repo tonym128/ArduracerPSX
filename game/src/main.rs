@@ -16,7 +16,10 @@ pub mod memcard;
 pub mod state;
 pub mod ui;
 
-use arduracer_core::{LapTimer, TrackDef, VehicleState, ALL_TRACKS};
+use arduracer_core::{
+    compute_standings, cos, sin, AiRacer, ChampionshipSession, Fixed, LapTimer, TrackDef, Vec2,
+    VehicleState, AI_PROFILES, ALL_TRACKS,
+};
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
@@ -30,10 +33,38 @@ use ui::{MenuItem, ResultsScreen};
 pub const SCREEN_WIDTH: u16 = 320;
 pub const SCREEN_HEIGHT: u16 = 240;
 
+/// Spawns 5 AI rivals on staggered grid positions behind the player.
+fn spawn_rivals(start_pos: Vec2, start_heading: u16) -> [AiRacer; 5] {
+    let fwd_x = cos(start_heading);
+    let fwd_y = sin(start_heading);
+    let lat_x = -sin(start_heading);
+    let lat_y = cos(start_heading);
+
+    let offsets: [(i32, i32); 5] = [(-36, 14), (-72, -14), (-108, 14), (-144, -14), (-180, 0)];
+
+    let mut rivals = [
+        AiRacer::new(start_pos, start_heading, AI_PROFILES[0]),
+        AiRacer::new(start_pos, start_heading, AI_PROFILES[1]),
+        AiRacer::new(start_pos, start_heading, AI_PROFILES[2]),
+        AiRacer::new(start_pos, start_heading, AI_PROFILES[3]),
+        AiRacer::new(start_pos, start_heading, AI_PROFILES[4]),
+    ];
+
+    for i in 0..5 {
+        let (fwd_dist, lat_dist) = offsets[i];
+        let offset_x = fwd_x * Fixed::from_int(fwd_dist) + lat_x * Fixed::from_int(lat_dist);
+        let offset_y = fwd_y * Fixed::from_int(fwd_dist) + lat_y * Fixed::from_int(lat_dist);
+        rivals[i].state.position = start_pos + Vec2::new(offset_x, offset_y);
+    }
+
+    rivals
+}
+
 /// Root game structure stored in `.bss` to protect the 32 KiB stack.
 pub struct ArduracerGame {
     pub frame_counter: u32,
     pub player: VehicleState,
+    pub rivals: [AiRacer; 5],
     pub camera: Camera,
     pub particles: ParticleSystem,
     pub skidmarks: SkidmarkBuffer,
@@ -58,6 +89,7 @@ impl ArduracerGame {
         let track = ALL_TRACKS[0];
         let timer = LapTimer::new(&track.checkpoints[..track.checkpoint_count as usize]);
         let player = VehicleState::new(track.start_pos, track.start_heading, Default::default());
+        let rivals = spawn_rivals(track.start_pos, track.start_heading);
         let camera = Camera::new(track.start_pos);
 
         let audio = AudioSystem::new();
@@ -67,6 +99,7 @@ impl ArduracerGame {
         ArduracerGame {
             frame_counter: 0,
             player,
+            rivals,
             camera,
             particles: ParticleSystem::new(),
             skidmarks: SkidmarkBuffer::new(),
@@ -100,6 +133,7 @@ impl ArduracerGame {
             track.start_heading,
             self.state_mgr.garage.tuning,
         );
+        self.rivals = spawn_rivals(track.start_pos, track.start_heading);
         self.camera = Camera::new(track.start_pos);
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
@@ -137,7 +171,12 @@ impl ArduracerGame {
                 GameState::MainMenu => {
                     if let Some(item) = self.state_mgr.menu.update(&pad) {
                         match item {
-                            MenuItem::TimeTrial | MenuItem::GrandPrix => {
+                            MenuItem::TimeTrial => {
+                                self.state_mgr.championship = None;
+                                self.state_mgr.current = GameState::TrackSelect;
+                            }
+                            MenuItem::GrandPrix => {
+                                self.state_mgr.championship = Some(ChampionshipSession::new(0));
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::TuningGarage => {
@@ -178,7 +217,15 @@ impl ArduracerGame {
                 GameState::TrackSelect => {
                     let (confirmed, cancelled) = self.state_mgr.track_select.update(&pad);
                     if let Some(track_idx) = confirmed {
-                        self.load_track(track_idx);
+                        let target_idx = if let Some(ref mut champ) = self.state_mgr.championship {
+                            let cup_idx = ((track_idx / 6) as u8).min(3);
+                            champ.cup_index = cup_idx;
+                            champ.current_stage = 0;
+                            champ.current_track_idx()
+                        } else {
+                            track_idx
+                        };
+                        self.load_track(target_idx);
                         self.state_mgr.current = GameState::Racing;
                     } else if cancelled {
                         self.state_mgr.current = GameState::MainMenu;
@@ -206,6 +253,33 @@ impl ArduracerGame {
                     self.timer.tick();
                     self.timer.update_player_tile(tx, ty);
 
+                    // AI rivals tick with dynamic obstacle avoidance
+                    let mut other_positions = [Vec2::ZERO; 6];
+                    other_positions[0] = self.player.position;
+                    for i in 0..5 {
+                        other_positions[i + 1] = self.rivals[i].state.position;
+                    }
+                    for i in 0..5 {
+                        self.rivals[i].tick(self.current_track, &other_positions);
+                    }
+
+                    // Compute dynamic race standings
+                    let standings = compute_standings(
+                        self.player.position,
+                        self.timer.current_lap,
+                        self.timer.next_checkpoint_idx,
+                        self.timer.is_finished,
+                        &self.rivals,
+                        self.current_track,
+                    );
+                    let mut player_rank = 1u8;
+                    for (place, &competitor_idx) in standings.iter().enumerate() {
+                        if competitor_idx == 0 {
+                            player_rank = (place + 1) as u8;
+                            break;
+                        }
+                    }
+
                     // Ghost telemetry sample
                     self.ghost.record_tick(&self.player);
 
@@ -222,10 +296,15 @@ impl ArduracerGame {
                         );
                         self.ghost.finish_lap(self.timer.best_lap_ticks, is_new);
 
+                        if let Some(ref mut champ) = self.state_mgr.championship {
+                            champ.award_stage_points(standings);
+                        }
+
                         self.state_mgr.results = Some(ResultsScreen::new(
                             self.timer.best_lap_ticks,
                             self.timer.current_lap_ticks,
                             self.current_track,
+                            player_rank,
                         ));
                         self.state_mgr.current = GameState::Results;
                     }
@@ -274,10 +353,27 @@ impl ArduracerGame {
                     );
                     // e. Particle effects
                     self.particles.render(&self.camera, draw_y);
-                    // f. Player race car (Crimson Red: 220, 25, 45)
+                    // f. AI Rivals rendering
+                    for rival in &self.rivals {
+                        render_car(
+                            &rival.state,
+                            &self.camera,
+                            draw_y,
+                            false,
+                            rival.profile.color,
+                        );
+                    }
+                    // g. Player race car (Crimson Red: 220, 25, 45)
                     render_car(&self.player, &self.camera, draw_y, false, (220, 25, 45));
-                    // g. In-Game HUD overlay
-                    render_hud(&self.player, &self.timer, self.current_track, draw_y);
+                    // h. In-Game HUD overlay
+                    render_hud(
+                        &self.player,
+                        &self.timer,
+                        self.current_track,
+                        player_rank,
+                        &self.rivals,
+                        draw_y,
+                    );
                 }
                 GameState::Results => {
                     psx_gpu_mod::fill_rect(
@@ -298,9 +394,28 @@ impl ArduracerGame {
                         results.render(draw_y);
                     }
                     if action_cont {
-                        self.reset_race();
-                        self.state_mgr.current = GameState::Racing;
+                        let next_track = if let Some(ref mut champ) = self.state_mgr.championship {
+                            if champ.advance_stage() {
+                                None
+                            } else {
+                                Some(champ.current_track_idx())
+                            }
+                        } else {
+                            None
+                        };
+
+                        if let Some(track_idx) = next_track {
+                            self.load_track(track_idx);
+                            self.state_mgr.current = GameState::Racing;
+                        } else if self.state_mgr.championship.is_some() {
+                            self.state_mgr.championship = None;
+                            self.state_mgr.current = GameState::MainMenu;
+                        } else {
+                            self.reset_race();
+                            self.state_mgr.current = GameState::Racing;
+                        }
                     } else if action_exit {
+                        self.state_mgr.championship = None;
                         self.state_mgr.current = GameState::MainMenu;
                     }
                 }

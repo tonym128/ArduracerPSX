@@ -117,6 +117,22 @@ fn main() {
         "Full lap completion & checkpoint progression on Track 1",
         test_lap_completion_on_track1
     );
+    run_test!(
+        "AI rival personalities & profile tuning validation",
+        test_ai_profiles_and_tuning
+    );
+    run_test!(
+        "AI waypoint navigation & steering input generation",
+        test_ai_navigation_and_steer
+    );
+    run_test!(
+        "Championship cups, stages, and points calculation",
+        test_championship_scoring
+    );
+    run_test!(
+        "Race standings computation & sorted leaderboard",
+        test_race_standings_and_leaderboard
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -710,4 +726,89 @@ fn test_lap_completion_on_track1() {
             );
         }
     }
+}
+
+fn test_ai_profiles_and_tuning() {
+    assert_eq!(
+        AI_PROFILES.len(),
+        5,
+        "Must have exactly 5 AI rival profiles"
+    );
+    for profile in AI_PROFILES.iter() {
+        assert!(
+            profile.tuning.is_valid(),
+            "Profile {} tuning must be valid",
+            profile.name
+        );
+        assert!(profile.aggression >= 1 && profile.aggression <= 10);
+        assert!(profile.drift_tendency >= 1 && profile.drift_tendency <= 10);
+    }
+}
+
+fn test_ai_navigation_and_steer() {
+    let track = ALL_TRACKS[0];
+    let profile = AI_PROFILES[0];
+    let mut ai = AiRacer::new(track.start_pos, track.start_heading, profile);
+
+    // Initial state
+    assert_eq!(ai.target_gate_idx, 0);
+    assert_eq!(ai.current_lap, 1);
+    assert!(!ai.is_finished);
+
+    // Simulate 60 ticks of AI navigation
+    for _ in 0..60 {
+        ai.tick(track, &[]);
+    }
+
+    // AI must accelerate from standstill
+    assert!(
+        ai.state.speed > Fixed::ZERO,
+        "AI vehicle must gain positive speed"
+    );
+}
+
+fn test_championship_scoring() {
+    let mut session = ChampionshipSession::new(0); // Bronze Cup
+    assert_eq!(session.current_stage, 0);
+    assert_eq!(session.current_track_idx(), 0);
+    assert_eq!(session.competitors.len(), 6);
+
+    // Award stage 1: Player wins, AI 0 2nd, AI 1 3rd, AI 2 4th, AI 3 5th, AI 4 6th
+    session.award_stage_points([0, 1, 2, 3, 4, 5]);
+    assert_eq!(session.competitors[0].total_points, 10);
+    assert_eq!(session.competitors[1].total_points, 6);
+    assert_eq!(session.competitors[2].total_points, 4);
+
+    let finished = session.advance_stage();
+    assert!(!finished);
+    assert_eq!(session.current_stage, 1);
+    assert_eq!(session.current_track_idx(), 1);
+}
+
+fn test_race_standings_and_leaderboard() {
+    let track = ALL_TRACKS[0];
+    let rivals = [
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[1]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[2]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[3]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[4]),
+    ];
+
+    // Player on lap 2, rivals on lap 1 -> player must be 1st (index 0 at standings[0])
+    let standings = compute_standings(
+        track.start_pos,
+        2, // player lap 2
+        0,
+        false,
+        &rivals,
+        track,
+    );
+    assert_eq!(standings[0], 0, "Player on lap 2 should be in 1st place");
+
+    let mut session = ChampionshipSession::new(0);
+    session.award_stage_points(standings);
+    let leaderboard = session.sorted_leaderboard();
+    assert_eq!(leaderboard[0].name, "PLAYER");
+    assert_eq!(leaderboard[0].total_points, 10);
 }

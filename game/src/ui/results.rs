@@ -4,6 +4,7 @@
 //! retry/continue prompts.
 
 use crate::ui::font::{draw_char, draw_text};
+use arduracer_core::championship::POINTS_TABLE;
 use arduracer_core::timing::Medal;
 use arduracer_core::TrackDef;
 use psx_gpu as gpu;
@@ -13,16 +14,22 @@ pub struct ResultsScreen {
     pub best_lap_ticks: u32,
     pub total_race_ticks: u32,
     pub medal: Medal,
+    pub rank: u8,
+    pub points: u8,
     pub anim_timer: u32,
 }
 
 impl ResultsScreen {
-    pub fn new(best_lap_ticks: u32, total_race_ticks: u32, track: &TrackDef) -> Self {
+    pub fn new(best_lap_ticks: u32, total_race_ticks: u32, track: &TrackDef, rank: u8) -> Self {
         let medal = track.par_times.evaluate_medal(best_lap_ticks);
+        let safe_rank = rank.max(1).min(6);
+        let points = POINTS_TABLE[(safe_rank - 1) as usize];
         ResultsScreen {
             best_lap_ticks,
             total_race_ticks,
             medal,
+            rank: safe_rank,
+            points,
             anim_timer: 0,
         }
     }
@@ -95,12 +102,23 @@ impl ResultsScreen {
         draw_char(144, base_y + 118, sec_ten, (255, 255, 255), 1);
         draw_char(151, base_y + 118, sec_one, (255, 255, 255), 1);
 
+        // Position & Championship Points Display
+        let (pos_str, pos_col) = match self.rank {
+            1 => ("POSITION: 1ST  (+10 PTS)", (255, 215, 0)),
+            2 => ("POSITION: 2ND  (+6 PTS)", (210, 210, 220)),
+            3 => ("POSITION: 3RD  (+4 PTS)", (205, 127, 50)),
+            4 => ("POSITION: 4TH  (+3 PTS)", (180, 200, 220)),
+            5 => ("POSITION: 5TH  (+2 PTS)", (160, 180, 200)),
+            _ => ("POSITION: 6TH  (+1 PT)", (140, 150, 170)),
+        };
+        draw_text(40, base_y + 138, pos_str, pos_col, 1);
+
         // Action Buttons
-        gpu::fill_rect(40, base_y + 154, 240, 28, 220, 25, 45);
+        gpu::fill_rect(40, base_y + 158, 240, 28, 220, 25, 45);
         draw_text(
-            68,
-            base_y + 162,
-            "CROSS: CONTINUE / RETRY",
+            60,
+            base_y + 166,
+            "CROSS: NEXT RACE / RETRY",
             (255, 255, 255),
             1,
         );
