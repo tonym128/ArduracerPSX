@@ -9,10 +9,12 @@ extern crate psx_rt;
 
 pub mod audio;
 pub mod gpu;
+pub mod input;
 
-use arduracer_core::{Fixed, LapTimer, TrackDef, VehicleInput, VehicleState, ALL_TRACKS};
+use arduracer_core::{LapTimer, TrackDef, VehicleState, ALL_TRACKS};
 use audio::AudioSystem;
 use gpu::{render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer};
+use input::{InputManager, InputProfile};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
 
 pub const SCREEN_WIDTH: u16 = 320;
@@ -29,6 +31,7 @@ pub struct ArduracerGame {
     pub current_track: &'static TrackDef,
     pub fb: FrameBuffer,
     pub audio: AudioSystem,
+    pub input_mgr: InputManager,
 }
 
 impl ArduracerGame {
@@ -44,6 +47,8 @@ impl ArduracerGame {
         let camera = Camera::new(track.start_pos);
 
         let audio = AudioSystem::new();
+        let mut input_mgr = InputManager::new(InputProfile::ClassicArcade);
+        input_mgr.init();
 
         ArduracerGame {
             frame_counter: 0,
@@ -55,6 +60,7 @@ impl ArduracerGame {
             current_track: track,
             fb,
             audio,
+            input_mgr,
         }
     }
 
@@ -74,13 +80,8 @@ impl ArduracerGame {
             let ty = (self.player.position.y.to_int() / 64) as u8;
             let surface = self.current_track.surface_at(tx, ty);
 
-            // 3. Simulation tick
-            let input = VehicleInput {
-                throttle: Fixed::ONE,
-                brake: Fixed::ZERO,
-                steer: Fixed::from_raw(200), // gentle turn test
-                handbrake: false,
-            };
+            // 3. Controller input poll and haptics update
+            let input = self.input_mgr.update(&self.player, surface);
             self.player.tick(input, surface);
             self.timer.tick();
             self.timer.update_player_tile(tx, ty);
