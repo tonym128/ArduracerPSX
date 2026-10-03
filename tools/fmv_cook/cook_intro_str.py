@@ -215,26 +215,58 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
     os.makedirs(os.path.dirname(os.path.abspath(str_out)), exist_ok=True)
 
     # 1. Encode 320x240 @ 15 fps Version-2 STR video stream at 1x speed (5 sectors/frame)
+    # The source is 16:9 widescreen (1280x720) with fine film grain. Unfiltered high-frequency
+    # AC coefficients exhaust the 1x MDEC sector budget, causing macroblock desynchronization
+    # and chromatic corruption (neon green horizontal bands). Preprocess with spatial/temporal
+    # denoising (hqdn3d) and clean letterbox scaling (320x176 padded to 320x240) before psxavenc.
     print(f"Encoding {mp4_path} -> {str_out} with psxavenc...")
-    cmd = [
-        psxavenc,
-        "-t",
-        "strv",
-        "-v",
-        "v2",
-        "-s",
-        "320x240",
-        "-r",
-        "15",
-        "-x",
-        "1",
-        mp4_path,
-        str_out,
-    ]
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        print(f"psxavenc video encoding failed:\n{res.stderr}", file=sys.stderr)
-        return False
+    with tempfile.NamedTemporaryFile(suffix=".mkv", delete=False) as tmp_mkv:
+        tmp_mkv_path = tmp_mkv.name
+    try:
+        vf_filter = "hqdn3d=2.0:2.0:3.0:3.0,scale=w=320:h=176:flags=lanczos,pad=320:240:0:32:color=black"
+        ffmpeg_vcmd = [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            mp4_path,
+            "-vf",
+            vf_filter,
+            "-r",
+            "15",
+            "-c:v",
+            "ffv1",
+            "-an",
+            tmp_mkv_path,
+        ]
+        fres = subprocess.run(ffmpeg_vcmd, capture_output=True, text=True)
+        video_input = tmp_mkv_path if (fres.returncode == 0 and os.path.exists(tmp_mkv_path)) else mp4_path
+
+        cmd = [
+            psxavenc,
+            "-q",
+            "-t",
+            "strv",
+            "-v",
+            "v2",
+            "-s",
+            "320x240",
+            "-r",
+            "15",
+            "-x",
+            "1",
+            video_input,
+            str_out,
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            print(f"psxavenc video encoding failed:\n{res.stderr}", file=sys.stderr)
+            return False
+    finally:
+        if os.path.exists(tmp_mkv_path):
+            os.remove(tmp_mkv_path)
 
     size = os.path.getsize(str_out)
     num_frames = size // (SECTORS_PER_FRAME * 2048)

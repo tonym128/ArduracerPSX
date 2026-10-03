@@ -544,7 +544,7 @@ pub fn play_video(filename: &str) -> VideoResult {
         return VideoResult::Unavailable;
     }
 
-    let mut prev_buttons = psx_pad::ButtonState::from_bits(0xFFFF);
+    let mut prev_buttons = psx_pad::poll_port1().buttons;
     let mut skipped = false;
 
     while !player.is_finished() {
