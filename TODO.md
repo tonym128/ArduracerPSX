@@ -261,7 +261,7 @@
 
 ## Phase 5: Input & DualShock Force Feedback Engine
 
-- [ ] **TASK-501**: Controller driver (Digital & DualShock Analog).
+- [x] **TASK-501**: Controller driver (Digital & DualShock Analog).
   - **Worktree**: `wt-input-dualshock`
   - **Files**: `game/src/input/pad.rs`
   - **Specs**:
@@ -270,7 +270,7 @@
     - Fallback to D-Pad with progressive steering smoothing.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-502**: Dual-motor force feedback rumble driver.
+- [x] **TASK-502**: Dual-motor force feedback rumble driver.
   - **Worktree**: `wt-input-dualshock`
   - **Files**: `game/src/input/rumble.rs`
   - **Specs**:
