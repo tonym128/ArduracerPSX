@@ -8,15 +8,21 @@
 extern crate psx_rt;
 
 pub mod audio;
+pub mod ghost_player;
+pub mod ghost_recorder;
 pub mod gpu;
 pub mod input;
+pub mod memcard;
 pub mod state;
 pub mod ui;
 
 use arduracer_core::{LapTimer, TrackDef, VehicleState, ALL_TRACKS};
 use audio::AudioSystem;
+use ghost_player::render_active_ghost;
+use ghost_recorder::LapGhostRecorder;
 use gpu::{render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer};
 use input::{InputManager, InputProfile};
+use memcard::MemoryCardManager;
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
 use state::{GameState, StateManager};
 use ui::{MenuItem, ResultsScreen};
@@ -33,10 +39,13 @@ pub struct ArduracerGame {
     pub skidmarks: SkidmarkBuffer,
     pub timer: LapTimer<16>,
     pub current_track: &'static TrackDef,
+    pub current_track_idx: usize,
     pub fb: FrameBuffer,
     pub audio: AudioSystem,
     pub input_mgr: InputManager,
     pub state_mgr: StateManager,
+    pub ghost: LapGhostRecorder,
+    pub memcard: MemoryCardManager,
 }
 
 impl ArduracerGame {
@@ -63,18 +72,22 @@ impl ArduracerGame {
             skidmarks: SkidmarkBuffer::new(),
             timer,
             current_track: track,
+            current_track_idx: 0,
             fb,
             audio,
             input_mgr,
             state_mgr: StateManager::new(),
+            ghost: LapGhostRecorder::new(0),
+            memcard: MemoryCardManager::new(),
         }
     }
 
     /// Loads and resets the active circuit.
     pub fn load_track(&mut self, track_idx: usize) {
         let idx = track_idx % ALL_TRACKS.len();
-        let track = ALL_TRACKS[idx];
-        self.current_track = track;
+        self.current_track_idx = idx;
+        self.current_track = ALL_TRACKS[idx];
+        self.ghost.reset(idx as u8);
         self.reset_race();
     }
 
@@ -90,6 +103,7 @@ impl ArduracerGame {
         self.camera = Camera::new(track.start_pos);
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
+        self.ghost.start_lap();
         self.timer.start();
     }
 
@@ -192,8 +206,22 @@ impl ArduracerGame {
                     self.timer.tick();
                     self.timer.update_player_tile(tx, ty);
 
+                    // Ghost telemetry sample
+                    self.ghost.record_tick(&self.player);
+
                     // Check race completion (5 laps)
                     if self.timer.is_finished {
+                        let medal = self
+                            .current_track
+                            .par_times
+                            .evaluate_medal(self.timer.best_lap_ticks);
+                        let is_new = self.memcard.record_lap(
+                            self.current_track_idx,
+                            self.timer.best_lap_ticks,
+                            medal as u8,
+                        );
+                        self.ghost.finish_lap(self.timer.best_lap_ticks, is_new);
+
                         self.state_mgr.results = Some(ResultsScreen::new(
                             self.timer.best_lap_ticks,
                             self.timer.current_lap_ticks,
@@ -237,11 +265,18 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera, draw_y);
                     // c. Skidmarks on track
                     self.skidmarks.render(&self.camera, draw_y);
-                    // d. Particle effects
+                    // d. Active ghost car playback
+                    render_active_ghost(
+                        &self.ghost,
+                        &self.camera,
+                        self.timer.current_lap_ticks,
+                        draw_y,
+                    );
+                    // e. Particle effects
                     self.particles.render(&self.camera, draw_y);
-                    // e. Player race car (Crimson Red: 220, 25, 45)
+                    // f. Player race car (Crimson Red: 220, 25, 45)
                     render_car(&self.player, &self.camera, draw_y, false, (220, 25, 45));
-                    // f. In-Game HUD overlay
+                    // g. In-Game HUD overlay
                     render_hud(&self.player, &self.timer, self.current_track, draw_y);
                 }
                 GameState::Results => {
