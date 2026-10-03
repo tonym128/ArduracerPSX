@@ -8,7 +8,7 @@
 ## Progress Overview
 
 - [x] **Phase 0: Workspace, Toolchain & Scaffolding**
-- [ ] **Phase 1: Pure `#![no_std]` Core Simulation (`arduracer-core`)**
+- [x] **Phase 1: Pure `#![no_std]` Core Simulation (`arduracer-core`)**
 - [ ] **Phase 2: Track Pipeline & Level Importer (20 FX Tracks + Super Stages)**
 - [ ] **Phase 3: PSX Hardware Rendering Engine (`game/src/gpu`)**
 - [ ] **Phase 4: SPU & CD-DA Audio Engine**
@@ -53,7 +53,7 @@
 
 ## Phase 1: Pure `#![no_std]` Core Simulation (`arduracer-core`)
 
-- [ ] **TASK-101**: Deterministic fixed-point math & vector module.
+- [x] **TASK-101**: Deterministic fixed-point math & vector module.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/math.rs`
   - **Specs**:
@@ -63,7 +63,7 @@
     - 2D fixed-point vector math (`Vec2`: dot product, magnitude, normalization, reflection).
   - **Review Perspective**: Senior Systems Engineer, QA Lead (fuzz arithmetic bounds).
 
-- [ ] **TASK-102**: Vehicle dynamics & acceleration engine.
+- [x] **TASK-102**: Vehicle dynamics & acceleration engine.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/vehicle.rs`
   - **Specs**:
@@ -72,7 +72,7 @@
     - Rolling resistance and engine braking on throttle lift-off.
   - **Review Perspective**: Game Designer, Principal Architect.
 
-- [ ] **TASK-103**: Advanced drift & lateral traction physics.
+- [x] **TASK-103**: Advanced drift & lateral traction physics.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/drift.rs`
   - **Specs**:
@@ -82,14 +82,14 @@
     - Handbrake impulse mechanics.
   - **Review Perspective**: Game Designer (ensure high-octane arcade responsiveness).
 
-- [ ] **TASK-104**: Surface friction & hazard interaction.
+- [x] **TASK-104**: Surface friction & hazard interaction.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/surface.rs`
   - **Specs**:
     - Surface types: Tarmac ($1.0\times$), Curb ($0.85\times$ grip + rumble flag), Grass/Sand ($0.35\times$ max speed + high drag), Oil Slick ($0.1\times$ grip, forced spin), Speed Boost Pad (instant forward impulse).
   - **Review Perspective**: Game Designer, QA Lead.
 
-- [ ] **TASK-105**: Checkpoint gate array & anti-cheat lap timing.
+- [x] **TASK-105**: Checkpoint gate array & anti-cheat lap timing.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/timing.rs`
   - **Specs**:
@@ -100,7 +100,7 @@
     - Real-time delta-split calculation against target or personal best.
   - **Review Perspective**: QA Lead (test reverse crossings, skip attempts, boundary bugs).
 
-- [ ] **TASK-106**: Car tuning parameter matrix.
+- [x] **TASK-106**: Car tuning parameter matrix.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/tuning.rs`
   - **Specs**:
@@ -109,7 +109,7 @@
     - Validation and default preset initialization.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-107**: Replay & Ghost telemetry compression serializer.
+- [x] **TASK-107**: Replay & Ghost telemetry compression serializer.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/ghost.rs`
   - **Specs**:
@@ -118,7 +118,7 @@
     - Deterministic interpolation for playback.
   - **Review Perspective**: Senior Systems Engineer (RAM footprint), QA Lead.
 
-- [ ] **TASK-108**: Memory Card `SaveData` format & 16-bit CRC checksum.
+- [x] **TASK-108**: Memory Card `SaveData` format & 16-bit CRC checksum.
   - **Worktree**: `wt-physics-core`
   - **Files**: `crates/arduracer-core/src/save.rs`
   - **Specs**:
