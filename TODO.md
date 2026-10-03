@@ -348,7 +348,7 @@
 
 ## Phase 8: AI Opponents & Grand Prix Mode
 
-- [ ] **TASK-801**: Waypoint navigation & racing line AI.
+- [x] **TASK-801**: Waypoint navigation & racing line AI.
   - **Worktree**: `wt-ai-opponents`
   - **Files**: `crates/arduracer-core/src/ai.rs`
   - **Specs**:
@@ -356,14 +356,14 @@
     - Dynamic obstacle avoidance and overtaking decision tree.
   - **Review Perspective**: Game Designer, QA Lead.
 
-- [ ] **TASK-802**: 5 Distinct Rival Personalities.
+- [x] **TASK-802**: 5 Distinct Rival Personalities.
   - **Worktree**: `wt-ai-opponents`
   - **Files**: `crates/arduracer-core/src/ai_profiles.rs`
   - **Specs**:
     - The Speeder, The Drifter, The Tactician, The Brawler, The Rookie.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-803**: 4 Championship Cups & Points Standings.
+- [x] **TASK-803**: 4 Championship Cups & Points Standings.
   - **Worktree**: `wt-ai-opponents`
   - **Files**: `crates/arduracer-core/src/championship.rs`
   - **Specs**:
