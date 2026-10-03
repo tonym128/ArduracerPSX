@@ -7,9 +7,11 @@
 
 extern crate psx_rt;
 
+pub mod audio;
 pub mod gpu;
 
 use arduracer_core::{Fixed, LapTimer, TrackDef, VehicleInput, VehicleState, ALL_TRACKS};
+use audio::AudioSystem;
 use gpu::{render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
 
@@ -26,6 +28,7 @@ pub struct ArduracerGame {
     pub timer: LapTimer<16>,
     pub current_track: &'static TrackDef,
     pub fb: FrameBuffer,
+    pub audio: AudioSystem,
 }
 
 impl ArduracerGame {
@@ -40,6 +43,8 @@ impl ArduracerGame {
         let player = VehicleState::new(track.start_pos, track.start_heading, Default::default());
         let camera = Camera::new(track.start_pos);
 
+        let audio = AudioSystem::new();
+
         ArduracerGame {
             frame_counter: 0,
             player,
@@ -49,6 +54,7 @@ impl ArduracerGame {
             timer,
             current_track: track,
             fb,
+            audio,
         }
     }
 
@@ -79,7 +85,11 @@ impl ArduracerGame {
             self.timer.tick();
             self.timer.update_player_tile(tx, ty);
 
-            // 4. Emit smoke particles and skidmarks during hard turns or drifts
+            // 4. Audio engine tick (engine RPM synth, tire screech, SFX)
+            self.audio
+                .tick(&self.player, input.throttle, self.timer.next_checkpoint_idx);
+
+            // 5. Emit smoke particles and skidmarks during hard turns or drifts
             if self.player.is_drifting {
                 self.particles.emit_smoke(self.player.position);
                 self.skidmarks
@@ -88,7 +98,7 @@ impl ArduracerGame {
             self.particles.tick();
             self.skidmarks.tick();
 
-            // 5. Camera update
+            // 6. Camera update
             self.camera.update(
                 self.player.position,
                 self.player.velocity,
