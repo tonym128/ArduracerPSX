@@ -282,7 +282,7 @@
 
 ## Phase 6: UI, HUD, Garage & Game Loop
 
-- [ ] **TASK-601**: Title screen & Main Menu.
+- [x] **TASK-601**: Title screen & Main Menu.
   - **Worktree**: `wt-ui-hud`
   - **Files**: `game/src/ui/title.rs`, `game/src/ui/menu.rs`
   - **Specs**:
@@ -290,7 +290,7 @@
     - Mode select: Time Trial, Grand Prix, Tuning Garage, Options, Records.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-602**: Car Tuning Garage UI.
+- [x] **TASK-602**: Car Tuning Garage UI.
   - **Worktree**: `wt-ui-hud`
   - **Files**: `game/src/ui/tuning_screen.rs`
   - **Specs**:
@@ -299,14 +299,14 @@
     - Save setup to Memory Card slot.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-603**: Track Select & Target Times display.
+- [x] **TASK-603**: Track Select & Target Times display.
   - **Worktree**: `wt-ui-hud`
   - **Files**: `game/src/ui/track_select.rs`
   - **Specs**:
     - Track preview map, par times (Bronze, Silver, Gold, Dev Platinum), personal best lap time.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-604**: In-Game Racing HUD.
+- [x] **TASK-604**: In-Game Racing HUD.
   - **Worktree**: `wt-ui-hud`
   - **Files**: `game/src/ui/hud.rs`
   - **Specs**:
@@ -316,7 +316,7 @@
     - Dynamic minimap with track overview and position blips.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-605**: Race Debriefing & Trophy Podium.
+- [x] **TASK-605**: Race Debriefing & Trophy Podium.
   - **Worktree**: `wt-ui-hud`
   - **Files**: `game/src/ui/debrief.rs`
   - **Specs**:
