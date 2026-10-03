@@ -11,6 +11,28 @@ pub const VOICE_SKID: Voice = Voice::V1;
 pub const VOICE_CRASH: Voice = Voice::V2;
 pub const VOICE_BOOST: Voice = Voice::V3;
 pub const VOICE_CHIME: Voice = Voice::V4;
+pub const VOICE_INTRO: Voice = Voice::V5;
+
+pub const INTRO_ADDR: SpuAddr = SpuAddr::new(0x4000);
+pub const INTRO_SAMPLE_RATE: u32 = 16000;
+pub const INTRO_ADPCM_DATA: &[u8] = include_bytes!("../../../assets/INTRO.ADPCM");
+
+/// Prepares and begins playback of intro attract audio via SPU Voice 5.
+pub fn play_intro_audio() {
+    if INTRO_ADPCM_DATA.len() <= 16 {
+        return;
+    }
+    spu::init();
+    spu::set_main_volume(Volume::MAX, Volume::MAX);
+    spu::upload_adpcm(INTRO_ADDR, INTRO_ADPCM_DATA);
+    VOICE_INTRO.configure_sample(INTRO_ADDR, INTRO_SAMPLE_RATE, Volume::MAX, Adsr::sample());
+    Voice::key_on(VOICE_INTRO.mask());
+}
+
+/// Immediately silences the intro attract audio.
+pub fn stop_intro_audio() {
+    Voice::key_off(VOICE_INTRO.mask());
+}
 
 /// SPU Sound RAM layout descriptor for all game sound effects.
 pub struct SpuSoundbankAddrs {
@@ -95,6 +117,9 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
         Volume::MAX,
         Adsr::sample_one_shot(),
     );
+
+    // Ensure intro audio voice is stopped
+    Voice::key_off(VOICE_INTRO.mask());
 
     // Start engine continuous loop immediately
     Voice::key_on(VOICE_ENGINE.mask());

@@ -12,7 +12,7 @@ pub mod spu;
 pub use cdda::{CddaController, CddaState};
 pub use engine_audio::EngineAudio;
 pub use sfx::SfxPlayer;
-pub use spu::init_spu_soundbank;
+pub use spu::{init_spu_soundbank, play_intro_audio, stop_intro_audio};
 
 use arduracer_core::{Fixed, SurfaceType, VehicleState};
 

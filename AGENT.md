@@ -24,9 +24,16 @@ graph TD
         AUD[Audio Assets<br/>WAV / MP3] -->|tools/audio_cook| VAG[SPU ADPCM .vag<br/>CD-DA .cdda]
         VID[Cinematics<br/>MP4] -->|tools/encode_mdec| STR[MDEC Stream<br/>.STR]
         
+        COOK[tools/track_cook/convert_levels.py<br/>FX CSV + Super Stage Cookbook<br/>Validates gates & surfaces]
         CORE[crates/arduracer-core<br/>Pure #![no_std] Game Engine<br/>Physics, Collision, Timing, AI, Saves]
         TEST[tools/test_game_logic<br/>Host Test Suite<br/>Sweeps, Fuzzers, Bit-flip Verification]
+        PLAY[tools/playtest<br/>Circuit Playability Verifier<br/>Simulates real laps on all 24 tracks]
+        CAL[tools/track_cook/par_calibration.json<br/>Measured Medal Targets]
+        COOK -->|levels.rs| CORE
         TEST -->|Direct Dependency| CORE
+        PLAY -->|Direct Dependency| CORE
+        PLAY -->|--calibrate| CAL
+        CAL -->|read by cooker| COOK
     end
 
     subgraph PSX Target Hardware
@@ -72,8 +79,21 @@ graph TD
 - **`tools/test_game_logic/`**:
   - Host test harness testing `crates/arduracer-core`.
   - Runs in milliseconds under standard `cargo test` on developer workstations and CI.
+- **`tools/playtest/`**:
+  - **Circuit playability verifier.** Simulates a full 5-lap race on all 24
+    circuits with a reference driver *and* all 5 rival personalities, then
+    asserts per-circuit geometry, gate validity, route ordering and medal
+    reachability. This is the gate that catches "the game builds but is not
+    actually playable" defects; run it with `make playtest`.
+  - `--render` dumps every circuit as ASCII for geometry review.
+  - `--calibrate` re-measures reference laps and rewrites
+    `tools/track_cook/par_calibration.json` (`make calibrate-tracks`).
 - **`tools/`**:
-  - Asset cooking scripts and CLI tools (TMX track compiler, TIM texture converter, VAG audio compiler, MDEC movie encoder, disc masterer).
+  - Asset cooking scripts and CLI tools (track compiler, VAG audio compiler, MDEC movie encoder, disc masterer).
+  - `tools/track_cook/convert_levels.py` is the **single source of truth** for
+    `crates/arduracer-core/src/levels.rs`. Never hand-edit that file: the cooker
+    fails the build on an unreachable gate, an off-road gate, or a start box
+    outside the racing surface.
 
 ---
 
@@ -115,8 +135,8 @@ fi
 - **Host Tests** (fast iteration):
   ```bash
   cd "$ROOT/.worktrees/$NAME"
-  cargo test --manifest-path crates/arduracer-core/Cargo.toml
-  cargo run --manifest-path tools/test_game_logic/Cargo.toml
+  make test        # unit suite + host harness
+  make playtest    # simulate real laps on every circuit
   ```
 - **PSX Target Compilation** (bare-metal cross-build):
   ```bash
@@ -188,6 +208,7 @@ Before ANY worktree branch is merged into `main`, it must undergo a structured r
 #### 4. Verification & QA Engineer
 - [ ] **Automated Host Tests**: All unit and integration tests pass with `cargo test`.
 - [ ] **Edge Cases Covered**: Boundary collisions, reverse-direction checkpoint crossings, maximum speed overflows, and timer wrap-arounds tested.
+- [ ] **Playability Proven**: `make playtest` completes 5 timed laps on all 24 circuits for the player *and* every rival personality. A green unit suite is **not** sufficient evidence that the game is playable - the lap simulation is.
 - [ ] **Formatting & Linting**: `cargo fmt --check` clean; `cargo clippy -D warnings` clean across all crates.
 - [ ] **Lockfile Consistency**: Cargo dependencies locked and reproducible.
 

@@ -10,14 +10,28 @@
 - [x] **Phase 0: Workspace, Toolchain & Scaffolding**
 - [x] **Phase 1: Pure `#![no_std]` Core Simulation (`arduracer-core`)**
 - [x] **Phase 2: Track Pipeline & Level Importer (20 FX Tracks + Super Stages)**
-- [ ] **Phase 3: PSX Hardware Rendering Engine (`game/src/gpu`)**
-- [ ] **Phase 4: SPU & CD-DA Audio Engine**
-- [ ] **Phase 5: Input & DualShock Force Feedback Engine**
-- [ ] **Phase 6: UI, HUD, Garage & Game Loop**
-- [ ] **Phase 7: Ghost Car & Memory Card System**
-- [ ] **Phase 8: AI Opponents & Grand Prix Mode**
-- [ ] **Phase 9: FMV Cinematics & Disc Mastering**
-- [ ] **Phase 10: Multi-Perspective Review & Performance Audit**
+- [x] **Phase 3: PSX Hardware Rendering Engine (`game/src/gpu`)**
+- [x] **Phase 4: SPU & CD-DA Audio Engine**
+- [x] **Phase 5: Input & DualShock Force Feedback Engine**
+- [x] **Phase 6: UI, HUD, Garage & Game Loop**
+- [x] **Phase 7: Ghost Car & Memory Card System**
+- [x] **Phase 8: AI Opponents & Grand Prix Mode**
+- [x] **Phase 9: FMV Cinematics & Disc Mastering**
+- [x] **Phase 10: Multi-Perspective Review & Performance Audit**
+
+### Verification Gates (all green)
+
+| Gate | Command | Result |
+| :--- | :--- | :--- |
+| Formatting | `make fmt-check` | clean |
+| Lints (`-D warnings`) | `make clippy` | clean |
+| Game-logic suite | `make test` | **40 / 40** |
+| Circuit playability | `make playtest` | **24 / 24** (player + 5 AI rivals, 5 laps each) |
+| MIPS build + RAM budget | `make exe` | 424 KB / 2 MB static (**20.7 %**) |
+| Disc mastering | `make disc` | 10.17 MB BIN + CUE, 7 tracks |
+
+See [`REVIEW.md`](REVIEW.md) for the TASK-1001 four-perspective audit, the full
+defect log, and the documented deviations.
 
 ---
 
@@ -376,9 +390,13 @@
 
 - [x] **TASK-901**: MDEC Full-Motion Video Attract Intro.
   - **Worktree**: `wt-disc-master`
-  - **Files**: `game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py` (cooks `assets/INTRO.STR`)
+  - **Files**: `game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py` (cooks `assets/INTRO.STR` & `assets/INTRO.ADPCM`)
   - **Specs**:
-    - 320×240 @ 15 fps video streaming via CD-ROM DMA Channel 2 and MDEC coprocessor.
+    - 320×240 @ 15 fps Version-2 MDEC STR video streaming via CD-ROM double speed (150 sectors/s) and MDEC DMA0/DMA1.
+    - Encoded from `AssetSource/ArduracerPSX Intro.mp4` with `psxavenc` (148 frames, 10 sectors/frame, 3,031,040 bytes).
+    - Synchronized SPU ADPCM audio (16 kHz mono on Voice 5) uploaded to SPU RAM at boot.
+    - Runs immediately on boot (after console Sony logo) before Title Screen / Main Menu.
+    - Edge-triggered button skip (`START` / `CROSS` / `CIRCLE`) stops intro voice and jumps directly to Main Menu.
   - **Review Perspective**: Senior Systems Engineer.
 
 - [x] **TASK-902**: Complete CUE/BIN Disc Mastering.
@@ -399,7 +417,7 @@
 
 ## Phase 10: Multi-Perspective Review & Performance Audit
 
-- [ ] **TASK-1001**: Comprehensive Four-Perspective Audit & Sign-off.
+- [x] **TASK-1001**: Comprehensive Four-Perspective Audit & Sign-off.
   - **Worktree**: `wt-perf-audit`
   - **Files**: `REVIEW.md`
   - **Specs**:
@@ -407,3 +425,49 @@
     - Executable size verification (< 2 MB).
     - 60.00 FPS performance lock certified in DuckStation / real hardware.
   - **Review Perspective**: All Reviewers.
+  - **Outcome**: Approved with one condition — the human DuckStation / real-hardware
+    pass could not be performed in a headless environment (see REVIEW.md §6.5).
+    Executable verified at 424 KB static (20.7 % of 2 MB). Ten blocking defects
+    found and fixed (uncompletable laps, 30× physics scale error, off-road wall,
+    glued barrier collision, unracable AI, empty Super Stages, missing Level 7
+    start line, heading sign-convention bug, incomplete HUD, unsaved Memory Card).
+
+---
+
+## Post-Audit Fix Log (Phase 10 findings)
+
+All items below were regressions that made the game unplayable and were caught by
+simulating real laps rather than by reading code. Each now has a host regression
+test in `tools/test_game_logic` and/or `tools/playtest`.
+
+- [x] **FIX-01**: Lap scoring replaced with ArduRacer FX coverage semantics
+  (checkpoint bitmask + start/finish exit) in `crates/arduracer-core/src/timing.rs`.
+  Previously checkpoints were demanded in raster-scan order, so no lap on 23 of
+  24 circuits could ever complete.
+- [x] **FIX-02**: World scale corrected in `crates/arduracer-core/src/vehicle.rs`
+  (velocity is now world-units-per-tick and integrates 1:1). The previous
+  `velocity × 120/4096` integrator needed ~640 ticks per 64-unit tile.
+- [x] **FIX-03**: Surface model split into `max_speed_factor` / `traction` /
+  `lateral_hold` in `crates/arduracer-core/src/surface.rs`, restoring GAME.md's
+  0.35× off-road penalty (it was effectively 0.6 %, i.e. a wall).
+- [x] **FIX-04**: `VehicleState::collide_with_track` resolves authored barriers and
+  the level bounding box; glancing contact slides, hard impacts scrub and spin.
+- [x] **FIX-05**: AI rewritten around `TrackDef::route_node()` with a corner-speed
+  governor; rival lap times went from 3–5× the player's to within 5–20 %.
+- [x] **FIX-06**: Super Stages 21–24 rebuilt as closed Catmull-Rom circuits with
+  curbs, boost pads and oil slicks.
+- [x] **FIX-07**: Level 7 start/finish synthesised; all circuits now meet GAME.md's
+  4–12 checkpoint minimum.
+- [x] **FIX-08**: `heading_towards(from, to)` helper added to remove the
+  screen-space Y sign footgun that silently mis-steered every AI car.
+- [x] **FIX-09**: `TrackTile` enum replaces duplicated magic-ID surface lookups;
+  `hud_renderer.rs` completed (gear, nitro meter, lap timer, best lap, delta
+  split, circuit-outline minimap); `tile_blitter.rs` rewritten with
+  speed-dependent zoom.
+- [x] **FIX-10**: Added `Start` pause menu, `Select` HUD toggle, nitro input +
+  `nitro_charge` meter, and real `psx-mc` Memory Card load/save with a custom
+  16×16 BIOS icon.
+- [x] **FIX-11**: Par times re-derived from measured reference laps via
+  `make calibrate-tracks` (see REVIEW.md §6.1 for why the FX table was not
+  retained verbatim).
+- [x] **FIX-12**: New `tools/playtest` playability verifier added to `make ci-host`.

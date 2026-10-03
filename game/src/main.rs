@@ -79,9 +79,11 @@ impl ArduracerGame {
     pub fn new() -> Self {
         psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
 
-        // FMV attract intro from CD-ROM. Skippable; silently absent when the
+        // SPU audio & FMV attract intro from CD-ROM. Skippable; silently absent when the
         // disc has no INTRO.STR (e.g. EXE side-loaded in an emulator).
-        let _ = video::play_video("INTRO.STR");
+        audio::play_intro_audio();
+        let intro_res = video::play_video("INTRO.STR");
+        audio::stop_intro_audio();
 
         let fb = FrameBuffer::new(SCREEN_WIDTH, SCREEN_HEIGHT);
         psx_gpu_mod::set_draw_area(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
@@ -102,6 +104,11 @@ impl ArduracerGame {
         let mut input_mgr = InputManager::new(InputProfile::ClassicArcade);
         input_mgr.init();
 
+        let mut state_mgr = StateManager::new();
+        if intro_res == video::VideoResult::Skipped {
+            state_mgr.current = GameState::MainMenu;
+        }
+
         ArduracerGame {
             frame_counter: 0,
             player,
@@ -118,7 +125,7 @@ impl ArduracerGame {
             fb,
             audio,
             input_mgr,
-            state_mgr: StateManager::new(),
+            state_mgr,
             ghost: LapGhostRecorder::new(0),
             memcard,
         }

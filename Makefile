@@ -7,6 +7,7 @@ GAME_EXE := $(GAME_DIR)/target/mipsel-sony-psx/release/arduracer.exe
 MKISOPSX := $(ROOT)/psoxide/tools/mkisopsx
 
 DUCKSTATION_APPIMAGES := \
+	$(HOME)/Downloads/DuckStation-x64.AppImage \
 	$(HOME)/Downloads/DuckStation-x86_64.AppImage \
 	$(HOME)/Applications/DuckStation-x86_64.AppImage \
 	/opt/duckstation/DuckStation-x86_64.AppImage
@@ -155,7 +156,7 @@ assets:
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda
 
-disc: exe assets
+disc: assets exe
 	@mkdir -p $(DIST)
 	cargo run --release --manifest-path $(MKISOPSX)/Cargo.toml -- \
 		--exe $(DIST)/arduracer.exe \

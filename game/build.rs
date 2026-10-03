@@ -12,4 +12,17 @@ fn main() {
     println!("cargo:rustc-link-arg=-T{}", ld.display());
     println!("cargo:rustc-link-arg=--oformat=binary");
     println!("cargo:rerun-if-changed={}", ld.display());
+
+    let adpcm_path = repo_root.join("assets/INTRO.ADPCM");
+    if !adpcm_path.exists() {
+        if let Some(parent) = adpcm_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let dummy = [
+            0x00u8, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ];
+        let _ = std::fs::write(&adpcm_path, dummy);
+    }
+    println!("cargo:rerun-if-changed={}", adpcm_path.display());
 }

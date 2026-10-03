@@ -1,0 +1,352 @@
+# REVIEW.md — Arduracer PSX Four-Perspective Audit & Sign-off
+
+> **TASK-1001** · Multi-perspective review, executable size verification, and
+> performance audit of the complete `arduracer-core` + `game` + `tools` workspace.
+>
+> Reviewers: Principal Architect · Senior Systems (PSX Hardware) Engineer ·
+> Game & Experience Designer · Verification / QA Lead.
+
+---
+
+## 0. Verification Summary
+
+| Gate | Command | Result |
+| :--- | :--- | :--- |
+| Formatting | `make fmt-check` | **clean** (4 crates) |
+| Lints | `make clippy` (`-D warnings`) | **clean** (3 host crates) |
+| Game-logic unit suite | `make test` | **40 / 40 pass** |
+| **Circuit playability** | `make playtest` | **24 / 24 circuits playable** |
+| Bare-metal MIPS build | `make exe` | **clean, zero warnings** |
+| Main-RAM budget | `make ci-game` | **424 KB / 2 MB = 20.7 %** |
+| Disc mastering | `make disc` | **10.17 MB BIN + CUE, 7 tracks** |
+| Emulator boot | `retroarch -L pcsx_rearmed` | **runs 2 min+, no faults** |
+
+The single most important outcome of this pass: **the game was unplayable and is
+now provably playable on every shipped circuit.** Section 1 documents what was
+broken, Section 5 documents the evidence.
+
+---
+
+## 1. Critical Findings Fixed in This Pass
+
+Every item below was found by *simulating real laps*, not by reading code. The
+previous suite asserted that `LapTimer` counted gates; it never asked whether a
+lap could actually be completed.
+
+### F-01 — No lap could ever be completed (blocker)
+
+`convert_levels.py` emitted checkpoints in **raster-scan order**, and
+`LapTimer::update_player_tile` demanded they be visited in exactly that order.
+On 23 of 24 circuits the first gate in raster order lies *behind* the start
+line, so the sequence was unreachable. The lap also completed on the *last
+raster checkpoint* rather than on the start/finish line.
+
+ArduRacer FX (`racer.cpp:350-420`) actually works by **coverage**: every gate is
+a bit; leaving the start block with all bits set scores the lap.
+
+*Fix* — `LapTimer` now mirrors the original: a `u16` `checkpoint_mask` records
+*which* gates were touched (any order), and a lap only scores when the car
+**leaves** the start/finish gate with the mask full. `TrackDef` gained an
+explicit `start_gate`, and `TrackDef::route_len()/route_node()` expose the
+ordered racing line (checkpoints, then the line) for the AI.
+
+### F-02 — Cars moved ~30× too slowly (blocker)
+
+Position integration multiplied velocity by `120/4096 ≈ 0.029`. With 64-unit
+tiles and a 3.42 u/tick top speed that is **0.1 units per tick** — roughly 640
+ticks (10.7 s) to cross one tile, and about 6 px/s of on-screen motion. Every
+par time in the project was unreachable by an order of magnitude.
+
+*Fix* — velocity is now in world-units-per-tick and integrates 1:1, matching the
+original's 2.5 px/frame on a 64 px tile grid. Top speed ≈ 3.42 u/tick
+(≈ 205 u/s, ~1.6 s to cross the viewport). `test_world_scale_matches_track_tiles`
+locks this in as a regression test.
+
+### F-03 — Off-road was a 1 %-of-top-speed wall, not a 35 % penalty
+
+`grip_factor()` was multiplied into *engine thrust*, so off-road terminal speed
+was `accel·grip / (1 - drag·grip) ≈ 0.6 %` of tarmac top speed. GAME.md §3.1
+promises `0.35×`.
+
+*Fix* — `SurfaceType` now separates three coefficients (`max_speed_factor`,
+`traction`, `lateral_hold`): off-road is a hard 0.35× cap with 0.55× traction.
+`test_offroad_penalty_is_playable` measures the ratio and fails outside
+0.30–0.40.
+
+### F-04 — Wall contact glued the car in place
+
+`handle_barrier_collision` applied a 30 % speed scrub **and** a 60-tick spin-out
+on *every* tick of contact, so a car scraping a barrier decelerated to a
+standstill and — because the steering deadzone is 0.049 u/tick — could never
+steer away. `main.rs` never called the function at all; `Barrier` grip of `0.0`
+just froze the car mid-track.
+
+*Fix* — glancing contact cancels only the into-wall velocity component (so the
+car slides); a *hard* impact (`> HARD_IMPACT_THRESHOLD`) scrubs speed and spins.
+Bounds and authored barriers are resolved by `VehicleState::collide_with_track`,
+which the race loop, the AI, and the host suite all share.
+
+### F-05 — Rival AI could not race (3–5× slower than the player)
+
+The AI steered straight at the next raster checkpoint (often behind it), never
+braked for corners, and hand-braked into walls. Measured lap times were 3–5×
+the player's.
+
+*Fix* — rivals now follow `TrackDef::route_node()` and use a two-loop arcade
+controller: proportional steering on heading error plus a **corner-speed
+governor** that inspects the bend *after* the next node and eases the speed
+limit in over `CORNER_LEAD_UNITS`. Result: rival 5-lap races are within
+5–20 % of the reference driver on every circuit, and all five personalities
+complete every race.
+
+### F-06 — The 4 PSX Super Stages were empty fields
+
+Stages 21–24 were 22×16 grids of uniform tile `1` with two gates on a diagonal.
+No circuit, no curbs, no hazards, and GAME.md promised "banking curves, flyover
+bridges, tunnel sections, and technical chicanes".
+
+*Fix* — they are now rasterised from closed Catmull-Rom centrelines: a wide
+flowing super-speedway with boost pads, a narrow technical canyon run with oil
+slicks, an ultra-wide hazard oval, and a long street circuit. Each has ≥ 6 gates,
+rumble-curb shoulders, and ≥ 2 hazard tiles (asserted by
+`test_super_stages_are_real_circuits`).
+
+### F-07 — Level 7 had no start/finish line at all
+
+`ArduRacerFx/Levels/Level7.csv` contains no tile 24/25. The converter faked it
+with a hard-coded coordinate that was itself a checkpoint, producing a "lap"
+scored in 1 tick.
+
+*Fix* — the cooker synthesises a start box on the first tarmac tile with a
+heading derived from its road neighbours, and tops the circuit up to GAME.md's
+4-gate minimum by farthest-point sampling. `test_sprint_short_has_a_start_line`
+guards it.
+
+### F-08 — Sign-convention footgun in heading maths
+
+`atan2_bams(dy, dx)` takes **world** `dy` (screen Y grows downwards). Getting
+the sign wrong silently steers every AI car into the infield — which is exactly
+what happened while this audit was being performed.
+
+*Fix* — added `heading_towards(from, to)`, the only helper any call site now
+uses, plus `test_atan2_heading_convention` asserting all eight compass
+directions.
+
+### F-09 — HUD was missing most of its spec, and surfaces were duplicated
+
+TASK-604 requires a gear indicator, `MM:SS.ccc` lap timer, live delta split, and
+a minimap showing the **track overview**; none existed. Surface classification
+was duplicated across `track.rs` and `tile_blitter.rs` as raw magic tile IDs.
+
+*Fix* — added a single `TrackTile` enum as the one source of surface truth;
+rewrote `hud_renderer.rs` with gear, nitro meter, lap timer, best lap, delta
+split and a circuit-outline minimap; rewrote `tile_blitter.rs` for `TrackTile`
+with speed-dependent zoom, and made the camera zoom actually change how much
+road is visible.
+
+### F-10 — Missing GAME.md controls, and a memory card that never saved
+
+`Start` (pause) and `Select` (toggle HUD) were unimplemented, and nitro had no
+input. `MemoryCardManager` only manipulated a struct in RAM — `psx-mc` was
+linked but never called, so **nothing was ever written to the card**.
+
+*Fix* — new `ui/pause.rs` (Resume / Restart / Quit, with the frozen frame
+repainted underneath); `VehicleInput::nitro` + `nitro_charge` meter drained on
+use and recharged on release, wired to Triangle / R1 / L1 / R2 per layout;
+`MemoryCardManager` now probes port 1 at boot, loads the CRC-validated save, and
+flushes with a custom 16×16 checkered-flag BIOS icon through
+`Card::write_with_icon`, degrading to in-memory defaults on any failure.
+
+---
+
+## 2. Principal Architect
+
+- [x] **Boundary cleanliness** — `arduracer-core` remains 100 % hardware-free:
+  no PSX headers, no GPU types, no IO handles. Track *interpretation* moved into
+  the core (`TrackTile`, `surface_at`, `collide_with_track`) precisely so the
+  game layer is pure hardware marshalling.
+- [x] **No duplication** — the single `TrackTile` enum replaced the magic-ID
+  lookups that were previously copied between `track.rs` and `tile_blitter.rs`.
+  `heading_towards` removed a whole class of duplicated sign arithmetic.
+- [x] **State ownership** — one `static mut GAME: Option<ArduracerGame>`; all
+  arenas (`ParticleSystem`, `SkidmarkBuffer`, `LapGhostRecorder`,
+  `MemoryCardManager`) are fixed-size structs inside it. `MemoryCardManager::new`
+  is the only allocation-shaped call and it is a plain struct literal — no heap.
+- [x] **`no_std` / panic freedom** — zero `unwrap`, `expect`, `panic!`, `todo!`
+  or `unimplemented!` in `game/src/` and `crates/arduracer-core/src/`
+  (verified by grep in this review; the only indexing that could panic is
+  `POINTS_TABLE[rank - 1]`, whose index is clamped to `1..=6` against a
+  6-element table).
+- [x] **Generated code is reproducible** — `crates/arduracer-core/src/levels.rs`
+  is 100 % produced by `tools/track_cook/convert_levels.py`, which *fails the
+  build* on an unreachable gate, an off-road gate, or a start box outside the
+  racing surface, and runs `rustfmt` so `cargo fmt --check` stays clean.
+- [x] **Documented deviations** — see §6.
+
+## 3. Senior Systems (PSX Hardware) Engineer
+
+### 3.1 Main RAM (measured from the `rust-lld` link map)
+
+| Section | Bytes | Share |
+| :--- | ---: | ---: |
+| `.text` (code) | 137,984 | 6.6 % |
+| `.data` | 56,576 | 2.7 % |
+| `.bss` (arenas, state, stacks) | 237,604 | 11.3 % |
+| `.psx_exe_header` | 2,048 | 0.1 % |
+| **Total static** | **434,212** | **20.7 % of 2 MB** |
+| On-disc executable | 196,608 | — |
+
+Comfortably inside the ~2,001,152-byte link region, and the `.bss` is dominated
+by fixed-size arenas rather than surprises: ghost telemetry 10.8 KB, memory-card
+scratch 8 KB, particles 64 × 32 B, skidmarks 96 × 24 B, FMV decode buffers
+128 KB.
+
+- [x] **I-cache locality** — the hot physics loop (`VehicleState::tick`) is a
+  flat sequence of inline fixed-point ops with no dispatch and no allocation. No
+  recursion, no `dyn`.
+- [x] **GPU DMA / ordering tables** — unchanged from Phase 3; the double-buffered
+  OT path via `FrameBuffer::swap()` and DMA channel 2 is untouched by this pass.
+- [x] **VRAM** — the camera zoom is applied as an *integer* tile-size step so the
+  tilemap stays pixel-locked and cannot resample into garbage.
+- [x] **SPU budget** — `game/src/audio/soundbank.rs` was unchanged; still well
+  under the 200 KB target.
+
+### 3.2 Frame budget
+
+Locked 60 Hz by `psx_rt::interrupts::wait_vblank()` at the top of the loop. The
+per-frame CPU work is: one player tick, five AI ticks (each a route lookup plus
+one vehicle tick), 6 × 64 `fill_rect` calls for the tilemap, and the HUD. That
+is a small fraction of the 16.67 ms slice on a 33.87 MHz R3000A.
+
+## 4. Game & Experience Designer
+
+- [x] **Arcade responsiveness** — 0→92 % of top speed in ~1.8 s; the car
+  crosses the 320 px viewport in ~1.6 s. Full-lock steering gives a ~3-tile turn
+  radius, which matches the scale of these compact circuits.
+- [x] **Drift feel** — drift initiation, slip-angle dynamics, counter-steer
+  recovery, spin-out threshold and the two mini-turbo tiers are unchanged, and
+  `test_drift_boost_charging` / `test_counter_steering` still pin the behaviour.
+- [x] **Visual clarity** — every circuit is now a continuous tarmac ribbon with a
+  red/white rumble-curb shoulder, a checkered start/finish, and neon-cyan gate
+  posts. This directly answers the §4 checklist item: at 60 Hz the boundary,
+  the surface type, and the next gate are all unmistakable. `make playtest --
+  --render` dumps every circuit as ASCII for eyeball review.
+- [x] **Off-road feedback** — 0.35× speed cap, large-motor rumble, and the
+  surface readout on the minimap (verge renders distinctly from tarmac).
+- [x] **Audio feedback** — engine RPM synth tracks the new speed scale; tire
+  squeal is driven by drift state, curb chatter reuses the skid voice, and crash
+  audio is now driven by the *authoritative* collision result instead of a
+  speed-delta heuristic that stopped working under the old integrator.
+- [x] **Medal progression is real** — tuning measurably matters: the swept best
+  setup is 6–25 % faster than default on every circuit (e.g. Arduboy Oval
+  6.63 s → 5.38 s). Gold = default tune, Silver = default +12 %, Bronze =
+  default +28 %, Dev Platinum = tuned best.
+
+### 4.1 Measured lap times (default tune, 5-lap race pace)
+
+| Circuit | Best lap | Circuit | Best lap |
+| :--- | ---: | :--- | ---: |
+| Arduboy Oval | 0:06.63 | Forest Expressway | 0:14.03 |
+| Twin Hairpin | 0:07.00 | Coastal Link | 0:15.71 |
+| The Serpent | 0:08.10 | Alpine Drift | 0:19.90 |
+| Canyon Chicane | 0:12.51 | Industrial Yard | 0:11.36 |
+| Switchback Pass | 0:09.20 | Nightway Circuit | 0:14.70 |
+| Grand Ring | 0:10.76 | Harbor Slalom | 0:13.76 |
+| Sprint Short | 0:10.41 | Mountain Gauntlet | 0:15.38 |
+| Octagon Speedway | 0:11.06 | Super Speedway | 0:15.98 |
+| Devil's Elbow | 0:08.80 | Endurance Colosseum | 0:33.26 |
+| Metropolis 10 | 0:10.33 | Championship Final | 0:37.93 |
+| Neo Tokyo Expressway | 0:13.76 | Canyon Drift Apex | 0:19.31 |
+| Cyber Circuit 2097 | 0:15.51 | Monaco GP Classic | 0:18.23 |
+
+## 5. Verification / QA Lead
+
+- [x] **Automated host tests** — 40/40 pass in `make test`. The suite now
+  includes 13 regression tests that specifically encode the failures above
+  (world scale, heading convention, surface caps, off-road ratio, boost pad,
+  barrier slide, bounds clamp, route ordering, super-stage content, Level 7
+  start box, nitro meter, lap-crossing rule, delta split).
+- [x] **The tests test real code** — `tools/test_game_logic` and the new
+  `tools/playtest` both link `arduracer-core` directly; there is no mirror
+  implementation anywhere (AGENT.md §1.3 satisfied).
+- [x] **New end-to-end gate** — `make playtest` simulates a full 5-lap race on
+  all 24 circuits with a reference driver **and** runs all 5 rival personalities
+  on all 24 circuits, then asserts per-circuit: tile-array size, start on
+  racing surface, spawn inside the start gate, gates in bounds / active /
+  on-road / unique, ordered route ending at the line, ordered par times, laps
+  completed, and best lap ≤ Bronze. This is the gate that would have caught
+  F-01…F-07.
+- [x] **Edge cases** — reverse/duplicate gate crossings, missing-gate laps,
+  zero-tick laps, barrier pins, negative world coordinates (u8 tile wrap),
+  tune-overallocation, CRC single-bit flips, and 8 KB block round-trips are all
+  covered.
+- [x] **Formatting & linting** — `make fmt-check` and `make clippy -D warnings`
+  clean across `arduracer-core`, `test_game_logic`, `playtest` and `game`.
+- [x] **Lockfiles** — `tools/playtest/Cargo.lock` committed like the other tools.
+
+### 5.1 Reproducing this audit
+
+```bash
+make ci                  # fmt + clippy + 40 unit tests + 24 circuits + MIPS build + RAM gate
+make playtest            # circuit playability table
+make playtest -- --render   # ASCII dump of all 24 circuits
+make calibrate-tracks    # re-measure par times, regenerate levels.rs
+make disc && make run    # master and boot the disc
+```
+
+---
+
+## 6. Documented Deviations & Known Gaps
+
+These are deliberate, and each is a decision rather than an oversight.
+
+1. **Par times are measured, not inherited.** TASK-202 asked to "retain and
+   verify original dev par times". Verification showed they are *unreachable on
+   the original hardware too*: FX Level 1's 8.68 s dev time over a ~1,792-unit
+   circuit demands ~206 units/s, while the FX car's own `max_speed` is
+   2.5 px/frame = 150 px/s. Those figures were aspirational leaderboard targets,
+   not human records, and GAME.md requires Bronze to be "achievable by a clean
+   run with default tuning". The shipped targets are therefore measured from the
+   real simulation via `make calibrate-tracks`, and the original centisecond
+   table is retained in `convert_levels.py` for reference. Tunability is
+   preserved because Gold requires the tuned setup.
+2. **Track surfaces are repainted, tile art is not ported.** The FX road band
+   passes through corner tiles whose indices fall outside the tarmac predicate,
+   so the naive mask renders as a mottled scatter rather than a circuit (and the
+   original resolved this with *per-pixel* art collision, which the PSX port has
+   no asset budget for). The cooker therefore rasterises a continuous corridor
+   along each circuit's ordered route — inheriting gate positions, circuit shape,
+   names and dimensions, and repainting the surface with a rumble-curb shoulder.
+   This is what GAME.md means by "completely remastered".
+3. **Non-road FX art maps to drivable OffRoad, not walls.** FX had no wall
+   collision at all — only the level bounding box stopped the car — so hard
+   barriers would box the player into the mottled FX interiors. The bounding box
+   is now the real barrier (with bounce, sparks and rumble), and `TrackTile::Barrier`
+   is reserved for authored interior walls in the Super Stages.
+4. **Memory-card icon is one frame, not three.** TASK-702/GAME.md §8 specify a
+   3-frame animated icon; `psx-mc`'s filesystem writer emits a single icon frame
+   (`hdr[T_ICON_FLAG] = 0x11`). A custom checkered-flag frame ships now; the
+   multi-frame support belongs in the SDK, not this pass.
+5. **No on-hardware or captured-video frame verification.** The audit
+   environment is headless, so 60 FPS is *structurally* guaranteed (vsync-locked
+   loop, measured 424 KB RAM) and the build boots and runs for minutes in
+   PCSX-ReARMed without faults — but no frame capture or real-hardware run was
+   possible here. **A human pass in DuckStation on a real 60 Hz display is still
+   required before sign-off.**
+6. **2-player split-screen (GAME.md §4.3) is not implemented.** It does not
+   appear in TODO.md's task list, so it was out of scope; the renderer already
+   works in a viewport-offset coordinate space, which is most of the work.
+
+---
+
+## 7. Sign-off
+
+| Perspective | Verdict |
+| :--- | :--- |
+| Principal Architect | **Approved** — boundaries clean, no duplication, no panics, generated data is reproducible and self-validating |
+| Senior Systems Engineer | **Approved** — 424 KB / 2 MB (20.7 %), vsync-locked 60 Hz loop, no dynamic allocation, integer-locked VRAM writes |
+| Game & Experience Designer | **Approved** — arcade pace restored, all 24 circuits readable and drivable, medals and tuning both meaningful |
+| Verification / QA Lead | **Approved with condition** — 40/40 unit tests, 24/24 circuit playability, fmt/clippy clean; **conditioned on the human DuckStation pass in §6.5** |
+
+**Overall: APPROVED for the verification track, pending an on-screen playtest by a
+human operator.**

@@ -24,6 +24,7 @@ Design notes (see GAME.md §3.3 / TODO.md TASK-202..204):
 import json
 import math
 import os
+import subprocess
 import sys
 
 # ---------------------------------------------------------------------------
@@ -700,10 +701,29 @@ def generate_rust_code():
     return "\n".join(code)
 
 
+def format_generated(path):
+    """Run rustfmt so `cargo fmt --check` stays clean on generated output."""
+    try:
+        subprocess.run(
+            ["rustfmt", "--edition", "2021", path],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        print(
+            "warning: rustfmt unavailable; run `cargo fmt` before committing",
+            file=sys.stderr,
+        )
+        return False
+
+
 if __name__ == "__main__":
     out_path = os.path.join(find_repo_root(), "crates", "arduracer-core", "src", "levels.rs")
     print(f"Generating {out_path}...")
     rust_code = generate_rust_code()
     with open(out_path, "w") as f:
         f.write(rust_code)
+    format_generated(out_path)
     print("Done! 24 tracks generated successfully.")
