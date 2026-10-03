@@ -11,6 +11,9 @@ import sys
 import struct
 import math
 
+# 2x CD speed (150 sectors/s) / 15 fps.
+SECTORS_PER_FRAME = 10
+
 class BitWriter:
     def __init__(self):
         self.words = []
@@ -126,6 +129,13 @@ def encode_str_frame(frame_num, grid):
 
     chunk_size = 2016
     chunks = [bs_data[i:i + chunk_size] for i in range(0, len(bs_data), chunk_size)]
+    # A 2x drive delivers 150 sectors/s; at 15 fps that is exactly 10 sectors
+    # per frame. Pad with empty chunks so stream rate == display rate and the
+    # player never has to throttle the drive.
+    if len(chunks) > SECTORS_PER_FRAME:
+        raise ValueError(f"frame {frame_num} needs {len(chunks)} sectors (> {SECTORS_PER_FRAME})")
+    while len(chunks) < SECTORS_PER_FRAME:
+        chunks.append(b"")
     num_chunks = len(chunks)
 
     sectors = bytearray()

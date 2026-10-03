@@ -82,10 +82,12 @@ pub struct ArduracerGame {
 
 impl ArduracerGame {
     pub fn new() -> Self {
-        // Attempt FMV attract intro playback from CD-ROM (skipped if missing or button pressed)
+        psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
+
+        // FMV attract intro from CD-ROM. Skippable; silently absent when the
+        // disc has no INTRO.STR (e.g. EXE side-loaded in an emulator).
         let _ = video::play_video("INTRO.STR");
 
-        psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
         let fb = FrameBuffer::new(SCREEN_WIDTH, SCREEN_HEIGHT);
         psx_gpu_mod::set_draw_area(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
         psx_gpu_mod::set_draw_offset(0, 0);
