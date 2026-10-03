@@ -23,7 +23,7 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test clippy fmt fmt-check ci ci-host ci-game ci-disc exe iso disc clean run
+.PHONY: all help test clippy fmt fmt-check ci ci-host ci-game ci-disc exe iso disc clean run assets
 
 all: test exe
 
@@ -31,6 +31,7 @@ help:
 	@echo "Arduracer PSX - Build Targets:"
 	@echo "  make test      - Run automated host-side game logic tests (arduracer-core)"
 	@echo "  make exe       - Build bare-metal MIPS PSX executable (dist/arduracer.exe)"
+	@echo "  make assets    - Cook FMV intro video and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
 	@echo "  make iso       - Master simple data ISO (dist/arduracer.iso)"
 	@echo "  make clippy    - Run clippy linting on host crates"
@@ -124,12 +125,24 @@ iso: exe
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
-disc: exe
+assets:
+	@mkdir -p $(ROOT)/assets/cdda
+	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
+	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda
+
+disc: exe assets
 	@mkdir -p $(DIST)
 	cargo run --release --manifest-path $(MKISOPSX)/Cargo.toml -- \
 		--exe $(DIST)/arduracer.exe \
 		--out $(DIST)/arduracer.bin \
-		--volume ARDURACER
+		--volume ARDURACER \
+		--file $(ROOT)/assets/INTRO.STR \
+		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
+		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \
+		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \
+		--cdda-track $(ROOT)/assets/cdda/track05_cyber.raw \
+		--cdda-track $(ROOT)/assets/cdda/track06_canyon.raw \
+		--cdda-track $(ROOT)/assets/cdda/track07_victory.raw
 	@echo "SUCCESS! Bootable PS1 Disc Mastered:"
 	@echo "  CUE: $(DIST)/arduracer.cue"
 	@echo "  BIN: $(DIST)/arduracer.bin"
@@ -158,4 +171,4 @@ run: disc
 
 clean:
 	@if [ -d "$(GAME_DIR)" ]; then cd $(GAME_DIR) && cargo clean; fi
-	rm -rf $(DIST)
+	@rm -rf $(DIST) $(ROOT)/assets

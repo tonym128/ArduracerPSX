@@ -251,10 +251,89 @@ def export_rust_soundbank(out_rs_path):
 
     print(f"Generated Rust soundbank -> {out_rs_path}")
 
+def generate_cdda_synth(track_id, duration_sec=4.0, sample_rate=44100):
+    """Generates a stereo 44.1kHz 16-bit arcade soundtrack pattern."""
+    num_samples = int(duration_sec * sample_rate)
+    # Ensure exact alignment to 588 stereo samples (2352 bytes sector)
+    remainder = num_samples % 588
+    if remainder != 0:
+        num_samples += (588 - remainder)
+
+    pcm_bytes = bytearray()
+    
+    # Base musical parameters by track
+    params = {
+        2: {"tempo": 138.0, "root": 220.0, "scale": [0, 3, 7, 10, 12]},       # Title: Minor Pentatonic
+        3: {"tempo": 145.0, "root": 261.63, "scale": [0, 4, 7, 9, 12]},       # Circuit: Major Driving
+        4: {"tempo": 120.0, "root": 196.0, "scale": [0, 2, 4, 7, 9, 12]},     # Coastal: Synthwave
+        5: {"tempo": 150.0, "root": 146.83, "scale": [0, 3, 5, 6, 7, 10, 12]},# Cyber: Acid/Techno
+        6: {"tempo": 140.0, "root": 164.81, "scale": [0, 3, 7, 8, 12]},       # Canyon: Phrygian
+        7: {"tempo": 130.0, "root": 261.63, "scale": [0, 4, 7, 11, 12, 16]},  # Victory: Triumphant Major
+    }
+    cfg = params.get(track_id, params[2])
+    tempo = cfg["tempo"]
+    root = cfg["root"]
+    scale = cfg["scale"]
+    beat_sec = 60.0 / tempo
+    sixteenth = beat_sec / 4.0
+
+    for i in range(num_samples):
+        t = i / sample_rate
+        beat_idx = int(t / beat_sec)
+        sub_idx = int(t / sixteenth) % len(scale)
+        sub_t = (t % sixteenth) / sixteenth
+
+        # Lead melody note
+        semitone = scale[sub_idx]
+        lead_freq = root * (2.0 ** (semitone / 12.0))
+        lead_env = math.exp(-6.0 * sub_t)
+        lead_val = (math.sin(2 * math.pi * lead_freq * t) + 0.3 * math.sin(4 * math.pi * lead_freq * t)) * lead_env
+
+        # Bass octave
+        bass_freq = (root / 2.0)
+        bass_env = math.exp(-3.0 * ((t % beat_sec) / beat_sec))
+        bass_val = math.sin(2 * math.pi * bass_freq * t) * bass_env
+
+        # Rhythm kick on beat
+        kick_t = (t % beat_sec)
+        kick_env = math.exp(-24.0 * kick_t)
+        kick_freq = 150.0 * math.exp(-30.0 * kick_t) + 45.0
+        kick_val = math.sin(2 * math.pi * kick_freq * kick_t) * kick_env
+
+        # Stereo mix
+        left = int(max(-32767, min(32767, (lead_val * 0.45 + bass_val * 0.35 + kick_val * 0.4) * 22000)))
+        right = int(max(-32767, min(32767, (lead_val * 0.40 + bass_val * 0.40 + kick_val * 0.4) * 22000)))
+
+        pcm_bytes.extend(struct.pack("<hh", left, right))
+
+    return bytes(pcm_bytes)
+
+def cook_cdda_tracks(out_dir):
+    """Synthesizes all 6 Redbook CD-DA audio tracks for Tracks 2 through 7."""
+    os.makedirs(out_dir, exist_ok=True)
+    track_names = [
+        (2, "track02_title.raw"),
+        (3, "track03_circuit.raw"),
+        (4, "track04_coastal.raw"),
+        (5, "track05_cyber.raw"),
+        (6, "track06_canyon.raw"),
+        (7, "track07_victory.raw"),
+    ]
+    for tid, fname in track_names:
+        path = os.path.join(out_dir, fname)
+        pcm = generate_cdda_synth(tid, duration_sec=4.0)
+        with open(path, "wb") as f:
+            f.write(pcm)
+        sectors = len(pcm) // 2352
+        print(f"Mastered CD-DA Track {tid:02d} -> {path} ({len(pcm)} bytes, {sectors} sectors)")
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--cook-soundbank":
         out_path = sys.argv[2] if len(sys.argv) > 2 else "game/src/audio/soundbank.rs"
         export_rust_soundbank(out_path)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--cook-cdda":
+        out_dir = sys.argv[2] if len(sys.argv) > 2 else "assets/cdda"
+        cook_cdda_tracks(out_dir)
     elif len(sys.argv) > 2:
         in_wav = sys.argv[1]
         out_vag = sys.argv[2]
@@ -269,7 +348,7 @@ def main():
             f.write(vag_data)
         print(f"Wrote {out_vag} ({len(vag_data)} bytes)")
     else:
-        print("Usage: wav2vag.py <input.wav> <output.vag> [--loop] | --cook-soundbank [out.rs]")
+        print("Usage: wav2vag.py <input.wav> <output.vag> [--loop] | --cook-soundbank [out.rs] | --cook-cdda [out_dir]")
 
 if __name__ == "__main__":
     main()
