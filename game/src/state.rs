@@ -4,6 +4,7 @@
 //! Tuning Garage, Active Racing, and Race Results Ceremonies.
 
 use crate::ui::{MainMenu, ResultsScreen, TitleScreen, TrackSelectScreen, TuningScreen};
+use arduracer_core::championship::ChampionshipSession;
 use arduracer_core::tuning::CarTuning;
 
 #[derive(Default)]
@@ -24,6 +25,7 @@ pub struct StateManager {
     pub track_select: TrackSelectScreen,
     pub garage: TuningScreen,
     pub results: Option<ResultsScreen>,
+    pub championship: Option<ChampionshipSession>,
 }
 
 impl StateManager {
@@ -35,6 +37,7 @@ impl StateManager {
             track_select: TrackSelectScreen::new(),
             garage: TuningScreen::new(CarTuning::default()),
             results: None,
+            championship: None,
         }
     }
 }

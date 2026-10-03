@@ -34,12 +34,9 @@ impl TrackDef {
             return SurfaceType::Barrier;
         }
         match self.tiles[idx] {
-            0 => SurfaceType::OffRoad,  // Grass / Dirt
-            1 => SurfaceType::Tarmac,   // Clean Road
-            2 => SurfaceType::Curb,     // Curb Rumble Strip
-            3 => SurfaceType::OilSlick, // Oil Hazard
-            4 => SurfaceType::BoostPad, // Boost Pad
-            _ => SurfaceType::Barrier,  // Barrier / Wall
+            20 => SurfaceType::OffRoad,      // Grass / Dirt border
+            21..=23 => SurfaceType::Barrier, // Solid Barriers / Walls / Water
+            _ => SurfaceType::Tarmac, // Road surfaces, start lines (24, 25), checkpoints (26, 27)
         }
     }
 }

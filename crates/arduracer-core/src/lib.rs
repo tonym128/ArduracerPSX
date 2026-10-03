@@ -5,6 +5,9 @@
 
 #![no_std]
 
+pub mod ai;
+pub mod ai_profiles;
+pub mod championship;
 pub mod drift;
 pub mod ghost;
 pub mod levels;
@@ -16,6 +19,9 @@ pub mod track;
 pub mod tuning;
 pub mod vehicle;
 
+pub use ai::{atan2_bams, AiRacer};
+pub use ai_profiles::{AiProfile, AI_PROFILES};
+pub use championship::{compute_standings, ChampionshipSession, Competitor, POINTS_TABLE};
 pub use drift::{DriftState, DRIFT_BOOST_LEVEL1_TICKS, DRIFT_BOOST_LEVEL2_TICKS, SPINOUT_TICKS};
 pub use ghost::{
     GhostFrame, GhostPlaybackState, GhostPlayer, GhostRecorder, FLAG_BOOSTING, FLAG_BRAKING,
