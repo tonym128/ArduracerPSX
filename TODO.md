@@ -374,21 +374,21 @@
 
 ## Phase 9: FMV Cinematics & Disc Mastering
 
-- [ ] **TASK-901**: MDEC Full-Motion Video Attract Intro.
+- [x] **TASK-901**: MDEC Full-Motion Video Attract Intro.
   - **Worktree**: `wt-disc-master`
-  - **Files**: `game/src/video.rs`, `Videos/INTRO.STR`
+  - **Files**: `game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py` (cooks `assets/INTRO.STR`)
   - **Specs**:
     - 320×240 @ 15 fps video streaming via CD-ROM DMA Channel 2 and MDEC coprocessor.
   - **Review Perspective**: Senior Systems Engineer.
 
-- [ ] **TASK-902**: Complete CUE/BIN Disc Mastering.
+- [x] **TASK-902**: Complete CUE/BIN Disc Mastering.
   - **Worktree**: `wt-disc-master`
   - **Files**: `Makefile`, `dist/arduracer.cue`, `dist/arduracer.bin`
   - **Specs**:
     - Track 1 data + Tracks 2–7 CD-DA audio tracks.
   - **Review Perspective**: Senior Systems Engineer.
 
-- [ ] **TASK-903**: Packaging & Manual Artwork.
+- [x] **TASK-903**: Packaging & Manual Artwork.
   - **Worktree**: `wt-disc-master`
   - **Files**: `packaging/`
   - **Specs**:
