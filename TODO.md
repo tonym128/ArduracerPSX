@@ -224,7 +224,7 @@
 
 ## Phase 4: SPU & CD-DA Audio Engine
 
-- [ ] **TASK-401**: SPU driver & sample bank loader.
+- [x] **TASK-401**: SPU driver & sample bank loader.
   - **Worktree**: `wt-audio-spu`
   - **Files**: `game/src/audio/spu.rs`
   - **Specs**:
@@ -232,7 +232,7 @@
     - Load packed VAG ADPCM sound effects into SPU RAM (< 200 KB).
   - **Review Perspective**: Senior Systems Engineer.
 
-- [ ] **TASK-402**: Dynamic engine RPM pitch synthesizer.
+- [x] **TASK-402**: Dynamic engine RPM pitch synthesizer.
   - **Worktree**: `wt-audio-spu`
   - **Files**: `game/src/audio/engine_sound.rs`
   - **Specs**:
@@ -240,7 +240,7 @@
     - Smooth transition between idle hum, acceleration howl, and redline limiter cut-off.
   - **Review Perspective**: Game Designer, Senior Systems Engineer.
 
-- [ ] **TASK-403**: Tire screech & interactive sound effects.
+- [x] **TASK-403**: Tire screech & interactive sound effects.
   - **Worktree**: `wt-audio-spu`
   - **Files**: `game/src/audio/sfx.rs`
   - **Specs**:
@@ -249,7 +249,7 @@
     - Checkpoint tone, countdown beeps, curb vibration sound.
   - **Review Perspective**: Game Designer.
 
-- [ ] **TASK-404**: Red Book CD-DA soundtrack controller.
+- [x] **TASK-404**: Red Book CD-DA soundtrack controller.
   - **Worktree**: `wt-audio-spu`
   - **Files**: `game/src/audio/cdda.rs`
   - **Specs**:
