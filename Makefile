@@ -23,13 +23,16 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test clippy fmt fmt-check ci ci-host ci-game ci-disc exe iso disc clean run assets
+.PHONY: all help test playtest calibrate-tracks tracks clippy fmt fmt-check ci ci-host ci-game ci-disc exe iso disc clean run assets
 
 all: test exe
 
 help:
 	@echo "Arduracer PSX - Build Targets:"
 	@echo "  make test      - Run automated host-side game logic tests (arduracer-core)"
+	@echo "  make playtest  - Prove all 24 circuits are drivable (player + 5 AI rivals)"
+	@echo "  make tracks    - Regenerate levels.rs from FX CSVs + par calibration"
+	@echo "  make calibrate-tracks - Re-measure par times, then regenerate levels.rs"
 	@echo "  make exe       - Build bare-metal MIPS PSX executable (dist/arduracer.exe)"
 	@echo "  make assets    - Cook FMV intro video and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
@@ -48,7 +51,7 @@ ci: ci-host ci-game
 	@echo "  ALL ARDURACER CI CHECKS PASSED SUCCESSFULLY!"
 	@echo "=========================================================="
 
-ci-host: fmt-check clippy test
+ci-host: fmt-check clippy test playtest
 	@echo "--- CI Host Verification Passed ---"
 
 ci-game: exe
@@ -75,7 +78,7 @@ ci-disc: disc
 
 fmt-check:
 	@echo "Checking formatting across crates..."
-	@for m in crates/arduracer-core tools/test_game_logic game; do \
+	@for m in crates/arduracer-core tools/test_game_logic tools/playtest game; do \
 		if [ -f "$$m/Cargo.toml" ]; then \
 			echo "Checking: $$m"; \
 			cargo fmt --manifest-path "$$m/Cargo.toml" --all -- --check || exit 1; \
@@ -84,7 +87,7 @@ fmt-check:
 
 fmt:
 	@echo "Formatting code across crates..."
-	@for m in crates/arduracer-core tools/test_game_logic game; do \
+	@for m in crates/arduracer-core tools/test_game_logic tools/playtest game; do \
 		if [ -f "$$m/Cargo.toml" ]; then \
 			echo "Formatting: $$m"; \
 			cargo fmt --manifest-path "$$m/Cargo.toml" --all; \
@@ -99,6 +102,9 @@ clippy:
 	@if [ -f "tools/test_game_logic/Cargo.toml" ]; then \
 		cargo clippy --manifest-path tools/test_game_logic/Cargo.toml --all-targets -- -D warnings || exit 1; \
 	fi
+	@if [ -f "tools/playtest/Cargo.toml" ]; then \
+		cargo clippy --manifest-path tools/playtest/Cargo.toml --all-targets -- -D warnings || exit 1; \
+	fi
 
 test:
 	@echo "Running host-side tests in crates/arduracer-core..."
@@ -109,6 +115,25 @@ test:
 	@if [ -f "tools/test_game_logic/Cargo.toml" ]; then \
 		cargo run --manifest-path tools/test_game_logic/Cargo.toml || exit 1; \
 	fi
+
+# Simulates real laps on all 24 circuits with the real core physics.
+# This is the gate that would have caught the unplayable-lap regressions.
+playtest:
+	@echo "Verifying every circuit is drivable..."
+	@if [ -f "tools/playtest/Cargo.toml" ]; then \
+		cargo run --manifest-path tools/playtest/Cargo.toml --release || exit 1; \
+	fi
+
+# Regenerates crates/arduracer-core/src/levels.rs. Fails if any circuit has an
+# unreachable gate, an off-road gate, or a start box outside the racing surface.
+tracks:
+	@python3 tools/track_cook/convert_levels.py
+
+# Measures real reference laps and rewrites the par-time table before
+# regenerating the level data.
+calibrate-tracks:
+	@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+	@python3 tools/track_cook/convert_levels.py
 
 exe:
 	@mkdir -p $(DIST)

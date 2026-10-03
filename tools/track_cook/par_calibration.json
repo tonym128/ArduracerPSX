@@ -1,0 +1,31 @@
+{
+  "_generated_by": "cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate",
+  "_note": "Lap measurements from the real arduracer-core simulation (60 Hz ticks); consumed by convert_levels.py. dev = fastest swept tuning, gold = default tuning.",
+  "factors": { "silver": 1.12, "bronze": 1.28 },
+  "tracks": [
+      { "track": "Arduboy Oval", "dev": 323, "gold": 398, "silver": 446, "bronze": 509, "tuned_ticks": 323, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Twin Hairpin", "dev": 362, "gold": 420, "silver": 470, "bronze": 538, "tuned_ticks": 362, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "The Serpent", "dev": 417, "gold": 486, "silver": 544, "bronze": 622, "tuned_ticks": 417, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Canyon Chicane", "dev": 679, "gold": 751, "silver": 841, "bronze": 961, "tuned_ticks": 679, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Switchback Pass", "dev": 463, "gold": 552, "silver": 618, "bronze": 707, "tuned_ticks": 463, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Grand Ring", "dev": 577, "gold": 646, "silver": 724, "bronze": 827, "tuned_ticks": 577, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Sprint Short", "dev": 566, "gold": 625, "silver": 700, "bronze": 800, "tuned_ticks": 566, "tuning": [5, 7, 4, 2, 2] },
+      { "track": "Octagon Speedway", "dev": 584, "gold": 664, "silver": 744, "bronze": 850, "tuned_ticks": 584, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Devil's Elbow", "dev": 423, "gold": 528, "silver": 591, "bronze": 676, "tuned_ticks": 423, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Metropolis 10", "dev": 570, "gold": 620, "silver": 694, "bronze": 794, "tuned_ticks": 570, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Forest Expressway", "dev": 654, "gold": 842, "silver": 943, "bronze": 1078, "tuned_ticks": 654, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Coastal Link", "dev": 773, "gold": 943, "silver": 1056, "bronze": 1207, "tuned_ticks": 773, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Alpine Drift", "dev": 1038, "gold": 1194, "silver": 1337, "bronze": 1528, "tuned_ticks": 1038, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Industrial Yard", "dev": 568, "gold": 682, "silver": 764, "bronze": 873, "tuned_ticks": 568, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Nightway Circuit", "dev": 708, "gold": 882, "silver": 988, "bronze": 1129, "tuned_ticks": 708, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Harbor Slalom", "dev": 644, "gold": 826, "silver": 925, "bronze": 1057, "tuned_ticks": 644, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Mountain Gauntlet", "dev": 784, "gold": 923, "silver": 1034, "bronze": 1181, "tuned_ticks": 784, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Super Speedway", "dev": 806, "gold": 959, "silver": 1074, "bronze": 1228, "tuned_ticks": 806, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Endurance Colosseum", "dev": 1716, "gold": 1996, "silver": 2236, "bronze": 2555, "tuned_ticks": 1716, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Championship Final", "dev": 1906, "gold": 2276, "silver": 2549, "bronze": 2913, "tuned_ticks": 1906, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Neo Tokyo Expressway", "dev": 641, "gold": 826, "silver": 925, "bronze": 1057, "tuned_ticks": 641, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Canyon Drift Apex", "dev": 939, "gold": 1159, "silver": 1298, "bronze": 1484, "tuned_ticks": 939, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Cyber Circuit 2097", "dev": 724, "gold": 931, "silver": 1043, "bronze": 1192, "tuned_ticks": 724, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Monaco GP Classic", "dev": 940, "gold": 1094, "silver": 1225, "bronze": 1400, "tuned_ticks": 940, "tuning": [7, 5, 4, 2, 2] }
+  ]
+}

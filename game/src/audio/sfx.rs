@@ -4,14 +4,14 @@
 //! impacts, turbo boost whooshes, and checkpoint completion chimes.
 
 use crate::audio::spu::{VOICE_BOOST, VOICE_CHIME, VOICE_CRASH, VOICE_SKID};
-use arduracer_core::{Fixed, VehicleState};
+use arduracer_core::{Fixed, SurfaceType, VehicleState};
 use psx_spu::{Pitch, Voice, Volume};
 
 pub struct SfxPlayer {
     skid_playing: bool,
     skid_vol: i16,
+    curb_playing: bool,
     prev_boost_ticks: u16,
-    prev_speed: Fixed,
     prev_checkpoints: u8,
 }
 
@@ -20,8 +20,8 @@ impl SfxPlayer {
         SfxPlayer {
             skid_playing: false,
             skid_vol: 0,
+            curb_playing: false,
             prev_boost_ticks: 0,
-            prev_speed: Fixed::ZERO,
             prev_checkpoints: 0,
         }
     }
@@ -41,8 +41,18 @@ impl SfxPlayer {
         Voice::key_on(VOICE_CHIME.mask());
     }
 
-    /// Updates SFX state each 60Hz tick based on vehicle and checkpoint status.
-    pub fn update(&mut self, player: &VehicleState, checkpoints_cleared: u8) {
+    /// Updates SFX state each 60Hz tick.
+    ///
+    /// `checkpoints_cleared` should be monotonic within a lap; `hit_wall` is the
+    /// authoritative crash signal from the collision solver rather than a
+    /// heuristic speed-delta guess (which is unreliable on a fixed-point model).
+    pub fn update(
+        &mut self,
+        player: &VehicleState,
+        surface: SurfaceType,
+        hit_wall: bool,
+        checkpoints_cleared: u8,
+    ) {
         // 1. Tire Screech during drift
         if player.is_drifting && player.speed > Fixed::from_int(2) {
             if !self.skid_playing {
@@ -74,24 +84,35 @@ impl SfxPlayer {
             }
         }
 
-        // 2. Barrier collision detection: sudden large drop in speed (> 2.0 within one tick)
-        let speed_loss = self.prev_speed - player.speed;
-        if speed_loss > Fixed::from_int(2) {
+        // 2. Curb rumble loop: reuses the skid voice at a low, gritty level so
+        // clipping a rumble strip is audible without a dedicated sample.
+        if surface.triggers_curb_rumble() && player.speed > Fixed::from_raw(600) {
+            let vol = Volume(0x0800);
+            VOICE_SKID.set_volume(vol, vol);
+            self.curb_playing = true;
+        } else if self.curb_playing && !self.skid_playing {
+            let vol = Volume::SILENCE;
+            VOICE_SKID.set_volume(vol, vol);
+            Voice::key_off(VOICE_SKID.mask());
+            self.curb_playing = false;
+        }
+
+        // 3. Barrier collision (authoritative, from the collision solver).
+        if hit_wall {
             self.play_crash();
         }
 
-        // 3. Boost activation trigger: boost_ticks transitioned from 0 to > 0
+        // 4. Boost activation trigger: boost_ticks transitioned from 0 to > 0
         if player.boost_ticks > 0 && self.prev_boost_ticks == 0 {
             self.play_boost();
         }
 
-        // 4. Checkpoint chime trigger: checkpoint count increased
+        // 5. Checkpoint chime trigger: checkpoint count increased
         if checkpoints_cleared > self.prev_checkpoints {
             self.play_checkpoint();
         }
 
         self.prev_boost_ticks = player.boost_ticks;
-        self.prev_speed = player.speed;
         self.prev_checkpoints = checkpoints_cleared;
     }
 }

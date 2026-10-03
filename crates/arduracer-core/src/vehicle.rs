@@ -1,21 +1,64 @@
 //! Vehicle state, dynamics, and drift simulation.
+//!
+//! Units: `speed` and `velocity` are expressed in **world units per 60 Hz tick**.
+//! A track tile is [`crate::track::TILE_SIZE`] (64) world units, so a car at top
+//! speed (`BASE_TOP_SPEED` = 3.42 u/tick, ~205 u/s) crosses one tile in ~19 ticks
+//! and the 320x240 viewport in ~1.6 s - matching the 90s arcade pace ArduRacer FX
+//! ran at on its 640x640 px level space.
 
 use crate::drift::DriftState;
 use crate::math::{self, Fixed, Vec2};
 use crate::surface::SurfaceType;
+use crate::track::{TrackDef, TILE_SIZE};
 use crate::tuning::CarTuning;
+
+/// Unladen top speed in world units per tick (~3.42 u/tick == ~205 u/s).
+pub const BASE_TOP_SPEED: Fixed = Fixed::from_raw(14000);
+/// Engine thrust per tick at full throttle and default tuning (~0.065 u/tick^2).
+///
+/// With `DRAG_RETAIN` this reaches ~92% of `BASE_TOP_SPEED` in ~108 ticks (1.8 s):
+/// punchy enough for arcade corner-exit traction without being untameable, and it
+/// saturates above `BASE_TOP_SPEED` so the top-speed clamp is what limits the car.
+const BASE_ACCEL: Fixed = Fixed::from_raw(268);
+/// Per-tick retention of forward speed from aerodynamic drag (~0.85%/tick).
+const DRAG_RETAIN: Fixed = Fixed::from_raw(4062);
+/// Foot-brake deceleration in world units per tick (~2.6 u/s^2, ~1.3 s to stop
+/// from top speed - firm enough to make braking points matter).
+const BRAKE_FORCE: Fixed = Fixed::from_raw(180);
+/// Reverse gear thrust, ~40% of forward thrust.
+const REVERSE_SCALE: Fixed = Fixed::from_raw(1638);
+/// Turbo impulse applied per tick while a boost is active.
+const BOOST_THRUST: Fixed = Fixed::from_raw(80);
+/// Extra top speed headroom while a boost is active.
+const BOOST_TOP_SPEED_BONUS: Fixed = Fixed::from_raw(2000);
+/// Angular units of heading change per tick at full steering lock.
+pub const BASE_TURN_RATE: u16 = 70;
+/// Below this speed the steering input is ignored (prevents jitter at rest).
+const STEER_MIN_SPEED: Fixed = Fixed::from_raw(200);
+/// Boost pads re-arm only after leaving the pad, preventing per-tick re-triggering.
+const BOOST_PAD_COOLDOWN_TICKS: u16 = 12;
+/// Into-wall speed (world units/tick) above which a barrier hit counts as a crash.
+pub const HARD_IMPACT_THRESHOLD: Fixed = Fixed::from_raw(900);
+/// Full nitro meter: 1.5 s of continuous boost, recharging in ~6 s.
+pub const NITRO_MAX_TICKS: u16 = 90;
+pub const NITRO_RECHARGE_TICKS: u16 = 6;
+/// Per-tick nitro thrust (well above the engine's own push).
+const NITRO_THRUST: Fixed = Fixed::from_raw(150);
 
 /// Vehicle input commands for a single simulation frame.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct VehicleInput {
     /// Throttle applied: 0 (none) to FP_ONE (full gas).
     pub throttle: Fixed,
-    /// Brake applied: 0 (none) to FP_ONE (full brake).
+    /// Brake applied: 0 (none) to FP_ONE (full brake). Becomes reverse at rest.
     pub brake: Fixed,
     /// Steering input: -FP_ONE (full left) to +FP_ONE (full right).
     pub steer: Fixed,
     /// Handbrake flag (triggers drift initiation).
     pub handbrake: bool,
+    /// Nitro held: spends the boost meter for a sustained speed surge
+    /// (GAME.md §7 "R1 / R2: Upshift (Manual mode) / Nitro").
+    pub nitro: bool,
 }
 
 /// Dynamic physical state of a racing car.
@@ -23,7 +66,7 @@ pub struct VehicleInput {
 pub struct VehicleState {
     /// Position in fixed-point world coordinates.
     pub position: Vec2,
-    /// Velocity vector in world coordinates.
+    /// Velocity vector in world units per tick.
     pub velocity: Vec2,
     /// Orientation angle (0..4096 = 0..360 deg).
     pub heading: u16,
@@ -37,10 +80,17 @@ pub struct VehicleState {
     pub drift: DriftState,
     /// Remaining ticks of turbo boost (e.g. from drift release or boost pad).
     pub boost_ticks: u16,
-    /// Current engine RPM (0..8000 scale).
+    /// Nitro meter: 0..=NITRO_MAX_TICKS of accumulated charge. Drains while
+    /// `VehicleInput::nitro` is held and refills when it is not.
+    pub nitro_charge: u16,
+    /// Cooldown before a boost pad can fire again.
+    pub boost_pad_cooldown: u16,
+    /// Current engine RPM (1000..8000 scale).
     pub engine_rpm: u16,
     /// Current gear (1..5).
     pub gear: u8,
+    /// True while reversing under brake input.
+    pub is_reversing: bool,
     /// Car tuning profile.
     pub tuning: CarTuning,
 }
@@ -56,98 +106,148 @@ impl Default for VehicleState {
             is_drifting: false,
             drift: DriftState::Grip,
             boost_ticks: 0,
+            nitro_charge: NITRO_MAX_TICKS,
+            boost_pad_cooldown: 0,
             engine_rpm: 1000,
             gear: 1,
+            is_reversing: false,
             tuning: CarTuning::default(),
         }
     }
 }
 
 impl VehicleState {
+    /// Creates a car parked at `start_pos` facing `start_heading`.
     pub fn new(start_pos: Vec2, start_heading: u16, tuning: CarTuning) -> Self {
         VehicleState {
             position: start_pos,
-            velocity: Vec2::ZERO,
             heading: start_heading,
             visual_angle: start_heading,
-            speed: Fixed::ZERO,
-            is_drifting: false,
-            drift: DriftState::Grip,
-            boost_ticks: 0,
-            engine_rpm: 1000,
-            gear: 1,
             tuning,
+            ..VehicleState::default()
         }
     }
 
-    /// Handles elastic/inelastic collision against a solid track barrier with surface normal.
+    /// Unit forward vector for the current heading (0 = North / -Y).
+    #[inline]
+    pub fn forward_dir(&self) -> Vec2 {
+        Vec2::new(math::sin(self.heading), -math::cos(self.heading))
+    }
+
+    /// Unit right-hand lateral vector for the current heading.
+    #[inline]
+    pub fn right_dir(&self) -> Vec2 {
+        Vec2::new(math::cos(self.heading), math::sin(self.heading))
+    }
+
+    /// Signed forward component of velocity.
+    #[inline]
+    pub fn forward_speed(&self) -> Fixed {
+        self.velocity.dot(self.forward_dir())
+    }
+
+    /// Resolves a collision against a solid track barrier with the given surface
+    /// normal pointing *away* from the wall.
+    ///
+    /// Light contact cancels only the into-wall velocity component so the car
+    /// slides along the barrier instead of sticking to it; a hard impact also
+    /// scrubs speed and kicks the car into a spin-out (GAME.md §5.2 wall sparks).
     pub fn handle_barrier_collision(&mut self, normal: Vec2) {
         let v_dot_n = self.velocity.dot(normal);
-        // Only bounce if heading into the wall
-        if v_dot_n < Fixed::ZERO {
-            // Restitution coefficient 0.35 (35% bounce)
-            let restitution = Fixed::from_raw(1433);
-            let impulse_mag = -(Fixed::ONE + restitution) * v_dot_n;
-            self.velocity = self.velocity + normal.scale(impulse_mag);
-            // Glancing speed penalty (30% speed scrub)
-            self.velocity = self.velocity.scale(Fixed::from_raw(2867));
+        // Only resolve when actually moving into the wall.
+        if v_dot_n >= Fixed::ZERO {
+            return;
+        }
+
+        let impact = -v_dot_n;
+        // Restitution coefficient 0.35 (35% bounce) cancels the penetration.
+        let restitution = Fixed::from_raw(1433);
+        let impulse_mag = (Fixed::ONE + restitution) * impact;
+        self.velocity = self.velocity + normal.scale(impulse_mag);
+
+        // Hard head-on hits scrub momentum and spin the car; brushing a wall
+        // while scraping along it does not, or the car would be glued in place.
+        if impact > HARD_IMPACT_THRESHOLD {
+            self.velocity = self.velocity.scale(Fixed::from_raw(2867)); // 30% scrub
             self.speed = self.velocity.length();
-            self.drift.trigger_spinout();
+            if !self.drift.is_spinning() {
+                self.drift.trigger_spinout();
+            }
         }
     }
 
     /// Advances the vehicle physics simulation by one 60Hz tick.
     pub fn tick(&mut self, input: VehicleInput, surface: SurfaceType) {
-        // 1. Steering calculation
-        let base_turn_rate: u16 = 70; // angular units per tick at full lock (~6.1 deg/tick)
-        let scaled_turn = self.tuning.scaled_turn_rate(base_turn_rate);
+        if self.boost_pad_cooldown > 0 {
+            self.boost_pad_cooldown -= 1;
+        }
 
-        if input.steer.raw() != 0 && self.speed > Fixed::from_raw(200) {
+        // 1. Steering -------------------------------------------------------------
+        let scaled_turn = self.tuning.scaled_turn_rate(BASE_TURN_RATE);
+        if input.steer.raw() != 0 && self.speed > STEER_MIN_SPEED {
             let steer_delta =
                 ((scaled_turn as i64 * input.steer.raw() as i64) >> math::FP_SHIFT) as i32;
-            let new_heading = (self.heading as i32 + steer_delta) & 0x0FFF;
-            self.heading = new_heading as u16;
+            self.heading = ((self.heading as i32 + steer_delta) & 0x0FFF) as u16;
         }
 
-        // 2. Acceleration / Engine thrust & Boost
-        let base_accel = Fixed::from_raw(60); // Base forward push per tick
-        let accel = self.tuning.scaled_acceleration(base_accel);
+        // 2. Engine thrust -------------------------------------------------------
+        let forward_dir = self.forward_dir();
+        let right_dir = self.right_dir();
+        let traction = surface.traction();
 
-        let forward_dir = Vec2::new(math::sin(self.heading), -math::cos(self.heading));
-
-        if input.throttle > Fixed::ZERO {
-            let thrust = accel * input.throttle;
-            self.velocity = self.velocity + forward_dir.scale(thrust);
+        if input.throttle > Fixed::ZERO && traction > Fixed::ZERO {
+            let accel = self.tuning.scaled_acceleration(BASE_ACCEL);
+            self.velocity = self.velocity + forward_dir.scale(accel * input.throttle * traction);
         }
 
-        // Apply active turbo boost impulse
         if self.boost_ticks > 0 {
             self.boost_ticks -= 1;
-            let boost_thrust = Fixed::from_raw(80);
-            self.velocity = self.velocity + forward_dir.scale(boost_thrust);
+            self.velocity = self.velocity + forward_dir.scale(BOOST_THRUST);
         }
 
-        // 3. Braking & Reverse
+        // 2b. Nitro ----------------------------------------------------------------
+        // Held nitro spends the meter and keeps the car above its normal ceiling
+        // for as long as the charge lasts.
+        let nitro_active = input.nitro && self.nitro_charge > 0 && traction > Fixed::ZERO;
+        if nitro_active {
+            self.nitro_charge -= 1;
+            self.boost_ticks = self.boost_ticks.max(2);
+            self.velocity = self.velocity + forward_dir.scale(NITRO_THRUST);
+        } else if self.nitro_charge < NITRO_MAX_TICKS {
+            self.nitro_charge = (self.nitro_charge + NITRO_RECHARGE_TICKS).min(NITRO_MAX_TICKS);
+        }
+
+        // 3. Braking & reverse ---------------------------------------------------
+        self.is_reversing = false;
         if input.brake > Fixed::ZERO {
-            let brake_force = Fixed::from_raw(120) * input.brake;
-            let current_speed = self.velocity.length();
-            if current_speed > brake_force {
-                let decel_ratio = (current_speed - brake_force) / current_speed;
-                self.velocity = self.velocity.scale(decel_ratio);
+            let speed_along_body = self.velocity.dot(forward_dir);
+            if speed_along_body > Fixed::ZERO {
+                // Moving forwards: scrub speed along the direction of travel.
+                let decel = BRAKE_FORCE * input.brake;
+                self.velocity = self.velocity - forward_dir.scale(decel);
+                if self.velocity.dot(forward_dir) < Fixed::ZERO {
+                    self.velocity =
+                        self.velocity - forward_dir.scale(self.velocity.dot(forward_dir));
+                }
             } else {
-                self.velocity = Vec2::ZERO;
+                // At a standstill (or already rolling backwards): reverse gear.
+                self.is_reversing = true;
+                let accel = self.tuning.scaled_acceleration(BASE_ACCEL);
+                let reverse = REVERSE_SCALE * accel * input.brake * traction;
+                let reverse_speed = -(self.velocity.dot(forward_dir));
+                let limit = Fixed::from_raw(2000);
+                if reverse_speed < limit {
+                    self.velocity = self.velocity - forward_dir.scale(reverse);
+                }
             }
         }
 
-        // 4. Drift & Lateral Traction Dynamics
-        let grip = surface.grip_factor();
-
-        // Handle drift initiation and release
+        // 4. Drift state machine -------------------------------------------------
         if input.handbrake && !self.drift.is_drifting() && self.speed > Fixed::from_raw(3000) {
             let drift_dir = if input.steer < Fixed::ZERO { -1 } else { 1 };
             self.drift.initiate_drift(drift_dir);
         } else if !input.handbrake && self.drift.is_drifting() {
-            // Releasing handbrake releases mini-turbo boost!
+            // Releasing the handbrake releases the mini-turbo boost.
             let boost_impulse = self.drift.release_drift();
             if boost_impulse > Fixed::ZERO {
                 self.boost_ticks = 30; // 0.5s of turbo boost
@@ -157,32 +257,32 @@ impl VehicleState {
 
         self.drift.tick(input.steer, self.speed, &self.tuning);
         self.is_drifting = self.drift.is_drifting();
+        if self.drift.is_spinning() {
+            self.is_reversing = false;
+        }
 
-        let lateral_friction = if self.is_drifting || surface == SurfaceType::OilSlick {
-            Fixed::from_raw(3700) // Lower lateral hold -> slide
-        } else {
-            Fixed::from_raw(3950) // High lateral grip
-        };
-
-        // Decompose velocity into forward and lateral components
+        // 5. Body-frame decomposition, drag and lateral traction ----------------
         let forward_speed = self.velocity.dot(forward_dir);
-        let right_dir = Vec2::new(math::cos(self.heading), math::sin(self.heading));
         let lateral_speed = self.velocity.dot(right_dir);
 
-        // Apply friction and surface damping
-        let damped_forward = forward_speed * Fixed::from_raw(4080) * grip;
-        let damped_lateral = lateral_speed * lateral_friction * grip;
+        let lateral_hold = if self.drift.is_spinning() {
+            Fixed::ZERO
+        } else {
+            surface.lateral_hold(self.is_drifting)
+        };
+
+        let damped_forward = forward_speed * DRAG_RETAIN;
+        let damped_lateral = lateral_speed * lateral_hold;
 
         self.velocity = forward_dir.scale(damped_forward) + right_dir.scale(damped_lateral);
 
-        // 5. Terminal Velocity Clamp
-        let base_top_speed = Fixed::from_raw(14000); // Top speed in Q20.12
-        let max_speed = self.tuning.scaled_top_speed(base_top_speed);
-        // Allow temporary exceedance when under turbo boost
+        // 6. Surface speed cap & absolute top-speed clamp -------------------------
+        let top_speed = self.tuning.scaled_top_speed(BASE_TOP_SPEED);
+        let surface_cap = top_speed * surface.max_speed_factor();
         let effective_top = if self.boost_ticks > 0 {
-            max_speed + Fixed::from_raw(3000)
+            surface_cap + BOOST_TOP_SPEED_BONUS
         } else {
-            max_speed
+            surface_cap
         };
 
         let speed_mag = self.velocity.length();
@@ -194,17 +294,26 @@ impl VehicleState {
             self.speed = speed_mag;
         }
 
-        // 6. Integrate Position
-        self.position = self.position + self.velocity.scale(Fixed::from_raw(120));
+        // 7. Boost pads ----------------------------------------------------------
+        if surface.is_boost_pad()
+            && self.boost_pad_cooldown == 0
+            && self.boost_ticks == 0
+            && !self.is_reversing
+            && !nitro_active
+        {
+            self.boost_ticks = 45;
+            self.boost_pad_cooldown = BOOST_PAD_COOLDOWN_TICKS;
+        }
 
-        // 7. Visual Angle Smoothing (drift slip angle visual representation)
+        // 8. Integrate position --------------------------------------------------
+        self.position = self.position + self.velocity;
+
+        // 9. Visual angle smoothing (drift slip angle representation) ------------
         match self.drift {
             DriftState::Drifting { slip_angle, .. } => {
-                let visual = (self.heading as i32 + (slip_angle as i32)) & 0x0FFF;
-                self.visual_angle = visual as u16;
+                self.visual_angle = ((self.heading as i32 + slip_angle as i32) & 0x0FFF) as u16;
             }
             DriftState::SpinOut { remaining_ticks } => {
-                // Wild spin animation
                 let spin_offset = remaining_ticks * 128;
                 self.visual_angle = self.heading.wrapping_add(spin_offset) & 0x0FFF;
             }
@@ -213,9 +322,9 @@ impl VehicleState {
             }
         }
 
-        // 8. Dynamic Engine RPM & Gear calculation for audio
-        let speed_ratio = (self.speed.raw() as i64 * 8000) / (base_top_speed.raw() as i64).max(1);
-        let target_rpm = (1000 + speed_ratio).min(8000) as u16;
+        // 10. Engine RPM & gear for audio / HUD ----------------------------------
+        let ratio = (self.speed.raw() as i64 * 8000) / (BASE_TOP_SPEED.raw() as i64).max(1);
+        let target_rpm = (1000 + ratio).clamp(0, 8000) as u16;
         self.engine_rpm = target_rpm;
         self.gear = match target_rpm {
             0..=2200 => 1,
@@ -224,5 +333,76 @@ impl VehicleState {
             5401..=7000 => 4,
             _ => 5,
         };
+    }
+
+    /// Resolves the vehicle against the track: solid barriers bounce the car back
+    /// onto the circuit and the world bounding box acts as the outer wall.
+    ///
+    /// Mirrors ArduRacer FX, which only ever collided with the level bounds; the
+    /// FX tile art had no hard walls, so the bounding box is the real "barrier".
+    pub fn collide_with_track(&mut self, track: &TrackDef) -> bool {
+        let max_x = track.world_width();
+        let max_y = track.world_height();
+        let mut hit = false;
+
+        // Solid interior walls (authored into the PSX Super Stages).
+        let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
+        let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
+        let tile = track.tile_at(tx, ty);
+        if tile.is_solid() {
+            hit = true;
+            // Push back along whichever face of the tile we entered through.
+            let local_x = self.position.x.to_int() - (tx as i32 * TILE_SIZE);
+            let local_y = self.position.y.to_int() - (ty as i32 * TILE_SIZE);
+            let normal = if local_x + local_y <= TILE_SIZE {
+                Vec2::new(-Fixed::ONE, Fixed::ZERO)
+            } else if local_x + local_y >= TILE_SIZE * 2 {
+                Vec2::new(Fixed::ONE, Fixed::ZERO)
+            } else if local_y <= local_x {
+                Vec2::new(Fixed::ZERO, -Fixed::ONE)
+            } else {
+                Vec2::new(Fixed::ZERO, Fixed::ONE)
+            };
+            self.handle_barrier_collision(normal);
+        }
+
+        // Outer world bounds (the circuit perimeter).
+        if self.position.x.to_int() < 0 {
+            self.position.x = Fixed::ZERO;
+            self.handle_barrier_collision(Vec2::new(Fixed::ONE, Fixed::ZERO));
+            hit = true;
+        } else if self.position.x.to_int() > max_x {
+            self.position.x = Fixed::from_int(max_x);
+            self.handle_barrier_collision(Vec2::new(-Fixed::ONE, Fixed::ZERO));
+            hit = true;
+        }
+
+        if self.position.y.to_int() < 0 {
+            self.position.y = Fixed::ZERO;
+            self.handle_barrier_collision(Vec2::new(Fixed::ZERO, Fixed::ONE));
+            hit = true;
+        } else if self.position.y.to_int() > max_y {
+            self.position.y = Fixed::from_int(max_y);
+            self.handle_barrier_collision(Vec2::new(Fixed::ZERO, -Fixed::ONE));
+            hit = true;
+        }
+
+        if hit {
+            self.speed = self.velocity.length();
+        }
+        hit
+    }
+
+    /// Convenience wrapper: run one full tick including track collision and
+    /// return the surface the car ended the tick on.
+    pub fn tick_on_track(&mut self, input: VehicleInput, track: &TrackDef) -> SurfaceType {
+        let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
+        let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
+        let surface = track.surface_at(tx, ty);
+        self.tick(input, surface);
+        self.collide_with_track(track);
+        let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
+        let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
+        track.surface_at(tx, ty)
     }
 }

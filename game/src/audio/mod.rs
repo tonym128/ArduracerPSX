@@ -14,7 +14,7 @@ pub use engine_audio::EngineAudio;
 pub use sfx::SfxPlayer;
 pub use spu::init_spu_soundbank;
 
-use arduracer_core::{Fixed, VehicleState};
+use arduracer_core::{Fixed, SurfaceType, VehicleState};
 
 /// Central audio subsystem managing hardware voices and disc audio streaming.
 pub struct AudioSystem {
@@ -38,11 +38,19 @@ impl AudioSystem {
     }
 
     /// Ticks the audio subsystem once per 60Hz frame.
-    pub fn tick(&mut self, player: &VehicleState, throttle: Fixed, checkpoints_cleared: u8) {
+    pub fn tick(
+        &mut self,
+        player: &VehicleState,
+        throttle: Fixed,
+        surface: SurfaceType,
+        hit_wall: bool,
+        checkpoints_cleared: u8,
+    ) {
         // 1. Dynamic engine synthesis
         self.engine.update(player.engine_rpm, throttle);
 
-        // 2. Sound effect state machine (tire squeal, impacts, boost, chime)
-        self.sfx.update(player, checkpoints_cleared);
+        // 2. Sound effect state machine (tire squeal, curb, impacts, boost, chime)
+        self.sfx
+            .update(player, surface, hit_wall, checkpoints_cleared);
     }
 }

@@ -19,7 +19,7 @@ pub mod track;
 pub mod tuning;
 pub mod vehicle;
 
-pub use ai::{atan2_bams, AiRacer};
+pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
 pub use ai_profiles::{AiProfile, AI_PROFILES};
 pub use championship::{compute_standings, ChampionshipSession, Competitor, POINTS_TABLE};
 pub use drift::{DriftState, DRIFT_BOOST_LEVEL1_TICKS, DRIFT_BOOST_LEVEL2_TICKS, SPINOUT_TICKS};
@@ -32,6 +32,6 @@ pub use math::{cos, sin, Fixed, Vec2, ANGLE_180, ANGLE_360, ANGLE_45, ANGLE_90, 
 pub use save::{SaveData, SAVE_HEADER_MAGIC, SAVE_VERSION, TOTAL_TRACKS};
 pub use surface::SurfaceType;
 pub use timing::{CheckpointGate, LapTimer, Medal, ParTimes, TICKS_PER_SECOND, TOTAL_LAPS};
-pub use track::{TrackDef, MAX_TRACK_CHECKPOINTS, MAX_TRACK_DIM};
+pub use track::{TrackDef, TrackTile, MAX_TRACK_CHECKPOINTS, MAX_TRACK_DIM, TILE_SIZE};
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
-pub use vehicle::{VehicleInput, VehicleState};
+pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};

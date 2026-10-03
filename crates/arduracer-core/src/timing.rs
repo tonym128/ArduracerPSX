@@ -1,6 +1,12 @@
 //! Checkpoint tracking, lap timer, and target par times.
 //!
 //! Operates on a 60 Hz fixed tick rate matching PSX NTSC 60 FPS display.
+//!
+//! Lap validation reproduces ArduRacer FX exactly (see `racer.cpp`): a lap only
+//! counts when the car *leaves* the start/finish block having already touched
+//! every checkpoint. Checkpoints may be taken in any order, so cutting a corner
+//! short simply leaves that checkpoint uncounted for the lap - it cannot be
+//! skipped, but the player is never forced into a rigid gate sequence either.
 
 /// Ticks per second (60 Hz NTSC).
 pub const TICKS_PER_SECOND: u32 = 60;
@@ -18,8 +24,18 @@ pub struct CheckpointGate {
 
 impl CheckpointGate {
     /// Tests if a given tile coordinate (tx, ty) falls within this checkpoint gate.
+    #[inline]
     pub fn contains_tile(&self, tx: u8, ty: u8) -> bool {
-        tx >= self.x && tx < self.x + self.width && ty >= self.y && ty < self.y + self.height
+        tx >= self.x
+            && tx < self.x.saturating_add(self.width)
+            && ty >= self.y
+            && ty < self.y.saturating_add(self.height)
+    }
+
+    /// Whether this gate has any area at all (inactive padding gates do not).
+    #[inline]
+    pub fn is_active(&self) -> bool {
+        self.width > 0 && self.height > 0
     }
 }
 
@@ -63,22 +79,29 @@ impl ParTimes {
     }
 }
 
-/// Real-time lap timer state machine with anti-cheat sequential checkpoint validation.
+/// Real-time lap timer with ArduRacer FX style anti-cheat checkpoint validation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LapTimer<const MAX_CHECKPOINTS: usize> {
     pub current_lap: u8,
     pub current_lap_ticks: u32,
     pub best_lap_ticks: u32,
     pub last_completed_lap_ticks: u32,
-    pub next_checkpoint_idx: u8,
     pub total_checkpoints: u8,
     pub checkpoints: [CheckpointGate; MAX_CHECKPOINTS],
+    /// Start / finish gate. Leaving it with every checkpoint cleared scores a lap.
+    pub start_gate: CheckpointGate,
+    /// Bit `i` set once checkpoint `i` has been touched during the current lap.
+    pub checkpoint_mask: u16,
+    /// True while the car is inside the start/finish block.
+    pub on_start_gate: bool,
+    /// Lap timing arms once the car first leaves the grid.
     pub is_running: bool,
     pub is_finished: bool,
 }
 
 impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
-    pub fn new(checkpoints: &[CheckpointGate]) -> Self {
+    /// Builds a timer from a track's start gate and checkpoint list.
+    pub fn new(checkpoints: &[CheckpointGate], start_gate: CheckpointGate) -> Self {
         let count = checkpoints.len().min(MAX_CHECKPOINTS);
         let mut gates = [CheckpointGate::default(); MAX_CHECKPOINTS];
         gates[..count].copy_from_slice(&checkpoints[..count]);
@@ -88,12 +111,26 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             current_lap_ticks: 0,
             best_lap_ticks: u32::MAX,
             last_completed_lap_ticks: 0,
-            next_checkpoint_idx: 0,
             total_checkpoints: count as u8,
             checkpoints: gates,
+            start_gate,
+            checkpoint_mask: 0,
+            on_start_gate: true,
             is_running: false,
             is_finished: false,
         }
+    }
+
+    /// Number of checkpoints already cleared this lap.
+    #[inline]
+    pub fn checkpoints_cleared(&self) -> u32 {
+        self.checkpoint_mask.count_ones()
+    }
+
+    /// Whether every checkpoint has been touched during the current lap.
+    #[inline]
+    pub fn all_checkpoints_cleared(&self) -> bool {
+        self.total_checkpoints > 0 && self.checkpoints_cleared() >= self.total_checkpoints as u32
     }
 
     /// Advances the timer by one 60Hz tick.
@@ -103,47 +140,87 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         }
     }
 
-    /// Starts timing (e.g. when countdown light turns GREEN).
+    /// Starts timing (called when the countdown light turns GREEN).
     pub fn start(&mut self) {
         self.is_running = true;
         self.is_finished = false;
         self.current_lap = 1;
         self.current_lap_ticks = 0;
-        self.next_checkpoint_idx = 0;
+        self.checkpoint_mask = 0;
+        // The grid places the car on the start/finish block, so the clock only
+        // arms once it drives off it.
+        self.on_start_gate = self.start_gate.is_active();
     }
 
-    /// Checks player tile against checkpoint gates and advances lap when all gates are cleared.
-    /// Returns true if a lap was just completed.
+    /// Feeds the player's tile position into the gate state machine.
+    /// Returns true when a lap was just scored.
     pub fn update_player_tile(&mut self, tx: u8, ty: u8) -> bool {
-        if !self.is_running || self.is_finished || self.total_checkpoints == 0 {
+        if self.is_finished {
             return false;
         }
 
-        // Check if player stepped into the expected next checkpoint
-        let target = self.checkpoints[self.next_checkpoint_idx as usize];
-        if target.contains_tile(tx, ty) {
-            self.next_checkpoint_idx += 1;
+        let inside_start = self.start_gate.is_active() && self.start_gate.contains_tile(tx, ty);
 
-            // If player cleared the final checkpoint (Start/Finish line)
-            if self.next_checkpoint_idx >= self.total_checkpoints {
-                self.next_checkpoint_idx = 0;
-                self.last_completed_lap_ticks = self.current_lap_ticks;
-
-                if self.current_lap_ticks < self.best_lap_ticks {
-                    self.best_lap_ticks = self.current_lap_ticks;
-                }
-
-                if self.current_lap >= TOTAL_LAPS {
-                    self.is_finished = true;
-                    self.is_running = false;
-                } else {
-                    self.current_lap += 1;
-                    self.current_lap_ticks = 0;
-                }
-                return true;
+        // Register checkpoint touches (order independent, anti-cheat by coverage).
+        for i in 0..self.total_checkpoints as usize {
+            if self.checkpoint_mask & (1 << i) != 0 {
+                continue;
+            }
+            if self.checkpoints[i].contains_tile(tx, ty) {
+                self.checkpoint_mask |= 1 << i;
             }
         }
+
+        // Crossing the start/finish line: score the lap if every gate was cleared.
+        let left_start = self.on_start_gate && !inside_start;
+        self.on_start_gate = inside_start;
+
+        if left_start && self.is_running && self.all_checkpoints_cleared() {
+            self.checkpoint_mask = 0;
+            self.last_completed_lap_ticks = self.current_lap_ticks;
+            if self.current_lap_ticks > 0 && self.current_lap_ticks < self.best_lap_ticks {
+                self.best_lap_ticks = self.current_lap_ticks;
+            }
+
+            if self.current_lap >= TOTAL_LAPS {
+                self.is_finished = true;
+                self.is_running = false;
+            } else {
+                self.current_lap += 1;
+                self.current_lap_ticks = 0;
+            }
+            return true;
+        }
+
         false
+    }
+
+    /// Live delta against the player's best lap, in ticks.
+    ///
+    /// Positive means the current lap is slower than the reference pace (red),
+    /// negative means it is ahead (green). The reference pace is prorated by how
+    /// much of the checkpoint ring has been cleared, which is what an arcade
+    /// split indicator shows. Returns 0 when no reference lap exists yet.
+    pub fn delta_ticks(&self) -> i32 {
+        if self.best_lap_ticks == u32::MAX || self.total_checkpoints == 0 {
+            return 0;
+        }
+        let progress = self.checkpoints_cleared() as u64;
+        let total = self.total_checkpoints as u64;
+        // Ticks at which the reference run is expected to have cleared `progress`
+        // gates, plus the partial gate the car is currently inside.
+        let expected = ((self.best_lap_ticks as u64 * progress) / total) as i32;
+        self.current_lap_ticks as i32 - expected
+    }
+
+    /// Index of the next route node (checkpoints in driving order, then the
+    /// start/finish gate), for HUD and rival standings.
+    pub fn route_node_index(&self, track_route_len: usize) -> usize {
+        if track_route_len == 0 {
+            0
+        } else {
+            self.checkpoints_cleared() as usize % track_route_len
+        }
     }
 
     /// Formats a tick count into MM:SS.ccc string parts: (minutes, seconds, hundredths).

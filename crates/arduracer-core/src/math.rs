@@ -52,6 +52,12 @@ impl Fixed {
         Fixed(self.0.abs())
     }
 
+    /// Multiplies by a fixed-point factor (readability helper for `a * b`).
+    #[inline]
+    pub fn scale(self, factor: Fixed) -> Self {
+        self * factor
+    }
+
     #[inline]
     pub fn clamp(self, min_val: Fixed, max_val: Fixed) -> Self {
         if self.0 < min_val.0 {

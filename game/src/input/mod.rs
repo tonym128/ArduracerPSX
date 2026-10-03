@@ -12,6 +12,10 @@ pub use rumble::RumbleDriver;
 
 use arduracer_core::{SurfaceType, VehicleInput, VehicleState};
 
+/// How strongly the low-frequency motor should shudder, derived from how far
+/// off the racing surface the car is (GAME.md §7 "rough off-road shudder").
+pub const OFFROAD_RUMBLE: u8 = 110;
+
 /// Top-level input and haptic feedback manager.
 pub struct InputManager {
     pub controller: ControllerDriver,

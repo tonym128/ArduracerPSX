@@ -15,6 +15,8 @@ pub struct ControllerDriver {
     pub is_analog_mode: bool,
     /// Digital D-Pad steering accumulator for smooth ramp-up (-4096..+4096).
     pub dpad_steer_acc: i32,
+    /// True while the configured nitro button is held.
+    pub nitro_held: bool,
 }
 
 impl ControllerDriver {
@@ -23,6 +25,7 @@ impl ControllerDriver {
             profile,
             is_analog_mode: false,
             dpad_steer_acc: 0,
+            nitro_held: false,
         }
     }
 
@@ -36,6 +39,14 @@ impl ControllerDriver {
         let mut handbrake = false;
 
         let b = pad.buttons;
+
+        // GAME.md §7: nitro lives on Triangle / R1 / L1 depending on layout.
+        let nitro = match self.profile {
+            InputProfile::ClassicArcade => b.is_held(button::TRIANGLE),
+            InputProfile::ModernTriggers => b.is_held(button::R1) || b.is_held(button::R2),
+            InputProfile::DualAnalog => b.is_held(button::L1),
+        };
+        self.nitro_held = nitro;
 
         match self.profile {
             InputProfile::ClassicArcade => {
@@ -94,6 +105,7 @@ impl ControllerDriver {
             brake,
             steer,
             handbrake,
+            nitro,
         }
     }
 
