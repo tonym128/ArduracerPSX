@@ -7,7 +7,7 @@
 
 ## Progress Overview
 
-- [ ] **Phase 0: Workspace, Toolchain & Scaffolding**
+- [x] **Phase 0: Workspace, Toolchain & Scaffolding**
 - [ ] **Phase 1: Pure `#![no_std]` Core Simulation (`arduracer-core`)**
 - [ ] **Phase 2: Track Pipeline & Level Importer (20 FX Tracks + Super Stages)**
 - [ ] **Phase 3: PSX Hardware Rendering Engine (`game/src/gpu`)**
@@ -23,7 +23,7 @@
 
 ## Phase 0: Workspace, Toolchain & Scaffolding
 
-- [ ] **TASK-001**: Configure root workspace structure and build system.
+- [x] **TASK-001**: Configure root workspace structure and build system.
   - **Worktree**: `wt-scaffold`
   - **Files**: `Makefile`, `rust-toolchain.toml`, `.cargo/config.toml`, `.gitignore`
   - **Specs**:
@@ -32,7 +32,7 @@
     - CI gate checking RAM budget (< 2,097,152 bytes) on `arduracer.exe`.
   - **Review Perspective**: Principal Architect, Senior Systems Engineer.
 
-- [ ] **TASK-002**: Scaffold `crates/arduracer-core` and host test suite.
+- [x] **TASK-002**: Scaffold `crates/arduracer-core` and host test suite.
   - **Worktree**: `wt-scaffold`
   - **Files**: `crates/arduracer-core/Cargo.toml`, `crates/arduracer-core/src/lib.rs`, `tools/test_game_logic/Cargo.toml`, `tools/test_game_logic/src/main.rs`
   - **Specs**:
@@ -41,9 +41,9 @@
     - Smoke test in `tools/test_game_logic` that verifies fast host test execution.
   - **Review Perspective**: Principal Architect, Verification/QA Lead.
 
-- [ ] **TASK-003**: Scaffold PSX target application crate.
+- [x] **TASK-003**: Scaffold PSX target application crate.
   - **Worktree**: `wt-scaffold`
-  - **Files**: `game/Cargo.toml`, `game/src/main.rs`
+  - **Files**: `game/Cargo.toml`, `game/build.rs`, `game/src/main.rs`
   - **Specs**:
     - `#![no_std]` `#![no_main]` entrypoint linking against in-tree `psoxide`.
     - Minimal PlayStation boot routine displaying black screen and blinking GPU status.

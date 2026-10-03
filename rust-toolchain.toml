@@ -1,0 +1,4 @@
+[toolchain]
+# Matches psoxide/rust-toolchain.toml.
+channel    = "nightly-2026-03-25"
+components = ["rustfmt", "clippy", "rust-src", "llvm-tools"]

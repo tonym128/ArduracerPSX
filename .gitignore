@@ -1,3 +1,26 @@
+# Reference directories
 ArduRacerFx
 plattypus-psoxide
 PSoXide-emulator
+psoxide
+
+# Build outputs
+/target/
+**/target/
+/dist/
+/build/
+*.bin
+*.cue
+*.exe
+*.iso
+
+# Git worktrees
+.worktrees/
+/.opencode/
+
+# Cargo locks & temp files
+.cargo-artifact-lock
+.cargo-build-lock
+.cargo-lock
+__pycache__/
+/scratch/

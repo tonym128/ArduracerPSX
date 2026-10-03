@@ -1,0 +1,34 @@
+[package]
+name = "arduracer"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-2.0-or-later"
+
+[workspace]
+
+[[bin]]
+name = "arduracer"
+path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[dependencies]
+psx-asset = { path = "../psoxide/sdk/crates/psx-asset" }
+psx-font  = { path = "../psoxide/sdk/crates/psx-font" }
+psx-gpu   = { path = "../psoxide/sdk/crates/psx-gpu" }
+psx-pad   = { path = "../psoxide/sdk/crates/psx-pad" }
+psx-rt    = { path = "../psoxide/sdk/crates/psx-rt" }
+psx-spu   = { path = "../psoxide/sdk/crates/psx-spu" }
+psx-vram  = { path = "../psoxide/sdk/crates/psx-vram" }
+psx-math  = { path = "../psoxide/sdk/crates/psx-math" }
+psx-hw    = { path = "../psoxide/crates/psx-hw" }
+psx-io    = { path = "../psoxide/sdk/crates/psx-io" }
+psx-gte   = { path = "../psoxide/sdk/crates/psx-gte" }
+psx-gte-core = { path = "../psoxide/sdk/crates/psx-gte-core" }
+psx-mc    = { path = "../psoxide/sdk/crates/psx-mc" }
+psx-pack  = { path = "../psoxide/sdk/crates/psx-pack" }
+psx-fmv   = { path = "../psoxide/sdk/crates/psx-fmv" }
+arduracer-core = { path = "../crates/arduracer-core" }
