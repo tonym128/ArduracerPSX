@@ -16,6 +16,7 @@ mod memcard;
 mod tests {
     use super::memcard::*;
     use arduracer_core::save::SaveData;
+    use arduracer_core::CarTuning;
     use psx_mc::{Block, Card, Error, RamCard, Result, FRAME_SIZE};
 
     /// Block wrapper that counts I/O and can inject failures.
@@ -353,10 +354,86 @@ mod tests {
     fn tuning_slot_persists() {
         let mut card = FaultCard::formatted();
         let mut m = MemoryCardManager::new();
-        let tuning = m.save_data.tuning_slots[0];
+
+        // Mutate the slot rather than round-tripping the default. Re-saving an
+        // untouched default proves nothing: `SaveData::default()` already holds
+        // `CarTuning::default()` in every slot, so a serialiser that wrote
+        // nothing, or wrote the defaults, would pass it. Every slider is moved
+        // off 4 so a partial write (say, only `top_speed`) cannot masquerade as
+        // a correct round trip either. The point budget stays at 20.
+        let tuning = CarTuning {
+            top_speed: 7,
+            acceleration: 5,
+            handling: 4,
+            drift_stability: 2,
+            gearing: 2,
+        };
+        assert!(tuning.is_valid());
+        assert_ne!(tuning, CarTuning::default());
+        assert_ne!(
+            tuning, m.save_data.tuning_slots[0],
+            "the mutation is a no-op"
+        );
+
         m.store_tuning(1, tuning);
+        assert!(m.is_dirty, "storing a tuning must mark the save dirty");
+        assert_eq!(m.save_data.tuning_slots[1], tuning);
+
         assert_eq!(m.flush_with(&mut card), MemcardStatus::Saved);
+        assert!(!m.is_dirty);
+
         let mut fresh = MemoryCardManager::new();
         assert_eq!(fresh.probe_with(&mut card), MemcardStatus::Loaded);
+        assert_eq!(
+            fresh.save_data.tuning_slots[1], tuning,
+            "the mutated tuning did not survive the card round trip"
+        );
+        // The two untouched slots must still hold the defaults, so a write that
+        // clobbered the whole array (or shifted it by one) is caught too.
+        assert_eq!(fresh.save_data.tuning_slots[0], CarTuning::default());
+        assert_eq!(fresh.save_data.tuning_slots[2], CarTuning::default());
+
+        // And it survives a second save/reload cycle, not just the first.
+        fresh.store_tuning(2, tuning);
+        assert_eq!(fresh.flush_with(&mut card), MemcardStatus::Saved);
+        let mut again = MemoryCardManager::new();
+        assert_eq!(again.probe_with(&mut card), MemcardStatus::Loaded);
+        assert_eq!(again.save_data.tuning_slots[1], tuning);
+        assert_eq!(again.save_data.tuning_slots[2], tuning);
+    }
+
+    /// `store_tuning` rejects a slot index past the 3-slot array and an invalid
+    /// (off-budget) tuning rather than writing them; a rejected store must also
+    /// leave the save clean, so nothing is flushed for a no-op.
+    #[test]
+    fn tuning_slot_store_rejects_bad_input() {
+        let mut m = MemoryCardManager::new();
+        let valid = CarTuning {
+            top_speed: 7,
+            acceleration: 5,
+            handling: 4,
+            drift_stability: 2,
+            gearing: 2,
+        };
+
+        // 21 points: over the 20-point budget, so not a legal setup.
+        let over_budget = CarTuning {
+            top_speed: 7,
+            acceleration: 7,
+            handling: 4,
+            drift_stability: 2,
+            gearing: 2,
+        };
+        assert!(!over_budget.is_valid());
+        m.store_tuning(0, over_budget);
+        assert_eq!(m.save_data.tuning_slots[0], CarTuning::default());
+        assert!(!m.is_dirty, "a rejected tuning must not dirty the save");
+
+        m.store_tuning(3, valid);
+        assert!(!m.is_dirty, "an out-of-range slot must not dirty the save");
+
+        m.store_tuning(0, valid);
+        assert_eq!(m.save_data.tuning_slots[0], valid);
+        assert!(m.is_dirty);
     }
 }

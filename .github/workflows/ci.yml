@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check the vendored PSoXide SDK is present
         # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
@@ -39,44 +39,37 @@ jobs:
         run: rustup show
 
       - name: Check formatting
-        run: |
-          for m in crates/arduracer-core tools/test_game_logic tools/playtest tools/test_memcard tools/test_ui game; do
-            if [ -f "$m/Cargo.toml" ]; then
-              echo "::group::$m"
-              cargo fmt --manifest-path "$m/Cargo.toml" --all -- --check
-              echo "::endgroup::"
-            fi
-          done
+        # `make fmt-check` owns the crate list; duplicating it here is how the
+        # two drift apart and a crate silently stops being checked.
+        run: make fmt-check
 
-      - name: Clippy
-        run: |
-          cargo clippy --manifest-path crates/arduracer-core/Cargo.toml --all-targets -- -D warnings
-          cargo clippy --manifest-path tools/test_game_logic/Cargo.toml --all-targets -- -D warnings
-          cargo clippy --manifest-path tools/playtest/Cargo.toml --all-targets -- -D warnings
-          cargo clippy --manifest-path tools/test_memcard/Cargo.toml --all-targets -- -D warnings
-          cargo clippy --manifest-path tools/test_ui/Cargo.toml --all-targets -- -D warnings
+      - name: Clippy (host crates)
+        run: make clippy-host
+
+      - name: Clippy (bare-metal game crate)
+        # `game` cannot be linted with --all-targets: game/.cargo/config.toml sets
+        # `build-std = ["core"]`, so there is no `test` crate for the
+        # mipsel-sony-psx target and cargo dies with E0463 before clippy runs.
+        # The bin target is the only thing it can check, and it used to be
+        # checked by nothing at all -- game/src was fmt-only.
+        run: make clippy-game
 
       - name: Run host-side game logic tests
-        run: |
-          cargo test --manifest-path crates/arduracer-core/Cargo.toml
-          cargo run --manifest-path tools/test_game_logic/Cargo.toml
-          cargo test --manifest-path tools/test_memcard/Cargo.toml
-          cargo test --manifest-path tools/test_ui/Cargo.toml
+        run: make test
 
       - name: Verify all 24 circuits are drivable
-        run: cargo run --manifest-path tools/playtest/Cargo.toml --release
+        # Par-time drift against tools/track_cook/par_calibration.json fails here
+        # too: the harness treats a stale generated table the same as an
+        # undrivable circuit. Escape hatches exist for local work
+        # (PLAYTEST_FLAGS=--allow-par-drift) but CI runs the strict default.
+        run: make playtest
 
   game:
     name: PSX cross-build & RAM budget gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install MIPS bare-metal toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binutils-mipsel-linux-gnu
+      - uses: actions/checkout@v7
 
       - name: Check the vendored PSoXide SDK is present
         # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
@@ -87,7 +80,11 @@ jobs:
       - name: Show toolchain
         run: rustup show
 
-      - name: Build PSX Executable
+      # No binutils needed: `make ci-game` reads the footprint out of the rust-lld
+      # link map that `make exe` emits, so the gate works on a stock
+      # ubuntu-latest runner. (binutils-mipsel-linux-gnu was installed here for a
+      # `stat -c%s` check that could not see .bss and could never fire.)
+      - name: Build PSX Executable & enforce the static RAM budget
         run: make ci-game
 
   disc:
@@ -95,12 +92,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install MIPS bare-metal toolchain & media tools
+      - name: Install media tools
+        # ffmpeg for tools/audio_cook/wav2vag.py. No MIPS binutils: the build
+        # goes through cargo/rust-lld and the RAM gate reads the link map, so
+        # nothing here shells out to objdump/nm/readelf.
         run: |
           sudo apt-get update
-          sudo apt-get install -y binutils-mipsel-linux-gnu ffmpeg
+          sudo apt-get install -y ffmpeg
 
       - name: Install psxavenc (FMV encoder)
         # tools/fmv_cook/cook_intro_str.py silently falls back to a procedural
