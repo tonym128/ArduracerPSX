@@ -111,6 +111,14 @@ fn main() {
         test_ghost_interpolation
     );
     run_test!(
+        "Ghost telemetry survives real circuit coordinates",
+        test_ghost_positions_survive_real_circuits
+    );
+    run_test!(
+        "Recovery drops a stuck car back on the racing line",
+        test_respawn_recovers_a_stuck_car
+    );
+    run_test!(
         "SaveData 8KB Memory Card block round-trip",
         test_save_block_round_trip
     );
@@ -1058,6 +1066,163 @@ fn test_ghost_recording() {
     assert_eq!(f0.heading_byte, (1024 >> 4) as u8);
     assert_eq!(f0.flags, FLAG_DRIFTING);
     assert_eq!(f0.decode_heading(), 1024);
+}
+
+fn test_ghost_positions_survive_real_circuits() {
+    // The old encoding shifted Q20.12 raw down by 4 bits into an i16, which
+    // spanned only +/-128 world units and wrapped modulo 256. Every shipped
+    // circuit is at least 640 units across, so every recorded lap replayed as
+    // garbage. Encode/decode real circuit coordinates and demand they come back.
+    const TOLERANCE_UNITS: i32 = 1;
+
+    let mut checked = 0usize;
+    for track in ALL_TRACKS.iter() {
+        let w = track.world_width();
+        let h = track.world_height();
+        assert!(
+            w > 128 && h > 128,
+            "{}: circuit smaller than the old +/-128 range; \
+             this test would no longer prove anything",
+            track.name
+        );
+
+        // Walk the whole circuit extent, including the far corners where the
+        // old encoding wrapped hardest.
+        for &(x, y) in &[
+            (0, 0),
+            (w - 1, 0),
+            (0, h - 1),
+            (w - 1, h - 1),
+            (w / 2, h / 2),
+            (w - 1, h / 3),
+        ] {
+            let pos = Vec2::new(Fixed::from_int(x), Fixed::from_int(y));
+            let back = GhostFrame::encode(pos, 2048, 0).decode_position();
+            assert!(
+                (back.x.to_int() - x).abs() <= TOLERANCE_UNITS
+                    && (back.y.to_int() - y).abs() <= TOLERANCE_UNITS,
+                "{}: ({x},{y}) round-tripped to ({},{})",
+                track.name,
+                back.x.to_int(),
+                back.y.to_int()
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked >= 24 * 6, "expected every circuit to be covered");
+
+    // A monotonic sweep along the largest axis: no wrap, no plateau, no jump.
+    let w = ALL_TRACKS
+        .iter()
+        .map(|t| t.world_width())
+        .max()
+        .expect("tracks exist");
+    let mut previous = None;
+    for x in (0..w).step_by(37) {
+        let pos = Vec2::new(Fixed::from_int(x), Fixed::ZERO);
+        let back = GhostFrame::encode(pos, 0, 0).decode_position();
+        if let Some(prev) = previous {
+            assert!(
+                back.x.to_int() > prev,
+                "position {x} decoded to {} which is not past {prev}",
+                back.x.to_int()
+            );
+        }
+        previous = Some(back.x.to_int());
+    }
+
+    // Out-of-range telemetry saturates instead of teleporting the ghost.
+    let absurd = GhostFrame::encode(
+        Vec2::new(Fixed::from_raw(i32::MAX), Fixed::from_raw(i32::MAX)),
+        0,
+        0,
+    );
+    assert!(absurd.decode_position().x.raw() > 0);
+}
+
+fn test_respawn_recovers_a_stuck_car() {
+    for track in ALL_TRACKS.iter() {
+        let mut car = VehicleState::new(track.start_pos, track.start_heading, Default::default());
+
+        // Drive it into a wall hard enough to be genuinely stuck: wedged into a
+        // solid tile, drifting, boosting, out of reverse, at speed.
+        let tx = TrackDef::tile_x_of(car.position.x);
+        let ty = TrackDef::tile_y_of(car.position.y);
+        car.velocity = Vec2::new(Fixed::from_int(6), Fixed::from_int(6));
+        car.speed = car.velocity.length();
+        car.is_drifting = true;
+        car.boost_ticks = 40;
+        car.nitro_charge = 0;
+        car.is_reversing = true;
+        car.gear = 5;
+        let throttle = VehicleInput {
+            throttle: Fixed::ONE,
+            nitro: true,
+            ..VehicleInput::default()
+        };
+        for _ in 0..240 {
+            car.tick(throttle, track.surface_at(tx, ty));
+            car.collide_with_track(track);
+        }
+
+        // Recovery must place the car on a driveable tile, facing along the
+        // track, with nothing left over that could hold it there.
+        let (pos, heading) = track.respawn_point(car.position);
+        car.respawn_at(pos, heading);
+
+        let rtx = TrackDef::tile_x_of(car.position.x);
+        let rty = TrackDef::tile_y_of(car.position.y);
+        let surface = track.surface_at(rtx, rty);
+        assert!(
+            surface.max_speed_factor() > Fixed::ZERO,
+            "{}: respawned onto {:?} at ({},{}), which cannot be driven",
+            track.name,
+            surface,
+            rtx,
+            rty
+        );
+        assert!(
+            !car.is_drifting,
+            "{}: still drifting after respawn",
+            track.name
+        );
+        assert_eq!(car.velocity, Vec2::ZERO, "{}: still moving", track.name);
+        assert_eq!(car.speed, Fixed::ZERO, "{}: still at speed", track.name);
+        assert_eq!(car.boost_ticks, 0, "{}: kept boost", track.name);
+        assert!(!car.is_reversing, "{}: stuck in reverse", track.name);
+
+        // And it must actually be able to leave again under power, which is the
+        // whole point: the failure mode this fixes is a car that cannot move.
+        let before = car.position;
+        for _ in 0..60 {
+            let (tx, ty) = (
+                TrackDef::tile_x_of(car.position.x),
+                TrackDef::tile_y_of(car.position.y),
+            );
+            car.tick(throttle, track.surface_at(tx, ty));
+            car.collide_with_track(track);
+        }
+        let moved =
+            (car.position.x - before.x).to_int().abs() + (car.position.y - before.y).to_int().abs();
+        assert!(
+            moved > 0,
+            "{}: respawned but still cannot move (surface {:?})",
+            track.name,
+            track.surface_at(
+                TrackDef::tile_x_of(car.position.x),
+                TrackDef::tile_y_of(car.position.y)
+            )
+        );
+    }
+
+    // Facing matters: the car must point down the racing line, not back across
+    // it, so a respawn never aims the player into the scenery.
+    let track = &ALL_TRACKS[0];
+    let (landed, _heading) = track.respawn_point(Vec2::ZERO);
+    assert!(
+        TrackDef::tile_x_of(landed.x) < track.width && TrackDef::tile_y_of(landed.y) < track.height,
+        "respawn landed outside the circuit"
+    );
 }
 
 fn test_ghost_interpolation() {

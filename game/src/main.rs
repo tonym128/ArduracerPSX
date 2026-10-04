@@ -270,39 +270,49 @@ impl ArduracerGame {
                     let track = self.current_track;
 
                     // GAME.md §7: Start pauses, Select toggles HUD / minimap.
-                    let pad_prev = psx_pad::ButtonState::from_bits(self.pause.prev_buttons);
-                    let pad_now = pad.buttons;
-                    let start_pressed = pad_now.pressed_since(pad_prev, psx_pad::button::START);
-                    let select_pressed = pad_now.pressed_since(pad_prev, psx_pad::button::SELECT);
-                    self.pause.prev_buttons = pad_now.bits();
-                    if start_pressed {
-                        self.paused = true;
-                        self.audio.cdda.pause();
+                    // `PauseMenu` owns all button edge state -- the race loop
+                    // must not touch it, or the menu sees every frame as
+                    // "nothing newly pressed" and cannot be dismissed.
+                    let frame = self.pause.update_from_pad(&pad);
+                    let was_paused = self.paused;
+                    if frame.start_pressed {
+                        self.paused = !self.paused;
+                        if self.paused {
+                            self.audio.cdda.pause();
+                        } else {
+                            self.audio.cdda.resume();
+                        }
                     }
-                    if select_pressed && !self.paused {
+                    if frame.select_pressed {
                         self.show_hud = !self.show_hud;
                     }
 
                     if self.paused {
-                        match self.pause.update(&pad) {
-                            PauseChoice::Resume => {
-                                self.paused = false;
-                                self.audio.cdda.resume();
+                        // The frame that opens the veil also reports the START
+                        // press that opened it, so its confirm is ignored.
+                        if was_paused {
+                            match frame.choice {
+                                PauseChoice::Resume => {
+                                    self.paused = false;
+                                    self.audio.cdda.resume();
+                                }
+                                PauseChoice::RestartRace => {
+                                    self.reset_race();
+                                    // Restarting skips frames; adopt the buttons
+                                    // held right now so the same press is not
+                                    // re-read against the fresh race.
+                                    self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
+                                    let cdda_track =
+                                        3 + ((self.current_track_idx / 6) as u8).min(3);
+                                    self.audio.cdda.play_track(cdda_track);
+                                }
+                                PauseChoice::QuitToMenu => {
+                                    self.state_mgr.championship = None;
+                                    self.state_mgr.current = GameState::MainMenu;
+                                    self.audio.cdda.play_track(2);
+                                }
+                                PauseChoice::None => {}
                             }
-                            PauseChoice::RestartRace => {
-                                self.reset_race();
-                                let cdda_track = 3 + ((self.current_track_idx / 6) as u8).min(3);
-                                self.audio.cdda.play_track(cdda_track);
-                            }
-                            PauseChoice::QuitToMenu => {
-                                self.state_mgr.championship = None;
-                                self.state_mgr.current = GameState::MainMenu;
-                                self.audio.cdda.play_track(2);
-                            }
-                            PauseChoice::None => {}
-                        }
-                        if self.pause.take_toggle_hud() {
-                            self.show_hud = !self.show_hud;
                         }
                         // Repaint the frozen world under the pause veil.
                         self.draw_frozen_race(draw_y);
@@ -317,6 +327,14 @@ impl ArduracerGame {
                     let pre_surface = track.surface_at(pre_tx, pre_ty);
                     let input = self.input_mgr.update(&self.player, pre_surface);
 
+                    // Recovery: stuck, spun, or wedged with no way out. Drops the
+                    // car on the nearest route node facing down the racing line
+                    // and clears every state that could be pinning it.
+                    if self.input_mgr.controller.respawn_pressed {
+                        let (pos, heading) = track.respawn_point(self.player.position);
+                        self.player.respawn_at(pos, heading);
+                    }
+
                     // Simulate: physics tick, then resolve track + bounds.
                     self.player.tick(input, pre_surface);
                     let hit_wall = self.player.collide_with_track(track);
@@ -324,7 +342,16 @@ impl ArduracerGame {
                     let ty = TrackDef::tile_y_of(self.player.position.y);
                     let surface = track.surface_at(tx, ty);
                     self.timer.tick();
-                    self.timer.update_player_tile(tx, ty);
+                    if self.timer.update_player_tile(tx, ty) {
+                        // A lap was just scored. Promote this lap's telemetry to
+                        // the ghost if it is the fastest so far, then start a
+                        // fresh recording: without this the "ghost" was only ever
+                        // the opening seconds of lap 1.
+                        let lap_ticks = self.timer.last_completed_lap_ticks;
+                        let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
+                        self.ghost.finish_lap(lap_ticks, is_record);
+                        self.ghost.start_lap();
+                    }
 
                     // AI rivals tick with dynamic obstacle avoidance
                     let mut other_positions = [Vec2::ZERO; 6];
@@ -361,12 +388,14 @@ impl ArduracerGame {
                     // Check race completion (5 laps)
                     if self.timer.is_finished {
                         let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
-                        let is_new = self.memcard.record_lap(
+                        self.memcard.record_lap(
                             self.current_track_idx,
                             self.timer.best_lap_ticks,
                             medal as u8,
                         );
-                        self.ghost.finish_lap(self.timer.best_lap_ticks, is_new);
+                        // Every scored lap already promoted itself; this only
+                        // closes out the in-progress final lap.
+                        self.ghost.finish_lap(self.timer.best_lap_ticks, false);
                         // Persist the record before leaving the race screen.
                         if self.memcard.is_dirty {
                             self.memcard.flush();

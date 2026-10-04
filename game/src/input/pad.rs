@@ -17,6 +17,11 @@ pub struct ControllerDriver {
     pub dpad_steer_acc: i32,
     /// True while the configured nitro button is held.
     pub nitro_held: bool,
+    /// True on the frame the recovery button goes down, set by [`Self::poll`]
+    /// from the same pad sample that produced the vehicle input.
+    pub respawn_pressed: bool,
+    /// Button state from the previous poll, for recovery edge detection.
+    prev_buttons: u16,
 }
 
 impl ControllerDriver {
@@ -26,6 +31,21 @@ impl ControllerDriver {
             is_analog_mode: false,
             dpad_steer_acc: 0,
             nitro_held: false,
+            respawn_pressed: false,
+            prev_buttons: 0,
+        }
+    }
+
+    /// The recovery button for the active layout.
+    ///
+    /// GAME.md §7 gives Triangle "Reset Car to Track", but Triangle is nitro in
+    /// the classic layout, so recovery takes the shoulder button that layout
+    /// leaves free. Kept per-profile for the same reason nitro is.
+    fn recovery_button(profile: InputProfile) -> u16 {
+        match profile {
+            InputProfile::ClassicArcade => button::R1,
+            InputProfile::ModernTriggers => button::L1,
+            InputProfile::DualAnalog => button::L2,
         }
     }
 
@@ -39,6 +59,12 @@ impl ControllerDriver {
         let mut handbrake = false;
 
         let b = pad.buttons;
+
+        // Recovery edge, taken from this same sample so it cannot disagree with
+        // the vehicle input built below it.
+        let prev = psx_pad::ButtonState::from_bits(self.prev_buttons);
+        self.respawn_pressed = b.pressed_since(prev, Self::recovery_button(self.profile));
+        self.prev_buttons = b.bits();
 
         // GAME.md §7: nitro lives on Triangle / R1 / L1 depending on layout.
         let nitro = match self.profile {

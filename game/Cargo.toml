@@ -15,12 +15,14 @@ panic = "abort"
 codegen-units = 1
 lto = true
 
-# NOTE: this crate deliberately declares no `host-test` feature. `memcard.rs`
-# gates its SIO0 wrappers on `feature = "host-test"`, and that cfg resolves
-# against whichever crate *includes* the file. The game builds the hardware
-# path (feature off); `tools/test_memcard` includes `memcard.rs` textually and
-# turns the feature on itself. Enabling it here would compile the wrappers out
-# and break `main.rs`, which calls `probe()` / `flush()`.
+[features]
+# Declared only so `cfg(feature = "host-test")` in `memcard.rs` resolves
+# instead of warning as an unexpected cfg. DO NOT BUILD THE GAME WITH IT: it
+# compiles the SIO0 wrappers out, and `main.rs` calls `probe()` / `flush()`.
+# The supported way to run the memory card suite on the host is
+# `tools/test_memcard`, which declares its own copy of the flag and includes
+# `memcard.rs` textually.
+host-test = []
 
 [dependencies]
 psx-asset = { path = "../psoxide/sdk/crates/psx-asset" }

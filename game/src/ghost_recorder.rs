@@ -1,14 +1,20 @@
 //! Telemetry Recorder for Ghost Replays.
 //!
-//! Captures 30Hz compressed keyframes during Time Trials, promoting the fastest
-//! clean lap to the active track ghost.
+//! Captures 30Hz compressed keyframes during a race, promoting the fastest
+//! completed lap to the active track ghost.
+//!
+//! The race loop calls [`LapGhostRecorder::finish_lap`] and
+//! [`LapGhostRecorder::start_lap`] at every lap boundary, so the ghost is a
+//! whole lap rather than the opening seconds of the first one.
 
 use arduracer_core::ghost::{
     GhostFrame, GhostRecorder, FLAG_BOOSTING, FLAG_BRAKING, FLAG_DRIFTING,
 };
 use arduracer_core::VehicleState;
 
-pub const MAX_GHOST_FRAMES: usize = 900; // 30 seconds at 30 Hz
+/// 60 seconds of telemetry at 30 Hz. Good laps are 15-25 s, so this leaves
+/// room for a slow lap before the recording truncates.
+pub const MAX_GHOST_FRAMES: usize = 1800;
 
 pub struct LapGhostRecorder {
     pub recorder: GhostRecorder<MAX_GHOST_FRAMES>,

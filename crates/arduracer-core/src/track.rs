@@ -8,6 +8,7 @@
 //! `tools/track_cook/convert_levels.py` so that collision, rendering, audio and
 //! the AI all agree on what a tile means without duplicating lookup tables.
 
+use crate::ai::heading_towards;
 use crate::math::{Fixed, Vec2};
 use crate::surface::SurfaceType;
 use crate::timing::{CheckpointGate, ParTimes};
@@ -214,5 +215,35 @@ impl TrackDef {
         }
         total += (prev.x - start.x).to_int().abs() + (prev.y - start.y).to_int().abs();
         total
+    }
+
+    /// Where to drop a stuck car: the nearest route node to `from`, facing along
+    /// the racing line toward the node after it.
+    ///
+    /// Used by the in-race recovery. Dropping on the node *centre* guarantees
+    /// the car lands on the racing surface rather than inside scenery, and facing
+    /// the next node means it points down the track rather than back across it.
+    pub fn respawn_point(&self, from: Vec2) -> (Vec2, u16) {
+        let n = self.route_len();
+        if n == 0 {
+            return (Self::gate_centre(&self.start_gate), 0);
+        }
+
+        let mut best_idx = 0usize;
+        let mut best_dist = i32::MAX;
+        for idx in 0..n {
+            let p = Self::gate_centre(&self.route_node(idx));
+            let dx = (p.x - from.x).to_int();
+            let dy = (p.y - from.y).to_int();
+            let dist = dx * dx + dy * dy;
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = idx;
+            }
+        }
+
+        let here = Self::gate_centre(&self.route_node(best_idx));
+        let next = Self::gate_centre(&self.route_node((best_idx + 1) % n));
+        (here, heading_towards(here, next))
     }
 }

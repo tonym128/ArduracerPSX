@@ -1,8 +1,8 @@
 //! Deterministic Ghost Car recording, playback, and telemetry compression.
 //!
-//! Encodes vehicle telemetry into compact 6-byte frames sampled at 30 Hz,
-//! fitting an entire 30-second time trial run within 5.4 KB for easy storage
-//! on a PlayStation 1 Memory Card.
+//! Encodes vehicle telemetry into compact 6-byte frames sampled at 30 Hz: a
+//! 60-second lap is under 11 KB, which still fits in one PlayStation 1 Memory
+//! Card block alongside the rest of the save.
 
 use crate::math::{self, Fixed, Vec2};
 
@@ -15,26 +15,58 @@ pub const FLAG_DRIFTING: u8 = 1 << 1;
 pub const FLAG_BOOSTING: u8 = 1 << 2;
 pub const FLAG_SKIDMARK: u8 = 1 << 3;
 
+/// World units are stored as quarter-units in a `u16`: 0.25-unit precision
+/// (a car is ~24 units long, so this is well under a pixel) across worlds up to
+/// 16383 units, which is 256x256 tiles. The largest shipped circuit is 30x30
+/// tiles = 1920 units.
+///
+/// The previous encoding shifted the raw Q20.12 value right by 4 into an `i16`,
+/// which only spanned +/-128 world units and wrapped modulo 256 -- every track
+/// in the game is at least 640 units across, so every recorded lap replayed as
+/// garbage. Truncating a *world* coordinate into 16 signed bits is the bug this
+/// constant exists to prevent; see `ghost_positions_survive_real_circuits`.
+const POS_QUARTER_UNITS: i32 = 4;
+/// Q20.12 raw units per stored quarter-unit (4096 / 4).
+const POS_RAW_PER_QUARTER: i32 = math::FP_ONE / POS_QUARTER_UNITS;
+/// Largest value representable in the stored `u16`.
+const POS_MAX_QUARTERS: i32 = u16::MAX as i32;
+
 /// A single compressed telemetry keyframe (6 bytes).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[repr(C, packed)]
 pub struct GhostFrame {
-    /// World position X (raw fixed point Q20.12 shifted right by 4 bits).
-    pub pos_x: i16,
-    /// World position Y (raw fixed point Q20.12 shifted right by 4 bits).
-    pub pos_y: i16,
+    /// World position X in quarter-units (see [`POS_QUARTER_UNITS`]).
+    pub pos_x: u16,
+    /// World position Y in quarter-units (see [`POS_QUARTER_UNITS`]).
+    pub pos_y: u16,
     /// Vehicle heading angle (0..4096 mapped to 0..255).
     pub heading_byte: u8,
     /// Vehicle status flags (drift, brake, boost, skidmark).
     pub flags: u8,
 }
 
+/// Compresses one world axis, saturating rather than wrapping.
+///
+/// A car is clamped to the track bounds, so positions are non-negative; a
+/// negative or out-of-range value can only mean corrupt telemetry, and
+/// saturating keeps it from becoming a wild teleport on playback.
+fn encode_axis(value: Fixed) -> u16 {
+    let quarters = (value.raw() / POS_RAW_PER_QUARTER).clamp(0, POS_MAX_QUARTERS);
+    quarters as u16
+}
+
+/// Expands one stored axis back to world units.
+fn decode_axis(quarters: u16) -> Fixed {
+    // u16::MAX * 1024 = 67,108,864, comfortably inside i32.
+    Fixed::from_raw((quarters as i32) * POS_RAW_PER_QUARTER)
+}
+
 impl GhostFrame {
     /// Encodes a world position and heading into a compressed GhostFrame.
     pub fn encode(pos: Vec2, heading: u16, flags: u8) -> Self {
         GhostFrame {
-            pos_x: (pos.x.raw() >> 4) as i16,
-            pos_y: (pos.y.raw() >> 4) as i16,
+            pos_x: encode_axis(pos.x),
+            pos_y: encode_axis(pos.y),
             heading_byte: ((heading & 0x0FFF) >> 4) as u8,
             flags,
         }
@@ -43,8 +75,8 @@ impl GhostFrame {
     /// Decodes the compressed frame back into fixed-point world coordinates.
     pub fn decode_position(&self) -> Vec2 {
         Vec2 {
-            x: Fixed::from_raw((self.pos_x as i32) << 4),
-            y: Fixed::from_raw((self.pos_y as i32) << 4),
+            x: decode_axis(self.pos_x),
+            y: decode_axis(self.pos_y),
         }
     }
 

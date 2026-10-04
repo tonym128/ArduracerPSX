@@ -134,6 +134,32 @@ impl VehicleState {
         Vec2::new(math::sin(self.heading), -math::cos(self.heading))
     }
 
+    /// Puts the car back on the racing surface at `pos`, facing `heading`.
+    ///
+    /// This is the recovery path for a car that is stuck, spun, or off in a
+    /// corner it cannot drive out of. Everything that could keep a car pinned is
+    /// cleared: velocity, drift state, boost and nitro charge, reverse flag and
+    /// the visual drift angle. `heading` is snapped to whole units so the car
+    /// never resumes sideways.
+    ///
+    /// The caller picks the spot -- [`TrackDef::respawn_point`] chooses the
+    /// nearest route node facing down the racing line.
+    pub fn respawn_at(&mut self, pos: Vec2, heading: u16) {
+        self.position = pos;
+        self.heading = heading & 0x0FFF;
+        self.visual_angle = self.heading;
+        self.velocity = Vec2::ZERO;
+        self.speed = Fixed::ZERO;
+        self.is_drifting = false;
+        self.drift = DriftState::Grip;
+        self.boost_ticks = 0;
+        self.nitro_charge = NITRO_MAX_TICKS;
+        self.boost_pad_cooldown = 0;
+        self.is_reversing = false;
+        self.gear = 1;
+        self.engine_rpm = 1000;
+    }
+
     /// Unit right-hand lateral vector for the current heading.
     #[inline]
     pub fn right_dir(&self) -> Vec2 {
