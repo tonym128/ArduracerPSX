@@ -19,6 +19,30 @@ Design notes (see GAME.md §3.3 / TODO.md TASK-202..204):
   jumping between checkpoints in raster-scan order.
 * **Super Stages** are rasterised from closed spline centrelines so they are
   guaranteed to be connected, closed circuits rather than open featureless fields.
+
+Workflow (the two commands are one loop, not two steps):
+
+    cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+    python3 tools/track_cook/convert_levels.py
+    cargo run --manifest-path tools/playtest/Cargo.toml --release
+
+The first measures real reference laps under the current physics and rewrites
+`par_calibration.json`; this script folds that table into `levels.rs`; the third
+is the gate that proves all 24 circuits are still drivable *and* that the
+generated par table still matches what the simulation measures. Run it after any
+physics, AI or geometry change -- the par times move with the physics. Equivalently
+`make calibrate-tracks` runs the first two steps for you.
+
+Inputs: `ArduRacerFx/Levels/Level1..20.csv` (vendored -- see
+`tools/track_cook/PROVENANCE.md`) and `tools/track_cook/par_calibration.json`.
+Both are checked up front by `preflight()` with an actionable error, because a
+missing input used to surface as a bare `FileNotFoundError` *after*
+`--calibrate` had already rewritten the par table.
+
+This is the **single source of truth** for `crates/arduracer-core/src/levels.rs`.
+Never hand-edit that file: this cooker fails the build on an unreachable gate, an
+off-road gate, a start box outside the racing surface, or a wall that seals a
+circuit off.
 """
 
 import json
@@ -107,12 +131,7 @@ def load_par_calibration():
     Dev Platinum = fastest swept tuning, Gold = default tune, Silver/Bronze =
     default tune + slack. See TODO.md TASK-1001.
     """
-    path = os.path.join(find_repo_root(), "tools", "track_cook", "par_calibration.json")
-    if not os.path.exists(path):
-        raise SystemExit(
-            "par_calibration.json missing. Generate it with:\n"
-            "  cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate"
-        )
+    path = os.path.join(REPO_ROOT, "tools", "track_cook", "par_calibration.json")
     with open(path) as f:
         data = json.load(f)
     table = {}
@@ -129,17 +148,93 @@ def load_par_calibration():
 
 
 def find_repo_root() -> str:
-    cur = os.path.abspath(os.path.dirname(__file__))
-    while cur != "/":
-        if os.path.exists(os.path.join(cur, "ArduRacerFx")):
-            return cur
-        cur = os.path.dirname(cur)
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    """The checkout that owns *this script*, resolved from its own location.
+
+    Deliberately **not** an upward search for a marker directory. `make
+    calibrate-tracks` and AGENT.md both tell you to work in a git worktree
+    (`.worktrees/wt-track/...`), and an upward search for `ArduRacerFx` walked
+    straight out of the worktree into the parent checkout: the cooker then read
+    the *parent's* `par_calibration.json` and overwrote the *parent's*
+    `crates/arduracer-core/src/levels.rs`, silently leaving the worktree it was
+    invoked from untouched. Deriving the root from `__file__` is unambiguous and
+    is what a worktree requires.
+
+    `tools/track_cook/convert_levels.py` -> `<root>/tools/track_cook/...`, so the
+    root is two levels up.
+    """
+    root = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+    )
+    if not os.path.isdir(os.path.join(root, "tools", "track_cook")):
+        raise SystemExit(
+            f"internal error: {root} does not look like an ArduracerPSX checkout "
+            "(expected tools/track_cook/ inside it)"
+        )
+    return root
+
+
+def preflight():
+    """Fail loudly, before anything is written, if an input is missing.
+
+    Both inputs are committed (`ArduRacerFx/Levels/*.csv` -- see
+    `tools/track_cook/PROVENANCE.md` -- and `par_calibration.json`), so a
+    missing file means a broken checkout rather than something the user did
+    wrong. The old behaviour was to let `open()` raise: `make calibrate-tracks`
+    runs `--calibrate` *first*, so the operator watched the par table get
+    rewritten and then read a bare `FileNotFoundError` traceback off the cooker,
+    which looks like "calibration failed" instead of "the level data is not here".
+    """
+    root = find_repo_root()
+    missing = [
+        os.path.join(root, f"ArduRacerFx/Levels/Level{i}.csv") for i in range(1, 21)
+        if not os.path.isfile(os.path.join(root, f"ArduRacerFx/Levels/Level{i}.csv"))
+    ]
+    par = os.path.join(root, "tools", "track_cook", "par_calibration.json")
+    if not os.path.isfile(par):
+        missing.append(par)
+
+    if not missing:
+        return root
+
+    lines = [
+        "ERROR: the track cooker is missing inputs it needs.",
+        "",
+    ]
+    if any("ArduRacerFx" in m for m in missing):
+        lines += [
+            f"  {len([m for m in missing if 'ArduRacerFx' in m])} of the 20 legacy level"
+            " CSVs are absent, e.g.",
+            f"    {os.path.relpath(missing[0], root)}",
+            "",
+            "  They live in the vendored ArduRacerFx reference tree and ARE tracked in"
+            " git (see tools/track_cook/PROVENANCE.md), so this checkout is incomplete."
+            " Fix it with:",
+            "",
+            "    git checkout fix/track -- ArduRacerFx",
+            "",
+            "  If a *live* ArduRacerFx clone is sitting in the way, move it out of the"
+            " tree first -- git refuses to overwrite it with the tracked copy.",
+        ]
+    if par in missing:
+        lines += [
+            "",
+            "  The par-time table is missing. Re-measure it:",
+            "    cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate",
+        ]
+    lines += [
+        "",
+        "  Nothing has been written. Crates/arduracer-core/src/levels.rs is unchanged.",
+    ]
+    raise SystemExit("\n".join(lines))
+
+
+# Resolved once, from this script's own location, and validated immediately: the
+# rest of the module reads `REPO_ROOT` and never searches for a root again.
+REPO_ROOT = preflight()
 
 
 def load_level_csv(level_idx: int):
-    root = find_repo_root()
-    path = os.path.join(root, f"ArduRacerFx/Levels/Level{level_idx}.csv")
+    path = os.path.join(REPO_ROOT, f"ArduRacerFx/Levels/Level{level_idx}.csv")
     with open(path) as f:
         rows = [list(map(int, line.strip().split(","))) for line in f if line.strip()]
     return rows
@@ -720,7 +815,7 @@ def format_generated(path):
 
 
 if __name__ == "__main__":
-    out_path = os.path.join(find_repo_root(), "crates", "arduracer-core", "src", "levels.rs")
+    out_path = os.path.join(REPO_ROOT, "crates", "arduracer-core", "src", "levels.rs")
     print(f"Generating {out_path}...")
     rust_code = generate_rust_code()
     with open(out_path, "w") as f:
