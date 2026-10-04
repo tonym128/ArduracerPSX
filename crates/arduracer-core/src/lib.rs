@@ -34,10 +34,13 @@ pub use ghost::{
     FLAG_DRIFTING, FLAG_SKIDMARK, GHOST_MAGIC, GHOST_SAMPLE_INTERVAL_TICKS, GHOST_VERSION,
 };
 pub use levels::ALL_TRACKS;
-pub use math::{cos, sin, Fixed, Vec2, ANGLE_180, ANGLE_360, ANGLE_45, ANGLE_90, FP_ONE};
+pub use math::{cos, sin, Fixed, Vec2, ANGLE_180, ANGLE_360, ANGLE_45, ANGLE_90, FP_ONE, FP_SHIFT};
 pub use save::{SaveData, SAVE_HEADER_MAGIC, SAVE_VERSION, TOTAL_TRACKS};
 pub use surface::SurfaceType;
-pub use timing::{CheckpointGate, LapTimer, Medal, ParTimes, TICKS_PER_SECOND, TOTAL_LAPS};
+pub use timing::{
+    CheckpointGate, LapTimer, Medal, ParTimes, StartPhase, StartSequence, COUNTDOWN_GO_TICKS,
+    COUNTDOWN_LIGHTS, COUNTDOWN_LIGHT_TICKS, TICKS_PER_SECOND, TOTAL_LAPS,
+};
 pub use track::{TrackDef, TrackTile, MAX_TRACK_CHECKPOINTS, MAX_TRACK_DIM, TILE_SIZE};
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
 pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};
