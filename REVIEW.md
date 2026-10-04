@@ -358,8 +358,33 @@ local behaviour needs one of:
 - **(c)** do nothing and accept that CI validates a slightly different SDK than
   the one the game is played with.
 
-Until one of these is chosen, the CD-DA, memory-card and FMV fixes in this
-document have been verified against the **locally modified** SDK only.
+### Resolved: the SDK is vendored
+
+**(b) was chosen** — `psoxide/sdk` is committed here, so the build no longer
+depends on a tree that exists on one machine.
+
+- Vendored: `sdk/` (all 20 crates), `crates/psx-hw`, `crates/psx-iso`,
+  `crates/psxed-format`, `tools/mkisopsx` — **304 files, 6.2 MB**, an exact copy
+  of the working tree this game was being built against, so **CI now compiles the
+  same SDK the game is played with**, including the ten local modifications and
+  the two local additions listed in `psoxide/PROVENANCE.md`.
+- `psoxide/Cargo.toml` is a reduced member list over that subset (upstream's root
+  lists emulator crates that are not vendored); `[workspace.package]`,
+  `[workspace.lints]` and `[workspace.dependencies]` are copied verbatim.
+  `sdk/Cargo.toml` is upstream's, unedited.
+- `.gitignore` keeps the rest of the upstream tree out (emulator, assets, docs,
+  build output) and re-admits the font bitmaps, which the repo's own `*.bin`
+  build-output rule would otherwise have silently dropped.
+- `make deps` no longer clones; it asserts the vendored tree is present.
+
+Verified by cloning this branch with nothing but git and running the full gate:
+`fmt-check`, `clippy`, 42/42 + 14/14 + 6/6, playtest 24/24, `ci-game` all pass
+with no network access to any SDK repository.
+
+The ten modified files are still unpublished upstream. This makes the build
+reproducible, but it does not make the divergence go away — publishing them and
+re-locking `components.lock.json` would let this directory be deleted. Until
+then the pinned revision is advisory, and `psoxide/PROVENANCE.md` is the record.
 
 ---
 

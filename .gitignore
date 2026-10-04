@@ -2,7 +2,24 @@
 ArduRacerFx
 plattypus-psoxide
 PSoXide-emulator
-psoxide
+
+# `psoxide/` is NOT ignored as a whole: the SDK subset the game builds against is
+# committed here, because upstream it is a *generated* component that exists on
+# no remote (REVIEW.md section 1c, psoxide/PROVENANCE.md). Everything else in
+# that upstream tree -- emulator, assets, docs, and all build output -- stays out.
+/psoxide/emu/
+/psoxide/assets/
+/psoxide/docs/
+/psoxide/compat/
+/psoxide/validation/
+/psoxide/tools/*
+!/psoxide/tools/mkisopsx/
+/psoxide/.components-receipt.json
+
+# The vendored font bitmaps are `*.bin`, which the build-output rule above
+# ignores. They are generator inputs for `psx-font` (see
+# psoxide/sdk/crates/psx-font/src/fonts/basic_8x16.rs), so they must be tracked.
+/psoxide/sdk/crates/psx-font/vendor/*.bin
 
 # Build outputs
 /target/

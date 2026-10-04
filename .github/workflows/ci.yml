@@ -24,11 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Provision the PSoXide SDK
-        # `psoxide/sdk` is a generated component of EBonura/PSoXide, pinned by
-        # components.lock.json and materialised by bootstrap-components.py. It is
-        # not source in this repository, so without this step every cargo command
-        # below dies with a manifest error.
+      - name: Check the vendored PSoXide SDK is present
+        # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
+        # front so a partial checkout fails with one line rather than a cargo
+        # manifest error deep in the log.
         run: make deps
 
       - name: Show toolchain
@@ -74,11 +73,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y binutils-mipsel-linux-gnu
 
-      - name: Provision the PSoXide SDK
-        # `psoxide/sdk` is a generated component of EBonura/PSoXide, pinned by
-        # components.lock.json and materialised by bootstrap-components.py. It is
-        # not source in this repository, so without this step every cargo command
-        # below dies with a manifest error.
+      - name: Check the vendored PSoXide SDK is present
+        # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
+        # front so a partial checkout fails with one line rather than a cargo
+        # manifest error deep in the log.
         run: make deps
 
       - name: Show toolchain

@@ -1,0 +1,50 @@
+# Vendored PSoXide SDK -- workspace root for the subset this game builds.
+#
+# Upstream: https://github.com/EBonura/PSoXide-emulator (sdk component pinned by
+# components.lock.json to EBonura/PSoXide 3a7c21a05c67579e01c8146ec112ab697a3b769a).
+# See PROVENANCE.md for exactly what is vendored and how it differs from the pin.
+#
+# This file is NOT upstream's: upstream's root lists emulator crates that are not
+# vendored here. It is a reduced member list over the vendored subset, with
+# `[workspace.package]`, `[workspace.lints]` and `[workspace.dependencies]` copied
+# verbatim from upstream. The device-side crates under `sdk/` are a separate
+# nested workspace rooted at `sdk/Cargo.toml`, excluded here as upstream does.
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/psx-hw",
+    "crates/psx-iso",
+    "crates/psxed-format",
+    "tools/mkisopsx",
+]
+
+# The device-side workspace lives inside this tree; cargo requires nested
+# workspace roots to be excluded explicitly.
+exclude = ["sdk"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.87"
+license = "GPL-2.0-or-later"
+repository = "https://github.com/EBonura/PSoXide-emulator"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_op_in_unsafe_fn = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+too_many_arguments = "allow"
+
+[workspace.dependencies]
+# Workspace-internal path deps, relative to this file.
+psx-hw  = { path = "crates/psx-hw" }
+psx-iso = { path = "crates/psx-iso" }
+
+# External deps. Only the ones the vendored crates reference are kept; upstream
+# declares more for the emulator crates, which are not vendored.
+bitflags = { version = "2.6", default-features = false }
