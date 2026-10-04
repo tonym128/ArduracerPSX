@@ -472,3 +472,25 @@ test in `tools/test_game_logic` and/or `tools/playtest`.
   `make calibrate-tracks` (see REVIEW.md §6.1 for why the FX table was not
   retained verbatim).
 - [x] **FIX-12**: New `tools/playtest` playability verifier added to `make ci-host`.
+
+---
+
+## Post-Audit Fix Log (Memory Card pass)
+
+Found by making the memory card path testable for the first time; see REVIEW.md
+§1 F-11 to F-13. FIX-10 above claimed the card was wired up — it was not, and
+the save had never executed even once.
+
+- [x] **FIX-13**: `tools/test_memcard` host suite made to compile (it referenced a
+  `SaveData.best_laps` field that does not exist, so all eleven cases had never
+  run) and wired into `make test`, `make clippy`, `make fmt-check` and CI.
+- [x] **FIX-14**: BIOS icon builder indexed the 128-byte frame with the pixel
+  width as row stride, so every row from the eighth overflowed the buffer. Under
+  `panic = "abort"` **every save crashed the game**; fixed with named geometry
+  constants and a `debug_assert` tying the icon size to `FRAME_SIZE`.
+- [x] **FIX-15**: `SaveData` is no longer memcpy'd to the card. Explicit 161-byte
+  serialisation (`write_payload` / `read_payload`) removes the interior and
+  trailing struct padding that the CRC was covering and the card was storing.
+- [x] **FIX-16**: Card outcomes are surfaced instead of discarded — `Saved`,
+  `Corrupt` and `WriteFailed` queue a HUD banner for 150 frames — and a payload
+  that arrives short is rejected instead of read past.

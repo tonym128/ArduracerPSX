@@ -12,9 +12,10 @@
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Formatting | `make fmt-check` | **clean** (4 crates) |
-| Lints | `make clippy` (`-D warnings`) | **clean** (3 host crates) |
+| Formatting | `make fmt-check` | **clean** (5 crates) |
+| Lints | `make clippy` (`-D warnings`) | **clean** (4 host crates) |
 | Game-logic unit suite | `make test` | **40 / 40 pass** |
+| Memory-card persistence suite | `cargo test -p test_memcard` | **14 / 14 pass** |
 | **Circuit playability** | `make playtest` | **24 / 24 circuits playable** |
 | Bare-metal MIPS build | `make exe` | **clean, zero warnings** |
 | Main-RAM budget | `make ci-game` | **424 KB / 2 MB = 20.7 %** |
@@ -156,6 +157,60 @@ use and recharged on release, wired to Triangle / R1 / L1 / R2 per layout;
 `MemoryCardManager` now probes port 1 at boot, loads the CRC-validated save, and
 flushes with a custom 16×16 checkered-flag BIOS icon through
 `Card::write_with_icon`, degrading to in-memory defaults on any failure.
+
+### F-11 — The memory card still never saved: every write panicked
+
+F-10 declared the card wired up, but the path had never been executed by a
+test, and **the first save aborted the game**. The BIOS icon builder indexed
+the 128-byte frame with the pixel *width* as the row stride
+(`y * 16 + x / 2`) instead of half of it, so every row from the eighth onwards
+walked off the end of the array. The PSX build is `panic = "abort"`: reaching
+the finish line and calling `flush()` killed the process rather than saving.
+The same finding applies to the tuning-store flush in the garage menu.
+
+*Root cause of the miss* — `tools/test_memcard` existed but had never
+compiled: it referenced a `SaveData.best_laps` field that is actually called
+`best_lap_ticks`, so not one of its eleven cases had ever run. Nothing in
+`make test`, `make clippy`, or CI referenced the crate.
+
+*Fix* — row stride corrected to `y * ICON_WIDTH / 2` with named geometry
+constants and a `debug_assert` tying `ICON_WIDTH * ICON_HEIGHT / 2` to
+`FRAME_SIZE`; harness field names corrected; the suite added to `make test`,
+`make clippy`, `make fmt-check`, and the CI host job so it cannot rot again.
+
+### F-12 — The save CRC covered uninitialised struct padding
+
+`SaveData` was `#[repr(C)]` and both the checksum and the card image were raw
+`size_of::<SaveData>()`-byte memcpys of the struct. The 15-byte
+`tuning_slots` array ends on an odd offset, so the struct carries **one
+interior padding byte before the checksum and two trailing bytes** — and
+`compute_checksum` derived its length by pointer arithmetic that swept the
+interior pad into the CRC. Those bytes are uninitialised: the checksum depended
+on whatever the stack happened to hold, the card received nondeterministic
+bytes, and reading them is undefined behaviour the optimiser is free to
+miscompile. The 164-byte "payload" was also 3 bytes larger than the format.
+
+*Fix* — `SaveData` is no longer the on-disk layout. Fields are serialised
+explicitly into a fixed 161-byte `PAYLOAD_SIZE` buffer, `compute_checksum` CRCs
+the bytes that `write_payload` actually produces (so the two cannot drift), and
+`read_payload` rejects short, mis-magicked, mis-versioned, or CRC-failing
+input. `repr(C)` and the pointer arithmetic are gone. A regression test
+serialises the same save into an all-zero and an all-`0xFF` buffer and requires
+identical output, which is precisely what the old code could not do.
+
+### F-13 — A failed save was invisible, and a truncated one was trusted
+
+`flush()`'s result was discarded at both call sites, so a pulled or full card
+cost the player their records with no feedback, despite `MemcardStatus` being
+documented as "surfaced to the UI". `probe` also ignored the length `Card::read`
+returned and validated a fixed-size window of the scratch buffer, so a payload
+that arrived short was read past rather than rejected.
+
+*Fix* — the manager parks every player-relevant outcome (`Saved`, `Corrupt`,
+`WriteFailed`) in a countdown the frame loop drains, rendered as a bottom-screen
+banner by `render_card_notice`; a load or blank card stays silent. A short
+read is now `Corrupt`. Unused `save_to_block` (a duplicate of the flush path)
+removed.
 
 ---
 

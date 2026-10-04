@@ -1,0 +1,16 @@
+[package]
+name = "test_memcard"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+arduracer-core = { path = "../../crates/arduracer-core" }
+psx-mc = { path = "../../psoxide/sdk/crates/psx-mc", default-features = false }
+
+[features]
+# Mirrors the game crate's feature so the textually included memcard.rs drops
+# its hardware-only wrappers.
+host-test = []
+default = ["host-test"]

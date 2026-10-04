@@ -885,21 +885,30 @@ fn test_save_checksum() {
 }
 
 fn test_save_bit_flip_detection() {
-    let mut save = SaveData::default();
+    let save = SaveData::default();
     assert!(save.is_valid());
 
-    // Corrupt a single byte inside save data
-    let raw_bytes = unsafe {
-        core::slice::from_raw_parts_mut(
-            &mut save as *mut SaveData as *mut u8,
-            core::mem::size_of::<SaveData>(),
-        )
-    };
-    raw_bytes[10] ^= 0x01; // flip 1 bit
+    // Corrupt a single byte of the serialised payload -- the bytes that
+    // actually reach the card. Poking struct memory instead would be testing
+    // padding, which is no longer part of the format.
+    let mut payload = [0u8; arduracer_core::save::PAYLOAD_SIZE];
+    save.write_payload(&mut payload);
+    assert_eq!(
+        SaveData::read_payload(&payload).expect("intact payload must load"),
+        save,
+        "payload round-trip must be lossless"
+    );
 
+    payload[10] ^= 0x01; // flip 1 bit
     assert!(
-        !save.is_valid(),
+        SaveData::read_payload(&payload).is_none(),
         "Corrupted save must be caught by checksum"
+    );
+
+    // A short buffer must not be read past either.
+    assert!(
+        SaveData::read_payload(&payload[..arduracer_core::save::PAYLOAD_SIZE - 1]).is_none(),
+        "Truncated save must be rejected"
     );
 }
 
@@ -1096,7 +1105,17 @@ fn test_save_block_round_trip() {
     assert_eq!(restored.medals_earned[0], 3);
     assert_eq!(restored.best_lap_ticks[5], 2300);
     assert_eq!(restored.checksum, original.checksum);
+    assert_eq!(restored.tuning_slots, original.tuning_slots);
     assert!(restored.is_valid());
+
+    // The block is zero-filled past the payload, so a stale tail can never be
+    // mistaken for data.
+    assert!(
+        block[arduracer_core::save::PAYLOAD_SIZE..]
+            .iter()
+            .all(|&b| b == 0),
+        "block padding after the payload must be zeroed"
+    );
 
     // Corrupt one byte in the block -> must fail deserialization
     block[5] ^= 0xFF;

@@ -26,9 +26,10 @@ use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer};
 use input::{InputManager, InputProfile};
-use memcard::MemoryCardManager;
+use memcard::{MemcardStatus, MemoryCardManager};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
 use state::{GameState, StateManager};
+use ui::font::draw_text;
 use ui::{MenuItem, PauseChoice, PauseMenu, ResultsScreen};
 
 pub const SCREEN_WIDTH: u16 = 320;
@@ -498,8 +499,31 @@ impl ArduracerGame {
                     }
                 }
             }
+
+            // 4. Memory card notice. Drawn over every screen: the write that
+            // failed happened during a race, and the player needs to know their
+            // record is not on the card.
+            self.memcard.tick_notice();
+            if let Some(status) = self.memcard.notice() {
+                render_card_notice(status);
+            }
         }
     }
+}
+
+/// Bottom-of-screen banner for the outcome of the last memory card operation.
+fn render_card_notice(status: MemcardStatus) {
+    let (text, colour) = match status {
+        MemcardStatus::Saved => ("SAVED TO MEMORY CARD", (70, 220, 110)),
+        MemcardStatus::Corrupt => ("SAVE DAMAGED - NEW PROFILE", (240, 170, 40)),
+        MemcardStatus::WriteFailed => ("SAVE FAILED - CHECK CARD", (235, 60, 60)),
+        // The manager only queues the three above; anything else draws nothing.
+        _ => return,
+    };
+    let w = SCREEN_WIDTH - 24;
+    let y = SCREEN_HEIGHT as i16 - 26;
+    psx_gpu_mod::draw_rect_flat(12, y, w, 16, 12, 14, 20);
+    draw_text(16, y as u16 + 4, text, colour, 1);
 }
 
 static mut GAME: Option<ArduracerGame> = None;
