@@ -29,7 +29,7 @@ jobs:
 
       - name: Check formatting
         run: |
-          for m in crates/arduracer-core tools/test_game_logic tools/playtest tools/test_memcard game; do
+          for m in crates/arduracer-core tools/test_game_logic tools/playtest tools/test_memcard tools/test_ui game; do
             if [ -f "$m/Cargo.toml" ]; then
               echo "::group::$m"
               cargo fmt --manifest-path "$m/Cargo.toml" --all -- --check
@@ -43,12 +43,14 @@ jobs:
           cargo clippy --manifest-path tools/test_game_logic/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path tools/playtest/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path tools/test_memcard/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path tools/test_ui/Cargo.toml --all-targets -- -D warnings
 
       - name: Run host-side game logic tests
         run: |
           cargo test --manifest-path crates/arduracer-core/Cargo.toml
           cargo run --manifest-path tools/test_game_logic/Cargo.toml
           cargo test --manifest-path tools/test_memcard/Cargo.toml
+          cargo test --manifest-path tools/test_ui/Cargo.toml
 
       - name: Verify all 24 circuits are drivable
         run: cargo run --manifest-path tools/playtest/Cargo.toml --release

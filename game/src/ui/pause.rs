@@ -1,91 +1,39 @@
 //! In-Race Pause Overlay (DualShock `Start`).
 //!
 //! GAME.md §7 assigns `Start` to "Pause Game Menu" and `Select` to
-//! "Toggle In-Game Minimap / HUD". This module owns both so the race loop stays
-//! a single, readable `match` arm.
+//! "Toggle In-Game Minimap / HUD". This module owns the drawing and the
+//! `psx-pad` adapter; the input state machine lives in [`pause_input`] so it can
+//! be exercised on the host by `tools/test_ui`.
 
 use crate::ui::font::draw_text;
+pub use crate::ui::pause_input::PauseMenu;
+use crate::ui::pause_input::{PauseFrame, PauseInput};
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum PauseChoice {
-    /// Nothing changed this frame.
-    None,
-    Resume,
-    RestartRace,
-    QuitToMenu,
-}
-
-pub struct PauseMenu {
-    pub selected_idx: u8,
-    pub prev_up: bool,
-    pub prev_down: bool,
-    /// Button mask from the previous frame, for edge detection.
-    pub prev_buttons: u16,
-    /// Set when `Select` is pressed; the race loop consumes and clears it.
-    pub toggle_hud_request: bool,
-}
-
-const ITEM_COUNT: u8 = 3;
+pub use crate::ui::pause_input::PauseChoice;
 
 impl PauseMenu {
-    pub const fn new() -> Self {
-        PauseMenu {
-            selected_idx: 0,
-            prev_up: false,
-            prev_down: false,
-            prev_buttons: 0,
-            toggle_hud_request: false,
-        }
-    }
-
-    /// Handles navigation and confirms a selection.
-    pub fn update(&mut self, pad: &PadState) -> PauseChoice {
+    /// Extracts the pause-relevant buttons from a polled pad.
+    ///
+    /// Public so the race loop can hand the same snapshot to
+    /// [`PauseMenu::sync_edges`] after a transition that skipped frames.
+    pub fn input_from_pad(pad: &PadState) -> PauseInput {
         let b = pad.buttons;
-        let prev = psx_pad::ButtonState::from_bits(self.prev_buttons);
-        self.prev_buttons = b.bits();
-
-        if b.pressed_since(prev, button::SELECT) {
-            self.toggle_hud_request = true;
-        }
-
-        let up = b.is_held(button::UP);
-        let down = b.is_held(button::DOWN);
-        if up && !self.prev_up {
-            self.selected_idx = if self.selected_idx == 0 {
-                ITEM_COUNT - 1
-            } else {
-                self.selected_idx - 1
-            };
-        } else if down && !self.prev_down {
-            self.selected_idx = if self.selected_idx + 1 >= ITEM_COUNT {
-                0
-            } else {
-                self.selected_idx + 1
-            };
-        }
-        self.prev_up = up;
-        self.prev_down = down;
-
-        if b.pressed_since(prev, button::START) || b.pressed_since(prev, button::CIRCLE) {
-            PauseChoice::Resume
-        } else if b.pressed_since(prev, button::CROSS) {
-            match self.selected_idx {
-                0 => PauseChoice::Resume,
-                1 => PauseChoice::RestartRace,
-                _ => PauseChoice::QuitToMenu,
-            }
-        } else {
-            PauseChoice::None
+        PauseInput {
+            start: b.is_held(button::START),
+            select: b.is_held(button::SELECT),
+            cross: b.is_held(button::CROSS),
+            circle: b.is_held(button::CIRCLE),
+            up: b.is_held(button::UP),
+            down: b.is_held(button::DOWN),
         }
     }
 
-    /// Clears the one-shot HUD toggle request.
-    pub fn take_toggle_hud(&mut self) -> bool {
-        let v = self.toggle_hud_request;
-        self.toggle_hud_request = false;
-        v
+    /// Reads this frame's pause-relevant buttons off the pad and runs the state
+    /// machine.
+    pub fn update_from_pad(&mut self, pad: &PadState) -> PauseFrame {
+        self.update(Self::input_from_pad(pad))
     }
 
     /// Renders the dimmed pause panel.

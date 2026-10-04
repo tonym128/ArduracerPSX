@@ -12,10 +12,11 @@
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Formatting | `make fmt-check` | **clean** (5 crates) |
-| Lints | `make clippy` (`-D warnings`) | **clean** (4 host crates) |
-| Game-logic unit suite | `make test` | **40 / 40 pass** |
+| Formatting | `make fmt-check` | **clean** (6 crates) |
+| Lints | `make clippy` (`-D warnings`) | **clean** (5 host crates) |
+| Game-logic unit suite | `make test` | **42 / 42 pass** |
 | Memory-card persistence suite | `cargo test -p test_memcard` | **14 / 14 pass** |
+| UI state-machine suite | `cargo test -p test_ui` | **6 / 6 pass** |
 | **Circuit playability** | `make playtest` | **24 / 24 circuits playable** |
 | Bare-metal MIPS build | `make exe` | **clean, zero warnings** |
 | Main-RAM budget | `make ci-game` | **424 KB / 2 MB = 20.7 %** |
@@ -211,6 +212,86 @@ that arrived short was read past rather than rejected.
 banner by `render_card_notice`; a load or blank card stays silent. A short
 read is now `Corrupt`. Unused `save_to_block` (a duplicate of the flush path)
 removed.
+
+---
+
+## 1b. Second Audit: 20 Reported Defects, Re-verified
+
+A 20-item defect list was checked against the tree rather than taken at face
+value. Six items were wrong, four were partly wrong, and two were already fixed
+by the memory card pass. Numbers below were measured, not estimated.
+
+### Fixed in this pass
+
+- **F-14 — Pause menu was a one-way door (blocker).** `main.rs` wrote
+  `pause.prev_buttons` itself *before* handing the pad to `PauseMenu::update`,
+  so the menu compared every frame against itself and `pressed_since` was never
+  true. `update()` could only ever return `None`: the player could enter the menu
+  and only power-cycle out. Highlight navigation still worked, which is why it
+  read as "the menu is unresponsive" rather than "the game is bricked".
+  *Fix* — the input state machine moved to a hardware-free `ui/pause_input.rs`
+  that owns **all** edge state; the race loop can no longer reach in and clobber
+  it. `Start` now toggles the veil, the opening frame's confirm is ignored, and
+  `tools/test_ui` (new) asserts the menu can always be dismissed.
+- **F-15 — Ghost telemetry wrapped on every circuit.** `ghost.rs` encoded
+  position as `(raw >> 4) as i16`, i.e. a *world* coordinate truncated into 16
+  signed bits: a ±128-unit range wrapping every 256 units, against circuits
+  640–1920 units across. Every recorded lap replayed as garbage; the two existing
+  ghost tests only used coordinates 0 and 10.
+  *Fix* — positions are stored as `u16` quarter-units (0.25-unit precision,
+  worlds to 16383 units, saturating rather than wrapping), same 6-byte frame. The
+  recorder now also restarts **per lap**: previously `finish_lap` ran only at
+  race end, so the "ghost" was the opening 30 s of lap 1. New regression test
+  walks every circuit's real extent; reinstating the old encoding fails it while
+  both pre-existing ghost tests still pass.
+- **F-16 — No in-race recovery.** Added `VehicleState::respawn_at` and
+  `TrackDef::respawn_point`: the car is dropped on the nearest route node facing
+  the next node, with velocity, drift, boost, nitro and reverse state cleared.
+  Bound per input profile to the shoulder button that layout leaves free
+  (R1 / L1 / L2) — GAME.md's "Triangle: Reset Car to Track" is unreachable
+  because Triangle is nitro. Edge-detected in the same pad sample that produces
+  the vehicle input. Proven on all 24 circuits by a test that wedges the car,
+  recovers it, and requires it to drive away.
+
+### Confirmed, still open
+
+| # | Finding | Measured |
+| :--- | :--- | :--- |
+| 1 | No car-to-car collision | `collide_with_track` takes no car; nothing transfers momentum between cars. Only a steering nudge (`ai.rs:170`). Contradicts GAME.md §4.2 "The Brawler" and §4.3 split-screen, neither of which exists. |
+| 2 | Interior Barrier bricks the car | Real: `collide_with_track` resolves velocity but never depenetrates position, and Barrier is 0 traction / 0 top speed. Measured immobile for 50 s. **But zero Barrier tiles ship** in all 24 circuits (the cooker maps FX walls to drivable OffRoad), so it is unreachable today. |
+| 3 | Nitro effectively always on | True in practice, wrong in the figure: 85.7 % duty cycle, not 3000/3000. `NITRO_RECHARGE_TICKS = 6` refills the 90-tick meter in **0.25 s**, not the ~6 s the doc comment claims (24× off). |
+| 4 | No countdown | `timer.start()` arms the clock in `reset_race`; no 3-2-1-GO anywhere. `timing.rs`'s own doc comment references a countdown light that does not exist. |
+| 5 | Lap validation is coverage-only | `timing.rs` scores a lap on leaving the start gate with every gate touched, in any order, either direction. Reverse-through-every-gate scores on all 24 circuits. |
+| 6 | Unreproducible build | **Confirmed by fresh clone**: `make fmt-check` dies resolving the 15 unversioned gitignored `../psoxide` path deps, so `make ci` aborts before clippy, tests or the MIPS build. Pre-existing (fails at `1c50604` too). `ArduRacerFx/Levels/*.csv` is gitignored, so `levels.rs` cannot be regenerated and no published metric is verifiable. |
+| 7 | Minimap redrawn per frame | Up to 900 quads/frame on 30×30 tracks, uncached. Skidmarks: 96-slot ring written every frame = 1.6 s of life against a `life: 180` (3 s) constant, so the fade colour at `life > 60` is unreachable. |
+| 8 | Garage allows illegal builds | UI clamps to 10, `MAX_SLIDER` is 7. A 10-slider build is 1.6006× top speed, is applied to the live car, then **silently dropped** by `store_tuning`'s `is_valid()` gate, so it vanishes on reboot. Beats Dev Platinum par on 13/24 circuits (not "every par"). |
+| 9 | Docs and packaging | No `LICENSE` file. 91 MB of MP3/MP4 tracked in git. `packaging/*.md` and `web/assets/*` assert Sony product codes (`SLUS-01995`, `SLUS-00999`) and ESRB/ELSPA ratings for a GPL project. |
+
+### Reported but not reproducible
+
+| # | Claim | Reality |
+| :--- | :--- | :--- |
+| 10 | "Zero automated tests" | 40 game-logic + 14 memory-card + this pass's 6 UI + 1024 playtest laps. The literal `#[test]` count was 0 only because the harnesses are `run_test!` binaries. |
+| 11 | "Time Trial awards championship points" | Rivals are spawned unconditionally — true. Points are **not** awarded: `award_stage_points` is behind `if let Some(ref mut champ)`, and Time Trial leaves `championship = None`. |
+| 12 | "Grand Prix always loads cup_index * 6" | Only race 1: `current_stage` is forced to 0 for the highlighted track, then `advance_stage()` walks the cup correctly for stages 2-6. |
+| 13 | "Drifts can't be sustained; spin at 14 ticks" | Spin-out is at **16** ticks (`24n ≥ 384`). Drifts **are** sustainable: counter-steering bypasses the deepening branch and pins slip at the 128 clamp, reaching tier-2 boost at 90 ticks (measured 400+ ticks). |
+| 14 | "HUD: 4 px overlap, gear over nitro, no lap counter, Select hides the timer" | Measured boxes: timer ink ends x=208, speedo starts x=220 (12 px clear); nitro bar rows 20–24, gear ink rows 26–40 (below it, not over); five lap boxes plus a `LAPS` label exist. Select hides the **whole** HUD, which is the spec. The `=` glyph is real but lives in `ui/track_select.rs:176`, where `b'0' + 13` lands in the font's symbol range — not the HUD. |
+| 15 | "Particles invisible" | Order confirmed (particles at `main.rs:438`, cars at 440–450). Tire smoke is fully hidden — spawned at the car's exact centre with zero velocity, inside the body sprite. Sparks are only partly hidden. Ghost opacity confirmed: `car_renderer.rs:146` uses `draw_quad_flat` with GP0 bit 25 clear despite the "translucent" comment. |
+| 16 | "CRC hashes padding; both corruption tests are false positives" | Correct, and fixed by F-12 above. Byte 10 and byte 5 are both inside `magic`, which `is_valid()` short-circuits on, so no test exercised the CRC. Replaced with an exhaustive single-bit-flip sweep over the real payload. |
+
+### Runner-ups confirmed
+
+`gearing` has **zero** simulation reads — 4 of the 20-point budget buys nothing
+while being documented, rendered and swept by playtest. `drift_stability` is read
+at exactly one site (`drift.rs:112`) and only scales the counter-steer unwinding
+rate, never the spin threshold, contradicting GAME.md §3.2. `Fixed::mul` wraps
+(`math.rs:78`) while `add`/`sub` saturate and `abs`/`neg` panic in debug — a real
+latent trap, though both panic paths are currently dead code and `make test`
+(debug) vs `make playtest` (release) do differ. `compute_standings` indexes
+`rivals[i-1]` unguarded for `i in 1..6`. `playtest` passes `&[]` for neighbours,
+so AI obstacle avoidance has zero coverage. Finished AI reverses forever and can
+overflow `current_lap: u8`. A cancelled Grand Prix leaks `championship` into
+"Records & Medials".
 
 ---
 

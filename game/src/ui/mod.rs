@@ -5,13 +5,15 @@
 pub mod font;
 pub mod menu;
 pub mod pause;
+pub mod pause_input;
 pub mod results;
 pub mod title;
 pub mod track_select;
 pub mod tuning_screen;
 
 pub use menu::{MainMenu, MenuItem};
-pub use pause::{PauseChoice, PauseMenu};
+pub use pause::PauseMenu;
+pub use pause_input::{PauseChoice, PauseFrame, PauseInput};
 pub use results::ResultsScreen;
 pub use title::TitleScreen;
 pub use track_select::TrackSelectScreen;

@@ -19,7 +19,13 @@ Where the Arduboy original ran on an 8-bit ATmega32U4 with a 128×64 monochrome 
   - **Deterministic Ghost Car**: Race against your own personal best ghost or developer record ghosts in real-time.
   - **Grand Prix Cup Mode**: Compete against a full 6-car grid of aggressive, personality-driven AI racers across 4 championship cups.
   - **Car Tuning & Garage**: Comprehensive performance tuning (Top Speed, Acceleration, Downforce, Drift Factor, Gearing) and custom liveries.
-  - **DualShock Force Feedback**: Feel every curb rattle, drift threshold, and engine redline through dual-motor analog vibration.
+  - **Recovery**: if the car is wedged, spun, or facing a wall it cannot drive out
+  of, the recovery button drops it back on the nearest route node facing down the
+  racing line, clearing all momentum, drift and boost state. Bound to the
+  shoulder button each layout leaves free: `R1` (Classic Arcade), `L1` (Modern
+  Triggers), `L2` (Dual Analog).
+
+- **DualShock Force Feedback**: Feel every curb rattle, drift threshold, and engine redline through dual-motor analog vibration.
   - **PlayStation Memory Card Support**: 1-block save file with a custom 16×16 animated BIOS icon saving best laps, trophy cabinets, ghost telemetry, and custom tuning profiles.
 
 ---
@@ -178,12 +184,19 @@ Uncompressed 44.1 kHz 16-bit stereo Red Book CD-DA audio mastered onto disc trac
 | **Left Stick / D-Pad** | Analog / Digital Steering | Menu Navigation |
 | **Cross ($\times$)** | Throttle / Accelerate | Confirm / Select |
 | **Square ($\Box$)** | Foot Brake / Reverse | Back / Cancel |
-| **Circle ($\bigcirc$)** | Handbrake / Drift Initiate | Toggle Camera Mode |
-| **Triangle ($\triangle$)** | Rear View Mirror | Reset Car to Track |
+| **Circle ($\bigcirc$)** | Handbrake / Drift Initiate | Resume (pause menu) |
+| **Triangle ($\triangle$)** | Nitro (Classic layout) | - |
+| **R1** | Recovery: Reset Car to Track (Classic layout) | Next Tab |
 | **R1 / R2** | Upshift (Manual mode) / Nitro | Next Tab |
-| **L1 / L2** | Downshift (Manual mode) | Previous Tab |
+| **L1 / L2** | Downshift (Manual mode) / Previous Tab | - |
 | **Start** | Pause Game Menu | - |
 | **Select** | Toggle In-Game Minimap / HUD | - |
+
+- **Recovery**: if the car is wedged, spun, or facing a wall it cannot drive out
+  of, the recovery button drops it back on the nearest route node facing down the
+  racing line, clearing all momentum, drift and boost state. Bound to the
+  shoulder button each layout leaves free: `R1` (Classic Arcade), `L1` (Modern
+  Triggers), `L2` (Dual Analog).
 
 - **DualShock Force Feedback**:
   - Small high-speed motor: Engine revs, curb vibrations, wheel slippage warning.
