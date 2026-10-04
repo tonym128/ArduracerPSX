@@ -1,0 +1,57 @@
+name: Deploy Web Arcade to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MIPS bare-metal toolchain & media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-mipsel-linux-gnu ffmpeg
+
+      - name: Show toolchain
+        run: rustup show
+
+      - name: Build PS1 Executable, ISO, and Disc Images
+        run: |
+          make disc
+          make iso
+
+      - name: Stage Web Arcade Assets
+        run: |
+          mkdir -p web/roms
+          cp dist/arduracer.exe dist/arduracer.cue dist/arduracer.bin dist/arduracer.iso web/roms/
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Web Arcade Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './web'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

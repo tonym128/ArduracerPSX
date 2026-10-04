@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 786" width="1000" height="786">
+  <defs>
+    <linearGradient id="pal-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0814"/>
+      <stop offset="50%" stop-color="#140e24"/>
+      <stop offset="100%" stop-color="#06050c"/>
+    </linearGradient>
+    <linearGradient id="pal-stripe" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#001438"/>
+      <stop offset="100%" stop-color="#002d7a"/>
+    </linearGradient>
+    <linearGradient id="neon-title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff0055"/>
+      <stop offset="50%" stop-color="#ff9900"/>
+      <stop offset="100%" stop-color="#00ffff"/>
+    </linearGradient>
+    <linearGradient id="silver-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e0e8f0"/>
+      <stop offset="100%" stop-color="#9aa8b8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left Spine (PAL Double-case White/Black Spine with SLES-00999) -->
+  <rect x="0" y="0" width="45" height="786" fill="#f4f6f8"/>
+  <rect x="43" y="0" width="2" height="786" fill="#cccccc"/>
+  <g transform="translate(26, 730) rotate(-90)">
+    <text font-family="'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="12" fill="#000000" letter-spacing="2">SLES-00999</text>
+    <text x="110" y="0" font-family="'Arial Black', sans-serif" font-weight="900" font-size="13" fill="#002266" letter-spacing="2">ARDURACER : ARCADE MOTORSPORT</text>
+    <text x="590" y="1" font-family="Arial, sans-serif" font-weight="bold" font-size="12" fill="#e60012">PS</text>
+  </g>
+
+  <!-- Right Spine (PAL Double-case White/Black Spine with SLES-00999) -->
+  <rect x="955" y="0" width="45" height="786" fill="#f4f6f8"/>
+  <rect x="955" y="0" width="2" height="786" fill="#cccccc"/>
+  <g transform="translate(981, 730) rotate(-90)">
+    <text font-family="'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="12" fill="#000000" letter-spacing="2">SLES-00999</text>
+    <text x="110" y="0" font-family="'Arial Black', sans-serif" font-weight="900" font-size="13" fill="#002266" letter-spacing="2">ARDURACER : ARCADE MOTORSPORT</text>
+    <text x="590" y="1" font-family="Arial, sans-serif" font-weight="bold" font-size="12" fill="#e60012">PS</text>
+  </g>
+
+  <!-- Center Back Tray (910px) -->
+  <rect x="45" y="0" width="910" height="786" fill="url(#pal-bg)"/>
+
+  <!-- Top PAL Brand Banner with PlayStation Symbols -->
+  <rect x="45" y="0" width="910" height="42" fill="url(#pal-stripe)"/>
+  <g transform="translate(70, 26)">
+    <text font-family="'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="16" fill="#ffffff" letter-spacing="4">PlayStation</text>
+    <g transform="translate(160, -3)" fill="none" stroke="url(#silver-grad)" stroke-width="2" opacity="0.8">
+      <polygon points="10,0 18,14 2,14" stroke="#00d084"/>
+      <circle cx="36" cy="7" r="7" stroke="#eb144c"/>
+      <line x1="50" y1="0" x2="64" y2="14" stroke="#0693e3"/>
+      <line x1="64" y1="0" x2="50" y2="14" stroke="#0693e3"/>
+      <rect x="74" y="0" width="14" height="14" stroke="#fcb900"/>
+    </g>
+    <text x="810" y="0" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="bold" font-size="13" fill="#a0c0e8" letter-spacing="1">PAL 50/60Hz</text>
+  </g>
+
+  <!-- Game Title and Subheading -->
+  <g transform="translate(500, 110)">
+    <text x="0" y="0" font-family="'Arial Black', Impact, sans-serif" font-weight="900" font-size="44" fill="url(#neon-title)" text-anchor="middle" letter-spacing="6">ARDURACER</text>
+    <text x="0" y="28" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="bold" font-size="13" fill="#e2e8f0" text-anchor="middle" letter-spacing="3">60 FPS TOP-DOWN ARCADE RACING ACTION</text>
+  </g>
+
+  <!-- Multilingual Blurbs (English, French, German, Italian, Spanish) -->
+  <g transform="translate(80, 180)">
+    <!-- English -->
+    <rect x="0" y="0" width="400" height="76" rx="4" fill="#141022" stroke="#ff0055" stroke-width="1"/>
+    <text x="12" y="22" font-family="'Arial Black', sans-serif" font-size="11" fill="#ff0055">🇬🇧 DRIFT TO VICTORY</text>
+    <text x="12" y="42" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">24 circuits, 6 AI rival drivers, custom tuning and</text>
+    <text x="12" y="58" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">high-speed drift physics on authentic PlayStation hardware.</text>
+
+    <!-- French -->
+    <rect x="430" y="0" width="400" height="76" rx="4" fill="#141022" stroke="#00ffff" stroke-width="1"/>
+    <text x="442" y="22" font-family="'Arial Black', sans-serif" font-size="11" fill="#00ffff">🇫🇷 LA COURSE EN SURRÉGIME</text>
+    <text x="442" y="42" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">24 circuits du monde, 6 pilotes rivaux, personnalisation</text>
+    <text x="442" y="58" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">au garage et bande originale Eurobeat CD-DA 16-bit.</text>
+
+    <!-- German -->
+    <rect x="0" y="90" width="400" height="76" rx="4" fill="#141022" stroke="#ffbb00" stroke-width="1"/>
+    <text x="12" y="112" font-family="'Arial Black', sans-serif" font-size="11" fill="#ffbb00">🇩🇪 ARCADE-MOTORSPORT PUR</text>
+    <text x="12" y="132" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">24 anspruchsvolle Rennstrecken, Nitro-Boost und</text>
+    <text x="12" y="148" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">präzise DualShock-Analoglenkung für Bestzeiten.</text>
+
+    <!-- Italian -->
+    <rect x="430" y="90" width="400" height="76" rx="4" fill="#141022" stroke="#38ef7d" stroke-width="1"/>
+    <text x="442" y="112" font-family="'Arial Black', sans-serif" font-size="11" fill="#38ef7d">🇮🇹 CORSE ARCADE AD ALTA VELOCITÀ</text>
+    <text x="442" y="132" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">Gareggia in 4 coppe campionato, gestisci la derapata</text>
+    <text x="442" y="148" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#cbd5e1">e salva i tuoi record su Memory Card da 1 blocco.</text>
+  </g>
+
+  <!-- Technical Spec Grid -->
+  <g transform="translate(80, 480)">
+    <rect x="0" y="0" width="830" height="90" rx="4" fill="#0d0a18" stroke="#334155" stroke-width="1"/>
+    <text x="20" y="28" font-family="monospace" font-size="12" fill="#94a3b8">1 Player &bull; Memory Card 1 Block &bull; DualShock Analog Compatible &bull; Vibration Function</text>
+    <text x="20" y="52" font-family="monospace" font-size="12" fill="#94a3b8">CD-DA Audio (Tracks 2-7) &bull; MDEC Cinema &bull; 60 FPS Top-Down Renderer &bull; PAL 50/60Hz</text>
+    <text x="20" y="74" font-family="monospace" font-size="11" fill="#64748b">Sony Computer Entertainment Europe, Great Marlborough Street, London W1V 1AF</text>
+  </g>
+
+  <!-- Barcode & ELSPA Rating -->
+  <g transform="translate(80, 600)">
+    <!-- Barcode -->
+    <rect x="0" y="0" width="180" height="90" fill="#ffffff"/>
+    <g fill="#000000">
+      <rect x="15" y="10" width="4" height="60"/>
+      <rect x="23" y="10" width="2" height="60"/>
+      <rect x="30" y="10" width="6" height="60"/>
+      <rect x="42" y="10" width="4" height="60"/>
+      <rect x="52" y="10" width="5" height="60"/>
+      <rect x="62" y="10" width="2" height="60"/>
+      <rect x="70" y="10" width="7" height="60"/>
+      <rect x="85" y="10" width="4" height="60"/>
+      <rect x="95" y="10" width="3" height="60"/>
+      <rect x="105" y="10" width="6" height="60"/>
+      <rect x="118" y="10" width="2" height="60"/>
+      <rect x="126" y="10" width="5" height="60"/>
+      <rect x="138" y="10" width="4" height="60"/>
+      <rect x="148" y="10" width="2" height="60"/>
+      <rect x="156" y="10" width="6" height="60"/>
+      <text x="90" y="82" font-family="monospace" font-size="11" fill="#000000" text-anchor="middle">5 014555 009998 &gt;</text>
+    </g>
+
+    <!-- ELSPA Age Rating -->
+    <rect x="210" y="0" width="100" height="90" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+    <text x="260" y="40" font-family="'Arial Black', sans-serif" font-size="32" fill="#000000" text-anchor="middle">3+</text>
+    <text x="260" y="65" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="bold" font-size="10" fill="#000000" text-anchor="middle">ELSPA</text>
+    <text x="260" y="80" font-family="'Helvetica Neue', Arial, sans-serif" font-size="8" fill="#000000" text-anchor="middle">EVERYONE</text>
+
+    <!-- Legal Notes -->
+    <g transform="translate(340, 10)">
+      <text x="0" y="18" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#94a3b8">FOR HOME USE ONLY. Unauthorised copying, adaptation, rental,</text>
+      <text x="0" y="34" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#94a3b8">lending, distribution, extraction, re-sale, arcade use, charging for use,</text>
+      <text x="0" y="50" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#94a3b8">broadcast, public performance and internet or other telecommunications</text>
+      <text x="0" y="66" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#94a3b8">transmission of this product or any trademark or copyright work that</text>
+      <text x="0" y="82" font-family="'Helvetica Neue', Arial, sans-serif" font-size="10" fill="#94a3b8">forms part of this product are prohibited.</text>
+    </g>
+  </g>
+</svg>

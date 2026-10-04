@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  host:
+    name: Host tests, lint, format
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: rustup show
+
+      - name: Check formatting
+        run: |
+          for m in crates/arduracer-core tools/test_game_logic tools/playtest game; do
+            if [ -f "$m/Cargo.toml" ]; then
+              echo "::group::$m"
+              cargo fmt --manifest-path "$m/Cargo.toml" --all -- --check
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path crates/arduracer-core/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path tools/test_game_logic/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path tools/playtest/Cargo.toml --all-targets -- -D warnings
+
+      - name: Run host-side game logic tests
+        run: |
+          cargo test --manifest-path crates/arduracer-core/Cargo.toml
+          cargo run --manifest-path tools/test_game_logic/Cargo.toml
+
+      - name: Verify all 24 circuits are drivable
+        run: cargo run --manifest-path tools/playtest/Cargo.toml --release
+
+  game:
+    name: PSX cross-build & RAM budget gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MIPS bare-metal toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-mipsel-linux-gnu
+
+      - name: Show toolchain
+        run: rustup show
+
+      - name: Build PSX Executable
+        run: make ci-game
+
+  disc:
+    name: Disc mastering smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MIPS bare-metal toolchain & media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-mipsel-linux-gnu ffmpeg
+
+      - name: Master PS1 Disc Image
+        run: make ci-disc
