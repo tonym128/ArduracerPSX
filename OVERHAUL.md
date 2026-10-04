@@ -7,19 +7,49 @@ Planning document. Each step below is a proposal with a defined "done" condition
 through each circuit's already-ordered gate centres -- no level-pipeline change
 needed, and it matches the AI's own gate-to-gate line by construction).
 
-**Steps 3 and 4 are blocked on step 2, and this was measured, not assumed.**
+**Steps 3 and 4 are blocked, on a measured and still-unresolved cause.**
 Migrating lap validation to centreline-relative, direction-aware arc crossings
-works -- a prototype scored forward laps and correctly refused reverse ones on
-all 24 circuits -- but `tools/playtest`'s reference driver then **stalled on every
-hairpin**, because a spline through gate centres overshoots there and stops being
-a line the car can drive. The centreline is the wrong validation line until the
-*road* is drivable: a curve can be geometrically correct and still run off the
-inside of a corner. Step 2 (authored runoff margin, and a road-quality pass on the
-tight circuits) has to land first. Enabling arc validation before then would
-reject legitimate laps on exactly the tracks where driving is hardest.
+works arithmetically -- a prototype scored forward laps and correctly refused
+reverse ones on all 24 circuits. But `tools/playtest`'s reference driver then
+**completed zero laps on the hairpins and serpentines** (Twin Hairpin, The
+Serpent, Metropolis 10); the oval-style circuits recovered only after the driver
+was changed to follow the centreline with a lookahead.
 
-Consequence for the plan: the reference driver is the canary for this. When step
-2 lands, `make playtest` must be re-run before step 4 is enabled.
+**The cause is not yet established, and an earlier guess in this document was
+wrong.** It was first attributed to Catmull-Rom overshoot at hairpins. Testing
+that directly refuted it:
+
+- The cooker's road is *already* painted along a closed uniform Catmull-Rom spline
+  through the same ordered gates (`corridor_polyline`), i.e. the same
+  formulation, so the runtime centreline is not a novel curve.
+- The runtime centreline nevertheless does **not** stay on the road: measured
+  1-3 samples per circuit land on `OffRoad` (e.g. one on Arduboy Oval at tile
+  (8,8), with only isolated curb tiles around it). A centreline that leaves the
+  tarmac cannot be the validation line, because a legitimately-driven car would
+  fail the gate it is supposed to have passed.
+- Three candidate fixes were implemented and **all three were refuted**: widening
+  the corridor from 1.05 to 1.30 tiles (off-road samples unchanged); feeding the
+  spline tile *corners* to match the cooker's raw coordinates (3 -> 1, but other
+  invariants broke); moving both cooker and core to tile *centres* (1 -> 2).
+
+What that leaves, as the next thing to investigate rather than assume:
+
+1. Whether the runtime spline and the cooker's polyline are the *same* curve at
+   all. They use the same formula and control-point order, but the cooker samples
+   12 per span against the runtime's 8, and the runtime is fixed-point while the
+   cooker is float. Neither was checked for pointwise agreement.
+2. Whether the road band is wide enough to *contain* a curve at tile resolution.
+   A tile is painted road when its centre is within `half_width` of the polyline;
+   a curve point between centres can therefore sit outside the painted band even
+   when the curve is identical. If so the fix belongs in `paint_corridor`, and the
+   invariant needs a margin rather than a nudge.
+3. `Route::clamp_into_bounds` is load-bearing: removing it fixes out-of-grid
+   samples by distorting the curve, which then breaks other invariants. Treat it
+   as masking a level-data problem, not as the fix.
+
+Do **not** enable arc validation before this is resolved: it would reject
+legitimate laps on exactly the circuits where driving is hardest. The reference
+driver is the canary -- when step 2 lands, re-run `make playtest` before step 4.
 
 **The level pipeline regenerates byte-identically.** Verified while starting
 step 1: `python3 tools/track_cook/convert_levels.py` rewrites `levels.rs` with an
@@ -138,7 +168,7 @@ depending on tile coordinates.
 *Done when:* every gate's `half_width` >= the corridor half-width at its
 `arc_pos`, asserted for all 24 circuits.
 
-### 4. Rewrite lap validation as plane crossing  *(blocked on step 2)*
+### 4. Rewrite lap validation as plane crossing  *(blocked -- see above)*
 
 `LapTimer` scores a lap from `contains_tile` coverage with no ordering and no
 direction check — which is why **driving backwards through every gate scores a
@@ -153,13 +183,11 @@ with skipped gates does not.
 
 *Blocked, with evidence.* A prototype of this passed: walking a circuit's
 centreline scores laps on all 24 tracks, and driving the same centreline backwards
-scores nothing on any of them -- which is the defect closed. But feeding the real
-physics through it, `make playtest` completed **zero** laps on the hairpins and
-serpentines (Twin Hairpin, The Serpent, Metropolis 10) and only recovered the
-oval-style circuits after the reference driver was changed to follow the centreline
-with a lookahead. The cause is that a spline through gate centres overshoots on
-tight turns and leaves the road, so it cannot be the validation line until the
-road is drivable. Do step 2 first.
+scores nothing on any of them -- the defect is closed at the arithmetic level. But
+feeding real physics through it, `make playtest` completed **zero** laps on the
+hairpins and serpentines. The blocker is that the centreline does not reliably
+stay on the road; see the status note at the top of this document for what has
+been ruled out. Resolve it, then enable this.
 
 ### 5. Render the road as a ribbon, not tiles
 
