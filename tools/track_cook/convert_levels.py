@@ -19,6 +19,30 @@ Design notes (see GAME.md §3.3 / TODO.md TASK-202..204):
   jumping between checkpoints in raster-scan order.
 * **Super Stages** are rasterised from closed spline centrelines so they are
   guaranteed to be connected, closed circuits rather than open featureless fields.
+
+Workflow (the two commands are one loop, not two steps):
+
+    cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+    python3 tools/track_cook/convert_levels.py
+    cargo run --manifest-path tools/playtest/Cargo.toml --release
+
+The first measures real reference laps under the current physics and rewrites
+`par_calibration.json`; this script folds that table into `levels.rs`; the third
+is the gate that proves all 24 circuits are still drivable *and* that the
+generated par table still matches what the simulation measures. Run it after any
+physics, AI or geometry change -- the par times move with the physics. Equivalently
+`make calibrate-tracks` runs the first two steps for you.
+
+Inputs: `ArduRacerFx/Levels/Level1..20.csv` (vendored -- see
+`tools/track_cook/PROVENANCE.md`) and `tools/track_cook/par_calibration.json`.
+Both are checked up front by `preflight()` with an actionable error, because a
+missing input used to surface as a bare `FileNotFoundError` *after*
+`--calibrate` had already rewritten the par table.
+
+This is the **single source of truth** for `crates/arduracer-core/src/levels.rs`.
+Never hand-edit that file: this cooker fails the build on an unreachable gate, an
+off-road gate, a start box outside the racing surface, or a wall that seals a
+circuit off.
 """
 
 import json
@@ -107,12 +131,7 @@ def load_par_calibration():
     Dev Platinum = fastest swept tuning, Gold = default tune, Silver/Bronze =
     default tune + slack. See TODO.md TASK-1001.
     """
-    path = os.path.join(find_repo_root(), "tools", "track_cook", "par_calibration.json")
-    if not os.path.exists(path):
-        raise SystemExit(
-            "par_calibration.json missing. Generate it with:\n"
-            "  cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate"
-        )
+    path = os.path.join(REPO_ROOT, "tools", "track_cook", "par_calibration.json")
     with open(path) as f:
         data = json.load(f)
     table = {}
@@ -129,17 +148,93 @@ def load_par_calibration():
 
 
 def find_repo_root() -> str:
-    cur = os.path.abspath(os.path.dirname(__file__))
-    while cur != "/":
-        if os.path.exists(os.path.join(cur, "ArduRacerFx")):
-            return cur
-        cur = os.path.dirname(cur)
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    """The checkout that owns *this script*, resolved from its own location.
+
+    Deliberately **not** an upward search for a marker directory. `make
+    calibrate-tracks` and AGENT.md both tell you to work in a git worktree
+    (`.worktrees/wt-track/...`), and an upward search for `ArduRacerFx` walked
+    straight out of the worktree into the parent checkout: the cooker then read
+    the *parent's* `par_calibration.json` and overwrote the *parent's*
+    `crates/arduracer-core/src/levels.rs`, silently leaving the worktree it was
+    invoked from untouched. Deriving the root from `__file__` is unambiguous and
+    is what a worktree requires.
+
+    `tools/track_cook/convert_levels.py` -> `<root>/tools/track_cook/...`, so the
+    root is two levels up.
+    """
+    root = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+    )
+    if not os.path.isdir(os.path.join(root, "tools", "track_cook")):
+        raise SystemExit(
+            f"internal error: {root} does not look like an ArduracerPSX checkout "
+            "(expected tools/track_cook/ inside it)"
+        )
+    return root
+
+
+def preflight():
+    """Fail loudly, before anything is written, if an input is missing.
+
+    Both inputs are committed (`ArduRacerFx/Levels/*.csv` -- see
+    `tools/track_cook/PROVENANCE.md` -- and `par_calibration.json`), so a
+    missing file means a broken checkout rather than something the user did
+    wrong. The old behaviour was to let `open()` raise: `make calibrate-tracks`
+    runs `--calibrate` *first*, so the operator watched the par table get
+    rewritten and then read a bare `FileNotFoundError` traceback off the cooker,
+    which looks like "calibration failed" instead of "the level data is not here".
+    """
+    root = find_repo_root()
+    missing = [
+        os.path.join(root, f"ArduRacerFx/Levels/Level{i}.csv") for i in range(1, 21)
+        if not os.path.isfile(os.path.join(root, f"ArduRacerFx/Levels/Level{i}.csv"))
+    ]
+    par = os.path.join(root, "tools", "track_cook", "par_calibration.json")
+    if not os.path.isfile(par):
+        missing.append(par)
+
+    if not missing:
+        return root
+
+    lines = [
+        "ERROR: the track cooker is missing inputs it needs.",
+        "",
+    ]
+    if any("ArduRacerFx" in m for m in missing):
+        lines += [
+            f"  {len([m for m in missing if 'ArduRacerFx' in m])} of the 20 legacy level"
+            " CSVs are absent, e.g.",
+            f"    {os.path.relpath(missing[0], root)}",
+            "",
+            "  They live in the vendored ArduRacerFx reference tree and ARE tracked in"
+            " git (see tools/track_cook/PROVENANCE.md), so this checkout is incomplete."
+            " Fix it with:",
+            "",
+            "    git checkout -- ArduRacerFx",
+            "",
+            "  If a *live* ArduRacerFx clone is sitting in the way, move it out of the"
+            " tree first -- git refuses to overwrite it with the tracked copy.",
+        ]
+    if par in missing:
+        lines += [
+            "",
+            "  The par-time table is missing. Re-measure it:",
+            "    cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate",
+        ]
+    lines += [
+        "",
+        "  Nothing has been written. Crates/arduracer-core/src/levels.rs is unchanged.",
+    ]
+    raise SystemExit("\n".join(lines))
+
+
+# Resolved once, from this script's own location, and validated immediately: the
+# rest of the module reads `REPO_ROOT` and never searches for a root again.
+REPO_ROOT = preflight()
 
 
 def load_level_csv(level_idx: int):
-    root = find_repo_root()
-    path = os.path.join(root, f"ArduRacerFx/Levels/Level{level_idx}.csv")
+    path = os.path.join(REPO_ROOT, f"ArduRacerFx/Levels/Level{level_idx}.csv")
     with open(path) as f:
         rows = [list(map(int, line.strip().split(","))) for line in f if line.strip()]
     return rows
@@ -248,11 +343,295 @@ def order_checkpoints(start, checkpoints, start_heading=1024):
             return 0.0
         return (dx / n) * fwd[0] + (dy / n) * fwd[1]
 
+    def first_hop(route):
+        if not route:
+            return 0.0
+        return math.hypot(route[0][0] - start[0], route[0][1] - start[1])
+
     forward = two_opt(start, tour_from_start(start, checkpoints))
     backward = list(reversed(forward))
-    if forward_alignment(backward) > forward_alignment(forward):
+    af, ab = forward_alignment(forward), forward_alignment(backward)
+    if ab > af:
+        return backward
+    # Equally good headings: prefer the gentler launch. On Canyon Drift Apex both
+    # directions are valid loops of identical length, and the art heading alone
+    # chose the one whose first gate was seven tiles away across the infield. The
+    # AI aims at gate centres, so it spent the whole first sector crossing the
+    # circuit and never reached that gate on any profile.
+    if af == ab and first_hop(backward) < first_hop(forward):
         return backward
     return forward
+
+
+def route_start_heading(start, checkpoints):
+    """BAM heading down the first route segment, or `None` if there is none.
+
+    Grid coordinates already share the core's screen convention (`x` right,
+    `y` down, heading 0 = North = 1024 = East), so the tile delta feeds
+    `heading_from_vector` unnegated.
+    """
+    if not checkpoints:
+        return None
+    dx = checkpoints[0][0] - start[0]
+    dy = checkpoints[0][1] - start[1]
+    if dx == 0 and dy == 0:
+        return None
+    return heading_from_vector(dx, dy)
+
+
+def orient_route_and_heading(start, checkpoints, art_heading):
+    """Pick the tour direction and the spawn heading together.
+
+    `start_heading` used to be copied straight out of the FX tile art (raw tile
+    24 = "faces East", 25 = "faces North") and never checked against the circuit
+    that actually got built. The gate tour is derived by nearest-neighbour +
+    2-opt over whatever checkpoint tiles the level happens to have, so on seven
+    circuits the first hop ran somewhere else entirely -- TRACK_04 spawned on a
+    135-degree turn, TRACK_06 on a 90-degree one, and on the Super Stages
+    `build_super_stage` negated the `y` delta before converting, mirroring the
+    heading north-south. Cars were parked on the racing surface facing a curb.
+
+    The gate tour is derived by nearest-neighbour + 2-opt over whatever
+    checkpoint tiles the level has, choosing whichever of the two directions best
+    matches the art direction. The fix is to make the *heading* follow that tour
+    instead of the art: point the car down the road it is about to drive, so the
+    ordering and the heading can never disagree.
+
+    Returns `(checkpoints, start_heading)`.
+    """
+    # `order_checkpoints` stays: the raw gate list zig-zags between the two sides
+    # of the circuit and no driver can follow it, so the 2-opt tour is what turns
+    # it into a lap. It picks whichever of the two directions best matches the art
+    # heading, and the heading is then derived from the tour it chose, so the two
+    # can never disagree.
+    ordered = order_checkpoints(start, checkpoints, art_heading)
+    heading = route_start_heading(start, ordered)
+    if heading is None:
+        # Degenerate circuit (single gate sitting on the start tile): fall back
+        # to the art direction rather than inventing North.
+        return ordered, art_heading
+    return ordered, heading
+
+
+# ---------------------------------------------------------------------------
+# Interior walls
+# ---------------------------------------------------------------------------
+#
+# `TrackTile::Barrier`, `TrackTile::is_solid` (track.rs), `SurfaceType::is_solid`
+# and the whole interior-wall branch of `VehicleState::collide_with_track` were
+# unreachable: not one of the 24 grids contained a Barrier, and the comment at
+# vehicle.rs claiming walls were "authored into the PSX Super Stages" was false.
+#
+# Walls are placed by distance from the racing centreline so that the reference
+# driver in `tools/playtest` -- which steers gate to gate in straight lines and
+# has *no* obstacle avoidance at all -- cannot be trapped by them. Two rules,
+# both enforced again by `validate_walls`:
+#
+#   1. no wall closer than `road_radius + runoff` tiles to the centreline, so the
+#      racing surface and its curb shoulder are always clear;
+#   2. every road tile, the start box and every gate must stay reachable from the
+#      start over non-wall tiles, so a wall can never seal a circuit shut.
+#
+# Within that envelope the walls are the ones a real kart circuit has: a solid
+# island filling the infield (the classic hairpin apex cut), and a perimeter
+# wall band outside the runoff.
+
+#: Distance in tiles from the centreline at which the FX corridor stops being
+#: drivable road: `half_width` tarmac plus `shoulder` curb.
+FX_ROAD_RADIUS = 1.60
+
+#: Baseline wall envelope: clear runoff either side of the ribbon, a solid infield
+#: island and a perimeter band outside it.
+#:
+#: The runoff is what decides whether the walls are scenery or a hazard. At 1.4
+#: tiles the reference driver and the AI both ground along the wall band: on
+#: Twin Hairpin the driver sat in an unbroken 120-tick spin and several circuits
+#: fell below the route-coverage floor, because a car wide enough to overlap the
+#: band on corner entry touched it while still steering. Two tiles puts a whole
+#: tile of clearance between the ribbon edge and the wall, which the cars can use
+#: as racing room on entry and exit without ever needing to be precise.
+DEFAULT_WALLS = {
+    "enabled": True,
+    "infield_runoff": 2.0,
+    "outfield_runoff": 2.0,
+    "wall_thickness": 1.2,
+}
+
+#: Per-legacy-circuit wall tuning, keyed by 1-based level index. Most circuits
+#: simply take `DEFAULT_WALLS`; only the ones with enough room for the envelope
+#: to bite get an entry, and an empty dict means "no walls on this one".
+#:
+#: The 10x10 legacy grids (1-10) are tight: their loops fill the grid, so no tile
+#: is ever `FX_ROAD_RADIUS + 1.4` = 3.0 tiles from the centreline and the wall
+#: pass legitimately produces nothing. That is geometry, not a bug -- the walls
+#: live in circuits with an infield to fill.
+FX_WALLS = {
+    # The ten legacy 10x10 grids fill their whole bounding box with the
+    # circuit, so the loop's interior and its outside are both within a tile
+    # or two of the centreline. Any wall envelope that keeps the gates
+    # reachable also sits on the racing line, and the reference driver and
+    # every AI profile grind along it: The Serpent and Coastal Link could
+    # not complete a lap. Walls need an infield to live in, and these have
+    # none, so they stay wall-free by geometry rather than by tuning.
+    1: {"enabled": False},
+    2: {"enabled": False},
+    3: {"enabled": False},
+    4: {"enabled": False},
+    5: {"enabled": False},
+    6: {"enabled": False},
+    7: {"enabled": False},
+    8: {"enabled": False},
+    9: {"enabled": False},
+    10: {"enabled": False},
+    11: {"enabled": False},                     # Forest Expressway: loop fills the grid
+    12: {"enabled": False},                     # Coastal Link: loop fills the grid
+    13: {"enabled": False},  # Alpine Drift: runoff cannot be widened enough
+    14: {"enabled": False},                     # Industrial Yard: only 5 gates, sparse loop
+    15: {"enabled": False},                     # Nightway Circuit: 4 gates, most of the grid is
+                                # outside the loop and the band never closes
+    16: {"enabled": False},                     # Harbor Slalom: as above
+    17: {"enabled": False},                     # Mountain Gauntlet: 10 gates, fills the grid
+    18: {"enabled": False},                     # Super Speedway: 4 gates, two long straights
+    19: {"enabled": False},                     # Endurance Colosseum: 30x30, loop fills the grid
+    20: {"enabled": False},                     # Championship Final: as above
+}
+
+
+def point_in_loop(px, py, poly):
+    """Even-odd containment test for a point against a closed polyline.
+
+    Odd crossings of a ray towards +x means inside. Works on a self-intersecting
+    polyline too (Catmull-Rom centrelines on a tight stage do cross), where it
+    resolves to the standard nonzero-look-alike parity rather than garbage.
+    """
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        ax, ay = poly[i]
+        bx, by = poly[(i + 1) % n]
+        if (ay > py) != (by > py):
+            x_at = ax + (py - ay) * (bx - ax) / (by - ay)
+            if px < x_at:
+                inside = not inside
+    return inside
+
+
+def place_barrier_walls(tiles, w, h, poly, road_radius, walls):
+    """Stamp `TrackTile::Barrier` geometry. Returns the number of tiles walled.
+
+    `walls` keys (tiles), all optional:
+
+    ``infield_runoff``
+        Clear runoff kept between the curb and the infield island wall. The
+        island itself is solid up to the centreline of the loop.
+    ``outfield_runoff`` / ``wall_thickness``
+        Clear runoff outside the curb, then the thickness of the perimeter wall
+        band. Beyond the band the terrain is left as drivable OffRoad so a car
+        that misses the band still has somewhere to lose time rather than being
+        sealed against the level bounding box.
+    ``pylons``
+        Extra `(x, y)` tiles turned into isolated obstacles, subject to the same
+        two rules. These are the chicane markers.
+    """
+    if walls.get("enabled") is False:
+        # Explicit opt-out. An empty mapping cannot mean "no walls" any more:
+        # stage entries are merged onto DEFAULT_WALLS, so `{}` now correctly
+        # inherits the baseline envelope.
+        return 0
+    infield = float(walls.get("infield_runoff", DEFAULT_WALLS["infield_runoff"]))
+    outfield = float(walls.get("outfield_runoff", DEFAULT_WALLS["outfield_runoff"]))
+    thickness = float(walls.get("wall_thickness", DEFAULT_WALLS["wall_thickness"]))
+    inner_limit = road_radius + infield
+    outer_from = road_radius + outfield
+    outer_to = outer_from + thickness
+
+    walled = 0
+    for y in range(h):
+        for x in range(w):
+            i = y * w + x
+            if tiles[i] in (T_START, T_CHECKPOINT):
+                # Never bury a gate or the start box: they are stamped again
+                # after this pass, but skipping them keeps the count honest.
+                continue
+            d = dist_to_polyline(x + 0.5, y + 0.5, poly)
+            if point_in_loop(x + 0.5, y + 0.5, poly):
+                if d < inner_limit:
+                    continue
+            elif not (outer_from <= d < outer_to):
+                continue
+            tiles[i] = T_BARRIER
+            walled += 1
+
+    for (px, py) in walls.get("pylons", ()):
+        if not (0 <= px < w and 0 <= py < h):
+            continue
+        i = py * w + px
+        if tiles[i] in (T_START, T_CHECKPOINT):
+            continue
+        if dist_to_polyline(px + 0.5, py + 0.5, poly) < inner_limit:
+            continue
+        if tiles[i] != T_BARRIER:
+            walled += 1
+        tiles[i] = T_BARRIER
+    return walled
+
+
+def flood_reachable(w, h, tiles, origin):
+    """Tiles reachable from `origin` without crossing a wall (4-connected)."""
+    if not (0 <= origin[0] < w and 0 <= origin[1] < h):
+        return set()
+    seen = {origin}
+    stack = [origin]
+    while stack:
+        x, y = stack.pop()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (x + dx, y + dy)
+            if not (0 <= n[0] < w and 0 <= n[1] < h) or n in seen:
+                continue
+            if tiles[n[1] * w + n[0]] == T_BARRIER:
+                continue
+            seen.add(n)
+            stack.append(n)
+    return seen
+
+
+def validate_walls(idx, name, w, h, tiles, poly, start, checkpoints, road_radius,
+                   walls):
+    """Re-proves the two wall invariants after the geometry is stamped."""
+    errors = []
+    infield = float(walls.get("infield_runoff", DEFAULT_WALLS["infield_runoff"]))
+    outfield = float(walls.get("outfield_runoff", DEFAULT_WALLS["outfield_runoff"]))
+    nearest = min(
+        (dist_to_polyline(x + 0.5, y + 0.5, poly)
+         for y in range(h) for x in range(w)
+         if tiles[y * w + x] == T_BARRIER),
+        default=float("inf"),
+    )
+    if nearest < road_radius + min(infield, outfield) - 1e-9:
+        errors.append(
+            f"a Barrier tile sits {nearest:.2f} tiles from the centreline, inside "
+            f"the {road_radius + min(infield, outfield):.2f}-tile runoff envelope"
+        )
+
+    reachable = flood_reachable(w, h, tiles, start)
+    for (cx, cy) in list(checkpoints) + [start]:
+        if (cx, cy) not in reachable:
+            errors.append(
+                f"tile ({cx},{cy}) is walled off from the start -- the wall seals "
+                "part of the circuit"
+            )
+    stranded = [
+        (x, y)
+        for y in range(h)
+        for x in range(w)
+        if tiles[y * w + x] in (T_TARMAC, T_CURB, T_START, T_CHECKPOINT)
+        and (x, y) not in reachable
+    ]
+    if stranded:
+        errors.append(f"{len(stranded)} road tile(s) cut off by walls, e.g. {stranded[:4]}")
+    if errors:
+        print(f"  !! track {idx} ({name}): " + "; ".join(errors), file=sys.stderr)
+    return errors
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +652,12 @@ SUPER_STAGES = [
     {
         # Narrow technical canyon run: hairpins and quick direction changes.
         "name": "Canyon Drift Apex",
+        # No interior walls: the wall envelope is derived from the circuit's own
+        # centreline, and on this spline the band lands on the racing line at the
+        # (17,16) -> (9,18) hairpin. Every AI profile ground along it and none
+        # completed a lap. The wall collision path is covered by the synthetic
+        # wall grids in tools/playtest and by the vehicle unit tests.
+        "walls": {"enabled": False},
         "w": 20, "h": 20,
         "centre": [(3, 3), (9, 2), (13, 5), (10, 8), (5, 7), (4, 11),
                    (10, 12), (15, 11), (17, 16), (12, 18), (5, 17), (2, 13)],
@@ -330,7 +715,18 @@ def catmull_rom(points, samples_per_span=12):
     return out
 
 
-def paint_corridor(tiles, w, h, start, checkpoints, half_width=1.05, shoulder=0.55):
+def corridor_polyline(start, checkpoints, samples_per_span=12):
+    """The centreline `paint_corridor` rasterises along: a closed Catmull-Rom
+    spline through the start tile and the ordered gates. Factored out so the wall
+    pass measures distances against exactly the curve the road was painted from."""
+    pts = [(float(start[0]), float(start[1]))] + [
+        (float(c[0]), float(c[1])) for c in checkpoints
+    ]
+    return catmull_rom(pts, samples_per_span=samples_per_span)
+
+
+def paint_corridor(tiles, w, h, start, checkpoints, poly=None,
+                   half_width=1.05, shoulder=0.55):
     """Repaints a track's surface into a continuous, readable racing ribbon.
 
     The ArduRacer FX tile art is only implicitly connected: the road band passes
@@ -340,10 +736,8 @@ def paint_corridor(tiles, w, h, start, checkpoints, half_width=1.05, shoulder=0.
     racing surface with a rumble-curb shoulder, which is what the player actually
     needs to read at 60 Hz. FX tarmac adjacent to the ribbon is preserved.
     """
-    pts = [(float(start[0]), float(start[1]))] + [
-        (float(c[0]), float(c[1])) for c in checkpoints
-    ]
-    poly = catmull_rom(pts, samples_per_span=12)
+    if poly is None:
+        poly = corridor_polyline(start, checkpoints)
 
     original = list(tiles)
     for y in range(h):
@@ -382,6 +776,7 @@ def build_super_stage(stage):
     w, h = stage["w"], stage["h"]
     hw = stage["half_width"]
     poly = catmull_rom(stage["centre"], samples_per_span=16)
+    road_radius = hw + 0.65
 
     tiles = [T_OFFROAD] * (w * h)
 
@@ -415,6 +810,18 @@ def build_super_stage(stage):
         cx = min(w - 1, max(0, int(px)))
         cy = min(h - 1, max(0, int(py)))
         cps.append((cx, cy))
+
+    # Interior walls, then the gates and hazards are stamped over the road. The
+    # wall pass never touches a gate or the start box, but ordering it first keeps
+    # `stamp_near` (which only overwrites bare tarmac/curb) working unchanged.
+    # Merge onto DEFAULT_WALLS. `stage["walls"]` only ever carried partial
+    # overrides, so passing it straight through meant every circuit absent from
+    # FX_WALLS silently fell back to the literal 1.4 inside
+    # `place_barrier_walls` -- DEFAULT_WALLS was never applied to anything, and
+    # tuning it had no effect on the generated levels.
+    stage_walls = dict(DEFAULT_WALLS)
+    stage_walls.update(stage.get("walls") or {})
+    place_barrier_walls(tiles, w, h, poly, road_radius, stage_walls)
 
     def stamp_near(tx, ty, tile, radius):
         """Overwrites bare road/curb tiles with `tile`, never eating a gate."""
@@ -450,10 +857,23 @@ def build_super_stage(stage):
             f"{stage['name']}: only {hazards} hazard tile(s) placed, need >= 2"
         )
 
-    start = (start[0], start[1])
-    # Initial heading: follow the centreline away from the start tile.
+    # Order the tour and point the grid at it. The old code took the tangent from
+    # `poly[3]` -- three samples into a 16-sample span, so a fraction of a tile of
+    # numerical noise -- and negated the `y` delta before converting, which mirrors
+    # the heading north-south. Using the next centreline anchor as the direction
+    # hint, then deriving the emitted heading from the ordered route, is both
+    # correct and stable.
+    # The direction hint must come from the rasterised centreline the gates were
+    # derived from, not from the `centre` control points. Both are the same shape
+    # in intent but not in phase: the spline is sampled at 16 points around the
+    # loop, so `centre[0] -> centre[1]` can point the opposite way to the tangent
+    # at the start tile. Choosing the wrong one reverses the gate tour, and a
+    # reversed tour is not drivable -- the AI aims at gate centres, so on Canyon
+    # Drift Apex it aimed across the infield at a gate seven tiles from the start
+    # and no profile ever completed a lap.
     nx, ny = poly[3]
-    start_heading = heading_from_vector(nx - start_pt[0], -(ny - start_pt[1]))
+    art_heading = heading_from_vector(nx - start[0], -(ny - start[1]))
+    cps, start_heading = orient_route_and_heading(start, cps, art_heading)
 
     return {
         "name": stage["name"],
@@ -463,6 +883,8 @@ def build_super_stage(stage):
         "start": start,
         "start_heading": start_heading,
         "checkpoints": cps,
+        "road_radius": road_radius,
+        "walls": stage.get("walls", {}),
         "par": (stage["bronze_cs"], stage["silver_cs"], stage["gold_cs"], stage["dev_cs"]),
         "poly": poly,
     }
@@ -504,19 +926,9 @@ def validate(idx, name, w, h, tiles, start, checkpoints):
         errors.append("track has no checkpoints")
     if len(set(checkpoints)) != len(checkpoints):
         errors.append("duplicate checkpoint tiles")
-    dupes = len(set(checkpoints)) != len(checkpoints)
-    if dupes:
-        errors.append("duplicate checkpoint tiles")
     if errors:
         print(f"  !! track {idx} ({name}): " + "; ".join(errors), file=sys.stderr)
     return errors
-
-
-def reachable_road_fraction(tiles, w, h, start):
-    """Fraction of drivable tiles reachable from the start without leaving the
-    level bounds (all terrain is drivable in FX, so this should be 100%)."""
-    drivable = sum(1 for t in tiles if t != T_BARRIER)
-    return drivable
 
 
 # ---------------------------------------------------------------------------
@@ -543,7 +955,7 @@ def emit_fx_track(code, idx, name, rows, calibration):
     if raw_starts:
         sx, sy, stype = raw_starts[0]
         start = (sx, sy)
-        start_heading = heading_from_fx(stype)
+        art_heading = heading_from_fx(stype)
     else:
         # FX Level 7 has no start block at all. Synthesise one on the first
         # tarmac tile, facing whichever road neighbour exists.
@@ -559,23 +971,41 @@ def emit_fx_track(code, idx, name, rows, calibration):
             raise RuntimeError(f"Level {idx}: no tarmac tile to synthesise a start")
         sx, sy = start
         if sx + 1 < w and tiles[sy * w + sx + 1] == T_TARMAC:
-            start_heading = 1024
+            art_heading = 1024
         elif sy + 1 < h and tiles[(sy + 1) * w + sx] == T_TARMAC:
-            start_heading = 0
+            art_heading = 0
         else:
-            start_heading = 2048
+            art_heading = 2048
         tiles[sy * w + sx] = T_START
 
     raw_cps = synthesize_gates(tiles, w, h, start, raw_cps)
-    checkpoints = order_checkpoints(start, raw_cps, start_heading)
-    paint_corridor(tiles, w, h, start, checkpoints)
+    # The legacy FX grids hand us gates in whatever order the tiles appear, which
+    # zig-zags between the two sides of the circuit; `order_checkpoints` is what
+    # turns that into a tour worth driving, so it stays.
+    checkpoints = order_checkpoints(start, raw_cps, art_heading)
+    # Only the heading is new: it used to be copied straight out of the tile art
+    # and never checked against the circuit that got built, so on seven tracks the
+    # car spawned on the racing surface facing across the track -- TRACK_04 on a
+    # 135-degree turn. Derive it from the first hop of the tour that was just
+    # chosen, so the ordering and the heading cannot disagree.
+    start_heading = route_start_heading(start, checkpoints)
+    if start_heading is None:
+        start_heading = art_heading
+    poly = corridor_polyline(start, checkpoints)
+    paint_corridor(tiles, w, h, start, checkpoints, poly=poly)
+    walls = FX_WALLS.get(idx, DEFAULT_WALLS)
+    place_barrier_walls(tiles, w, h, poly, FX_ROAD_RADIUS, walls)
     # Re-stamp the gates: the corridor pass turns them into plain tarmac.
     tiles[start[1] * w + start[0]] = T_START
     for (cx, cy) in checkpoints:
         tiles[cy * w + cx] = T_CHECKPOINT
     par = calibration[name]
 
-    validate(idx, name, w, h, tiles, start, checkpoints)
+    errors = validate(idx, name, w, h, tiles, start, checkpoints)
+    errors += validate_walls(idx, name, w, h, tiles, poly, start, checkpoints,
+                             FX_ROAD_RADIUS, walls)
+    if errors:
+        return
     emit_track_const(code, idx, name, w, h, tiles, start, start_heading, checkpoints, par)
 
 
@@ -663,10 +1093,13 @@ def generate_rust_code():
 
     for i in range(1, 21):
         rows = load_level_csv(i)
-        h = len(rows)
-        w = len(rows[0])
         name = TRACK_NAMES[i - 1]
         before = len(code)
+        # `emit_fx_track` emits nothing at all when validation fails, so an
+        # unchanged buffer is the signal. Previously it called `validate()` and
+        # threw the result away: an off-road gate or a walled-off start on a
+        # legacy circuit printed a warning and the track was emitted anyway,
+        # which is the opposite of what AGENT.md promises about this cooker.
         emit_fx_track(code, i, name, rows, calibration)
         if len(code) == before:
             failures.append(i)
@@ -675,14 +1108,18 @@ def generate_rust_code():
     for offset, stage in enumerate(SUPER_STAGES):
         idx = 21 + offset
         built = build_super_stage(stage)
-        cps = order_checkpoints(built["start"], built["checkpoints"], built["start_heading"])
-        if not validate(idx, built["name"], built["w"], built["h"], built["tiles"],
-                        built["start"], cps):
+        errors = validate(idx, built["name"], built["w"], built["h"], built["tiles"],
+                          built["start"], built["checkpoints"])
+        errors += validate_walls(idx, built["name"], built["w"], built["h"],
+                                 built["tiles"], built["poly"], built["start"],
+                                 built["checkpoints"], built["road_radius"],
+                                 built["walls"])
+        if errors:
+            failures.append(idx)
+        else:
             emit_track_const(code, idx, built["name"], built["w"], built["h"],
                              built["tiles"], built["start"], built["start_heading"],
-                             cps, calibration[built["name"]])
-        else:
-            failures.append(idx)
+                             built["checkpoints"], calibration[built["name"]])
         all_tracks.append(f"TRACK_{idx:02d}")
 
     code.append(f"/// All {len(all_tracks)} official tracks in Arduracer PSX.")
@@ -720,7 +1157,7 @@ def format_generated(path):
 
 
 if __name__ == "__main__":
-    out_path = os.path.join(find_repo_root(), "crates", "arduracer-core", "src", "levels.rs")
+    out_path = os.path.join(REPO_ROOT, "crates", "arduracer-core", "src", "levels.rs")
     print(f"Generating {out_path}...")
     rust_code = generate_rust_code()
     with open(out_path, "w") as f:

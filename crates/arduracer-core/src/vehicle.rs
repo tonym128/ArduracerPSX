@@ -386,8 +386,16 @@ impl VehicleState {
         // while scraping along it does not, or the car would be glued in place.
         if impact > HARD_IMPACT_THRESHOLD {
             self.velocity = self.velocity.scale(HARD_IMPACT_SCRUB); // 30% scrub
+                                                                    // The cooldown is deliberately longer than the spin itself. A
+                                                                    // one-for-one rearm is not enough now that the circuits carry a
+                                                                    // solid wall band: a car wedged into a corner is touching two walls,
+                                                                    // so the tick after one 60-tick spin expired it struck the other and
+                                                                    // started a fresh one -- 120 ticks of helpless spinning with the
+                                                                    // throttle held. Counting down *during* the spin, a cooldown of two
+                                                                    // spins leaves a full spin's grace afterwards, so the driver always
+                                                                    // gets a window in which steering works.
             if self.spinout_cooldown == 0 && !self.drift.is_spinning() {
-                self.spinout_cooldown = crate::drift::SPINOUT_TICKS;
+                self.spinout_cooldown = 2 * crate::drift::SPINOUT_TICKS;
                 self.drift.trigger_spinout();
             }
         }
@@ -646,8 +654,11 @@ impl VehicleState {
     /// `Barrier` -- zero traction, zero top speed and a car that can never move
     /// again.
     pub fn collide_with_track(&mut self, track: &TrackDef) -> bool {
-        let max_x = track.max_inside_x();
-        let max_y = track.max_inside_y();
+        // Clamp to the last *drivable* coordinate, not merely the last in-grid
+        // one: the outer wall band is solid, and a car clamped onto it would be
+        // wedged with no traction and no way to build speed again.
+        let max_x = track.max_drivable_x();
+        let max_y = track.max_drivable_y();
         let mut hit = false;
 
         // Solid interior walls (authored into the PSX Super Stages).
@@ -681,6 +692,22 @@ impl VehicleState {
             self.position.y = Fixed::from_int(max_y);
             self.handle_barrier_collision(Vec2::new(Fixed::ZERO, -Fixed::ONE));
             hit = true;
+        }
+
+        // Clamping the outer bounds can itself land the car in the solid wall
+        // band that runs around the edge -- the corner tile is solid on every
+        // circuit, and a car arriving from off-grid is clamped straight onto it.
+        // Re-run the interior exit after the clamp so a car that ends the tick
+        // inside a wall is always pushed back out onto a drivable tile.
+        let ctx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
+        let cty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
+        if track.tile_at(ctx, cty).is_solid() {
+            hit = true;
+            if let Some((landed, normal)) = resolve_solid_exit(track, self.position, self.velocity)
+            {
+                self.position = landed;
+                self.handle_barrier_collision(normal);
+            }
         }
 
         if hit {
@@ -1059,11 +1086,20 @@ mod tests {
             speed: Fixed::from_int(3),
             ..VehicleState::default()
         };
+        // Drive into the wall and stop the moment it spins. Sampling at a fixed
+        // tick instead would race the spin: the rearm cooldown is deliberately
+        // longer than the spin, so by any late tick the car has finished
+        // spinning and is merely grinding along the barrier.
         let gas = flat(Fixed::ONE, Fixed::ZERO);
+        let mut spun = false;
         for _ in 0..240 {
             car.tick_on_track(gas, track);
+            if car.drift.is_spinning() {
+                spun = true;
+                break;
+            }
         }
-        assert!(car.drift.is_spinning(), "the wall must have spun the car");
+        assert!(spun, "the wall must have spun the car");
 
         // Now brake: reverse cancels the spin and the car moves back down the road.
         let brake = VehicleInput {

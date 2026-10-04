@@ -1,7 +1,30 @@
 # Reference directories
-ArduRacerFx
 plattypus-psoxide
 PSoXide-emulator
+
+# `ArduRacerFx/` is vendored *narrowly*. It is the upstream Arduboy game this
+# project remasters, and `tools/track_cook/convert_levels.py` compiles its 20
+# legacy level CSVs into `crates/arduracer-core/src/levels.rs`. `levels.rs` is
+# generated, so if the CSVs are not tracked then the generation pipeline cannot
+# be re-run on a clean clone: `make calibrate-tracks` died with a bare
+# `FileNotFoundError` *after* it had already rewritten the par table, and new
+# geometry could not be authored at all. Upstream is MIT (Copyright (c) 2020
+# Tony Mamacos, the repository owner), so committing the data is permitted; see
+# tools/track_cook/PROVENANCE.md.
+#
+# Committed: the 20 level CSVs the cooker reads, the Tiled `.tmx`/`.tmj`
+# authoring sources they are drawn in (plus the 64x64 tile atlas and tileset
+# they reference), and the upstream licence. Ignored: the whole Arduboy
+# toolchain and firmware (`*.ino`, `*.h`, `*.cpp`, `Extra/`), the other
+# spritesheets and tile art, the packed `fxdata*.bin` blobs, and the superseded
+# drafts under `Levels/Backup/`. That is 3.9 MB down to 47 files / 192 KB.
+/ArduRacerFx/*
+!/ArduRacerFx/LICENSE
+!/ArduRacerFx/Levels/
+/ArduRacerFx/Levels/Backup/
+!/ArduRacerFx/Levels/*.csv
+!/ArduRacerFx/Levels/*.tmx
+!/ArduRacerFx/Levels/*.tmj
 
 # `psoxide/` is NOT ignored as a whole: the SDK subset the game builds against is
 # committed here, because upstream it is a *generated* component that exists on
