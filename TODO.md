@@ -416,6 +416,15 @@ defect log, and the documented deviations.
 
 ---
 
+## Phase 11: Track, Camera & Race-Start Overhaul
+
+- [ ] **TASK-1101**: Ten-step overhaul plan for bigger circuits with runoff,
+  smooth (non-blocky) corners, full-width checkpoint gates, speed-reactive
+  camera, and a race-start countdown. Planning only -- see **`OVERHAUL.md`** for
+  the ordered steps, measured findings that motivate them, and open decisions.
+
+---
+
 ## Phase 10: Multi-Perspective Review & Performance Audit
 
 - [x] **TASK-1001**: Comprehensive Four-Perspective Audit & Sign-off.
