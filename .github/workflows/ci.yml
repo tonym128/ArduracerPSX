@@ -24,6 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Provision the PSoXide SDK
+        # `psoxide/sdk` is a generated component of EBonura/PSoXide, pinned by
+        # components.lock.json and materialised by bootstrap-components.py. It is
+        # not source in this repository, so without this step every cargo command
+        # below dies with a manifest error.
+        run: make deps
+
       - name: Show toolchain
         run: rustup show
 
@@ -67,6 +74,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y binutils-mipsel-linux-gnu
 
+      - name: Provision the PSoXide SDK
+        # `psoxide/sdk` is a generated component of EBonura/PSoXide, pinned by
+        # components.lock.json and materialised by bootstrap-components.py. It is
+        # not source in this repository, so without this step every cargo command
+        # below dies with a manifest error.
+        run: make deps
+
       - name: Show toolchain
         run: rustup show
 
@@ -84,6 +98,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y binutils-mipsel-linux-gnu ffmpeg
+
+      - name: Provision the PSoXide SDK
+        run: make deps
 
       - name: Master PS1 Disc Image
         run: make ci-disc

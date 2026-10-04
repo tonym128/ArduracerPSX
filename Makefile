@@ -47,6 +47,59 @@ help:
 	@echo "  make run       - Run mastered disc in emulator (DuckStation / RetroArch)"
 	@echo "  make clean     - Clean build outputs"
 
+# --- SDK dependency gate ---------------------------------------------------
+# The game and the test crates depend on `psoxide/sdk` through path
+# dependencies. That tree is NOT part of this repository: in the PSoXide
+# project it is a *generated* component, materialised by
+# `tools/bootstrap-components.py` from `components.lock.json`, which pins it to a
+# full commit of EBonura/PSoXide. Every cargo command that resolves a workspace
+# fails with a manifest error if it is missing, so provision or check it up front
+# and say what to do instead.
+SDK_MARKER  := psoxide/sdk/crates/psx-rt/Cargo.toml
+SDK_REPO    := https://github.com/EBonura/PSoXide-emulator
+# Pinned so the provisioning itself is reproducible, not just the component.
+# This is the revision whose `sdk/` matches what the receipt expects.
+SDK_REPO_REV := 45e9b14d51a9184f14e4744685c327bfa3f7396c
+
+.PHONY: deps require-sdk
+deps:
+	@if [ -f "$(SDK_MARKER)" ]; then \
+		echo "SDK already present: $(SDK_MARKER)"; \
+		echo "Verifying it against components.lock.json..."; \
+		if python3 psoxide/tools/bootstrap-components.py --check >/dev/null 2>&1; then \
+			echo "SDK matches the lock."; \
+		else \
+			echo "WARNING: the provisioned SDK differs from components.lock.json."; \
+			echo "         Locally modified SDK files are expected right now; see"; \
+			echo "         REVIEW.md section 1c before assuming CI matches this build."; \
+		fi; \
+		exit 0; \
+	fi; \
+	echo "Provisioning the PSoXide SDK from $(SDK_REPO) @ $(SDK_REPO_REV)..."; \
+	if [ -e psoxide ] || [ -L psoxide ]; then rm -rf psoxide; fi; \
+	git clone -q "$(SDK_REPO)" psoxide || { echo "ERROR: clone failed. Is the network reachable?"; exit 1; }; \
+	git -C psoxide checkout -q "$(SDK_REPO_REV)" || { echo "ERROR: revision $(SDK_REPO_REV) not fetchable"; exit 1; }; \
+	python3 psoxide/tools/bootstrap-components.py || { echo "ERROR: bootstrap failed"; exit 1; }; \
+	echo "SDK provisioned at $(SDK_MARKER)"
+
+require-sdk:
+	@if [ ! -f "$(SDK_MARKER)" ]; then \
+		echo "ERROR: the PSoXide SDK is missing, so nothing that resolves a cargo"; \
+		echo "       workspace can run. Provision it with:"; \
+		echo ""; \
+		echo "         make deps"; \
+		echo ""; \
+		echo "       which clones $(SDK_REPO) at a pinned revision and materialises"; \
+		echo "       psoxide/sdk from components.lock.json. To verify an existing"; \
+		echo "       tree instead:"; \
+		echo ""; \
+		echo "         python3 psoxide/tools/bootstrap-components.py --check"; \
+		echo ""; \
+		echo "       It is a generated component, not source in this repository --"; \
+		echo "       see REVIEW.md section 1c."; \
+		exit 1; \
+	fi
+
 # --- CI Gates ---
 ci: ci-host ci-game
 	@echo ""
@@ -79,7 +132,7 @@ ci-disc: disc
 	ls -lh $(DIST)/arduracer.bin $(DIST)/arduracer.cue
 	@echo "--- CI Disc Check Passed ---"
 
-fmt-check:
+fmt-check: require-sdk
 	@echo "Checking formatting across crates..."
 	@for m in crates/arduracer-core tools/test_game_logic tools/playtest tools/test_memcard tools/test_ui game; do \
 		if [ -f "$$m/Cargo.toml" ]; then \
@@ -97,7 +150,7 @@ fmt:
 		fi \
 	done
 
-clippy:
+clippy: require-sdk
 	@echo "Running clippy on host-compatible crates..."
 	@if [ -f "crates/arduracer-core/Cargo.toml" ]; then \
 		cargo clippy --manifest-path crates/arduracer-core/Cargo.toml --all-targets -- -D warnings || exit 1; \
@@ -115,7 +168,7 @@ clippy:
 		cargo clippy --manifest-path tools/test_ui/Cargo.toml --all-targets -- -D warnings || exit 1; \
 	fi
 
-test:
+test: require-sdk
 	@echo "Running host-side tests in crates/arduracer-core..."
 	@if [ -f "crates/arduracer-core/Cargo.toml" ]; then \
 		cargo test --manifest-path crates/arduracer-core/Cargo.toml || exit 1; \
@@ -135,7 +188,7 @@ test:
 
 # Simulates real laps on all 24 circuits with the real core physics.
 # This is the gate that would have caught the unplayable-lap regressions.
-playtest:
+playtest: require-sdk
 	@echo "Verifying every circuit is drivable..."
 	@if [ -f "tools/playtest/Cargo.toml" ]; then \
 		cargo run --manifest-path tools/playtest/Cargo.toml --release || exit 1; \
@@ -152,7 +205,7 @@ calibrate-tracks:
 	@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
 	@python3 tools/track_cook/convert_levels.py
 
-exe:
+exe: require-sdk
 	@mkdir -p $(DIST)
 	cd $(GAME_DIR) && cargo build --release
 	@cp $(GAME_EXE) $(DIST)/arduracer.exe
