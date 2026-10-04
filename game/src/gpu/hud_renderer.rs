@@ -190,7 +190,7 @@ pub fn render_hud<const N: usize>(
     }
 
     // Digital Speedometer (approx. MPH based on forward speed)
-    let speed_mph = ((player.speed.raw() as i32 * 145) / 14000).clamp(0, 199) as u16;
+    let speed_mph = ((player.speed.raw() * 145) / 14000).clamp(0, 199) as u16;
     let mut speed_buf = [b' '; 7];
     format_speed(&mut speed_buf, speed_mph);
     blit(&speed_buf, 220, 28, (240, 240, 250), 1);

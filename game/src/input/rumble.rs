@@ -13,6 +13,12 @@ pub struct RumbleDriver {
     pub boost_ticks: u8,
 }
 
+impl Default for RumbleDriver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RumbleDriver {
     pub const fn new() -> Self {
         RumbleDriver {

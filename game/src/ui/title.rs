@@ -12,6 +12,12 @@ pub struct TitleScreen {
     pub prev_held: bool,
 }
 
+impl Default for TitleScreen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TitleScreen {
     pub const fn new() -> Self {
         TitleScreen {
@@ -50,7 +56,7 @@ impl TitleScreen {
         draw_text(52, 92, "HIGH-OCTANE OVERHEAD RACING", (0, 220, 255), 1);
 
         // 3. Pulsing "PRESS START TO RACE" (blinks every 30 frames)
-        if (self.timer / 30) % 2 == 0 {
+        if (self.timer / 30).is_multiple_of(2) {
             draw_text(88, 160, "PRESS START TO RACE", (255, 255, 255), 1);
         }
 

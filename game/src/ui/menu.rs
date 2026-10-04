@@ -23,6 +23,12 @@ pub struct MainMenu {
     pub anim_timer: u32,
 }
 
+impl Default for MainMenu {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MainMenu {
     pub const fn new() -> Self {
         MainMenu {
@@ -100,7 +106,7 @@ impl MainMenu {
 
             if is_sel {
                 // Pulsing highlight box
-                let pulse = (self.anim_timer / 15) % 2 == 0;
+                let pulse = (self.anim_timer / 15).is_multiple_of(2);
                 let bg_color = if pulse {
                     (220, 35, 55) // Bright crimson
                 } else {

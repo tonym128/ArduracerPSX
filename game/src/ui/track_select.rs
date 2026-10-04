@@ -18,6 +18,12 @@ pub struct TrackSelectScreen {
     pub prev_cancel: bool,
 }
 
+impl Default for TrackSelectScreen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TrackSelectScreen {
     pub const fn new() -> Self {
         TrackSelectScreen {

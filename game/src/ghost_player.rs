@@ -23,10 +23,12 @@ pub fn render_active_ghost(
     let player = GhostPlayer::new(frames, recorder.recorder.lap_time_ticks);
     let sample = player.sample_at_tick(current_lap_ticks);
 
-    let mut ghost_vehicle = VehicleState::default();
-    ghost_vehicle.position = sample.position;
-    ghost_vehicle.visual_angle = sample.heading;
-    ghost_vehicle.heading = sample.heading;
+    let ghost_vehicle = VehicleState {
+        position: sample.position,
+        visual_angle: sample.heading,
+        heading: sample.heading,
+        ..VehicleState::default()
+    };
 
     // Render as translucent cyan phantom car (is_ghost = true)
     render_car(&ghost_vehicle, camera, draw_y, true, (100, 160, 230));

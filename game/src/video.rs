@@ -128,6 +128,12 @@ pub struct VideoPlayer {
     pub eof: bool,
 }
 
+impl Default for VideoPlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VideoPlayer {
     pub fn new() -> Self {
         Self {

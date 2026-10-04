@@ -23,7 +23,7 @@ pub struct ResultsScreen {
 impl ResultsScreen {
     pub fn new(best_lap_ticks: u32, total_race_ticks: u32, track: &TrackDef, rank: u8) -> Self {
         let medal = track.par_times.evaluate_medal(best_lap_ticks);
-        let safe_rank = rank.max(1).min(6);
+        let safe_rank = rank.clamp(1, 6);
         let points = POINTS_TABLE[(safe_rank - 1) as usize];
         ResultsScreen {
             best_lap_ticks,

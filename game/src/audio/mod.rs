@@ -23,6 +23,12 @@ pub struct AudioSystem {
     pub cdda: CddaController,
 }
 
+impl Default for AudioSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioSystem {
     pub fn new() -> Self {
         init_spu_soundbank();

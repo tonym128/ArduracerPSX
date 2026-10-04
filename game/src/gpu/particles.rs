@@ -32,6 +32,12 @@ pub struct ParticleSystem {
     pub pool: [Particle; MAX_PARTICLES],
 }
 
+impl Default for ParticleSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ParticleSystem {
     pub const fn new() -> Self {
         ParticleSystem {
@@ -102,7 +108,7 @@ impl ParticleSystem {
                 continue;
             }
             let (sx, sy) = camera.world_to_screen(p.pos, draw_y);
-            if sx < -16 || sx > 336 || sy < -16 || sy > 256 {
+            if !(-16..=336).contains(&sx) || !(-16..=256).contains(&sy) {
                 continue;
             }
 

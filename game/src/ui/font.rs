@@ -77,13 +77,13 @@ static FONT_5X7: [[u8; 5]; 64] = [
 
 /// Draws a single ASCII character at screen position (x, y) with color (r, g, b) and scale.
 pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
-    let ascii = if c >= b'a' && c <= b'z' {
+    let ascii = if c.is_ascii_lowercase() {
         c - 32 // Convert lowercase to uppercase for 5x7 font
     } else {
         c
     };
 
-    let idx = if ascii >= 0x20 && ascii <= 0x5F {
+    let idx = if (0x20..=0x5F).contains(&ascii) {
         (ascii - 0x20) as usize
     } else {
         0
@@ -104,9 +104,9 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
                     while row < 7 && (col_bits & bit_mask(row)) != 0 {
                         row += 1;
                     }
-                    let span = (row - start_row) as u16;
+                    let span = row - start_row;
                     let px = (x + offset + (col_idx as u16) * scale) as i16;
-                    let py = (y + offset + (start_row as u16) * scale) as i16;
+                    let py = (y + offset + start_row * scale) as i16;
                     gpu::draw_rect_flat(
                         px,
                         py,
@@ -131,9 +131,9 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
                 while row < 7 && (col_bits & bit_mask(row)) != 0 {
                     row += 1;
                 }
-                let span = (row - start_row) as u16;
+                let span = row - start_row;
                 let px = (x + (col_idx as u16) * scale) as i16;
-                let py = (y + (start_row as u16) * scale) as i16;
+                let py = (y + start_row * scale) as i16;
                 gpu::draw_rect_flat(px, py, scale, span * scale, color.0, color.1, color.2);
             } else {
                 row += 1;
