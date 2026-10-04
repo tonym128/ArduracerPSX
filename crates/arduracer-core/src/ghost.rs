@@ -1,8 +1,22 @@
 //! Deterministic Ghost Car recording, playback, and telemetry compression.
 //!
-//! Encodes vehicle telemetry into compact 6-byte frames sampled at 30 Hz: a
-//! 60-second lap is under 11 KB, which still fits in one PlayStation 1 Memory
-//! Card block alongside the rest of the save.
+//! Telemetry is encoded into 6-byte frames sampled at 30 Hz, so a lap costs
+//! `MAX_FRAMES * 2` ticks of wall clock and 6 bytes per 30 Hz sample: a
+//! 60-second lap is 10,800 bytes (10.5 KiB) at the shipped `MAX_FRAMES` of 1800
+//! (`MAX_GHOST_FRAMES` in `game/src/ghost_recorder.rs`).
+//!
+//! **That does not fit a PlayStation 1 Memory Card block, which is 8 KiB.**
+//! [`GHOST_MAGIC`] and [`GHOST_VERSION`] exist for a `to_bytes`/`from_bytes`
+//! serializer that has not been written: there is no ghost blob on the card
+//! today. [`crate::save::SaveData::to_block_bytes`] writes only
+//! [`crate::save::PAYLOAD_SIZE`] (161) bytes and zero-fills the rest of the
+//! 8 KiB block, and [`crate::save::SaveData`] has no ghost field at all -- a
+//! recorded ghost lives in RAM for the length of the session only.
+//!
+//! Shipping a ghost on the card therefore needs its own work, not a tweak to
+//! the numbers above: either a smaller frame (delta-coded, ~2-3 bytes) or a
+//! second block, plus the serializer, a compression ratio that survives
+//! quantisation, and the migration story for an existing card image.
 
 use crate::math::{self, Fixed, Vec2};
 
@@ -87,14 +101,26 @@ impl GhostFrame {
 }
 
 /// Telemetry recorder capturing a race run at 30 Hz.
+///
+/// The frame buffer is fixed, so a lap longer than
+/// `MAX_FRAMES * GHOST_SAMPLE_INTERVAL_TICKS` ticks (60 s at the shipped
+/// `MAX_FRAMES` of 1800) cannot be stored in full. Recording then *truncates*
+/// rather than overwriting or growing, and says so:
+/// [`GhostRecorder::is_truncated`] latches once a sample has been dropped, so
+/// the race loop can refuse to promote an incomplete ghost to the best-lap
+/// replay instead of shipping one that stops dead mid-race.
 #[derive(Clone, Debug)]
 pub struct GhostRecorder<const MAX_FRAMES: usize> {
     pub frames: [GhostFrame; MAX_FRAMES],
     pub frame_count: usize,
     pub track_id: u8,
+    /// Ticks recorded so far, or the final time passed to
+    /// [`GhostRecorder::finish`]. Saturating: a race left running cannot wrap.
     pub lap_time_ticks: u32,
     pub is_recording: bool,
-    tick_counter: u8,
+    /// True once a sample was dropped because the frame buffer was full.
+    /// Latched for the whole run, cleared by [`GhostRecorder::start`].
+    pub is_truncated: bool,
 }
 
 impl<const MAX_FRAMES: usize> GhostRecorder<MAX_FRAMES> {
@@ -105,7 +131,7 @@ impl<const MAX_FRAMES: usize> GhostRecorder<MAX_FRAMES> {
             track_id,
             lap_time_ticks: 0,
             is_recording: false,
-            tick_counter: 0,
+            is_truncated: false,
         }
     }
 
@@ -114,30 +140,62 @@ impl<const MAX_FRAMES: usize> GhostRecorder<MAX_FRAMES> {
         self.frame_count = 0;
         self.lap_time_ticks = 0;
         self.is_recording = true;
-        self.tick_counter = 0;
+        self.is_truncated = false;
     }
 
     /// Samples the vehicle state every 2 ticks (30 Hz).
+    ///
+    /// Frame `k` holds the state at tick `2k`: the first `record_tick` of a run
+    /// writes frame 0, so `sample_at_tick(0)` is the state the ghost was in at
+    /// the start of the lap. The tick counter is therefore read *before* it is
+    /// incremented -- doing it the other way round put every ghost 2 ticks
+    /// (33 ms) ahead of the player for the whole race.
     pub fn record_tick(&mut self, pos: Vec2, heading: u16, flags: u8) {
         if !self.is_recording {
             return;
         }
+        let tick = self.lap_time_ticks;
         self.lap_time_ticks = self.lap_time_ticks.saturating_add(1);
-        self.tick_counter += 1;
 
-        if self.tick_counter >= GHOST_SAMPLE_INTERVAL_TICKS {
-            self.tick_counter = 0;
-            if self.frame_count < MAX_FRAMES {
-                self.frames[self.frame_count] = GhostFrame::encode(pos, heading, flags);
-                self.frame_count += 1;
-            }
+        if !tick.is_multiple_of(GHOST_SAMPLE_INTERVAL_TICKS as u32) {
+            return;
+        }
+        if self.frame_count < MAX_FRAMES {
+            self.frames[self.frame_count] = GhostFrame::encode(pos, heading, flags);
+            self.frame_count += 1;
+        } else {
+            // Out of buffer: this lap is longer than the recorder can hold. Flag
+            // it instead of dropping telemetry silently.
+            self.is_truncated = true;
         }
     }
 
     /// Finishes recording and locks the telemetry.
+    ///
+    /// The clip is complete only while [`GhostRecorder::is_truncated`] is false.
+    /// A truncated clip still holds every frame it did capture, so it plays back
+    /// correctly up to its last tick and nowhere further.
     pub fn finish(&mut self, final_lap_ticks: u32) {
         self.is_recording = false;
         self.lap_time_ticks = final_lap_ticks;
+    }
+
+    /// Ticks of telemetry this recorder can hold at the sample interval.
+    pub const fn capacity_ticks(&self) -> u32 {
+        (MAX_FRAMES * (GHOST_SAMPLE_INTERVAL_TICKS as usize)) as u32
+    }
+
+    /// Whether this clip is longer than [`GhostRecorder::capacity_ticks`] and
+    /// therefore incomplete.
+    pub fn is_complete(&self) -> bool {
+        !self.is_truncated
+    }
+
+    /// Ticks of playback this clip actually covers: one sample interval per
+    /// stored frame, capped at the recorded lap time.
+    pub fn recorded_ticks(&self) -> u32 {
+        let frame_ticks = (self.frame_count as u32) * (GHOST_SAMPLE_INTERVAL_TICKS as u32);
+        frame_ticks.min(self.lap_time_ticks)
     }
 }
 
@@ -150,6 +208,13 @@ pub struct GhostPlaybackState {
 }
 
 /// Telemetry player performing real-time smooth playback with linear interpolation.
+///
+/// `total_ticks` is the lap time the clip claims to cover. It is checked against
+/// the frame count on construction ([`GhostPlayer::is_consistent`]) because a
+/// truncated recorder still reports the *full* lap time: without the check the
+/// two disagree silently and the ghost appears to stop early. Playback itself
+/// is bounded by the frames, so the mismatch is a reporting problem, never an
+/// out-of-bounds one.
 pub struct GhostPlayer<'a> {
     pub frames: &'a [GhostFrame],
     pub total_ticks: u32,
@@ -163,7 +228,41 @@ impl<'a> GhostPlayer<'a> {
         }
     }
 
+    /// Ticks of playback the frames can actually cover: one sample interval per
+    /// stored frame, capped at the claimed lap time.
+    pub fn recorded_ticks(&self) -> u32 {
+        let frame_ticks = (self.frames.len() as u32) * (GHOST_SAMPLE_INTERVAL_TICKS as u32);
+        frame_ticks.min(self.total_ticks)
+    }
+
+    /// Whether `total_ticks` and the frame count describe the same clip.
+    ///
+    /// `false` means the recorder ran out of frames before the lap ended (see
+    /// [`GhostRecorder::is_truncated`]): playback stops at
+    /// [`GhostPlayer::recorded_ticks`], so the ghost has finished its lap and
+    /// should be drawn no further rather than held at its last frame forever.
+    pub fn is_consistent(&self) -> bool {
+        self.recorded_ticks() == self.total_ticks
+    }
+
+    /// Whether the clip has run out of telemetry by `current_tick`.
+    ///
+    /// Callers must honour this: past the end of the frames
+    /// [`GhostPlayer::sample_at_tick`] deliberately holds the last frame, so a
+    /// ghost that ignored this would sit on the track for the rest of the race
+    /// pretending to be a rival.
+    pub fn is_exhausted(&self, current_tick: u32) -> bool {
+        // An empty clip has no telemetry at any tick, so it is exhausted from
+        // the start rather than after one interval.
+        self.frames.is_empty() || current_tick > self.recorded_ticks()
+    }
+
     /// Evaluates the interpolated position and heading at an exact 60Hz tick.
+    ///
+    /// Past the end of the clip the last frame is held: interpolating past the
+    /// final keyframe would extrapolate into the scenery, and returning the
+    /// default would teleport the ghost to the world origin. Use
+    /// [`GhostPlayer::is_exhausted`] to stop drawing it.
     pub fn sample_at_tick(&self, current_tick: u32) -> GhostPlaybackState {
         if self.frames.is_empty() {
             return GhostPlaybackState::default();
@@ -174,7 +273,10 @@ impl<'a> GhostPlayer<'a> {
         let sub_tick = current_tick % (GHOST_SAMPLE_INTERVAL_TICKS as u32);
 
         if frame_idx >= self.frames.len() - 1 {
-            let last = self.frames[self.frames.len() - 1];
+            let last = match self.frames.last() {
+                Some(&f) => f,
+                None => return GhostPlaybackState::default(),
+            };
             return GhostPlaybackState {
                 position: last.decode_position(),
                 heading: last.decode_heading(),
@@ -182,8 +284,10 @@ impl<'a> GhostPlayer<'a> {
             };
         }
 
-        let f0 = self.frames[frame_idx];
-        let f1 = self.frames[frame_idx + 1];
+        let (f0, f1) = match (self.frames.get(frame_idx), self.frames.get(frame_idx + 1)) {
+            (Some(&a), Some(&b)) => (a, b),
+            _ => return GhostPlaybackState::default(),
+        };
 
         let p0 = f0.decode_position();
         let p1 = f1.decode_position();
@@ -207,5 +311,181 @@ impl<'a> GhostPlayer<'a> {
             heading: lerp_h,
             flags: f0.flags,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Drives `count` ticks through the recorder, putting the car at `start + tick`.
+    fn record_ramp<const N: usize>(
+        rec: &mut GhostRecorder<N>,
+        start: i32,
+        count: u32,
+        heading: u16,
+    ) {
+        for tick in 0..count {
+            rec.record_tick(
+                Vec2::new(Fixed::from_int(start + tick as i32), Fixed::ZERO),
+                heading,
+                0,
+            );
+        }
+    }
+
+    // ---- Bug 10: record_tick sampled one interval late ----
+
+    #[test]
+    fn frame_zero_is_the_state_at_tick_zero() {
+        // A 1 unit/tick ramp: frame k must hold the position at tick 2k, so
+        // tick 0 is the grid, not the state 33 ms later.
+        let mut rec = GhostRecorder::<8>::new(1);
+        rec.start();
+        record_ramp(&mut rec, 100, 6, 0);
+
+        assert_eq!(rec.frame_count, 3, "6 ticks at 30 Hz is 3 frames");
+        let frames = &rec.frames[..rec.frame_count];
+        assert_eq!(frames[0].decode_position().x.to_int(), 100, "tick 0");
+        assert_eq!(frames[1].decode_position().x.to_int(), 102, "tick 2");
+        assert_eq!(frames[2].decode_position().x.to_int(), 104, "tick 4");
+
+        let player = GhostPlayer::new(frames, 6);
+        assert_eq!(player.sample_at_tick(0).position.x.to_int(), 100);
+        assert_eq!(player.sample_at_tick(1).position.x.to_int(), 101);
+        assert_eq!(player.sample_at_tick(2).position.x.to_int(), 102);
+        assert_eq!(player.sample_at_tick(5).position.x.to_int(), 104);
+    }
+
+    #[test]
+    fn heading_is_sampled_on_the_same_tick_as_position() {
+        let mut rec = GhostRecorder::<4>::new(1);
+        rec.start();
+        for tick in 0..4u16 {
+            rec.record_tick(
+                Vec2::new(Fixed::from_int(tick as i32), Fixed::ZERO),
+                tick * 1024,
+                0,
+            );
+        }
+        let frames = &rec.frames[..rec.frame_count];
+        assert_eq!(frames[0].decode_heading(), 0);
+        assert_eq!(frames[1].decode_heading(), 2048);
+        let player = GhostPlayer::new(frames, 4);
+        assert_eq!(player.sample_at_tick(0).heading, 0);
+        assert_eq!(player.sample_at_tick(2).heading, 2048);
+    }
+
+    #[test]
+    fn sample_rate_and_frame_count_are_unchanged() {
+        // 60 Hz input, 30 Hz sampling: a 60-tick lap is 30 frames.
+        let mut rec = GhostRecorder::<300>::new(1);
+        rec.start();
+        record_ramp(&mut rec, 0, 60, 0);
+        rec.finish(60);
+        assert_eq!(rec.frame_count, 30);
+        assert_eq!(rec.lap_time_ticks, 60);
+        assert!(rec.is_complete());
+    }
+
+    // ---- Bug 8: silent truncation, then a permanent freeze ----
+
+    #[test]
+    fn an_over_long_lap_is_flagged_as_truncated() {
+        let mut rec = GhostRecorder::<4>::new(1);
+        rec.start();
+        assert!(!rec.is_truncated);
+        assert_eq!(rec.capacity_ticks(), 8, "4 frames at 2 ticks each");
+
+        // Exactly the capacity: still complete.
+        record_ramp(&mut rec, 0, 8, 0);
+        assert_eq!(rec.frame_count, 4);
+        assert!(rec.is_complete(), "a lap at capacity is not truncated");
+
+        // One sample interval past it: telemetry is dropped, and says so.
+        record_ramp(&mut rec, 0, 2, 0);
+        assert_eq!(rec.frame_count, 4, "the buffer must not overflow");
+        assert!(rec.is_truncated);
+        assert!(!rec.is_complete());
+        // The clock kept running, which is exactly why the flag is needed.
+        assert_eq!(rec.lap_time_ticks, 10);
+        rec.finish(10);
+        assert!(rec.is_truncated, "finish() must not launder the flag");
+        assert_eq!(rec.recorded_ticks(), 8, "playback covers the frames only");
+
+        // Restarting clears the flag.
+        rec.start();
+        assert!(!rec.is_truncated);
+    }
+
+    #[test]
+    fn player_reports_a_truncated_clip_as_inconsistent() {
+        let mut rec = GhostRecorder::<2>::new(1);
+        rec.start();
+        record_ramp(&mut rec, 0, 40, 0);
+        rec.finish(40);
+        assert!(rec.is_truncated);
+        let frames = &rec.frames[..rec.frame_count];
+
+        let player = GhostPlayer::new(frames, rec.lap_time_ticks);
+        assert!(!player.is_consistent(), "40 claimed ticks vs 2 frames");
+        assert_eq!(player.recorded_ticks(), 4);
+        assert!(player.is_exhausted(5), "playback ended at tick 4");
+        assert!(!player.is_exhausted(4));
+
+        // Past the end the last frame is held rather than teleporting, but the
+        // caller is told, so the ghost can be dropped instead of sliding on.
+        let held = player.sample_at_tick(4_000);
+        assert_eq!(held.position.x.to_int(), 2, "the last frame, held");
+        assert_eq!(player.sample_at_tick(4_000), held, "and held forever");
+    }
+
+    #[test]
+    fn a_complete_clip_is_consistent_and_not_exhausted_early() {
+        let mut rec = GhostRecorder::<30>::new(1);
+        rec.start();
+        record_ramp(&mut rec, 0, 60, 0);
+        rec.finish(60);
+        let frames = &rec.frames[..rec.frame_count];
+        let player = GhostPlayer::new(frames, rec.lap_time_ticks);
+        assert!(player.is_consistent());
+        assert!(!player.is_exhausted(60));
+        // One tick past the line the ghost has finished its lap.
+        assert!(player.is_exhausted(61));
+    }
+
+    #[test]
+    fn an_empty_or_absurd_clip_is_handled_without_panicking() {
+        let player = GhostPlayer::new(&[], 1_000);
+        assert_eq!(player.sample_at_tick(0), GhostPlaybackState::default());
+        assert_eq!(
+            player.sample_at_tick(u32::MAX),
+            GhostPlaybackState::default()
+        );
+        assert!(player.is_exhausted(0));
+        assert!(!player.is_consistent());
+
+        let frames = [
+            GhostFrame::encode(Vec2::new(Fixed::from_int(5), Fixed::ZERO), 0, 0),
+            GhostFrame::encode(Vec2::new(Fixed::from_int(9), Fixed::ZERO), 0, 0),
+        ];
+        let huge = GhostPlayer::new(&frames, u32::MAX);
+        assert_eq!(huge.recorded_ticks(), 4, "capped by the frame count");
+        assert!(!huge.is_consistent());
+        // Every tick is in range, including the last representable one.
+        let _ = huge.sample_at_tick(u32::MAX);
+    }
+
+    #[test]
+    fn the_claim_in_the_module_doc_is_the_real_size() {
+        // 6-byte frames at 30 Hz for a 60-second lap is 10,800 bytes, which does
+        // not fit one 8 KiB card block. The doc comment now says so; this keeps
+        // the arithmetic honest if the frame or sample rate ever changes.
+        let frames_for_60s = 60 * 60 / GHOST_SAMPLE_INTERVAL_TICKS as u32;
+        assert_eq!(frames_for_60s, 1_800);
+        assert!(
+            frames_for_60s * 6 > 8192,
+            "60 s of ghost does not fit a block"
+        );
     }
 }
