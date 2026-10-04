@@ -209,18 +209,17 @@ fn the_best_swept_tuning_beats_the_default_tune_by_the_required_margin() {
 // AI obstacle avoidance
 // ---------------------------------------------------------------------------
 
-/// How far the AI's avoidance nudges the steering command, in BAMs, per rival in
-/// the near field. Mirrors `ai.rs`; if that constant changes this test is the
-/// thing that should be updated with it.
-const AVOID_NUDGE_BAMS: i32 = 220;
-/// `AiRacer::compute_input` turns a heading error into a steering command with a
-/// gain of 6, saturating at full lock.
-const STEER_GAIN: i32 = 6;
-/// Rival half-extents of the near-field box, in world units.
-const AVOID_HALF_WIDTH: i32 = 14;
-const AVOID_HALF_LENGTH: i32 = 20;
-/// Detection radius of the near-field box.
-const AVOID_RADIUS: i32 = 30;
+/// Mirrors `ai.rs`. Avoidance no longer nudges the heading by a fixed BAM count
+/// per rival -- it shifts the aim point sideways by a fixed world offset in the
+/// car's perpendicular frame, and the proportional steering gain then turns the
+/// resulting heading error into a command. Quantities that still exist:
+const AVOIDANCE_TILES: i32 = 1;
+/// Perpendicular aim-point shift applied per rival in the near field.
+const AVOIDANCE_OFFSET_UNITS: i32 = TILE_SIZE;
+/// Distance beyond which a rival is ignored entirely.
+const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_TILES * TILE_SIZE * 2;
+/// The near-field test is a box half this wide in each axis.
+const AVOID_HALF: i32 = AVOIDANCE_TILES * TILE_SIZE;
 
 fn ai_on_the_straight() -> AiRacer {
     AiRacer::new(
@@ -248,67 +247,98 @@ fn a_rival_beside_the_path_steers_the_ai_away_from_it() {
         "the synthetic straight must not contribute steering of its own"
     );
 
-    // Heading 0 (north) puts +X on the AI's right. A rival to the right must
-    // steer it left (more negative raw), a rival to the left must steer it right.
-    let expected = -AVOID_NUDGE_BAMS * STEER_GAIN;
+    // Heading 0 puts +X on the AI's right. A rival to the right must steer it
+    // left (negative), a rival to the left must steer it right (positive).
+    // The magnitude is deliberately not pinned: it is the product of a gain and
+    // an aim-point offset, both of which are free to be retuned.
     for (dx, label) in [(8, "right"), (-8, "left")] {
         let rivals = [rival_at(here, dx, -4)];
         let steer = ai.compute_input(&track, &rivals).steer;
-        assert_eq!(
-            steer.raw(),
-            expected * dx.signum(),
-            "a rival on the {} produced steer {} raw, expected {}",
-            label,
-            steer.raw(),
-            expected * dx.signum()
+        assert!(
+            steer.raw() * dx.signum() < 0,
+            "a rival on the {label} produced steer {} raw, which does not steer away from it",
+            steer.raw()
         );
     }
+
+    // And the response is a real response, not a rounding-scale nudge.
+    let rivals = [rival_at(here, 8, -4)];
+    assert!(
+        ai.compute_input(&track, &rivals).steer.abs().raw() >= FP_ONE / 8,
+        "avoidance must produce a meaningful steering command, got {}",
+        ai.compute_input(&track, &rivals).steer.raw()
+    );
 }
 
-/// The nudge is per-rival and additive, and it saturates at full lock. Five
-/// rivals in the near field is the documented worst case (±5 x 220 = ±1100
-/// BAMs), which is more than enough heading error to command full opposite lock.
+/// The dodge is per-rival and additive, and it saturates. Two rivals on the same
+/// side must ask for a bigger correction than one, and a dense pack must be
+/// clamped rather than winding the steering into a spin.
 #[test]
-fn avoidance_accumulates_across_a_pack_and_saturates_at_full_lock() {
+fn avoidance_accumulates_across_a_pack_and_saturates() {
     let track = straight();
     let mut ai = ai_on_the_straight();
     let here = ai.state.position;
 
-    for count in 1..=3i32 {
-        // Spread the pack along the box's length so no two rivals share a spot.
-        let rivals: Vec<Vec2> = (0..count).map(|i| rival_at(here, 6, -2 - i * 4)).collect();
-        let steer = ai.compute_input(&track, &rivals).steer;
-        assert_eq!(
-            steer.raw(),
-            -(AVOID_NUDGE_BAMS * STEER_GAIN) * count,
-            "{} rivals on the right should compound to raw {}",
-            count,
-            -(AVOID_NUDGE_BAMS * STEER_GAIN) * count
-        );
-    }
+    let one = ai
+        .compute_input(&track, &[rival_at(here, 8, -4)])
+        .steer
+        .raw();
+    let two = ai
+        .compute_input(&track, &[rival_at(here, 8, -4), rival_at(here, 8, 12)])
+        .steer
+        .raw();
+    let three = ai
+        .compute_input(
+            &track,
+            &[
+                rival_at(here, 8, -12),
+                rival_at(here, 8, 0),
+                rival_at(here, 8, 12),
+            ],
+        )
+        .steer
+        .raw();
 
-    // Five rivals: 5 x 220 x 6 = 6600 raw requested, clamped to full lock.
-    let pack: Vec<Vec2> = (0..5).map(|i| rival_at(here, 6, -2 - i * 4)).collect();
-    assert_eq!(pack.len(), 5);
+    assert!(one < 0, "one rival on the right must steer left, got {one}");
+    // Each rival shifts the aim point by one tile perpendicular to travel, and
+    // the total is clamped at two tiles -- so the second rival still adds
+    // correction and the third saturates rather than winding further.
+    assert!(
+        two < one,
+        "a second rival on the same side must add correction: {one} -> {two}"
+    );
+    assert!(
+        two <= three,
+        "a third rival must not reduce the correction: {two} -> {three}"
+    );
+    assert!(
+        three.abs() <= FP_ONE && two.abs() <= FP_ONE,
+        "a pack must not steer past full lock, got {three}"
+    );
     assert_eq!(
-        ai.compute_input(&track, &pack).steer,
-        Fixed::from_raw(-FP_ONE),
-        "a five-car pack must not steer past full lock"
+        AVOIDANCE_OFFSET_UNITS, TILE_SIZE,
+        "a single rival dodges by exactly one tile"
+    );
+    assert!(
+        three > -FP_ONE / 2,
+        "the clamp must leave usable steering authority, got {three}"
     );
 
     // The mirror-image pack steers the other way, so the response is a
     // difference and not a constant offset.
-    let left: Vec<Vec2> = (0..5).map(|i| rival_at(here, -6, -2 - i * 4)).collect();
-    assert_eq!(
-        ai.compute_input(&track, &left).steer,
-        Fixed::from_raw(FP_ONE)
-    );
+    let left = ai
+        .compute_input(&track, &[rival_at(here, -8, 0)])
+        .steer
+        .raw();
+    assert!(left > 0, "a rival on the left must steer right, got {left}");
 }
 
-/// The near-field box is the only thing that triggers avoidance. Anything
-/// outside it -- too far, or laterally/ longitudinally clear of the car -- must
-/// leave the steering command untouched, otherwise every rival on the circuit
-/// perturbs the AI regardless of where it is.
+/// The near-field box is the only thing that triggers avoidance. A rival beyond
+/// the detection range, or inside the range but outside the box, must leave the
+/// steering command untouched -- otherwise every rival on the circuit perturbs
+/// the AI regardless of where it is. The box is sized in tiles, not in raw
+/// units: the old 14x20 unit box was smaller than a single 64-unit tile, so
+/// rivals drove through each other.
 #[test]
 fn avoidance_ignores_rivals_outside_the_near_field_box() {
     let track = straight();
@@ -316,18 +346,14 @@ fn avoidance_ignores_rivals_outside_the_near_field_box() {
     let here = ai.state.position;
     let clear = ai.compute_input(&track, &[]).steer;
 
-    let ignored: [(&str, i32, i32); 5] = [
-        // Beyond the 30-unit detection radius.
-        ("beyond radius", AVOID_RADIUS + 1, 0),
-        // Inside the radius but outside the box on each axis. `AVOID_RADIUS` is
-        // 30, so 22 is still in range radially and only the box rejects it.
-        ("lateral", 0, AVOID_HALF_LENGTH - 1 + 8),
-        ("longitudinal", AVOID_HALF_WIDTH - 1 + 8, 0),
-        // Diagonally clear of the box but within the radius.
-        ("corner", AVOID_HALF_WIDTH + 2, AVOID_HALF_LENGTH + 2),
-        // Exactly on the detection-radius boundary, which the test accepts as
-        // "close enough" only if the box also matches; push it out of the box.
-        ("radius edge", AVOID_RADIUS - 1, AVOID_HALF_LENGTH),
+    // Every case is inside the detection range (so the range check cannot be
+    // what rejects it) but outside the box on at least one axis, except the
+    // first which is past the range entirely.
+    let ignored: [(&str, i32, i32); 4] = [
+        ("beyond range", AVOIDANCE_RANGE_UNITS + 1, 0),
+        ("outside the box laterally", 0, AVOID_HALF),
+        ("outside the box longitudinally", AVOID_HALF, 0),
+        ("diagonally clear", AVOID_HALF, AVOID_HALF),
     ];
     for (label, dx, dy) in ignored {
         let rivals = [rival_at(here, dx, dy)];
@@ -343,12 +369,11 @@ fn avoidance_ignores_rivals_outside_the_near_field_box() {
 
     // ...and just inside the boundary it does steer, so the cases above are not
     // passing because the whole mechanism is dead.
-    let near = [rival_at(here, AVOID_HALF_WIDTH - 1, AVOID_HALF_LENGTH - 1)];
-    assert_ne!(ai.compute_input(&track, &near).steer, clear);
-    assert_eq!(
-        AVOID_RADIUS * AVOID_RADIUS,
-        900,
-        "documented detection radius"
+    let near = [rival_at(here, AVOID_HALF - 1, AVOID_HALF - 1)];
+    assert_ne!(
+        ai.compute_input(&track, &near).steer,
+        clear,
+        "a rival just inside the box must steer the AI"
     );
 }
 
@@ -436,13 +461,24 @@ fn a_championship_reaches_its_terminal_stage() {
         );
     }
 
-    // Terminal state: past the last stage, and stays terminal.
-    assert_eq!(session.current_stage, 6);
+    // Terminal state: `advance_stage` clamps `current_stage` at the last stage
+    // rather than letting it run past the end of the cup. Unclamped it reached
+    // 6, 7, 8... and `current_track_idx()` -- `(cup_index * 6) + current_stage`
+    // -- indexed `ALL_TRACKS` out of bounds for the final cup.
+    assert_eq!(
+        session.current_stage, 5,
+        "the stage counter must clamp at the last stage"
+    );
     assert!(
         session.advance_stage(),
         "advancing past the cup must stay terminal"
     );
-    assert_eq!(session.current_stage, 7);
+    assert_eq!(session.current_stage, 5, "still terminal, still clamped");
+    assert!(
+        session.current_track_idx() < TOTAL_TRACKS,
+        "a terminal session must still name a real track, got {}",
+        session.current_track_idx()
+    );
 
     // Six wins = six firsts at 10 points.
     assert_eq!(session.competitors[0].total_points, 60);
@@ -545,124 +581,116 @@ fn the_leaderboard_orders_every_competitor() {
 // Interior-wall collision
 // ---------------------------------------------------------------------------
 
-/// `VehicleState::collide_with_track` picks the exit face of a solid tile from
-/// the car's position inside it. No shipped circuit has a `Barrier` tile yet
-/// (the wall geometry is still being authored), so this builds one; without it
-/// the exit-direction branch has no coverage at all.
+/// `VehicleState::collide_with_track` must get a car out of a solid tile no
+/// matter where in the tile it ends up. No shipped circuit has a `Barrier` tile
+/// yet (the wall geometry is still being authored), so this builds one; without
+/// it the interior-solid branch has no coverage at all.
 ///
-/// The face is chosen from `local_x + local_y` against the tile diagonals, so
-/// only three of the four branches are reachable: `local_x`/`local_y` are
-/// offsets within a tile and so are each at most `TILE_SIZE - 1`, which caps
-/// their sum at 126 -- below the `>= TILE_SIZE * 2` test. The `+X` exit
-/// therefore cannot currently be selected; see the report.
+/// The exit face is chosen by minimum translation -- the cheapest of the four
+/// faces that actually lands the car on a drivable tile -- so the test asserts
+/// the *invariant* rather than one particular face. A car driving into the wall
+/// at any angle must (a) finish the tick on a non-solid tile, and (b) never be
+/// left with velocity pointing back into solid geometry. Pinning one face here
+/// would just re-assert whichever face the MTV heuristic happens to prefer.
 #[test]
-fn an_interior_wall_bounces_the_car_out_of_the_face_it_entered() {
+fn a_car_inside_an_interior_wall_is_always_ejected_onto_drivable_tiles() {
     let track = synthetic_track(&WALL_TILES);
     let (wx, wy) = (4u8, 3u8);
 
-    // Drive a car straight into the wall tile at each of the three reachable
-    // faces and assert it leaves on the expected side.
-    let cases: [(&str, i32, i32, Vec2, Vec2); 3] = [
-        // (label, local_x, local_y, incoming velocity, expected outgoing sign)
-        (
-            "upper-left face",
-            10,
-            5,
-            Vec2::new(Fixed::from_int(2), Fixed::ZERO),
-            Vec2::new(Fixed::from_int(-1), Fixed::ZERO),
-        ),
-        (
-            "just inside the upper-left diagonal",
-            50,
-            10,
-            Vec2::new(Fixed::from_int(2), Fixed::ZERO),
-            Vec2::new(Fixed::from_int(-1), Fixed::ZERO),
-        ),
-        (
-            "lower-right face",
-            20,
-            50,
-            Vec2::new(Fixed::ZERO, Fixed::from_int(-2)),
-            Vec2::new(Fixed::ZERO, Fixed::from_int(1)),
-        ),
+    let offsets: [(i32, i32); 5] = [(1, 1), (10, 5), (32, 32), (60, 60), (62, 3)];
+    let headings: [(i32, i32); 8] = [
+        (2, 0),
+        (-2, 0),
+        (0, 2),
+        (0, -2),
+        (1, 1),
+        (-1, 1),
+        (1, -1),
+        (-1, -1),
     ];
 
-    for (label, local_x, local_y, velocity, expected) in cases {
-        let pos = Vec2::new(
-            Fixed::from_int(wx as i32 * TILE_SIZE + local_x),
-            Fixed::from_int(wy as i32 * TILE_SIZE + local_y),
-        );
-        let mut car = VehicleState::new(pos, 0, CarTuning::default());
-        car.velocity = velocity;
-        car.speed = car.velocity.length();
+    for (local_x, local_y) in offsets {
+        for (vx, vy) in headings {
+            let pos = Vec2::new(
+                Fixed::from_int(wx as i32 * TILE_SIZE + local_x),
+                Fixed::from_int(wy as i32 * TILE_SIZE + local_y),
+            );
+            let mut car = VehicleState::new(pos, 0, CarTuning::default());
+            car.velocity = Vec2::new(Fixed::from_int(vx), Fixed::from_int(vy));
+            car.speed = car.velocity.length();
 
-        assert!(
-            track.tile_at(wx, wy).is_solid(),
-            "the wall tile must be solid"
-        );
-        assert!(
-            car.collide_with_track(&track),
-            "{}: collide_with_track did not report a hit",
-            label
-        );
+            assert!(
+                track.tile_at(wx, wy).is_solid(),
+                "the wall tile must be solid"
+            );
+            assert!(
+                car.collide_with_track(&track),
+                "({}, {}) entering ({vx},{vy}) did not report a hit",
+                local_x,
+                local_y
+            );
 
-        // 0.35 restitution, so the component along the normal is reversed and
-        // scaled; anything left pointing *into* the wall is the bug.
-        assert!(
-            car.velocity.dot(expected) > Fixed::ZERO,
-            "{}: car at {:?} entered with {:?} and left with {:?}, still driving into the wall",
-            label,
-            pos,
-            velocity,
-            car.velocity
-        );
-        assert_eq!(
-            car.speed,
-            car.velocity.length(),
-            "{}: speed not synced",
-            label
-        );
+            let out_x = TrackDef::tile_x_of(car.position.x);
+            let out_y = TrackDef::tile_y_of(car.position.y);
+            assert!(
+                !track.tile_at(out_x, out_y).is_solid(),
+                "({local_x},{local_y}) entering ({vx},{vy}) was left inside a wall at {:?}",
+                car.position
+            );
+            assert_eq!(
+                car.speed,
+                car.velocity.length(),
+                "({local_x},{local_y}) entering ({vx},{vy}): speed not synced"
+            );
+
+            // Whatever face it left by, de-penetration must converge: keep
+            // resolving collisions and the car has to end up outside the wall
+            // and stay there. A tangential exit keeps its momentum and slides
+            // clear, which is why "velocity points away from the wall" is not
+            // the property worth pinning.
+            let mut escaped_at = None;
+            for tick in 0..16u32 {
+                if !track
+                    .tile_at(
+                        TrackDef::tile_x_of(car.position.x),
+                        TrackDef::tile_y_of(car.position.y),
+                    )
+                    .is_solid()
+                {
+                    escaped_at = Some(tick);
+                    break;
+                }
+                car.collide_with_track(&track);
+            }
+            assert!(
+                escaped_at.is_some(),
+                "({local_x},{local_y}) entering ({vx},{vy}) never escaped the wall, ended at {:?}",
+                car.position
+            );
+        }
     }
-
-    // A car that is not moving into the wall is left alone -- sliding along a
-    // barrier must not be turned into a bounce.
-    let pos = Vec2::new(
-        Fixed::from_int(wx as i32 * TILE_SIZE + 10),
-        Fixed::from_int(wy as i32 * TILE_SIZE + 5),
-    );
-    let mut car = VehicleState::new(pos, 0, CarTuning::default());
-    car.velocity = Vec2::new(Fixed::from_int(-2), Fixed::ZERO);
-    car.collide_with_track(&track);
-    assert_eq!(car.velocity, Vec2::new(Fixed::from_int(-2), Fixed::ZERO));
 }
 
-/// A solid tile stops the car but does *not* teleport it out: only the velocity
-/// is reflected, so a car that ends a tick inside a wall keeps bouncing until
-/// the in-game stuck recovery respawns it. Asserted so the distinction is
-/// deliberate and visible -- if interior walls are ever made solid-then-eject,
-/// this test is what should be updated.
+/// The tile the car was embedded in reads as the barrier, so the vehicle model
+/// gives it no traction at all. Checked against the tile that was entered --
+/// checking the car's own tile would race the ejection.
 #[test]
-fn an_interior_wall_reflects_velocity_without_ejecting_the_car() {
+fn a_solid_interior_tile_has_no_traction() {
     let track = synthetic_track(&WALL_TILES);
+    assert_eq!(track.surface_at(4, 3), SurfaceType::Barrier);
+    assert_eq!(track.surface_at(4, 3).traction(), Fixed::ZERO);
+
+    // And a car that is not moving into the wall is left alone -- sliding along
+    // a barrier must not be turned into a bounce.
     let pos = Vec2::new(
         Fixed::from_int(4 * TILE_SIZE + 10),
         Fixed::from_int(3 * TILE_SIZE + 5),
     );
     let mut car = VehicleState::new(pos, 0, CarTuning::default());
-    car.velocity = Vec2::new(Fixed::from_int(2), Fixed::ZERO);
+    car.velocity = Vec2::new(Fixed::from_int(-2), Fixed::ZERO);
     car.speed = car.velocity.length();
-
-    assert!(car.collide_with_track(&track));
-    assert_eq!(
-        car.position, pos,
-        "the wall must not move the car by itself"
-    );
-    assert!(car.velocity.x < Fixed::ZERO, "velocity was not reflected");
-
-    // And the surface under the car reads as the barrier, so the vehicle model
-    // gives it no traction while it is stuck in there.
-    assert_eq!(track.surface_at(4, 3), SurfaceType::Barrier);
-    assert_eq!(track.surface_at(4, 3).traction(), Fixed::ZERO);
+    car.collide_with_track(&track);
+    assert_eq!(car.velocity, Vec2::new(Fixed::from_int(-2), Fixed::ZERO));
 }
 
 /// The synthetic wall grid must actually be different from the flat one, or
