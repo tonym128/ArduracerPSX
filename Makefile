@@ -81,7 +81,7 @@ ci-disc: disc
 
 fmt-check:
 	@echo "Checking formatting across crates..."
-	@for m in crates/arduracer-core tools/test_game_logic tools/playtest game; do \
+	@for m in crates/arduracer-core tools/test_game_logic tools/playtest tools/test_memcard game; do \
 		if [ -f "$$m/Cargo.toml" ]; then \
 			echo "Checking: $$m"; \
 			cargo fmt --manifest-path "$$m/Cargo.toml" --all -- --check || exit 1; \
@@ -90,7 +90,7 @@ fmt-check:
 
 fmt:
 	@echo "Formatting code across crates..."
-	@for m in crates/arduracer-core tools/test_game_logic tools/playtest game; do \
+	@for m in crates/arduracer-core tools/test_game_logic tools/playtest tools/test_memcard game; do \
 		if [ -f "$$m/Cargo.toml" ]; then \
 			echo "Formatting: $$m"; \
 			cargo fmt --manifest-path "$$m/Cargo.toml" --all; \
@@ -108,6 +108,9 @@ clippy:
 	@if [ -f "tools/playtest/Cargo.toml" ]; then \
 		cargo clippy --manifest-path tools/playtest/Cargo.toml --all-targets -- -D warnings || exit 1; \
 	fi
+	@if [ -f "tools/test_memcard/Cargo.toml" ]; then \
+		cargo clippy --manifest-path tools/test_memcard/Cargo.toml --all-targets -- -D warnings || exit 1; \
+	fi
 
 test:
 	@echo "Running host-side tests in crates/arduracer-core..."
@@ -117,6 +120,10 @@ test:
 	@echo "Running test_game_logic harness..."
 	@if [ -f "tools/test_game_logic/Cargo.toml" ]; then \
 		cargo run --manifest-path tools/test_game_logic/Cargo.toml || exit 1; \
+	fi
+	@echo "Running memory card persistence suite..."
+	@if [ -f "tools/test_memcard/Cargo.toml" ]; then \
+		cargo test --manifest-path tools/test_memcard/Cargo.toml || exit 1; \
 	fi
 
 # Simulates real laps on all 24 circuits with the real core physics.
