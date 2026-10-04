@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PSoXide</title>
+    <link rel="icon" href="./psoxide-app-icon-99e5b83a2cf87470.png" integrity="sha384-TPSH6BgtFGD3c+qlmRyF1AlBUhFPAE77PDa4dA+Z01Fm0CvisKOyUwDk858Qabqo"/>
+    <script>
+      // ?embed=1 is the iframe player (see docs/web-player.md). Mark the root
+      // early so the stylesheet can swap the loader for the start poster.
+      var psoxideEmbed =
+        location.search.replace(/^\?/, "").split("&").indexOf("embed=1") >= 0;
+      if (psoxideEmbed) {
+        document.documentElement.classList.add("psoxide-embed", "psoxide-embed-idle");
+      }
+    </script>
+    <script>
+      // Browsers suspend the WebAudio context until a user gesture (autoplay
+      // policy), so cpal's audio stays silent on the auto-booting page.
+      // Capture the AudioContext cpal creates, resume it on the first user
+      // input, and show a small hint until it is actually running.
+      (function () {
+        var Orig = window.AudioContext || window.webkitAudioContext;
+        if (!Orig) return;
+        var ctxs = [];
+        function suspended() {
+          return ctxs.some(function (c) { return c.state === "suspended"; });
+        }
+        function update() {
+          var hint = document.getElementById("psoxide-sound-hint");
+          if (hint) hint.hidden = !suspended();
+        }
+        function Patched(opts) {
+          var c = new Orig(opts);
+          ctxs.push(c);
+          c.addEventListener("statechange", update);
+          update();
+          return c;
+        }
+        Patched.prototype = Orig.prototype;
+        window.AudioContext = Patched;
+        window.webkitAudioContext = Patched;
+        function resume() {
+          ctxs.forEach(function (c) {
+            if (c.state === "suspended") c.resume().then(update, update);
+          });
+        }
+        ["pointerdown", "keydown", "touchstart"].forEach(function (ev) {
+          window.addEventListener(ev, resume, true);
+        });
+        // Pad presses are not DOM events. Try a resume on one while sound is
+        // still blocked; browsers that do not count a pad press as a gesture
+        // keep the hint up until a click or key.
+        setInterval(function () {
+          if (!suspended() || !navigator.getGamepads) return;
+          var pads = navigator.getGamepads();
+          for (var i = 0; i < pads.length; i++) {
+            if (pads[i] && pads[i].buttons.some(function (b) { return b.pressed; })) {
+              resume();
+              return;
+            }
+          }
+        }, 250);
+        document.addEventListener("DOMContentLoaded", update);
+      })();
+    </script>
+    <style>
+      html, body {
+        margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden;
+        user-select: none; -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* No text-selection highlight or focus ring around the game canvas. */
+      canvas { display: block; outline: none; }
+      canvas:focus, canvas:focus-visible { outline: none; }
+
+      .psoxide-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: grid;
+        place-items: center;
+        color: #dce5ee;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(15, 185, 215, 0.10), transparent 34%),
+          linear-gradient(180deg, #090d12 0%, #05070a 100%);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 280ms ease, visibility 280ms step-end;
+      }
+      .psoxide-loader.is-ready {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .psoxide-loader-card {
+        width: min(360px, calc(100vw - 56px));
+        text-align: center;
+      }
+      .psoxide-loader-mark {
+        margin-bottom: 22px;
+        color: #f4f8fb;
+        font-size: clamp(30px, 7vw, 44px);
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        line-height: 1;
+        text-shadow: 0 0 28px rgba(39, 202, 231, 0.12);
+      }
+      .psoxide-loader-mark span { color: #22c8e5; }
+      .psoxide-loader-track {
+        position: relative;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #1d2630;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.035);
+      }
+      .psoxide-loader-track::after {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 42%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, transparent, #22c8e5 44%, #80efff 58%, transparent);
+        content: "";
+        animation: psoxide-loader-sweep 1.15s cubic-bezier(.45, 0, .55, 1) infinite;
+      }
+      .psoxide-loader-status {
+        margin-top: 14px;
+        color: #8997a6;
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .psoxide-loader.has-error .psoxide-loader-track::after {
+        width: 100%;
+        background: #fa5c5c;
+        animation: none;
+      }
+      .psoxide-loader.has-error .psoxide-loader-status { color: #ff9292; }
+      .psoxide-sound-hint {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        z-index: 10;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: rgba(16, 18, 22, 0.72);
+        color: #aab6c2;
+        font: 600 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        pointer-events: none;
+      }
+      .psoxide-sound-hint[hidden] { display: none; }
+      /* Embedded player: a click-to-start poster over everything until the
+         user asks for the program, then small overlay buttons on hover. */
+      .psoxide-embed-idle .psoxide-loader { display: none; }
+      .psoxide-poster {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+        border: 0;
+        margin: 0;
+        padding: 16px;
+        cursor: pointer;
+        color: #dce5ee;
+        background:
+          radial-gradient(circle at 50% 42%, rgba(15, 185, 215, 0.10), transparent 34%),
+          linear-gradient(180deg, #090d12 0%, #05070a 100%);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+      .psoxide-poster[hidden] { display: none; }
+      .psoxide-poster-play {
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: rgba(34, 200, 229, 0.14);
+        box-shadow: 0 0 0 1px rgba(34, 200, 229, 0.45);
+        transition: background 160ms ease, transform 160ms ease;
+      }
+      .psoxide-poster-play svg { width: 30px; height: 30px; margin-left: 4px; fill: #22c8e5; }
+      .psoxide-poster:hover .psoxide-poster-play,
+      .psoxide-poster:focus-visible .psoxide-poster-play {
+        background: rgba(34, 200, 229, 0.26);
+        transform: scale(1.06);
+      }
+      .psoxide-poster:focus-visible { outline: 2px solid #22c8e5; outline-offset: -4px; }
+      .psoxide-poster-title {
+        max-width: 100%;
+        overflow: hidden;
+        color: #f4f8fb;
+        font-size: 15px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .psoxide-poster-hint {
+        color: #8997a6;
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .psoxide-embed-controls {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        z-index: 20;
+        display: flex;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 160ms ease;
+      }
+      .psoxide-embed-controls[hidden] { display: none; }
+      body:hover .psoxide-embed-controls,
+      .psoxide-embed-controls:focus-within { opacity: 1; }
+      @media (hover: none) { .psoxide-embed-controls { opacity: 0.7; } }
+      .psoxide-embed-controls button {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        background: rgba(16, 18, 22, 0.72);
+      }
+      .psoxide-embed-controls button:hover { background: rgba(34, 44, 54, 0.9); }
+      .psoxide-embed-controls svg { width: 18px; height: 18px; fill: #dce5ee; }
+      #psoxide-mute .psoxide-icon-muted,
+      #psoxide-mute.is-muted .psoxide-icon-sound { display: none; }
+      #psoxide-mute.is-muted .psoxide-icon-muted { display: block; }
+      @keyframes psoxide-loader-sweep {
+        from { transform: translateX(-115%); }
+        to { transform: translateX(350%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .psoxide-loader-track::after { animation-duration: 2.4s; }
+        .psoxide-loader { transition-duration: 0ms; }
+      }
+    </style>
+    <script>
+      // The wasm is built with WebAssembly SIMD (see .cargo/config.toml). A
+      // browser without it cannot compile the module; say so plainly rather
+      // than the generic startup error. Validates a minimal module using
+      // i8x16.splat and i8x16.popcnt.
+      var psoxideNoSimd = false;
+      try {
+        psoxideNoSimd = !WebAssembly.validate(new Uint8Array([
+          0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0,
+          10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11,
+        ]));
+      } catch (e) {
+        psoxideNoSimd = true;
+      }
+      // Keep startup failures visible instead of leaving an endless animation.
+      function showPsoxideLoadError() {
+        var loader = document.getElementById("psoxide-loader");
+        if (!loader || loader.classList.contains("is-ready")) return;
+        loader.classList.add("has-error");
+        var status = document.getElementById("psoxide-loader-status");
+        if (status) {
+          status.textContent = psoxideNoSimd
+            ? "This browser lacks WebAssembly SIMD - please update it"
+            : "Could not start - reload to try again";
+        }
+      }
+      if (psoxideNoSimd) {
+        document.addEventListener("DOMContentLoaded", showPsoxideLoadError);
+      }
+      window.addEventListener("error", showPsoxideLoadError);
+      window.addEventListener("unhandledrejection", showPsoxideLoadError);
+    </script>
+    <!-- Build the emulator-only frontend (editor feature off) to wasm.
+         wasm-opt -O4 is the speed-leaning Binaryen pass stack (an
+         emulator's inner loop should not trade speed for density);
+         strip-debug/-producers drop sections browsers never read. -->
+    <!-- The bundled example EXEs are served next to the page and fetched
+         when launched, not compiled into the wasm. -->
+    <!-- Trunk.toml replaces Trunk's start script: the loader at the end of
+         <body> starts the wasm (at once, or on the poster click in embed
+         mode). -->
+    
+    <script>window.psoxideWasm = { js: './frontend-1a97a093078bd962.js', wasm: './frontend-1a97a093078bd962_bg.wasm' };</script>
+  <link rel="modulepreload" href="./frontend-1a97a093078bd962.js"></head>
+  <body>
+    <div id="psoxide-loader" class="psoxide-loader" role="status" aria-live="polite">
+      <div class="psoxide-loader-card">
+        <div class="psoxide-loader-mark" aria-label="PSoXide">PSo<span>X</span>ide</div>
+        <div class="psoxide-loader-track" aria-hidden="true"></div>
+        <div id="psoxide-loader-status" class="psoxide-loader-status">
+          Loading emulator
+        </div>
+      </div>
+    </div>
+    <div id="psoxide-sound-hint" class="psoxide-sound-hint" hidden>Click or press a key for sound</div>
+    <button id="psoxide-poster" class="psoxide-poster" type="button" hidden>
+      <span class="psoxide-poster-play" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" /></svg>
+      </span>
+      <span id="psoxide-poster-title" class="psoxide-poster-title"></span>
+      <span class="psoxide-poster-hint">Click to run</span>
+    </button>
+    <div id="psoxide-embed-controls" class="psoxide-embed-controls" hidden>
+      <button id="psoxide-restart" type="button" title="Restart" aria-label="Restart">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z" /></svg>
+      </button>
+      <button id="psoxide-mute" type="button" title="Mute" aria-label="Mute" aria-pressed="false">
+        <svg class="psoxide-icon-sound" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z" /></svg>
+        <svg class="psoxide-icon-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.59 3L19 9.59 17.59 8.17 15.17 10.59 12.76 8.17 11.34 9.59 13.76 12l-2.42 2.41 1.42 1.42 2.41-2.42 2.42 2.42L19 14.41z" /></svg>
+      </button>
+    </div>
+    <noscript>PSoXide requires JavaScript.</noscript>
+    <script>
+      // Start the emulator. Trunk.toml leaves the hashed file names in
+      // window.psoxideWasm rather than letting Trunk import them, so this
+      // page decides when: at once on the normal page, on the poster click
+      // in embed mode (so an unstarted iframe costs no download, no GPU
+      // context and no audio). Mirrors what Trunk's own script did.
+      function psoxideStart() {
+        var files = window.psoxideWasm;
+        var wasm = fetch(files.wasm);
+        return import(files.js).then(function (bindings) {
+          return bindings.default({ module_or_path: wasm }).then(function (instance) {
+            window.wasmBindings = bindings;
+            dispatchEvent(new CustomEvent("TrunkApplicationStarted", { detail: { wasm: instance } }));
+            return bindings;
+          });
+        });
+      }
+
+      if (!psoxideEmbed) {
+        psoxideStart();
+      } else {
+        // Embed mode. The protocol (commands in, events out) is documented in
+        // docs/web-player.md; keep the two in step.
+        (function () {
+          var COMMANDS = ["pause", "resume", "reset", "mute", "unmute"];
+          var host = window.parent !== window ? window.parent : null;
+          var poster = document.getElementById("psoxide-poster");
+          var controls = document.getElementById("psoxide-embed-controls");
+          var muteButton = document.getElementById("psoxide-mute");
+          var bindings = null;
+          var started = false;
+          var failed = false;
+          var hostPaused = false;
+          var hidden = document.visibilityState === "hidden";
+          var muted = true;
+
+          function post(event, message) {
+            if (!host) return;
+            var data = { type: "psoxide-event", event: event };
+            if (message) data.message = String(message);
+            host.postMessage(data, location.origin);
+          }
+          function send(command) {
+            if (bindings) bindings.psoxideEmbedCommand(command);
+          }
+          // Paused while the host says so or the page is hidden; the host's
+          // resume never overrides a hidden tab.
+          function applyRun() {
+            send(hostPaused || hidden ? "pause" : "resume");
+          }
+          function applyMute() {
+            send(muted ? "mute" : "unmute");
+            muteButton.classList.toggle("is-muted", muted);
+            muteButton.setAttribute("aria-pressed", String(muted));
+            muteButton.title = muted ? "Unmute" : "Mute";
+            muteButton.setAttribute("aria-label", muteButton.title);
+          }
+          // Keyboard input reaches the game through the focused canvas,
+          // which winit creates a few frames after the wasm starts.
+          function focusCanvas(tries) {
+            var canvas = document.querySelector("canvas");
+            if (canvas) {
+              canvas.focus();
+            } else if ((tries || 0) < 300) {
+              requestAnimationFrame(function () { focusCanvas((tries || 0) + 1); });
+            }
+          }
+          function fail(message) {
+            if (failed) return;
+            failed = true;
+            poster.hidden = true;
+            controls.hidden = true;
+            document.documentElement.classList.remove("psoxide-embed-idle");
+            var loader = document.getElementById("psoxide-loader");
+            loader.className = "psoxide-loader has-error";
+            document.getElementById("psoxide-loader-status").textContent = message;
+            post("error", message);
+          }
+
+          // Rust (src/web_embed.rs) reports run-state changes and load errors here.
+          window.psoxideEmbedEvent = function (event, message) {
+            if (event === "error") {
+              fail(message);
+              return;
+            }
+            if (event === "running" && !failed) controls.hidden = false;
+            post(event, message);
+          };
+
+          window.psoxideSetVirtualPad = function (mask) {
+            window._psoxideVirtualPadMask = (mask | 0);
+          };
+
+          window.addEventListener("message", function (e) {
+            // Only the embedding page may drive the player.
+            if (e.source !== window.parent || e.origin !== location.origin) return;
+            var data = e.data;
+            if (!data || typeof data !== "object") return;
+            if (data.type === "psoxide-pad") {
+              window._psoxideVirtualPadMask = (data.mask | 0);
+              return;
+            }
+            if (data.type !== "psoxide-command") return;
+            if (COMMANDS.indexOf(data.command) < 0) {
+              console.warn("PSoXide embed: ignoring unknown command", data.command);
+              return;
+            }
+            if (data.command === "pause") hostPaused = true;
+            if (data.command === "resume") hostPaused = false;
+            if (data.command === "pause" || data.command === "resume") applyRun();
+            if (data.command === "reset") send("reset");
+            if (data.command === "mute" || data.command === "unmute") {
+              muted = data.command === "mute";
+              applyMute();
+            }
+          });
+
+          document.addEventListener("visibilitychange", function () {
+            hidden = document.visibilityState === "hidden";
+            applyRun();
+          });
+
+          // A panic poisons the wasm instance; anything failing before the
+          // first frame means the player never started. Other page errors
+          // (ResizeObserver notices and the like) are not fatal.
+          function fatal(error) {
+            var loader = document.getElementById("psoxide-loader");
+            var starting = started && !loader.classList.contains("is-ready");
+            if (starting || error instanceof WebAssembly.RuntimeError) {
+              fail("The emulator stopped: " + (error && error.message ? error.message : String(error)));
+            }
+          }
+          window.addEventListener("error", function (e) { fatal(e.error || e.message); });
+          window.addEventListener("unhandledrejection", function (e) { fatal(e.reason); });
+
+          document.getElementById("psoxide-restart").addEventListener("click", function () {
+            send("reset");
+            focusCanvas();
+          });
+          muteButton.addEventListener("click", function () {
+            muted = !muted;
+            applyMute();
+            focusCanvas();
+          });
+          // Keep keyboard focus on the game when the overlay is clicked.
+          [].forEach.call(controls.querySelectorAll("button"), function (button) {
+            button.addEventListener("pointerdown", function (e) { e.preventDefault(); });
+          });
+
+          // Listening from here on: the host may send commands.
+          post("ready");
+
+          var disc = location.search
+            .replace(/^\?/, "")
+            .split("&")
+            .filter(function (pair) { return pair.indexOf("disc=") === 0; })[0];
+          disc = disc ? decodeURIComponent(disc.slice(5)) : "";
+          if (psoxideNoSimd) {
+            fail("This browser lacks WebAssembly SIMD - please update it");
+          } else if (!disc || disc.startsWith("/") || /[:\\]/.test(disc) || disc.includes("//")) {
+            fail("Choose a same-origin relative .cue, .bin, or .exe path with ?disc=");
+          } else {
+            document.getElementById("psoxide-poster-title").textContent =
+              disc.split("/").pop().replace(/\.[^.]+$/, "");
+            poster.hidden = false;
+            poster.addEventListener("click", function () {
+              if (started) return;
+              started = true;
+              post("starting");
+              // A click is the user asking for the program: it runs even if
+              // the host had paused the idle player.
+              hostPaused = false;
+              poster.hidden = true;
+              document.documentElement.classList.remove("psoxide-embed-idle");
+              psoxideStart().then(function (loaded) {
+                bindings = loaded;
+                applyRun();
+                applyMute();
+                focusCanvas();
+              }, function (error) {
+                fail("Could not start the emulator: " + (error && error.message ? error.message : String(error)));
+              });
+            });
+          }
+        })();
+      }
+    </script>
+  </body>
+</html>

@@ -90,6 +90,39 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
     };
 
     let cols = FONT_5X7[idx];
+
+    // If foreground is not already dark, draw a 1-pixel dark drop shadow for high contrast
+    let is_bright = color.0 > 40 || color.1 > 40 || color.2 > 40;
+    if is_bright {
+        let shadow_col = (10, 12, 18);
+        let offset = if scale > 1 { 2 } else { 1 };
+        for (col_idx, col_bits) in cols.iter().enumerate() {
+            let mut row = 0u16;
+            while row < 7 {
+                if (col_bits & bit_mask(row)) != 0 {
+                    let start_row = row;
+                    while row < 7 && (col_bits & bit_mask(row)) != 0 {
+                        row += 1;
+                    }
+                    let span = (row - start_row) as u16;
+                    let px = (x + offset + (col_idx as u16) * scale) as i16;
+                    let py = (y + offset + (start_row as u16) * scale) as i16;
+                    gpu::draw_rect_flat(
+                        px,
+                        py,
+                        scale,
+                        span * scale,
+                        shadow_col.0,
+                        shadow_col.1,
+                        shadow_col.2,
+                    );
+                } else {
+                    row += 1;
+                }
+            }
+        }
+    }
+
     for (col_idx, col_bits) in cols.iter().enumerate() {
         let mut row = 0u16;
         while row < 7 {

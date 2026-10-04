@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <linearGradient id="back-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a14"/>
+      <stop offset="100%" stop-color="#161224"/>
+    </linearGradient>
+    <linearGradient id="card-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f1830"/>
+      <stop offset="100%" stop-color="#141022"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rear Tray Inlay Canvas -->
+  <rect width="800" height="800" fill="url(#back-bg)"/>
+
+  <!-- Left Spine -->
+  <rect x="0" y="0" width="40" height="800" fill="#000000"/>
+  <g transform="translate(24, 400) rotate(-90)">
+    <text font-family="'Arial Black', sans-serif" font-size="14" fill="#ffffff" letter-spacing="3" text-anchor="middle">ARDURACER &bull; SLUS-00999</text>
+  </g>
+
+  <!-- Right Spine -->
+  <rect x="760" y="0" width="40" height="800" fill="#000000"/>
+  <g transform="translate(784, 400) rotate(90)">
+    <text font-family="'Arial Black', sans-serif" font-size="14" fill="#ffffff" letter-spacing="3" text-anchor="middle">ARDURACER &bull; SLUS-00999</text>
+  </g>
+
+  <!-- Header Banner -->
+  <g transform="translate(400, 70)">
+    <text x="0" y="0" font-family="'Arial Black', Impact, sans-serif" font-size="32" fill="#ff007f" text-anchor="middle" letter-spacing="2">REDLINE DRIFT MOTORSPORT!</text>
+    <text x="0" y="24" font-family="'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#00ffff" text-anchor="middle" letter-spacing="1">THE ULTIMATE TOP-DOWN 60 FPS ARCADE RACER ON PLAYSTATION</text>
+  </g>
+
+  <!-- Feature Grid -->
+  <g transform="translate(70, 130)">
+    <!-- Feature 1 -->
+    <rect x="0" y="0" width="310" height="110" rx="6" fill="url(#card-grad)" stroke="#ff007f" stroke-width="1.5"/>
+    <text x="15" y="28" font-family="'Arial Black', sans-serif" font-size="14" fill="#ffbb00">🏁 24 DIVERSE CIRCUITS</text>
+    <text x="15" y="52" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">From the Arduboy Oval to Neo Tokyo Expressway,</text>
+    <text x="15" y="70" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">Alpine Drift, and the brutal Monaco GP Classic!</text>
+
+    <!-- Feature 2 -->
+    <rect x="340" y="0" width="310" height="110" rx="6" fill="url(#card-grad)" stroke="#00ffff" stroke-width="1.5"/>
+    <text x="355" y="28" font-family="'Arial Black', sans-serif" font-size="14" fill="#00ffff">🏎️ 6-VEHICLE GARAGE TUNING</text>
+    <text x="355" y="52" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">Allocate 20 performance points across Top Speed,</text>
+    <text x="355" y="70" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">Acceleration, Grip, and Nitro Turbo boost!</text>
+
+    <!-- Feature 3 -->
+    <rect x="0" y="130" width="310" height="110" rx="6" fill="url(#card-grad)" stroke="#00ffff" stroke-width="1.5"/>
+    <text x="15" y="158" font-family="'Arial Black', sans-serif" font-size="14" fill="#00ffff">🤖 ADAPTIVE AI RIVAL PACK</text>
+    <text x="15" y="182" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">Battle 5 aggressive CPU drivers with distinct dynamic</text>
+    <text x="15" y="200" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">racing lines, overtakes, and championship cups.</text>
+
+    <!-- Feature 4 -->
+    <rect x="340" y="130" width="310" height="110" rx="6" fill="url(#card-grad)" stroke="#ff007f" stroke-width="1.5"/>
+    <text x="355" y="158" font-family="'Arial Black', sans-serif" font-size="14" fill="#ff007f">🎵 RED BOOK CD-DA SOUNDTRACK</text>
+    <text x="355" y="182" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">6 adrenaline-fueled synthwave &amp; Eurobeat CD tracks</text>
+    <text x="355" y="200" font-family="'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#e2e8f0">plus full-motion 15 FPS MDEC cinematic intro.</text>
+  </g>
+
+  <!-- Technical Spec Box -->
+  <g transform="translate(70, 400)">
+    <rect x="0" y="0" width="650" height="80" rx="4" fill="#0d0d18" stroke="#334155" stroke-width="1"/>
+    <text x="20" y="25" font-family="monospace" font-size="11" fill="#94a3b8">1 Player &bull; Memory Card 1 Block &bull; DualShock Analog Compatible &bull; Vibration Function</text>
+    <text x="20" y="45" font-family="monospace" font-size="11" fill="#94a3b8">CD-DA Audio (Tracks 2-7) &bull; MDEC Cinema &bull; 60 FPS Top-Down Renderer &bull; NTSC 240p</text>
+    <text x="20" y="65" font-family="monospace" font-size="10" fill="#64748b">Sony Computer Entertainment America, 919 E. Hillsdale Blvd., Foster City, CA 94404</text>
+  </g>
+
+  <!-- Barcode & ESRB / SCEA Branding -->
+  <g transform="translate(70, 520)">
+    <!-- Fake Barcode -->
+    <rect x="0" y="0" width="160" height="80" fill="#ffffff"/>
+    <g fill="#000000">
+      <rect x="10" y="10" width="4" height="50"/>
+      <rect x="18" y="10" width="2" height="50"/>
+      <rect x="24" y="10" width="6" height="50"/>
+      <rect x="34" y="10" width="3" height="50"/>
+      <rect x="42" y="10" width="5" height="50"/>
+      <rect x="52" y="10" width="2" height="50"/>
+      <rect x="58" y="10" width="7" height="50"/>
+      <rect x="70" y="10" width="4" height="50"/>
+      <rect x="78" y="10" width="3" height="50"/>
+      <rect x="86" y="10" width="6" height="50"/>
+      <rect x="96" y="10" width="2" height="50"/>
+      <rect x="104" y="10" width="5" height="50"/>
+      <rect x="114" y="10" width="4" height="50"/>
+      <rect x="122" y="10" width="2" height="50"/>
+      <rect x="130" y="10" width="6" height="50"/>
+      <rect x="142" y="10" width="4" height="50"/>
+      <text x="80" y="73" font-family="monospace" font-size="10" fill="#000000" text-anchor="middle">7 11719 00999 4</text>
+    </g>
+
+    <!-- ESRB Rating -->
+    <rect x="180" y="0" width="90" height="80" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+    <text x="225" y="32" font-family="'Arial Black', sans-serif" font-size="28" fill="#000000" text-anchor="middle">E</text>
+    <text x="225" y="55" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="bold" font-size="8" fill="#000000" text-anchor="middle">EVERYONE</text>
+    <text x="225" y="70" font-family="'Helvetica Neue', Arial, sans-serif" font-size="7" fill="#000000" text-anchor="middle">ESRB</text>
+
+    <!-- Legal Disclaimer -->
+    <g transform="translate(290, 10)">
+      <text x="0" y="15" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" fill="#94a3b8">Arduracer is a trademark of the Arduracer Development Team.</text>
+      <text x="0" y="30" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" fill="#94a3b8">PlayStation and the PlayStation logo are registered trademarks</text>
+      <text x="0" y="45" font-family="'Helvetica Neue', Arial, sans-serif" font-size="9" fill="#94a3b8">of Sony Interactive Entertainment Inc. Manufactured in U.S.A.</text>
+    </g>
+  </g>
+</svg>

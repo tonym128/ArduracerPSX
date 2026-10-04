@@ -78,12 +78,6 @@ pub struct ArduracerGame {
 impl ArduracerGame {
     pub fn new() -> Self {
         psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
-        // `init` centres the picture the way a TV expects, which puts the top of the
-        // vertical window at VRAM row 16. Every renderer here draws its 320x240
-        // layout starting at VRAM row 0, so without this the whole game sits 16
-        // scanlines high and the last 16 rows of the screen show whatever VRAM row
-        // 240+ happens to hold. Shift the window up so VRAM row 0 is screen row 0.
-        psx_gpu_mod::set_display_offset(VideoMode::Ntsc, Resolution::R320X240, 0, -16);
 
         // SPU audio & FMV attract intro from CD-ROM. Skippable; silently absent when the
         // disc has no INTRO.STR (e.g. EXE side-loaded in an emulator).
@@ -167,7 +161,7 @@ impl ArduracerGame {
 
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self, draw_y: i16) {
-        psx_gpu_mod::fill_rect(0, draw_y as u16, SCREEN_WIDTH, SCREEN_HEIGHT, 18, 20, 26);
+        psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 18, 20, 26);
         render_track(self.current_track, &self.camera, draw_y);
         self.skidmarks.render(&self.camera, draw_y);
         self.particles.render(&self.camera, draw_y);
@@ -199,15 +193,7 @@ impl ArduracerGame {
                     if self.state_mgr.title.update(&pad) {
                         self.state_mgr.current = GameState::MainMenu;
                     }
-                    psx_gpu_mod::fill_rect(
-                        0,
-                        draw_y as u16,
-                        SCREEN_WIDTH,
-                        SCREEN_HEIGHT,
-                        12,
-                        14,
-                        20,
-                    );
+                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 12, 14, 20);
                     self.state_mgr.title.render(draw_y);
                 }
                 GameState::MainMenu => {
@@ -235,15 +221,7 @@ impl ArduracerGame {
                             }
                         }
                     }
-                    psx_gpu_mod::fill_rect(
-                        0,
-                        draw_y as u16,
-                        SCREEN_WIDTH,
-                        SCREEN_HEIGHT,
-                        15,
-                        18,
-                        25,
-                    );
+                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
                     self.state_mgr.menu.render(draw_y);
                 }
                 GameState::Garage => {
@@ -256,15 +234,7 @@ impl ArduracerGame {
                         self.memcard.flush();
                         self.state_mgr.current = GameState::MainMenu;
                     }
-                    psx_gpu_mod::fill_rect(
-                        0,
-                        draw_y as u16,
-                        SCREEN_WIDTH,
-                        SCREEN_HEIGHT,
-                        15,
-                        18,
-                        25,
-                    );
+                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
                     self.state_mgr.garage.render(draw_y);
                 }
                 GameState::TrackSelect => {
@@ -283,15 +253,7 @@ impl ArduracerGame {
                     } else if cancelled {
                         self.state_mgr.current = GameState::MainMenu;
                     }
-                    psx_gpu_mod::fill_rect(
-                        0,
-                        draw_y as u16,
-                        SCREEN_WIDTH,
-                        SCREEN_HEIGHT,
-                        15,
-                        18,
-                        25,
-                    );
+                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
                     self.state_mgr.track_select.render(draw_y);
                 }
                 GameState::Racing => {
@@ -440,15 +402,7 @@ impl ArduracerGame {
 
                     // Render Pass:
                     // a. Clear background
-                    psx_gpu_mod::fill_rect(
-                        0,
-                        draw_y as u16,
-                        SCREEN_WIDTH,
-                        SCREEN_HEIGHT,
-                        18,
-                        20,
-                        26,
-                    );
+                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 18, 20, 26);
                     // b. Track tilemap
                     render_track(track, &self.camera, draw_y);
                     // c. Skidmarks on track
@@ -487,15 +441,7 @@ impl ArduracerGame {
                     }
                 }
                 GameState::Results => {
-                    psx_gpu_mod::fill_rect(
-                        0,
-                        draw_y as u16,
-                        SCREEN_WIDTH,
-                        SCREEN_HEIGHT,
-                        14,
-                        16,
-                        22,
-                    );
+                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 14, 16, 22);
                     let mut action_cont = false;
                     let mut action_exit = false;
                     if let Some(ref mut results) = self.state_mgr.results {

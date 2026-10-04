@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARDURACER (PS1) - 60 FPS Arcade Motorsport | Web Arcade</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/svg+xml" href="assets/disc_face_art.svg">
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="header-container">
+      <div class="logo-group">
+        <div class="ps-badge">
+          <div class="ps-logo-dots">
+            <span>▲</span><span>●</span><span>✖</span><span>■</span>
+          </div>
+          PLAYSTATION
+        </div>
+        <div class="title-group">
+          <h1>ARDURACER</h1>
+          <p>60 FPS Arcade Motorsport &bull; Powered by PSoXide WebAssembly</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="badge pulse">WASM SIMD128</div>
+        <div class="badge">60 FPS TOP-DOWN</div>
+        <div class="badge">24 CIRCUITS</div>
+        <div class="badge">CD-DA SOUNDTRACK</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Showcase Container -->
+  <main class="main-container">
+
+    <!-- Arcade Monitor / Emulation Stage -->
+    <section class="arcade-section">
+      <div class="arcade-bezel">
+        <div class="bezel-header">
+          <div class="bezel-power-led">
+            <div class="led-indicator" id="status-led"></div>
+            <span id="status-text">INITIALIZING CONSOLE...</span>
+          </div>
+          <span>SONY TRINITRON HR MONITOR &bull; 240P RGB &bull; 60 HZ</span>
+        </div>
+
+        <!-- Monitor Screen with Shader Overlay -->
+        <div class="screen-container">
+          <iframe id="emulator-frame"
+                  src="player/?embed=1&disc=../roms/arduracer.cue"
+                  title="Arduracer PS1 Web Player"
+                  allow="autoplay; gamepad; fullscreen"
+                  loading="eager">
+          </iframe>
+          <div id="crt-overlay" class="crt-overlay crt-scanlines"></div>
+        </div>
+
+        <!-- Arcade Control Toolbar -->
+        <div class="arcade-toolbar">
+          <div class="toolbar-group">
+            <select id="disc-select" class="select-tool" title="Select Game Disc Format">
+              <option value="../roms/arduracer.cue" selected>💿 Master CD-ROM (Full Audio & FMV - CUE/BIN, 185 MB)</option>
+              <option value="../roms/arduracer.bin">💿 Raw Bin Image (Track 1 Data + CDDA - 185 MB)</option>
+              <option value="../roms/arduracer.iso">📀 Compact Disc ISO (Data Only Track - 2 MB)</option>
+              <option value="../roms/arduracer.exe">🚀 Fast Boot (Standalone PSX-EXE - 304 KB)</option>
+            </select>
+            <button id="btn-reset" class="btn-tool" title="Cold Boot / Reset PS1">🔄 Reset</button>
+            <button id="btn-mute" class="btn-tool" title="Mute/Unmute Audio">🔊 Audio</button>
+          </div>
+
+          <div class="toolbar-group">
+            <label for="crt-select" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">CRT FILTER:</label>
+            <select id="crt-select" class="select-tool">
+              <option value="scanlines" selected>Scanlines</option>
+              <option value="trinitron">Retro Trinitron Glow</option>
+              <option value="off">Off (Crisp Raw Pixels)</option>
+            </select>
+            <button id="btn-touch" class="btn-tool" title="Toggle On-Screen Touch Controls">📱 Touch Controls</button>
+            <button id="btn-fullscreen" class="btn-tool" title="Toggle Fullscreen">⛶ Fullscreen</button>
+          </div>
+        </div>
+
+        <!-- PS1 Touch Controller (Mobile / Touchscreen) -->
+        <div id="touch-controls" class="touch-controls" aria-label="PlayStation Virtual Controller">
+          <!-- Left Wing: L1 Shoulder & D-Pad -->
+          <div class="touch-cluster touch-left">
+            <div class="touch-shoulder-row">
+              <button class="touch-btn touch-btn-shoulder" data-btn="l1" id="touch-l1" aria-label="L1 Shoulder">
+                <span>L1</span>
+              </button>
+            </div>
+            <div class="touch-dpad" id="touch-dpad" aria-label="Directional Pad">
+              <div class="touch-dpad-dish"></div>
+              <button class="touch-btn touch-dpad-btn touch-dpad-up" data-btn="up" aria-label="Up">▲</button>
+              <button class="touch-btn touch-dpad-btn touch-dpad-right" data-btn="right" aria-label="Right">▶</button>
+              <button class="touch-btn touch-dpad-btn touch-dpad-down" data-btn="down" aria-label="Down">▼</button>
+              <button class="touch-btn touch-dpad-btn touch-dpad-left" data-btn="left" aria-label="Left">◀</button>
+              <div class="touch-dpad-core"></div>
+            </div>
+          </div>
+
+          <!-- Center Wing: PlayStation Brand & Select / Start -->
+          <div class="touch-cluster touch-center">
+            <div class="touch-brand-mark">
+              <span class="touch-brand-sony">SONY</span>
+              <div class="touch-brand-dots">
+                <span>▲</span><span>●</span><span>✖</span><span>■</span>
+              </div>
+            </div>
+            <div class="touch-center-buttons">
+              <div class="touch-pill-group">
+                <button class="touch-btn touch-btn-pill" data-btn="select" id="touch-select" aria-label="Select"></button>
+                <label>SELECT</label>
+              </div>
+              <div class="touch-pill-group">
+                <button class="touch-btn touch-btn-pill" data-btn="start" id="touch-start" aria-label="Start"></button>
+                <label>START</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Wing: R1 Shoulder & Action Buttons (▲ ● ✖ ■) -->
+          <div class="touch-cluster touch-right">
+            <div class="touch-shoulder-row">
+              <button class="touch-btn touch-btn-shoulder" data-btn="r1" id="touch-r1" aria-label="R1 Shoulder">
+                <span>R1</span>
+              </button>
+            </div>
+            <div class="touch-actions" id="touch-actions" aria-label="Action Buttons">
+              <div class="touch-actions-dish"></div>
+              <button class="touch-btn touch-action-btn touch-action-triangle" data-btn="triangle" aria-label="Triangle / Nitro">
+                <span class="ps-glyph glyph-triangle">▲</span>
+              </button>
+              <button class="touch-btn touch-action-btn touch-action-circle" data-btn="circle" aria-label="Circle / Handbrake">
+                <span class="ps-glyph glyph-circle">●</span>
+              </button>
+              <button class="touch-btn touch-action-btn touch-action-cross" data-btn="cross" aria-label="Cross / Gas">
+                <span class="ps-glyph glyph-cross">✖</span>
+              </button>
+              <button class="touch-btn touch-action-btn touch-action-square" data-btn="square" aria-label="Square / Brake">
+                <span class="ps-glyph glyph-square">■</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controller Visualizer & Input Mapping -->
+    <section class="controller-section">
+      <!-- Input Controls Table -->
+      <div>
+        <h2 class="section-title">Controller & Keyboard Reference</h2>
+        <table class="controls-table">
+          <thead>
+            <tr>
+              <th>Vehicle Action</th>
+              <th>DualShock Button</th>
+              <th>Keyboard Key</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Steering (Left / Right)</td>
+              <td>D-Pad / Left Analog Stick</td>
+              <td><span class="key-badge">A</span> / <span class="key-badge">D</span> or Left / Right</td>
+            </tr>
+            <tr>
+              <td>Throttle / Accelerate</td>
+              <td><span class="ps-symbol sym-cross">✖ Cross</span> (or D-Pad Up)</td>
+              <td><span class="key-badge">X</span> or <span class="key-badge">K</span> / Up</td>
+            </tr>
+            <tr>
+              <td>Foot Brake &amp; Reverse</td>
+              <td><span class="ps-symbol sym-square">■ Square</span> (or D-Pad Down)</td>
+              <td><span class="key-badge">Z</span> or <span class="key-badge">J</span> / Down</td>
+            </tr>
+            <tr>
+              <td>Handbrake / Drift Initiation</td>
+              <td><span class="ps-symbol sym-circle">● Circle</span></td>
+              <td><span class="key-badge">C</span> or <span class="key-badge">L</span></td>
+            </tr>
+            <tr>
+              <td>Nitro Turbo Boost</td>
+              <td><span class="ps-symbol sym-triangle">▲ Triangle</span> / R1</td>
+              <td><span class="key-badge">V</span> or <span class="key-badge">I</span></td>
+            </tr>
+            <tr>
+              <td>Pause Menu / Resume</td>
+              <td><strong>START</strong></td>
+              <td><span class="key-badge">Enter</span></td>
+            </tr>
+            <tr>
+              <td>Control Layout / Reset</td>
+              <td><strong>SELECT</strong></td>
+              <td><span class="key-badge">Tab</span> / <span class="key-badge">Shift</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Live Virtual DualShock Controller -->
+      <div class="gamepad-visualizer">
+        <h2 class="section-title" style="align-self: flex-start;">Live Controller HUD</h2>
+        <div class="controller-svg-wrap">
+          <svg viewBox="0 0 360 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Controller Base Body -->
+            <path d="M 60 40 C 30 40, 20 90, 20 150 C 20 190, 45 210, 70 210 C 95 210, 110 170, 120 140 L 240 140 C 250 170, 265 210, 290 210 C 315 210, 340 190, 340 150 C 340 90, 330 40, 300 40 C 270 40, 250 60, 230 60 L 130 60 C 110 60, 90 40, 60 40 Z" fill="#242a38" stroke="#3b4459" stroke-width="3"/>
+            
+            <!-- Shoulders L1 / R1 -->
+            <rect id="svg-l1" x="50" y="24" width="45" height="12" rx="4" fill="#3b4459" stroke="#505c75" stroke-width="2"/>
+            <rect id="svg-r1" x="265" y="24" width="45" height="12" rx="4" fill="#3b4459" stroke="#505c75" stroke-width="2"/>
+            <text x="65" y="34" font-size="9" fill="#94a3b8" font-family="monospace">L1</text>
+            <text x="280" y="34" font-size="9" fill="#94a3b8" font-family="monospace">R1</text>
+
+            <!-- D-Pad Base & Directional Buttons -->
+            <circle cx="85" cy="100" r="32" fill="#1b202c"/>
+            <path id="svg-dpad-up" d="M 77 72 H 93 V 86 H 77 Z" fill="#38435a" stroke="#4d5c7b"/>
+            <path id="svg-dpad-down" d="M 77 114 H 93 V 128 H 77 Z" fill="#38435a" stroke="#4d5c7b"/>
+            <path id="svg-dpad-left" d="M 57 92 H 71 V 108 H 57 Z" fill="#38435a" stroke="#4d5c7b"/>
+            <path id="svg-dpad-right" d="M 99 92 H 113 V 108 H 99 Z" fill="#38435a" stroke="#4d5c7b"/>
+
+            <!-- Center Buttons (Select / Analog / Start) -->
+            <rect id="svg-select" x="145" y="94" width="18" height="6" rx="3" fill="#38435a"/>
+            <rect id="svg-start" x="197" y="94" width="18" height="6" rx="3" fill="#38435a"/>
+            <text x="142" y="88" font-size="7" fill="#64748b" font-family="monospace">SELECT</text>
+            <text x="195" y="88" font-size="7" fill="#64748b" font-family="monospace">START</text>
+            <circle cx="180" cy="115" r="5" fill="#e11d48"/>
+
+            <!-- Action Buttons (Triangle, Circle, Cross, Square) -->
+            <circle cx="275" cy="100" r="32" fill="#1b202c"/>
+            <!-- Triangle (Top) -->
+            <g id="svg-triangle">
+              <circle cx="275" cy="78" r="9" fill="#32e096" opacity="0.3"/>
+              <circle cx="275" cy="78" r="8" fill="#1b202c"/>
+              <path d="M 275 73 L 279 81 L 271 81 Z" fill="none" stroke="#32e096" stroke-width="2"/>
+            </g>
+            <!-- Circle (Right) -->
+            <g id="svg-circle">
+              <circle cx="297" cy="100" r="9" fill="#ff4d6a" opacity="0.3"/>
+              <circle cx="297" cy="100" r="8" fill="#1b202c"/>
+              <circle cx="297" cy="100" r="4.5" fill="none" stroke="#ff4d6a" stroke-width="2"/>
+            </g>
+            <!-- Cross (Bottom) -->
+            <g id="svg-cross">
+              <circle cx="275" cy="122" r="9" fill="#4d88ff" opacity="0.3"/>
+              <circle cx="275" cy="122" r="8" fill="#1b202c"/>
+              <path d="M 271.5 118.5 L 278.5 125.5 M 278.5 118.5 L 271.5 125.5" stroke="#4d88ff" stroke-width="2"/>
+            </g>
+            <!-- Square (Left) -->
+            <g id="svg-square">
+              <circle cx="253" cy="100" r="9" fill="#ff77d2" opacity="0.3"/>
+              <circle cx="253" cy="100" r="8" fill="#1b202c"/>
+              <rect x="249.5" y="96.5" width="7" height="7" fill="none" stroke="#ff77d2" stroke-width="2"/>
+            </g>
+
+            <!-- Dual Analog Sticks -->
+            <g id="svg-stick-l">
+              <circle cx="135" cy="155" r="18" fill="#131720" stroke="#2f374a" stroke-width="2"/>
+              <circle cx="135" cy="155" r="12" fill="#242c3d"/>
+            </g>
+            <g id="svg-stick-r">
+              <circle cx="225" cy="155" r="18" fill="#131720" stroke="#2f374a" stroke-width="2"/>
+              <circle cx="225" cy="155" r="12" fill="#242c3d"/>
+            </g>
+          </svg>
+        </div>
+        <div class="controller-status-bar">
+          <div id="gamepad-status" class="status-dot"></div>
+          <span id="gamepad-name">No Gamepad Detected (Keyboard Active)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Information Hub / Manual & Media Tabs -->
+    <section class="hub-section">
+      <div class="hub-tabs">
+        <button class="tab-btn active" data-tab="tab-manual">🏎️ Driver's Manual</button>
+        <button class="tab-btn" data-tab="tab-circuits">🏁 24 Circuits Guide</button>
+        <button class="tab-btn" data-tab="tab-gallery">🎨 Jewel Case & Artwork</button>
+        <button class="tab-btn" data-tab="tab-downloads">💾 Disc Downloads & Hardware</button>
+      </div>
+
+      <!-- Tab 1: Driver's Manual -->
+      <div id="tab-manual" class="tab-content active">
+        <h3>Arcade Motorsport Mechanics</h3>
+        <p>
+          <strong>Arduracer PSX</strong> is an authentic high-speed top-down arcade racer built directly for Sony PlayStation hardware. 
+          Features realistic slip-angle drift physics, kinetic barrier collisions, 6 rival AI personalities, and 24 diverse circuits spanning asphalt, curbs, oil slicks, and turbo boost pads!
+        </p>
+
+        <div class="features-grid">
+          <div class="feature-card">
+            <h5>⚡ Nitro Turbo Boost</h5>
+            <p>Hold <span class="ps-symbol sym-triangle">▲ Triangle</span> or <strong>R1</strong> to engage maximum boost. The nitro meter drains dynamically and automatically recharges when navigating regular tarmac.</p>
+          </div>
+          <div class="feature-card">
+            <h5>🔄 Dynamic Drift Physics</h5>
+            <p>Tap <span class="ps-symbol sym-circle">● Circle</span> or counter-steer sharply into apexes to initiate controlled slides. Holding counter-steer stabilizes the slip angle for massive exit speed.</p>
+          </div>
+          <div class="feature-card">
+            <h5>🔧 20-Point Garage Tuning</h5>
+            <p>Customize your machine in the Garage! Distribute 20 points across <strong>Top Speed</strong>, <strong>Acceleration</strong>, <strong>Grip</strong>, and <strong>Boost</strong> to craft your ideal handling setup.</p>
+          </div>
+          <div class="feature-card">
+            <h5>💾 8 KB Memory Card Saves</h5>
+            <p>Your best lap times, gold cup trophies, unlocked tracks, and custom vehicle tunings are saved in a single authentic PS1 Memory Card block (CRC-16 verified).</p>
+          </div>
+        </div>
+
+        <h4>Track Surface & Hazard Legend</h4>
+        <p>
+          <strong>Asphalt Road:</strong> High traction, full engine velocity.<br>
+          <strong>Rumble Curbs:</strong> Alternating red &amp; white kerbs. Slight rumble drag; ideal for apex cutting.<br>
+          <strong>Off-Road Grass &amp; Gravel:</strong> Speed reduced to 35% with reduced lateral hold.<br>
+          <strong>Oil Slick Puddles:</strong> Drops tire friction to zero, sending the vehicle into an uncontrollable spin.<br>
+          <strong>Turbo Chevron Pads:</strong> Instantly inject a high-velocity forward turbo impulse!<br>
+          <strong>Armco Barriers:</strong> Kinetic deflection bounces your car back while scrubbing kinetic energy.
+        </p>
+      </div>
+
+      <!-- Tab 2: 24 Circuits Guide -->
+      <div id="tab-circuits" class="tab-content">
+        <h3>Championship Cups & All 24 Circuits</h3>
+        <p>Race through 4 full Championship Cups across 24 meticulously verified tracks:</p>
+        
+        <table class="controls-table" style="margin-top: 1rem;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Circuit Name</th>
+              <th>Checkpoints</th>
+              <th>Default Ref Lap</th>
+              <th>Tuned Pro Lap</th>
+              <th>Style / Theme</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>01</td><td>Arduboy Oval</td><td>4</td><td>0:06.63</td><td>0:05.38</td><td>High-Speed Superspeedway</td></tr>
+            <tr><td>02</td><td>Twin Hairpin</td><td>4</td><td>0:07.00</td><td>0:06.03</td><td>Technical Tight Chicanes</td></tr>
+            <tr><td>03</td><td>The Serpent</td><td>5</td><td>0:08.10</td><td>0:06.95</td><td>Rhythmic S-Bends</td></tr>
+            <tr><td>04</td><td>Canyon Chicane</td><td>10</td><td>0:12.51</td><td>0:11.31</td><td>Narrow Mountain Pass</td></tr>
+            <tr><td>05</td><td>Switchback Pass</td><td>4</td><td>0:09.20</td><td>0:07.71</td><td>Uphill Elevation S-Curves</td></tr>
+            <tr><td>06</td><td>Grand Ring</td><td>8</td><td>0:10.76</td><td>0:09.61</td><td>Continuous High-G Outer Ring</td></tr>
+            <tr><td>07</td><td>Sprint Short</td><td>4</td><td>0:10.41</td><td>0:09.43</td><td>Quick-Fire Club Track</td></tr>
+            <tr><td>08</td><td>Octagon Speedway</td><td>7</td><td>0:11.06</td><td>0:09.73</td><td>Geometric 8-Corner Ring</td></tr>
+            <tr><td>09</td><td>Devil's Elbow</td><td>4</td><td>0:08.80</td><td>0:07.05</td><td>Heavy Braking Blind Crest</td></tr>
+            <tr><td>10</td><td>Metropolis 10</td><td>5</td><td>0:10.33</td><td>0:09.50</td><td>Urban Street Grid</td></tr>
+            <tr><td>11</td><td>Forest Expressway</td><td>8</td><td>0:14.03</td><td>0:10.90</td><td>Scenic Fast Forest Sweepers</td></tr>
+            <tr><td>12</td><td>Coastal Link</td><td>8</td><td>0:15.71</td><td>0:12.88</td><td>Bayside Waterfront Straight</td></tr>
+            <tr><td>13</td><td>Alpine Drift</td><td>8</td><td>0:19.90</td><td>0:17.30</td><td>High-Altitude Snowy Chicanes</td></tr>
+            <tr><td>14</td><td>Industrial Yard</td><td>5</td><td>0:11.36</td><td>0:09.46</td><td>Tight Container Yard Obstacles</td></tr>
+            <tr><td>15</td><td>Nightway Circuit</td><td>4</td><td>0:14.70</td><td>0:11.80</td><td>Midnight Highway Neon Loop</td></tr>
+            <tr><td>16</td><td>Harbor Slalom</td><td>4</td><td>0:13.76</td><td>0:10.73</td><td>Docklands Oil Hazard Maze</td></tr>
+            <tr><td>17</td><td>Mountain Gauntlet</td><td>10</td><td>0:15.38</td><td>0:13.06</td><td>Extreme Switchbacks</td></tr>
+            <tr><td>18</td><td>Super Speedway</td><td>4</td><td>0:15.98</td><td>0:13.43</td><td>Full-Throttle Banked Oval</td></tr>
+            <tr><td>19</td><td>Endurance Colosseum</td><td>12</td><td>0:33.26</td><td>0:28.60</td><td>Long Distance Grand Prix Arena</td></tr>
+            <tr><td>20</td><td>Championship Final</td><td>13</td><td>0:37.93</td><td>0:31.76</td><td>Ultimate 13-Sector Crucible</td></tr>
+            <tr><td>21</td><td>Neo Tokyo Expressway</td><td>6</td><td>0:13.76</td><td>0:10.68</td><td>Super Stage: Cyber Metropolis</td></tr>
+            <tr><td>22</td><td>Canyon Drift Apex</td><td>8</td><td>0:19.31</td><td>0:15.65</td><td>Super Stage: High-Angle Canyon</td></tr>
+            <tr><td>23</td><td>Cyber Circuit 2097</td><td>6</td><td>0:15.51</td><td>0:12.06</td><td>Super Stage: Future Neon Highway</td></tr>
+            <tr><td>24</td><td>Monaco GP Classic</td><td>8</td><td>0:18.23</td><td>0:15.66</td><td>Super Stage: Historic Street Circuit</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 3: Artwork & Packaging Gallery -->
+      <div id="tab-gallery" class="tab-content">
+        <h3>PlayStation Physical Media & Packaging Art</h3>
+        <p>Complete authentic PlayStation retail packaging and screen art drafted for manufacturing:</p>
+
+        <div class="gallery-grid">
+          <div class="art-card">
+            <img src="assets/jewel_case_cover_ntsc.svg" alt="NTSC Front Jewel Case">
+            <span>NTSC-U Front Jewel Case Art</span>
+          </div>
+          <div class="art-card">
+            <img src="assets/disc_face_art.svg" alt="CD-ROM Disc Face Art">
+            <span>Direct Silk-Screened Disc Face</span>
+          </div>
+          <div class="art-card">
+            <img src="assets/jewel_case_back_ntsc.svg" alt="NTSC Back Cover Insert">
+            <span>Rear Inlay &amp; Barcode Packaging</span>
+          </div>
+          <div class="art-card">
+            <img src="assets/frontscreen.png" alt="In-Game Title Art">
+            <span>Hi-Res In-Game Title Screen</span>
+          </div>
+        </div>
+
+        <h4 style="margin-top: 2rem;">In-Game Screenshots &amp; FMV Intro</h4>
+        <div class="gallery-grid">
+          <div class="art-card">
+            <img src="assets/01-fmv-intro-a.png" alt="FMV Starting Grid">
+            <span>FMV Intro: Starting Grid (Fixed MDEC)</span>
+          </div>
+          <div class="art-card">
+            <img src="assets/02-fmv-intro-b.png" alt="FMV Overhead Drift">
+            <span>FMV Intro: Overhead Apex Drift</span>
+          </div>
+          <div class="art-card">
+            <img src="assets/stage_21_neo_tokyo_expressway.png" alt="Stage 21 Neo Tokyo">
+            <span>Stage 21: Neo Tokyo Expressway</span>
+          </div>
+          <div class="art-card">
+            <img src="assets/stage_24_monaco_gp_classic.png" alt="Stage 24 Monaco GP">
+            <span>Stage 24: Monaco GP Classic</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Downloads & Hardware Guide -->
+      <div id="tab-downloads" class="tab-content">
+        <h3>Master Disc Images &amp; Hardware Deployment</h3>
+        <p>Run Arduracer natively on genuine PlayStation 1 hardware or your preferred desktop emulator:</p>
+
+        <div class="download-grid">
+          <div class="download-card">
+            <div>
+              <h4>Standalone PSX-EXE</h4>
+              <p>MIPS R3000 bare-metal executable (304 KB). Fast boot via Unirom, Caetla, or emulator rapid testing.</p>
+            </div>
+            <a href="roms/arduracer.exe" download="arduracer.exe" class="btn-download">
+              ⬇ Download arduracer.exe (304 KB)
+            </a>
+          </div>
+
+          <div class="download-card">
+            <div>
+              <h4>Cooked PS1 ISO (.ISO)</h4>
+              <p>Standard 2048-byte Mode 1 ISO filesystem (2 MB). Compact disc image compatible with universal optical disc loaders.</p>
+            </div>
+            <a href="roms/arduracer.iso" download="arduracer.iso" class="btn-download" style="background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);">
+              ⬇ Download arduracer.iso (2 MB)
+            </a>
+          </div>
+
+          <div class="download-card">
+            <div>
+              <h4>Master Bootable CD (.CUE / .BIN)</h4>
+              <p>Complete Red Book CD image (185 MB) including 6 CD-DA Eurobeat soundtrack tracks and 15fps MDEC intro cinema.</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-direction: column;">
+              <a href="roms/arduracer.cue" download="arduracer.cue" class="btn-download">
+                ⬇ Download arduracer.cue (Index)
+              </a>
+              <a href="roms/arduracer.bin" download="arduracer.bin" class="btn-download" style="background: linear-gradient(90deg, #10b981 0%, #059669 100%);">
+                ⬇ Download arduracer.bin (185 MB)
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem; padding: 1.25rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px;">
+          <p style="margin: 0; color: #93c5fd; font-size: 0.95rem; line-height: 1.6;">
+            📦 <strong>Official GitHub Releases:</strong> Pre-packaged release archives with verified SHA-256 checksums, cover artwork, and release notes are published at the <a href="https://github.com/tonym128/ArduracerPSX/releases" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: bold;">GitHub Releases Page</a>.
+          </p>
+        </div>
+
+        <h4 style="margin-top: 2rem;">Hardware Installation Instructions</h4>
+        <ul style="color: var(--text-muted); font-size: 0.9rem; margin-left: 1.5rem; margin-top: 0.5rem; line-height: 1.8;">
+          <li><strong>Optical Drive Emulators (xStation, MODE, PSIO):</strong> Place <code>arduracer.cue</code> and <code>arduracer.bin</code> inside your SD card game folder. Compatible with NTSC-U, NTSC-J, and PAL consoles with automatic 60Hz/50Hz clock scaling.</li>
+          <li><strong>Physical CD-R:</strong> Burn <code>arduracer.cue</code> using ImgBurn at 2x or 4x speed onto high quality CD-R media. Boot via modchip or Tonyhax international soft-exploit.</li>
+          <li><strong>DuckStation / RetroArch:</strong> Open DuckStation &bull; File &bull; Start Disc &bull; Select <code>arduracer.cue</code>. Full CD-DA music will stream seamlessly across all 24 circuits!</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>ARDURACER &copy; 2026. Built with PSoXide &bull; Powered by WebAssembly SIMD128 &amp; WebGL &bull; Mastered for Sony PlayStation</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

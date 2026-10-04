@@ -32,7 +32,7 @@ impl ResultsScreen {
             rank: safe_rank,
             points,
             anim_timer: 0,
-            prev_buttons: 0xFFFF,
+            prev_buttons: 0,
         }
     }
 

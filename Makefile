@@ -24,7 +24,7 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test playtest calibrate-tracks tracks clippy fmt fmt-check ci ci-host ci-game ci-disc exe iso disc clean run assets
+.PHONY: all help test playtest calibrate-tracks tracks clippy fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets
 
 all: test exe
 
@@ -38,6 +38,8 @@ help:
 	@echo "  make assets    - Cook FMV intro video and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
 	@echo "  make iso       - Master simple data ISO (dist/arduracer.iso)"
+	@echo "  make release   - Package full release ZIP and SHA256 checksums"
+	@echo "  make web       - Serve Arduracer Web Arcade on http://localhost:8080"
 	@echo "  make clippy    - Run clippy linting on host crates"
 	@echo "  make fmt-check - Check code formatting across all crates"
 	@echo "  make fmt       - Format code across all crates"
@@ -172,6 +174,24 @@ disc: assets exe
 	@echo "SUCCESS! Bootable PS1 Disc Mastered:"
 	@echo "  CUE: $(DIST)/arduracer.cue"
 	@echo "  BIN: $(DIST)/arduracer.bin"
+
+web: disc iso
+	@mkdir -p $(ROOT)/web/roms
+	@cp $(DIST)/arduracer.exe $(DIST)/arduracer.cue $(DIST)/arduracer.bin $(DIST)/arduracer.iso $(ROOT)/web/roms/ 2>/dev/null || true
+	@python3 $(ROOT)/tools/serve_web.py 8080 $(ROOT)/web
+
+release: disc iso
+	@mkdir -p $(DIST)
+	@echo "Packaging Arduracer PSX release distribution..."
+	@rm -rf /tmp/arduracer_release && mkdir -p /tmp/arduracer_release/ArduracerPSX
+	@cp $(DIST)/arduracer.bin $(DIST)/arduracer.cue $(DIST)/arduracer.iso $(DIST)/arduracer.exe /tmp/arduracer_release/ArduracerPSX/
+	@cp README.md GAME.md /tmp/arduracer_release/ArduracerPSX/ 2>/dev/null || true
+	@mkdir -p /tmp/arduracer_release/ArduracerPSX/artwork
+	@cp web/assets/*.svg web/assets/*.png /tmp/arduracer_release/ArduracerPSX/artwork/ 2>/dev/null || true
+	@cd /tmp/arduracer_release && zip -r $(DIST)/ArduracerPSX-v1.0.0-PSX.zip ArduracerPSX
+	@cd $(DIST) && sha256sum ArduracerPSX-v1.0.0-PSX.zip arduracer.bin arduracer.cue arduracer.iso arduracer.exe > SHA256SUMS
+	@echo "SUCCESS! Packaged release:"
+	@ls -lh $(DIST)/ArduracerPSX-v1.0.0-PSX.zip $(DIST)/SHA256SUMS
 
 run: disc
 	@cue="$(DIST)/arduracer.cue"; \

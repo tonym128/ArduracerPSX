@@ -80,63 +80,13 @@ pub fn render_hud<const N: usize>(
     rivals: &[AiRacer],
     _draw_y: i16,
 ) {
-    // ---------------------------------------------------------------- 1. Tacho & Speed
-    // Tachometer border and backing
-    gpu::draw_rect_flat(206, 10, 106, 10, 18, 18, 28);
-    let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 100) / 7000;
-    let fill_w = rpm_ratio.clamp(0, 100) as u16;
-    let bar = if player.boost_ticks > 0 {
-        (0, 220, 255) // Neon cyan while boosting
-    } else if player.engine_rpm > 6500 {
-        (255, 40, 40) // Redline warning
-    } else if player.engine_rpm > 4500 {
-        (255, 200, 30) // Power band
-    } else {
-        (40, 220, 70) // Cruising
-    };
-    if fill_w > 0 {
-        gpu::draw_rect_flat(209, 12, fill_w, 6, bar.0, bar.1, bar.2);
-    }
+    // ------------------------------------------------- 1. Lap / Checkpoint Panel
+    gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
+    gpu::draw_rect_flat(9, 7, 72, 36, 22, 26, 36);
 
-    // Nitro charge bar directly beneath the rev bar
-    gpu::draw_rect_flat(206, 22, 106, 6, 18, 18, 28);
-    let nitro_w =
-        ((player.nitro_charge as i32 * 102) / NITRO_MAX_TICKS as i32).clamp(0, 102) as u16;
-    if nitro_w > 0 {
-        let (nr, ng, nb) = if player.nitro_charge > NITRO_MAX_TICKS / 3 {
-            (255, 150, 40) // Full / active charge
-        } else {
-            (80, 110, 140) // Low charge
-        };
-        gpu::draw_rect_flat(208, 23, nitro_w, 4, nr, ng, nb);
-    }
-
-    // Digital Speedometer (approx. MPH based on forward speed)
-    let speed_mph = ((player.speed.raw() as i32 * 145) / 14000).clamp(0, 199) as u16;
-    let mut speed_buf = [b' '; 7];
-    format_speed(&mut speed_buf, speed_mph);
-    blit(&speed_buf, 206, 32, (240, 240, 250), 1);
-
-    // Gear indicator (large bold, right of the speedo)
-    let gear_char = if player.is_reversing {
-        b'R'
-    } else {
-        b'0' + player.gear.clamp(1, 5)
-    };
-    let gear_col = if player.is_reversing {
-        (255, 160, 40)
-    } else {
-        (255, 225, 40)
-    };
-    let mut gear_buf = [b' '; 1];
-    gear_buf[0] = gear_char;
-    blit(&gear_buf, 290, 24, gear_col, 2);
-    draw_text(284, 40, "GEAR", (150, 150, 165), 1);
-
-    // ------------------------------------------------- 2. Lap / checkpoint HUD
     // Laps boxes (top-left)
     for lap_idx in 0..5u16 {
-        let x = 12 + lap_idx * 12;
+        let x = 13 + lap_idx * 12;
         let is_current = lap_idx + 1 == timer.current_lap as u16;
         let is_done = lap_idx + 1 < timer.current_lap as u16;
         let (lr, lg, lb) = if is_current {
@@ -151,19 +101,35 @@ pub fn render_hud<const N: usize>(
 
     // Checkpoint progress dots
     let cleared = timer.checkpoints_cleared();
-    for cp_idx in 0..(timer.total_checkpoints as u16) {
-        let x = 12 + cp_idx * 9;
+    let cp_count = (timer.total_checkpoints as u16).min(7);
+    for cp_idx in 0..cp_count {
+        let x = 13 + cp_idx * 9;
         let is_passed = (cp_idx as u32) < cleared;
         let (cr, cg, cb) = if is_passed {
             (0, 220, 255)
         } else {
             (45, 48, 58)
         };
-        gpu::draw_rect_flat(x as i16, 24, 7, 4, cr, cg, cb);
+        gpu::draw_rect_flat(x as i16, 23, 7, 4, cr, cg, cb);
     }
-    draw_text(12, 32, "LAPS", (150, 150, 165), 1);
+    draw_text(13, 31, "LAPS", (150, 150, 165), 1);
 
-    // Race position (top centre, bold 2x)
+    // Best lap record readout
+    if timer.best_lap_ticks != u32::MAX {
+        gpu::draw_rect_flat(8, 46, 74, 18, 14, 16, 24);
+        gpu::draw_rect_flat(9, 47, 72, 16, 22, 26, 36);
+        let mut best_buf = [b' '; 8];
+        format_time(&mut best_buf, timer.best_lap_ticks);
+        draw_text(12, 51, "BEST", (150, 150, 165), 1);
+        blit(&best_buf, 38, 51, (200, 215, 240), 1);
+    }
+
+    // ------------------------------------------------ 2. Race Position & Lap Timer
+    let has_best = timer.best_lap_ticks != u32::MAX;
+    let center_h = if has_best { 48 } else { 38 };
+    gpu::draw_rect_flat(108, 6, 104, center_h, 14, 16, 24);
+    gpu::draw_rect_flat(109, 7, 102, center_h - 2, 22, 26, 36);
+
     let (rank_str, rank_col) = match rank {
         1 => ("1ST", (255, 215, 0)),
         2 => ("2ND", (220, 225, 235)),
@@ -172,32 +138,78 @@ pub fn render_hud<const N: usize>(
         5 => ("5TH", (160, 180, 200)),
         _ => ("6TH", (140, 150, 170)),
     };
-    draw_text(140, 10, rank_str, rank_col, 2);
+    draw_text(142, 9, rank_str, rank_col, 2);
 
-    // ------------------------------------------------ 3. Lap timer + delta
     let mut time_buf = [b' '; 8];
     format_time(&mut time_buf, timer.current_lap_ticks);
-    blit(&time_buf, 116, 30, (245, 245, 250), 2);
+    blit(&time_buf, 112, 25, (245, 245, 250), 2);
 
-    let delta = timer.delta_ticks();
-    let mut delta_buf = [b' '; 6];
-    format_delta(&mut delta_buf, delta);
-    let delta_col = if delta < 0 {
-        (60, 240, 90) // Ahead of pace: vivid green
+    if has_best {
+        let delta = timer.delta_ticks();
+        let mut delta_buf = [b' '; 6];
+        format_delta(&mut delta_buf, delta);
+        let delta_col = if delta < 0 {
+            (60, 240, 90) // Ahead of pace: vivid green
+        } else {
+            (245, 60, 60) // Behind pace: bright red
+        };
+        blit(&delta_buf, 142, 40, delta_col, 1);
+    }
+
+    // ------------------------------------------------ 3. Gauges & Telemetry Cluster
+    gpu::draw_rect_flat(216, 6, 96, 44, 14, 16, 24);
+    gpu::draw_rect_flat(217, 7, 94, 42, 22, 26, 36);
+
+    // Tachometer border and backing
+    gpu::draw_rect_flat(220, 10, 88, 8, 14, 16, 24);
+    let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 86) / 7000;
+    let fill_w = rpm_ratio.clamp(0, 86) as u16;
+    let bar = if player.boost_ticks > 0 {
+        (0, 220, 255) // Neon cyan while boosting
+    } else if player.engine_rpm > 6500 {
+        (255, 40, 40) // Redline warning
+    } else if player.engine_rpm > 4500 {
+        (255, 200, 30) // Power band
     } else {
-        (245, 60, 60) // Behind pace: bright red
+        (40, 220, 70) // Cruising
     };
-    if timer.best_lap_ticks != u32::MAX {
-        blit(&delta_buf, 140, 48, delta_col, 1);
+    if fill_w > 0 {
+        gpu::draw_rect_flat(221, 11, fill_w, 6, bar.0, bar.1, bar.2);
     }
 
-    // Best lap record readout
-    if timer.best_lap_ticks != u32::MAX {
-        let mut best_buf = [b' '; 8];
-        format_time(&mut best_buf, timer.best_lap_ticks);
-        draw_text(12, 44, "BEST", (150, 150, 165), 1);
-        blit(&best_buf, 12, 52, (200, 215, 240), 1);
+    // Nitro charge bar directly beneath the rev bar
+    gpu::draw_rect_flat(220, 20, 88, 4, 14, 16, 24);
+    let nitro_w = ((player.nitro_charge as i32 * 86) / NITRO_MAX_TICKS as i32).clamp(0, 86) as u16;
+    if nitro_w > 0 {
+        let (nr, ng, nb) = if player.nitro_charge > NITRO_MAX_TICKS / 3 {
+            (255, 150, 40) // Full / active charge
+        } else {
+            (80, 110, 140) // Low charge
+        };
+        gpu::draw_rect_flat(221, 21, nitro_w, 2, nr, ng, nb);
     }
+
+    // Digital Speedometer (approx. MPH based on forward speed)
+    let speed_mph = ((player.speed.raw() as i32 * 145) / 14000).clamp(0, 199) as u16;
+    let mut speed_buf = [b' '; 7];
+    format_speed(&mut speed_buf, speed_mph);
+    blit(&speed_buf, 220, 28, (240, 240, 250), 1);
+
+    // Gear indicator (right of the speedo)
+    let gear_char = if player.is_reversing {
+        b'R'
+    } else {
+        b'0' + player.gear.clamp(1, 5)
+    };
+    let gear_col = if player.is_reversing {
+        (255, 160, 40)
+    } else {
+        (255, 225, 40)
+    };
+    let mut gear_buf = [b' '; 1];
+    gear_buf[0] = gear_char;
+    draw_text(278, 30, "G", (150, 150, 165), 1);
+    blit(&gear_buf, 288, 26, gear_col, 2);
 
     // ------------------------------------------------------- 4. Minimap panel
     let map_x = 10i16;

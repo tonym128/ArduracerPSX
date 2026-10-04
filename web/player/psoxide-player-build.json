@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "emulator_revision": "390fd19ba87f3ceb5cf1d287a597a632792afa08",
+  "source_url": "https://github.com/tonym128/PSoXide-emulator/tree/390fd19ba87f3ceb5cf1d287a597a632792afa08",
+  "emulator_dirty": false,
+  "components_lock_sha256": "9ca71f25d155876c9f57d2db77ac4199c49264cd3a17dbb61c605baf611608ca",
+  "rustc": "rustc 1.96.0-nightly (362211dc2 2026-03-24)",
+  "trunk": "trunk 0.21.14",
+  "wasm_bindgen": "0.2.123",
+  "wasm_opt": "version_125",
+  "rustflags": "-C target-feature=+simd128 -C link-arg=-zstack-size=16777216",
+  "files": {
+    "THIRD-PARTY-NOTICES.txt": {
+      "bytes": 1826978,
+      "sha256": "09158d58b701c045a1bfe83fab68b946fa6388dcd177ff61e386f83ed72f7278"
+    },
+    "frontend-1a97a093078bd962.js": {
+      "bytes": 155476,
+      "sha256": "34a62dd9f4defd9d16f9481cd446bf2efad1e6ed2d3169fd01b0d510adabc6af"
+    },
+    "frontend-1a97a093078bd962_bg.wasm": {
+      "bytes": 7608614,
+      "sha256": "b089dab3ce59566244eb14257938d7cee6613a88bf91fd06be98a164d7d818db"
+    },
+    "index.html": {
+      "bytes": 21701,
+      "sha256": "bdfb17cfedf6a8e945bd7bbe7db85d234aa30738da22f3d738545d531812b84c"
+    },
+    "psoxide-app-icon-99e5b83a2cf87470.png": {
+      "bytes": 107591,
+      "sha256": "d8fa0e8bf3d84897b5a83ff03a5c74506cc3d975009629af15bda2a8b62172d9"
+    },
+    "snippets/frontend-aebe9231459ec4d1/inline0.js": {
+      "bytes": 1933,
+      "sha256": "b01462236278fd2edd26e371e633ab1b1c06df8fbc3f549b8bb7923078c5a0c0"
+    },
+    "snippets/frontend-aebe9231459ec4d1/inline1.js": {
+      "bytes": 1430,
+      "sha256": "5521d3f54cfadb67070c78b27986d8d7086b3601e62e3a512645026fa68ef9b8"
+    },
+    "snippets/frontend-aebe9231459ec4d1/inline2.js": {
+      "bytes": 137,
+      "sha256": "0c40dee7defc54528447a1f51a3867c084df246f4ae28fe9da078266e78145d0"
+    },
+    "snippets/frontend-aebe9231459ec4d1/inline3.js": {
+      "bytes": 5371,
+      "sha256": "82dc21e5e00f9252f36ffce74110c5f75ae725cd5cd931a866bd22cf27ea4de2"
+    }
+  },
+  "total_bytes": 9729231
+}
