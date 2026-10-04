@@ -38,15 +38,14 @@ impl ControllerDriver {
 
     /// The recovery button for the active layout.
     ///
-    /// GAME.md §7 gives Triangle "Reset Car to Track", but Triangle is nitro in
-    /// the classic layout, so recovery takes the shoulder button that layout
-    /// leaves free. Kept per-profile for the same reason nitro is.
-    fn recovery_button(profile: InputProfile) -> u16 {
-        match profile {
-            InputProfile::ClassicArcade => button::R1,
-            InputProfile::ModernTriggers => button::L1,
-            InputProfile::DualAnalog => button::L2,
-        }
+    /// Uniform across every layout: **L1**. GAME.md §7 still gives Triangle
+    /// "Reset Car to Track", but Triangle is a face button that the classic
+    /// layout spends on nitro, so recovery lives on the left bumper. L1 is held
+    /// to nothing else in any profile, which is what makes it safe to bind it
+    /// globally instead of hunting for whichever button each layout happens to
+    /// leave spare.
+    const fn recovery_button(_profile: InputProfile) -> u16 {
+        button::L1
     }
 
     /// Polls controller hardware on port 1 and generates a VehicleInput frame.
@@ -66,12 +65,13 @@ impl ControllerDriver {
         self.respawn_pressed = b.pressed_since(prev, Self::recovery_button(self.profile));
         self.prev_buttons = b.bits();
 
-        // GAME.md §7: nitro lives on Triangle / R1 / L1 depending on layout.
-        let nitro = match self.profile {
-            InputProfile::ClassicArcade => b.is_held(button::TRIANGLE),
-            InputProfile::ModernTriggers => b.is_held(button::R1) || b.is_held(button::R2),
-            InputProfile::DualAnalog => b.is_held(button::L1),
-        };
+        // Nitro is **R1** in every layout, mirroring L1 for recovery.
+        //
+        // This also clears up two conflicts the per-layout bindings carried:
+        // Modern Triggers had nitro on `R1 || R2` while R2 was also throttle, so
+        // holding the accelerator fired nitro every frame; and Dual Analog had
+        // nitro on L1, which recovery now owns.
+        let nitro = b.is_held(button::R1);
         self.nitro_held = nitro;
 
         match self.profile {
@@ -118,7 +118,9 @@ impl ControllerDriver {
                         brake = Fixed::ONE;
                     }
                 }
-                if b.is_held(button::R1) {
+                // R1 is nitro everywhere, so the dual-analog handbrake moves to
+                // L2 -- which that layout no longer uses for recovery.
+                if b.is_held(button::L2) {
                     handbrake = true;
                 }
             }
