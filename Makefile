@@ -6,6 +6,12 @@ GAME_DIR := $(ROOT)/game
 GAME_EXE := $(GAME_DIR)/target/mipsel-sony-psx/release/arduracer.exe
 MKISOPSX := $(ROOT)/psoxide/tools/mkisopsx
 
+# Release version, used for the distribution zip and SHA256SUMS. Defaults to the
+# most recent tag so a tagged build labels itself correctly; override explicitly
+# with `make release VERSION=1.2.3`. Previously hardcoded to 1.0.0, so tagging
+# v1.1.0 shipped an archive still called v1.0.0.
+VERSION ?= $(shell v=`git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'`; if [ -n "$$v" ]; then echo "$$v"; else echo 1.0.0; fi)
+
 DUCKSTATION_APPIMAGES := \
 	$(HOME)/Downloads/DuckStation-x64.AppImage \
 	$(HOME)/Downloads/DuckStation-x86_64.AppImage \
@@ -230,10 +236,10 @@ release: disc iso
 	@cp README.md GAME.md /tmp/arduracer_release/ArduracerPSX/ 2>/dev/null || true
 	@mkdir -p /tmp/arduracer_release/ArduracerPSX/artwork
 	@cp web/assets/*.svg web/assets/*.png /tmp/arduracer_release/ArduracerPSX/artwork/ 2>/dev/null || true
-	@cd /tmp/arduracer_release && zip -r $(DIST)/ArduracerPSX-v1.0.0-PSX.zip ArduracerPSX
-	@cd $(DIST) && sha256sum ArduracerPSX-v1.0.0-PSX.zip arduracer.bin arduracer.cue arduracer.iso arduracer.exe > SHA256SUMS
+	@cd /tmp/arduracer_release && zip -r $(DIST)/ArduracerPSX-v$(VERSION)-PSX.zip ArduracerPSX
+	@cd $(DIST) && sha256sum ArduracerPSX-v$(VERSION)-PSX.zip arduracer.bin arduracer.cue arduracer.iso arduracer.exe > SHA256SUMS
 	@echo "SUCCESS! Packaged release:"
-	@ls -lh $(DIST)/ArduracerPSX-v1.0.0-PSX.zip $(DIST)/SHA256SUMS
+	@ls -lh $(DIST)/ArduracerPSX-v$(VERSION)-PSX.zip $(DIST)/SHA256SUMS
 
 run: disc
 	@cue="$(DIST)/arduracer.cue"; \
