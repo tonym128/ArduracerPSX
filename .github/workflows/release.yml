@@ -43,6 +43,7 @@ jobs:
             TAG="v1.0.0"
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
       - name: Install MIPS bare-metal toolchain & media tools
         run: |
@@ -52,8 +53,16 @@ jobs:
       - name: Show toolchain
         run: rustup show
 
+      - name: Check the vendored PSoXide SDK is present
+        # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
+        # front so a partial checkout fails with one line, not a cargo manifest
+        # error partway through packaging.
+        run: make deps
+
       - name: Package Full Release Distribution
-        run: make release
+        # Pass the tag's version so the archive is named for the release being
+        # cut. Without this the zip kept whatever VERSION defaulted to.
+        run: make release VERSION=${{ steps.check_release.outputs.version }}
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
@@ -64,7 +73,7 @@ jobs:
           prerelease: ${{ github.event.inputs.prerelease || false }}
           generate_release_notes: true
           files: |
-            dist/ArduracerPSX-v1.0.0-PSX.zip
+            dist/ArduracerPSX-v${{ steps.check_release.outputs.version }}-PSX.zip
             dist/arduracer.bin
             dist/arduracer.cue
             dist/arduracer.iso

@@ -34,6 +34,9 @@ jobs:
       - name: Show toolchain
         run: rustup show
 
+      - name: Check the vendored PSoXide SDK is present
+        run: make deps
+
       - name: Build PS1 Executable, ISO, and Disc Images
         run: |
           make disc
