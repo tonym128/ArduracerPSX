@@ -162,6 +162,38 @@ impl TrackDef {
         (self.world_height() - 1).max(0)
     }
 
+    /// The outermost world coordinate on each axis that is still on a drivable
+    /// tile.
+    ///
+    /// [`Self::max_inside_x`] and [`Self::max_inside_y`] only keep a car inside
+    /// the grid, which is not the same as keeping it somewhere it can drive: the
+    /// circuits carry a solid wall band around the outside, so the last row and
+    /// column of the grid are `Barrier`. Clamping a car there handed it a tile
+    /// with zero traction and zero top speed -- a car that could never move
+    /// again. Walks inward from the edge to the last non-solid coordinate.
+    #[inline]
+    pub fn max_drivable_x(&self) -> i32 {
+        for step in 1..=self.width.max(1) {
+            let tx = self.width - step;
+            if !self.tile_at(tx, 0).is_solid() {
+                return (tx as i32) * TILE_SIZE + (TILE_SIZE - 1);
+            }
+        }
+        0
+    }
+
+    /// See [`Self::max_drivable_x`] for the vertical axis.
+    #[inline]
+    pub fn max_drivable_y(&self) -> i32 {
+        for step in 1..=self.height.max(1) {
+            let ty = self.height - step;
+            if !self.tile_at(0, ty).is_solid() {
+                return (ty as i32) * TILE_SIZE + (TILE_SIZE - 1);
+            }
+        }
+        0
+    }
+
     /// Returns the raw tile at a grid coordinate, or `Barrier` when out of bounds.
     #[inline]
     pub fn tile_at(&self, tx: u8, ty: u8) -> TrackTile {
