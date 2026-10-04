@@ -49,7 +49,8 @@ impl Fixed {
 
     #[inline]
     pub fn abs(self) -> Self {
-        Fixed(self.0.abs())
+        // `i32::abs` panics on i32::MIN in debug builds.
+        Fixed(self.0.saturating_abs())
     }
 
     /// Multiplies by a fixed-point factor (readability helper for `a * b`).
@@ -358,6 +359,14 @@ mod tests {
         let max = Fixed::from_raw(i32::MAX);
         assert_eq!((max + Fixed::ONE).raw(), i32::MAX);
         assert_eq!((Fixed::from_raw(i32::MIN) - Fixed::ONE).raw(), i32::MIN);
+    }
+
+    #[test]
+    fn abs_does_not_overflow() {
+        // `i32::abs` panics on i32::MIN in debug builds.
+        let min = Fixed::from_raw(i32::MIN).abs();
+        assert_eq!(min.raw(), i32::MAX);
+        assert_eq!(Fixed::from_int(-5).abs().raw(), 5 * FP_ONE);
     }
 
     #[test]
