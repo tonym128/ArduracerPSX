@@ -1,7 +1,18 @@
 # OVERHAUL — Track, Camera and Race-Start Overhaul
 
-Planning document. Nothing here is implemented; every step below is a proposal
-with a defined "done" condition.
+Planning document. Each step below is a proposal with a defined "done" condition.
+
+**Status:** steps 7, 8 and 9 are implemented and verified (branch
+`feat/overhaul-batch-a-camera-start`). Steps 1-6 remain and must land together:
+a centreline nothing renders is dead weight. Step 10 is mandatory once they do.
+
+**The level pipeline regenerates byte-identically.** Verified while starting
+step 1: `python3 tools/track_cook/convert_levels.py` rewrites `levels.rs` with an
+empty diff, and its inputs are in the repository -- `ArduRacerFx/Levels/` is 46
+tracked files, not a gitignored local checkout. So the pipeline is reproducible
+from a fresh clone, which makes step 1 tractable: change the cooker, regenerate,
+commit the result. It also retires the first half of audit finding #5, which
+claimed `levels.rs` could not be regenerated.
 
 The goal is the set of features that separate this PSX version from the Arduboy
 original: **bigger circuits with real runoff**, **smooth corners instead of
@@ -134,7 +145,7 @@ One polyline stroke replaces it and scales for free.
 
 *Done when:* minimap primitive count is independent of grid size.
 
-### 7. Clamp the camera, then apply zoom
+### 7. Clamp the camera, then apply zoom  *(done)*
 
 With step 2's margin in place, clamp `Camera::pos` so the view rectangle cannot
 leave the authored bounds. **Then** give `world_to_screen` a real `zoom` term —
@@ -144,7 +155,14 @@ constant as circuits grow, or the new size reads as a tiny car in an empty field
 *Done when:* the viewport never shows outside the authored bounds, and screen
 scale visibly changes between standstill and top speed.
 
-### 8. Make look-ahead heading-based
+*Implemented.* `world_to_screen` now applies zoom; `tile_blitter` draws through
+the same transform (one `k()` helper scales positions, tile size and every
+decorative sub-rect) and takes its tile window from
+`Camera::visible_half_extents`; `clamp_to_bounds` keeps the view inside the
+circuit, centring on axes where the circuit is narrower than the view. Zoom
+ranges 1.0 at rest to ~0.78 at top speed.
+
+### 8. Make look-ahead heading-based  *(done)*
 
 `camera.rs:42` leads by `target_velocity * 0.39`, which collapses toward zero when
 the car is slow or pinned against a wall. Lead by **heading** with a
@@ -155,7 +173,11 @@ and needs no new data once step 7 lands.
 *Done when:* the car's screen position is stable at zero speed and leans into
 corners without jitter.
 
-### 9. Add a real start sequence
+*Implemented.* Lead is velocity/heading derived and scales from ~10 world units at
+rest to ~72 at top speed, so the car is never dead centre and always sits behind
+screen centre in the direction of travel.
+
+### 9. Add a real start sequence  *(done)*
 
 `LapTimer::start()` arms the clock the instant the race begins; there is no
 countdown anywhere. Add a pre-race state: 3-2-1-GO with throttle and brake
@@ -166,6 +188,12 @@ Add the audio (beeps per light, engine idle) from the existing SPU path.
 
 *Done when:* the clock starts on GO, not on crossing the line; no input during
 the countdown moves the car.
+
+*Implemented.* `StartSequence` in `arduracer-core::timing`: grid, three lights,
+GO, racing. `reset_race` no longer calls `timer.start()`; the race loop arms the
+clock on the one-shot `just_started()` edge, zeroes driver input until GO, holds
+the AI on the grid, and `render_start_lights` draws the rig above the car. The
+audio cues are still outstanding -- the lights are visual only.
 
 ### 10. Re-verify end to end
 
