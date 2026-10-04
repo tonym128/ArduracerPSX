@@ -141,6 +141,94 @@ impl ParTimes {
     }
 }
 
+/// Ticks each countdown light stays lit, at 60 Hz.
+pub const COUNTDOWN_LIGHT_TICKS: u16 = 36;
+/// Number of lights before GO (three, as in an arcade start rig).
+pub const COUNTDOWN_LIGHTS: u8 = 3;
+/// Ticks the GO state is held after the last light, so the player sees it.
+pub const COUNTDOWN_GO_TICKS: u16 = 30;
+
+/// Which light is showing, and whether the race is live.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum StartPhase {
+    /// Grid is forming; the first light has not come on.
+    Grid,
+    /// Lit light count, 1..=3, still counting down.
+    Lit(u8),
+    /// Lights out, racing has begun.
+    Go,
+    /// The hold after GO has elapsed; the player is fully in control.
+    Racing,
+}
+
+/// Pre-race start sequence: three lights, then GO, then racing.
+///
+/// The lap clock used to arm the instant a race was loaded, so a standing start
+/// was indistinguishable from a flying one and the reaction-time cost of a launch
+/// fell on the player. This exists so the clock starts on GO.
+///
+/// Pure and host-testable: it holds no engine state, so the race loop drives it
+/// and can gate input on [`StartSequence::accepts_input`].
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct StartSequence {
+    elapsed: u16,
+}
+
+impl StartSequence {
+    pub const fn new() -> Self {
+        StartSequence { elapsed: 0 }
+    }
+
+    /// Advances one 60 Hz tick.
+    pub fn tick(&mut self) {
+        self.elapsed = self.elapsed.saturating_add(1);
+    }
+
+    /// Ticks elapsed since the grid.
+    pub fn elapsed(&self) -> u16 {
+        self.elapsed
+    }
+
+    /// Tick at which the lights go out and the race begins.
+    ///
+    /// The grid holds for one light period *before* the first light, so this is
+    /// `lights + 1` periods, not `lights`. Derived once here because getting it
+    /// wrong silently costs the player the last light.
+    pub const fn lights_out_tick() -> u16 {
+        COUNTDOWN_LIGHT_TICKS * (COUNTDOWN_LIGHTS as u16 + 1)
+    }
+
+    /// Current light state.
+    pub fn phase(&self) -> StartPhase {
+        let out = Self::lights_out_tick();
+        if self.elapsed < COUNTDOWN_LIGHT_TICKS {
+            StartPhase::Grid
+        } else if self.elapsed < out {
+            // One light per period after the grid hold.
+            let lit = (self.elapsed / COUNTDOWN_LIGHT_TICKS) as u8;
+            StartPhase::Lit(lit.min(COUNTDOWN_LIGHTS))
+        } else if self.elapsed < out + COUNTDOWN_GO_TICKS {
+            StartPhase::Go
+        } else {
+            StartPhase::Racing
+        }
+    }
+
+    /// True once the player may apply throttle or steering.
+    ///
+    /// Locked through the grid *and* all three lights: releasing on light two
+    /// would hand a launch away before the start.
+    pub fn accepts_input(&self) -> bool {
+        matches!(self.phase(), StartPhase::Go | StartPhase::Racing)
+    }
+
+    /// True on the tick the lights go out. Call once per frame and use it to arm
+    /// the lap clock, so the clock starts on GO rather than at load.
+    pub fn just_started(&self) -> bool {
+        self.elapsed == Self::lights_out_tick()
+    }
+}
+
 /// Real-time lap timer with ArduRacer FX style anti-cheat checkpoint validation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LapTimer<const MAX_CHECKPOINTS: usize> {

@@ -5,7 +5,7 @@
 //! clipping and seamless edge-to-edge alignment.
 
 use crate::gpu::camera::Camera;
-use arduracer_core::{TrackDef, TrackTile, ALL_TRACKS, TILE_SIZE};
+use arduracer_core::{TrackDef, TrackTile, ALL_TRACKS, FP_SHIFT, TILE_SIZE};
 use psx_gpu as gpu;
 
 const TILE: i32 = TILE_SIZE;
@@ -100,9 +100,10 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
 
-    // 320x240 screen viewport: ±180 px horizontal, ±140 px vertical for margin
-    let half_w = 180;
-    let half_h = 140;
+    // Visible world extent, widened by the camera's zoom so a zoomed-out camera
+    // draws the extra tiles that come into view. Without this the road would end
+    // in mid-air at speed.
+    let (half_w, half_h) = camera.visible_half_extents();
 
     let min_tx = ((cam_x - half_w) / TILE).max(0) as u8;
     let max_tx = (((cam_x + half_w) / TILE) + 1)
@@ -113,7 +114,15 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
         .max(0)
         .min(track.height as i32) as u8;
 
-    let tile_sz = TILE as u16;
+    // Zoom is applied here and to every rectangle below, so the road scales with
+    // the sprites drawn by `Camera::world_to_screen`.
+    let z = camera.zoom.raw();
+    let kx = |v: i32| -> i16 {
+        (((v as i64 * z as i64) >> FP_SHIFT) as i32).clamp(-32000, 32000) as i16
+    };
+    let kw =
+        |v: i32| -> u16 { (((v as i64 * z as i64) >> FP_SHIFT) as i32).clamp(1, 32000) as u16 };
+    let tile_sz = kw(TILE);
 
     for ty in min_ty..max_ty {
         for tx in min_tx..max_tx {
@@ -121,8 +130,8 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
             let tile_world_x = (tx as i32) * TILE;
             let tile_world_y = (ty as i32) * TILE;
 
-            let screen_x = (160 + (tile_world_x - cam_x)) as i16;
-            let screen_y = (120 + (tile_world_y - cam_y)) as i16;
+            let screen_x = 160 + kx(tile_world_x - cam_x);
+            let screen_y = 120 + kx(tile_world_y - cam_y);
 
             // Inspect orthogonal neighbor surfaces to determine road corridor flow
             let north_is_corr = ty > 0 && is_corridor(track.tile_at(tx, ty - 1));
@@ -143,7 +152,15 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                     // Road texture grain / racing groove
                     let hash = ((tx as i32 * 7) ^ (ty as i32 * 13)) & 3;
                     if hash == 0 {
-                        gpu::draw_rect_flat(screen_x + 8, screen_y + 8, 48, 48, 34, 36, 42);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(8),
+                            screen_y + kx(8),
+                            kw(48),
+                            kw(48),
+                            34,
+                            36,
+                            42,
+                        );
                     }
 
                     // Dashed road centerline along the center lane of the road
@@ -154,10 +171,26 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
 
                     if is_corridor_vert || (is_vert_lane && !is_horiz_lane) {
                         // Continuous dashed stripe down the road center
-                        gpu::draw_rect_flat(screen_x + 30, screen_y + 8, 4, 48, 220, 220, 230);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(30),
+                            screen_y + kx(8),
+                            kw(4),
+                            kw(48),
+                            220,
+                            220,
+                            230,
+                        );
                     } else if is_corridor_horiz || (is_horiz_lane && !is_vert_lane) {
                         // Continuous dashed stripe across the road center
-                        gpu::draw_rect_flat(screen_x + 8, screen_y + 30, 48, 4, 220, 220, 230);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(8),
+                            screen_y + kx(30),
+                            kw(48),
+                            kw(4),
+                            220,
+                            220,
+                            230,
+                        );
                     }
                 }
                 TrackTile::StartFinish => {
@@ -171,48 +204,80 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                         ((track.start_heading.wrapping_add(512)) % 2048) < 1024;
                     if start_is_vert_travel {
                         // Across horizontal width for vertical track travel
-                        for r in 0..4i16 {
-                            for c in 0..8i16 {
+                        for r in 0..4i32 {
+                            for c in 0..8i32 {
                                 let (cr, cg, cb) = if (r + c) % 2 == 0 {
                                     (240, 240, 245)
                                 } else {
                                     (20, 20, 26)
                                 };
                                 gpu::draw_rect_flat(
-                                    screen_x + c * 8,
-                                    screen_y + 16 + r * 8,
-                                    8,
-                                    8,
+                                    screen_x + kx(c * 8),
+                                    screen_y + kx(16 + r * 8),
+                                    kw(8),
+                                    kw(8),
                                     cr,
                                     cg,
                                     cb,
                                 );
                             }
                         }
-                        gpu::draw_rect_flat(screen_x, screen_y + 14, tile_sz, 2, 255, 215, 0);
-                        gpu::draw_rect_flat(screen_x, screen_y + 48, tile_sz, 2, 255, 215, 0);
+                        gpu::draw_rect_flat(
+                            screen_x,
+                            screen_y + kx(14),
+                            tile_sz,
+                            kw(2),
+                            255,
+                            215,
+                            0,
+                        );
+                        gpu::draw_rect_flat(
+                            screen_x,
+                            screen_y + kx(48),
+                            tile_sz,
+                            kw(2),
+                            255,
+                            215,
+                            0,
+                        );
                     } else {
                         // Across vertical height for horizontal track travel
-                        for c in 0..4i16 {
-                            for r in 0..8i16 {
+                        for c in 0..4i32 {
+                            for r in 0..8i32 {
                                 let (cr, cg, cb) = if (r + c) % 2 == 0 {
                                     (240, 240, 245)
                                 } else {
                                     (20, 20, 26)
                                 };
                                 gpu::draw_rect_flat(
-                                    screen_x + 16 + c * 8,
-                                    screen_y + r * 8,
-                                    8,
-                                    8,
+                                    screen_x + kx(16 + c * 8),
+                                    screen_y + kx(r * 8),
+                                    kw(8),
+                                    kw(8),
                                     cr,
                                     cg,
                                     cb,
                                 );
                             }
                         }
-                        gpu::draw_rect_flat(screen_x + 14, screen_y, 2, tile_sz, 255, 215, 0);
-                        gpu::draw_rect_flat(screen_x + 48, screen_y, 2, tile_sz, 255, 215, 0);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(14),
+                            screen_y,
+                            kw(2),
+                            tile_sz,
+                            255,
+                            215,
+                            0,
+                        );
+                        gpu::draw_rect_flat(
+                            screen_x + kx(48),
+                            screen_y,
+                            kw(2),
+                            tile_sz,
+                            255,
+                            215,
+                            0,
+                        );
                     }
                 }
                 TrackTile::Checkpoint => {
@@ -229,18 +294,82 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
 
                     if vert_flow && !horiz_flow {
                         // Luminous neon cyan timing beam across the vertical track
-                        gpu::draw_rect_flat(screen_x, screen_y + 24, tile_sz, 16, 0, 180, 240);
-                        gpu::draw_rect_flat(screen_x, screen_y + 28, tile_sz, 8, 120, 240, 255);
+                        gpu::draw_rect_flat(
+                            screen_x,
+                            screen_y + kx(24),
+                            tile_sz,
+                            kw(16),
+                            0,
+                            180,
+                            240,
+                        );
+                        gpu::draw_rect_flat(
+                            screen_x,
+                            screen_y + kx(28),
+                            tile_sz,
+                            kw(8),
+                            120,
+                            240,
+                            255,
+                        );
                         // Yellow timing sensor pylons on lateral edges
-                        gpu::draw_rect_flat(screen_x, screen_y + 16, 6, 32, 255, 220, 20);
-                        gpu::draw_rect_flat(screen_x + 58, screen_y + 16, 6, 32, 255, 220, 20);
+                        gpu::draw_rect_flat(
+                            screen_x,
+                            screen_y + kx(16),
+                            kw(6),
+                            kw(32),
+                            255,
+                            220,
+                            20,
+                        );
+                        gpu::draw_rect_flat(
+                            screen_x + kx(58),
+                            screen_y + kx(16),
+                            kw(6),
+                            kw(32),
+                            255,
+                            220,
+                            20,
+                        );
                     } else {
                         // Luminous neon cyan timing beam across horizontal track
-                        gpu::draw_rect_flat(screen_x + 24, screen_y, 16, tile_sz, 0, 180, 240);
-                        gpu::draw_rect_flat(screen_x + 28, screen_y, 8, tile_sz, 120, 240, 255);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(24),
+                            screen_y,
+                            kw(16),
+                            tile_sz,
+                            0,
+                            180,
+                            240,
+                        );
+                        gpu::draw_rect_flat(
+                            screen_x + kx(28),
+                            screen_y,
+                            kw(8),
+                            tile_sz,
+                            120,
+                            240,
+                            255,
+                        );
                         // Yellow timing sensor pylons on top and bottom
-                        gpu::draw_rect_flat(screen_x + 16, screen_y, 32, 6, 255, 220, 20);
-                        gpu::draw_rect_flat(screen_x + 16, screen_y + 58, 32, 6, 255, 220, 20);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(16),
+                            screen_y,
+                            kw(32),
+                            kw(6),
+                            255,
+                            220,
+                            20,
+                        );
+                        gpu::draw_rect_flat(
+                            screen_x + kx(16),
+                            screen_y + kx(58),
+                            kw(32),
+                            kw(6),
+                            255,
+                            220,
+                            20,
+                        );
                     }
                 }
                 TrackTile::Curb => {
@@ -254,17 +383,17 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                         (west_is_corr || east_is_corr) && !(north_is_corr || south_is_corr);
                     if is_vert_curb {
                         // Vertical curb bordering corridor: stripes alternate vertically
-                        for i in 0..4i16 {
-                            let (cr, cg, cb) = if (i + (tx as i16) + (ty as i16)) % 2 == 0 {
+                        for i in 0..4i32 {
+                            let (cr, cg, cb) = if (i + tx as i32 + ty as i32) % 2 == 0 {
                                 pal.curb_a
                             } else {
                                 pal.curb_b
                             };
                             gpu::draw_rect_flat(
                                 screen_x,
-                                screen_y + i * 16,
+                                screen_y + kx(i * 16),
                                 tile_sz,
-                                16,
+                                kw(16),
                                 cr,
                                 cg,
                                 cb,
@@ -272,16 +401,16 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                         }
                     } else {
                         // Horizontal or corner curb: stripes alternate horizontally
-                        for i in 0..4i16 {
-                            let (cr, cg, cb) = if (i + (tx as i16) + (ty as i16)) % 2 == 0 {
+                        for i in 0..4i32 {
+                            let (cr, cg, cb) = if (i + tx as i32 + ty as i32) % 2 == 0 {
                                 pal.curb_a
                             } else {
                                 pal.curb_b
                             };
                             gpu::draw_rect_flat(
-                                screen_x + i * 16,
+                                screen_x + kx(i * 16),
                                 screen_y,
-                                16,
+                                kw(16),
                                 tile_sz,
                                 cr,
                                 cg,
@@ -306,20 +435,20 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                     let patch = ((tx as i32 * 11) + (ty as i32 * 5)) & 3;
                     if patch == 0 {
                         gpu::draw_rect_flat(
-                            screen_x + 12,
-                            screen_y + 12,
-                            24,
-                            24,
+                            screen_x + kx(12),
+                            screen_y + kx(12),
+                            kw(24),
+                            kw(24),
                             pal.patch_a.0,
                             pal.patch_a.1,
                             pal.patch_a.2,
                         );
                     } else if patch == 1 {
                         gpu::draw_rect_flat(
-                            screen_x + 36,
-                            screen_y + 28,
-                            20,
-                            20,
+                            screen_x + kx(36),
+                            screen_y + kx(28),
+                            kw(20),
+                            kw(20),
                             pal.patch_b.0,
                             pal.patch_b.1,
                             pal.patch_b.2,
@@ -333,17 +462,41 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                     );
 
                     // Iridescent dark purple slick puddle
-                    gpu::draw_rect_flat(screen_x + 8, screen_y + 8, 48, 48, 32, 18, 48);
-                    gpu::draw_rect_flat(screen_x + 14, screen_y + 14, 36, 36, 56, 16, 78);
+                    gpu::draw_rect_flat(
+                        screen_x + kx(8),
+                        screen_y + kx(8),
+                        kw(48),
+                        kw(48),
+                        32,
+                        18,
+                        48,
+                    );
+                    gpu::draw_rect_flat(
+                        screen_x + kx(14),
+                        screen_y + kx(14),
+                        kw(36),
+                        kw(36),
+                        56,
+                        16,
+                        78,
+                    );
                     // Shimmer reflection highlight
-                    gpu::draw_rect_flat(screen_x + 20, screen_y + 20, 16, 8, 120, 40, 160);
+                    gpu::draw_rect_flat(
+                        screen_x + kx(20),
+                        screen_y + kx(20),
+                        kw(16),
+                        kw(8),
+                        120,
+                        40,
+                        160,
+                    );
                 }
                 TrackTile::BoostPad => {
                     // Dark tarmac track bed
                     gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 32, 34, 40);
 
                     // Glowing neon orange/yellow chevron booster arrows
-                    let chevrons = [10i16, 24, 38];
+                    let chevrons = [10i32, 24, 38];
                     if vert_flow && !horiz_flow {
                         for (idx, &cy) in chevrons.iter().enumerate() {
                             let (cr, cg) = if idx == 0 {
@@ -353,8 +506,24 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                             } else {
                                 (255, 110)
                             };
-                            gpu::draw_rect_flat(screen_x + 12, screen_y + cy, 40, 8, cr, cg, 0);
-                            gpu::draw_rect_flat(screen_x + 26, screen_y + cy - 4, 12, 4, cr, cg, 0);
+                            gpu::draw_rect_flat(
+                                screen_x + kx(12),
+                                screen_y + kx(cy),
+                                kw(40),
+                                kw(8),
+                                cr,
+                                cg,
+                                0,
+                            );
+                            gpu::draw_rect_flat(
+                                screen_x + kx(26),
+                                screen_y + kx(cy - 4),
+                                kw(12),
+                                kw(4),
+                                cr,
+                                cg,
+                                0,
+                            );
                         }
                     } else {
                         // Pointing right along horizontal road
@@ -366,25 +535,49 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                             } else {
                                 (255, 110)
                             };
-                            gpu::draw_rect_flat(screen_x + cx, screen_y + 12, 8, 40, cr, cg, 0);
-                            gpu::draw_rect_flat(screen_x + cx + 4, screen_y + 26, 4, 12, cr, cg, 0);
+                            gpu::draw_rect_flat(
+                                screen_x + kx(cx),
+                                screen_y + kx(12),
+                                kw(8),
+                                kw(40),
+                                cr,
+                                cg,
+                                0,
+                            );
+                            gpu::draw_rect_flat(
+                                screen_x + kx(cx + 4),
+                                screen_y + kx(26),
+                                kw(4),
+                                kw(12),
+                                cr,
+                                cg,
+                                0,
+                            );
                         }
                     }
                 }
                 TrackTile::Barrier => {
                     // Armco steel barrier with yellow/black hazard markings
                     gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 18, 20, 26);
-                    for i in 0..4i16 {
-                        let (br, bg, bb) = if (i + (tx as i16) + (ty as i16)) % 2 == 0 {
+                    for i in 0..4i32 {
+                        let (br, bg, bb) = if (i + tx as i32 + ty as i32) % 2 == 0 {
                             (240, 200, 20) // Safety Yellow
                         } else {
                             (30, 30, 35) // Hazard Black
                         };
-                        gpu::draw_rect_flat(screen_x + i * 16, screen_y + 16, 16, 32, br, bg, bb);
+                        gpu::draw_rect_flat(
+                            screen_x + kx(i * 16),
+                            screen_y + kx(16),
+                            kw(16),
+                            kw(32),
+                            br,
+                            bg,
+                            bb,
+                        );
                     }
                     // Steel guardrail cap
-                    gpu::draw_rect_flat(screen_x, screen_y + 12, tile_sz, 4, 180, 190, 205);
-                    gpu::draw_rect_flat(screen_x, screen_y + 48, tile_sz, 4, 140, 150, 165);
+                    gpu::draw_rect_flat(screen_x, screen_y + kx(12), tile_sz, kw(4), 180, 190, 205);
+                    gpu::draw_rect_flat(screen_x, screen_y + kx(48), tile_sz, kw(4), 140, 150, 165);
                 }
             }
         }

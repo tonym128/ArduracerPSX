@@ -18,8 +18,8 @@ pub mod ui;
 pub mod video;
 
 use arduracer_core::{
-    compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, TrackDef, Vec2, VehicleState,
-    AI_PROFILES, ALL_TRACKS,
+    compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, StartPhase, StartSequence,
+    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -74,6 +74,8 @@ pub struct ArduracerGame {
     pub state_mgr: StateManager,
     pub ghost: LapGhostRecorder,
     pub memcard: MemoryCardManager,
+    /// Three lights, then GO. The lap clock arms on GO, not at load.
+    pub start: StartSequence,
 }
 
 impl Default for ArduracerGame {
@@ -135,6 +137,7 @@ impl ArduracerGame {
             input_mgr,
             state_mgr,
             ghost: LapGhostRecorder::new(0),
+            start: StartSequence::new(),
             memcard,
         }
     }
@@ -170,7 +173,9 @@ impl ArduracerGame {
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         self.ghost.start_lap();
-        self.timer.start();
+        // The clock is deliberately NOT armed here: it starts on GO. See
+        // `StartSequence`.
+        self.start = StartSequence::new();
         self.paused = false;
         self.show_hud = true;
     }
@@ -331,7 +336,21 @@ impl ArduracerGame {
                     let pre_tx = TrackDef::tile_x_of(self.player.position.x);
                     let pre_ty = TrackDef::tile_y_of(self.player.position.y);
                     let pre_surface = track.surface_at(pre_tx, pre_ty);
-                    let input = self.input_mgr.update(&self.player, pre_surface);
+                    let mut input = self.input_mgr.update(&self.player, pre_surface);
+
+                    // Start sequence: hold the car on the grid, then arm the lap
+                    // clock the instant the lights go out.
+                    self.start.tick();
+                    if self.start.just_started() {
+                        self.timer.start();
+                    }
+                    if !self.start.accepts_input() {
+                        input.throttle = Fixed::ZERO;
+                        input.brake = Fixed::ZERO;
+                        input.steer = Fixed::ZERO;
+                        input.handbrake = false;
+                        input.nitro = false;
+                    }
 
                     // Recovery: stuck, spun, or wedged with no way out. Drops the
                     // car on the nearest route node facing down the racing line
@@ -365,8 +384,12 @@ impl ArduracerGame {
                     for i in 0..5 {
                         other_positions[i + 1] = self.rivals[i].state.position;
                     }
-                    for i in 0..5 {
-                        self.rivals[i].tick(track, &other_positions);
+                    if self.start.phase() == StartPhase::Racing || self.start.just_started() {
+                        // Rivals launch with the player: held on the grid until
+                        // the lights go out, like a standing start.
+                        for i in 0..5 {
+                            self.rivals[i].tick(track, &other_positions);
+                        }
                     }
 
                     // Race standings: player checkpoint progress is compared on
@@ -448,11 +471,14 @@ impl ArduracerGame {
                     self.particles.tick();
                     self.skidmarks.tick();
 
-                    // Camera update
+                    // Camera update, clamped to the circuit so the view never
+                    // leaves the track.
                     self.camera.update(
                         self.player.position,
                         self.player.velocity,
                         self.player.speed,
+                        track.world_width(),
+                        track.world_height(),
                     );
 
                     // Render Pass:
@@ -483,7 +509,12 @@ impl ArduracerGame {
                     }
                     // g. Player race car (Crimson Red: 220, 25, 45)
                     render_car(&self.player, &self.camera, draw_y, false, (220, 25, 45));
-                    // h. In-Game HUD overlay (Select hides it for clean screenshots)
+                    // h. Start lights, drawn above the HUD while the grid is
+                    // still counting down. Always visible: they are the signal
+                    // that the clock has not started yet.
+                    render_start_lights(self.start.phase(), draw_y);
+
+                    // i. In-Game HUD overlay (Select hides it for clean screenshots)
                     if self.show_hud {
                         render_hud(
                             &self.player,
@@ -543,6 +574,28 @@ impl ArduracerGame {
                 render_card_notice(status);
             }
         }
+    }
+}
+
+/// Three-light start rig, centred above the car during the countdown.
+///
+/// Shows the lights coming on one at a time, then all out for GO. The lamp
+/// positions match a real arcade rig so the "wait for all three, then go" read
+/// is unambiguous.
+fn render_start_lights(phase: StartPhase, _draw_y: i16) {
+    let lit = match phase {
+        StartPhase::Grid => 0,
+        StartPhase::Lit(n) => n as u16,
+        StartPhase::Go | StartPhase::Racing => return,
+    };
+    let spacing = 22i16;
+    let first_x = 160 - spacing;
+    let y = 44;
+    psx_gpu_mod::draw_rect_flat(112, y - 6, 96, 22, 16, 18, 24);
+    for i in 0..3u16 {
+        let x = first_x + (i as i16) * spacing;
+        let (r, g, b) = if i < lit { (255, 60, 40) } else { (58, 26, 24) };
+        psx_gpu_mod::draw_rect_flat(x - 7, y - 2, 14, 14, r, g, b);
     }
 }
 
