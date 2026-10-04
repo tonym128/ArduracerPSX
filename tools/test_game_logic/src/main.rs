@@ -199,6 +199,18 @@ fn main() {
         test_super_stages_are_real_circuits
     );
     run_test!(
+        "Centreline closes and is monotonic on all 24 tracks",
+        test_route_is_closed_and_monotonic
+    );
+    run_test!(
+        "Centreline arc position tracks a driven lap",
+        test_route_arc_follows_the_car
+    );
+    run_test!(
+        "Gate crossing is direction aware",
+        test_route_crossing_is_direction_aware
+    );
+    run_test!(
         "Sprint Short synthesised a missing start line",
         test_sprint_short_has_a_start_line
     );
@@ -735,6 +747,171 @@ fn test_barrier_slide_does_not_stick() {
     assert!(
         !car.drift.is_spinning(),
         "a glancing scrape must not trigger a spin-out"
+    );
+}
+
+fn test_route_is_closed_and_monotonic() {
+    for track in ALL_TRACKS.iter() {
+        let route = Route::from_track(track);
+        assert!(!route.is_empty(), "{}: empty centreline", track.name);
+        assert!(
+            route.len() >= 8,
+            "{}: only {} samples",
+            track.name,
+            route.len()
+        );
+        assert!(
+            route.total_len() > 0,
+            "{}: zero-length centreline",
+            track.name
+        );
+
+        // Arc length must never go backwards, or progress along the lap is
+        // meaningless and lap validation cannot work.
+        for i in 1..route.len() {
+            assert!(
+                route.arc_at(i) >= route.arc_at(i - 1),
+                "{}: arc went backwards at sample {i}",
+                track.name
+            );
+        }
+        assert!(
+            route.arc_at(route.len() - 1) <= route.total_len(),
+            "{}: final arc exceeds total length",
+            track.name
+        );
+
+        // No long run of coincident samples: a zero-length segment makes the
+        // projection degenerate. (Short repeats are legitimate -- the bounds
+        // clamp can flatten samples where a hairpin overshoots the edge.)
+        let mut run = 0;
+        for i in 0..route.len() {
+            let a = route.point(i);
+            let b = route.point((i + 1) % route.len());
+            if a == b {
+                run += 1;
+                assert!(
+                    run < 4,
+                    "{}: {run} coincident centreline samples at {i}",
+                    track.name
+                );
+            } else {
+                run = 0;
+            }
+        }
+
+        // The centreline must sit on the circuit, not off in the infield: sample
+        // it and confirm each point is inside the track bounds.
+        let (w, h) = (track.world_width(), track.world_height());
+        for i in 0..route.len() {
+            let p = route.point(i);
+            assert!(
+                p.x.raw() >= 0 && p.y.raw() >= 0,
+                "{}: centrepoint {i} left the circuit",
+                track.name
+            );
+            assert!(
+                p.x.to_int() < w && p.y.to_int() < h,
+                "{}: centrepoint {i} ({},{}) outside {w}x{h}",
+                track.name,
+                p.x.to_int(),
+                p.y.to_int()
+            );
+        }
+    }
+}
+
+fn test_route_arc_follows_the_car() {
+    // Walk the centreline itself and confirm `nearest` reports monotonically
+    // increasing progress. A stale hint or a bad projection shows up here.
+    for track in ALL_TRACKS.iter().take(6) {
+        let route = Route::from_track(track);
+        let mut hint = route.len(); // force the first call to do a full scan
+        let mut previous_arc = 0u16;
+        let mut wrapped = 0;
+        for i in 0..route.len() {
+            let (arc, dist, next_hint) = route.nearest(route.point(i), hint);
+            assert!(
+                dist <= 2,
+                "{}: centreline sample {i} is {dist} units off the centreline",
+                track.name
+            );
+            if arc < previous_arc {
+                wrapped += 1;
+                assert!(
+                    wrapped <= 1,
+                    "{}: arc wrapped {wrapped} times in one lap",
+                    track.name
+                );
+            }
+            previous_arc = arc;
+            hint = next_hint;
+        }
+
+        // The local-search hint must agree with a full scan, or per-frame cost
+        // and correctness diverge depending on where the car is.
+        for i in (0..route.len()).step_by(7) {
+            let (arc_h, _, _) = route.nearest(route.point(i), i);
+            let (arc_all, _, _) = route.nearest(route.point(i), route.len());
+            assert_eq!(
+                arc_h, arc_all,
+                "{}: hinted and full scans disagree at {i}",
+                track.name
+            );
+        }
+    }
+}
+
+fn test_route_crossing_is_direction_aware() {
+    // A gate a third of the way round a lap.
+    let route = Route::from_track(ALL_TRACKS[0]);
+    let gate = route.total_len() / 3;
+
+    // Driving forward across it registers.
+    let back = gate.saturating_sub(10);
+    assert!(
+        route.crossed(back, gate + 10, gate, true),
+        "forward crossing missed"
+    );
+    // Driving backward across it must NOT register: this is the defect that let a
+    // lap be scored by reversing through every gate.
+    assert!(
+        !route.crossed(gate + 10, back, gate, true),
+        "reverse crossing counted as forward"
+    );
+    assert!(
+        route.crossed(gate + 10, back, gate, false),
+        "backward crossing missed in reverse mode"
+    );
+
+    // A step that never reaches the gate is not a crossing.
+    assert!(!route.crossed(0, gate.saturating_sub(20), gate, true));
+    // Backwards from arc 0 wraps the whole lap in one frame; the plausibility
+    // guard must reject it instead of reporting a crossing of every gate.
+    assert!(
+        !route.crossed(0, gate.saturating_sub(20), gate, false),
+        "a backwards lap wrap scored a gate"
+    );
+
+    // Crossing the lap boundary forward must still be detected, since that is
+    // how the start/finish line is scored. The linear gap here is nearly a whole
+    // lap, so this also proves the plausibility guard measures distance
+    // *travelled* rather than the linear difference.
+    let near_end = route.total_len().saturating_sub(5);
+    assert!(
+        route.crossed(near_end, 5, 0, true),
+        "wrap-around crossing missed"
+    );
+
+    // A cut across the infield is not progress and must not score.
+    assert!(
+        !route.crossed(
+            0,
+            (route.total_len() / 2).max(1),
+            (route.total_len() / 2).max(1),
+            true
+        ),
+        "a half-lap teleport counted as a crossing"
     );
 }
 

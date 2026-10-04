@@ -416,6 +416,38 @@ defect log, and the documented deviations.
 
 ---
 
+## Phase 12: Audio Voice Lifetime
+
+Both of these are the same defect seen twice: the SPU voices owned by
+`audio::EngineAudio` and `audio::sfx::SfxPlayer` are only ever written by
+`AudioSystem::tick`, and that is driven **solely** from the `Racing` branch of the
+game loop (`main.rs`). Nothing ever silences a voice, so whatever volume a voice
+was last given stays latched on the hardware.
+
+- [ ] **TASK-1301**: Cut the car sound when a round ends.
+  - **Problem**: entering `GameState::Results` stops `audio.tick()`, so the engine
+    synthesizer keeps droning at the volume it held on the final racing frame, and
+    any latched tire-squeal or impact voice keeps sounding over the results screen.
+  - **Fix**: add an explicit silence path (`EngineAudio::silence()`,
+    `SfxPlayer::silence()`, combined as `AudioSystem::silence_voices()`) that
+    writes zero volume to every voice those two own, and call it on the
+    `Racing -> Results` transition (and on `QuitToMenu`).
+  - **Tests**: `tools/test_ui`-style host coverage that a voice's volume reaches
+    zero after `silence()` and that `silence()` is idempotent.
+
+- [ ] **TASK-1302**: Remove the SFX / non-CD audio from the start screen.
+  - **Problem**: `EngineAudio::new()` initialises `current_vol: 0x1000`, i.e.
+    **non-zero**, and on the title/attract screen `audio.tick()` never runs, so
+    nothing ever writes the idle volume down. The engine voice is audible from
+    boot, underneath the CD-DA title track.
+  - **Fix**: default `EngineAudio::new()` to a silent volume (`0x0000`), and make
+    the audio subsystem explicitly silent until a race actually starts, so CD-DA
+    is the only thing audible outside a race.
+  - **Tests**: assert a freshly constructed `EngineAudio` reports silent, and
+    that `AudioSystem` does not request any non-CD voice before `tick` is called.
+
+---
+
 ## Phase 11: Track, Camera & Race-Start Overhaul
 
 - [ ] **TASK-1101**: Ten-step overhaul plan for bigger circuits with runoff,

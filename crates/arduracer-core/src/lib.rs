@@ -18,6 +18,7 @@ pub mod drift;
 pub mod ghost;
 pub mod levels;
 pub mod math;
+pub mod route;
 pub mod save;
 pub mod surface;
 pub mod timing;
@@ -35,6 +36,7 @@ pub use ghost::{
 };
 pub use levels::ALL_TRACKS;
 pub use math::{cos, sin, Fixed, Vec2, ANGLE_180, ANGLE_360, ANGLE_45, ANGLE_90, FP_ONE, FP_SHIFT};
+pub use route::{Route, DEFAULT_SAMPLES_PER_SPAN, MAX_ROUTE_SAMPLES};
 pub use save::{SaveData, SAVE_HEADER_MAGIC, SAVE_VERSION, TOTAL_TRACKS};
 pub use surface::SurfaceType;
 pub use timing::{
