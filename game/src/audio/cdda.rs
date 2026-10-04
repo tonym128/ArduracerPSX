@@ -39,6 +39,9 @@ impl CddaController {
 
     /// Begins playback of a specific 1-based CD-DA audio track (Track 2+).
     pub fn play_track(&mut self, track: u8) {
+        if self.current_track == track && self.state == CddaState::Playing {
+            return;
+        }
         self.current_track = track;
         cdrom::try_demute(50_000);
         cdrom::try_play_track(track, 50_000);

@@ -100,7 +100,8 @@ impl ArduracerGame {
         let mut memcard = MemoryCardManager::new();
         memcard.probe();
 
-        let audio = AudioSystem::new();
+        let mut audio = AudioSystem::new();
+        audio.cdda.play_track(2);
         let mut input_mgr = InputManager::new(InputProfile::ClassicArcade);
         input_mgr.init();
 
@@ -138,6 +139,14 @@ impl ArduracerGame {
         self.current_track = ALL_TRACKS[idx];
         self.ghost.reset(idx as u8);
         self.reset_race();
+
+        // Play the CD-DA theme corresponding to the active cup:
+        // Cup 1 (Tracks 1-6) -> CD-DA Track 3 ("Asphalt Adrenaline" Eurobeat)
+        // Cup 2 (Tracks 7-12) -> CD-DA Track 4 ("Night Drift City" D&B)
+        // Cup 3 (Tracks 13-18) -> CD-DA Track 5 ("Canyon Rush" Techno)
+        // Cup 4 (Tracks 19-24) -> CD-DA Track 6 ("Apex Predator" Trance)
+        let cdda_track = 3 + ((idx / 6) as u8).min(3);
+        self.audio.cdda.play_track(cdda_track);
     }
 
     /// Resets the current race state to the starting grid.
@@ -267,6 +276,7 @@ impl ArduracerGame {
                     self.pause.prev_buttons = pad_now.bits();
                     if start_pressed {
                         self.paused = true;
+                        self.audio.cdda.pause();
                     }
                     if select_pressed && !self.paused {
                         self.show_hud = !self.show_hud;
@@ -274,11 +284,19 @@ impl ArduracerGame {
 
                     if self.paused {
                         match self.pause.update(&pad) {
-                            PauseChoice::Resume => self.paused = false,
-                            PauseChoice::RestartRace => self.reset_race(),
+                            PauseChoice::Resume => {
+                                self.paused = false;
+                                self.audio.cdda.resume();
+                            }
+                            PauseChoice::RestartRace => {
+                                self.reset_race();
+                                let cdda_track = 3 + ((self.current_track_idx / 6) as u8).min(3);
+                                self.audio.cdda.play_track(cdda_track);
+                            }
                             PauseChoice::QuitToMenu => {
                                 self.state_mgr.championship = None;
                                 self.state_mgr.current = GameState::MainMenu;
+                                self.audio.cdda.play_track(2);
                             }
                             PauseChoice::None => {}
                         }
@@ -364,6 +382,7 @@ impl ArduracerGame {
                             player_rank,
                         ));
                         self.state_mgr.current = GameState::Results;
+                        self.audio.cdda.play_track(7);
                     }
 
                     // Audio engine tick (engine RPM synth, tire screech, SFX)
@@ -467,13 +486,15 @@ impl ArduracerGame {
                         } else if self.state_mgr.championship.is_some() {
                             self.state_mgr.championship = None;
                             self.state_mgr.current = GameState::MainMenu;
+                            self.audio.cdda.play_track(2);
                         } else {
-                            self.reset_race();
+                            self.load_track(self.current_track_idx);
                             self.state_mgr.current = GameState::Racing;
                         }
                     } else if action_exit {
                         self.state_mgr.championship = None;
                         self.state_mgr.current = GameState::MainMenu;
+                        self.audio.cdda.play_track(2);
                     }
                 }
             }
