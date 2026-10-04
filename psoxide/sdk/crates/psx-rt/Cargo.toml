@@ -1,0 +1,32 @@
+[package]
+name         = "psx-rt"
+version      = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description  = "PS1 bare-metal runtime: _start, BIOS calls, panic, heap."
+
+[dependencies]
+psx-hw = { workspace = true }
+psx-io = { path = "../psx-io" }
+
+[features]
+default = []
+# Expose a bump allocator as the global allocator. Kept optional so a
+# minimal no-heap homebrew can opt out.
+alloc = []
+# Emit coarse boot breadcrumbs over the BIOS TTY channel.
+boot-trace = []
+# Reserve 256 trampoline words for the post-link load-delay hazard patcher
+# instead of 96 (+640 bytes of `.data`). Opt in only when a guest's linked
+# exe reports "trampoline array full".
+hazard-trampolines-256 = []
+# Guard every `scratchpad::ScratchpadStack::run`: a canary word at the bottom
+# of the region, checked after the call, and a trap when interrupts are on
+# with an exception handler other than psx-rt's or one the game declared
+# with `interrupts::declare_stack_safe_handler`. A few instructions and a
+# few RAM loads per call; the build-time proof is tools/stack_guard.py.
+scratchpad-stack-check = []
+
+[lints.rust]
+missing_docs = "warn"
