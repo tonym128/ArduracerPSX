@@ -28,6 +28,12 @@ pub struct StateManager {
     pub championship: Option<ChampionshipSession>,
 }
 
+impl Default for StateManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateManager {
     pub fn new() -> Self {
         StateManager {

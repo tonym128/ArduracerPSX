@@ -22,6 +22,12 @@ pub struct SkidmarkBuffer {
     pub head: usize,
 }
 
+impl Default for SkidmarkBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SkidmarkBuffer {
     pub const fn new() -> Self {
         SkidmarkBuffer {

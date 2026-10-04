@@ -15,6 +15,12 @@ pub struct SfxPlayer {
     prev_checkpoints: u8,
 }
 
+impl Default for SfxPlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SfxPlayer {
     pub const fn new() -> Self {
         SfxPlayer {

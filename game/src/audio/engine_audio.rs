@@ -12,6 +12,12 @@ pub struct EngineAudio {
     pub current_vol: i16,
 }
 
+impl Default for EngineAudio {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EngineAudio {
     pub const fn new() -> Self {
         EngineAudio {
@@ -41,7 +47,7 @@ impl EngineAudio {
         // Modulate volume by throttle load:
         // Idle off-throttle: ~0x0C00 (subdued hum)
         // Full throttle: 0x2800 (roaring wide-open acceleration)
-        let throttle_raw = throttle.raw().clamp(0, 4096) as i32;
+        let throttle_raw = throttle.raw().clamp(0, 4096);
         let target_vol = (0x0C00 + (throttle_raw * 0x1C00 / 4096)) as i16;
 
         if target_vol > self.current_vol {

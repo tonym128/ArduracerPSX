@@ -34,6 +34,12 @@ pub struct CddaController {
     pub volume: CdVolume,
 }
 
+impl Default for CddaController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CddaController {
     pub const fn new() -> Self {
         CddaController {

@@ -105,9 +105,13 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
     let half_h = 140;
 
     let min_tx = ((cam_x - half_w) / TILE).max(0) as u8;
-    let max_tx = ((((cam_x + half_w) / TILE) + 1).max(0) as i32).min(track.width as i32) as u8;
+    let max_tx = (((cam_x + half_w) / TILE) + 1)
+        .max(0)
+        .min(track.width as i32) as u8;
     let min_ty = ((cam_y - half_h) / TILE).max(0) as u8;
-    let max_ty = ((((cam_y + half_h) / TILE) + 1).max(0) as i32).min(track.height as i32) as u8;
+    let max_ty = (((cam_y + half_h) / TILE) + 1)
+        .max(0)
+        .min(track.height as i32) as u8;
 
     let tile_sz = TILE as u16;
 

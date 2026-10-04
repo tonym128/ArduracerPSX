@@ -76,6 +76,12 @@ pub struct ArduracerGame {
     pub memcard: MemoryCardManager,
 }
 
+impl Default for ArduracerGame {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ArduracerGame {
     pub fn new() -> Self {
         psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
@@ -562,9 +568,12 @@ fn main() -> ! {
     unsafe {
         let slot = core::ptr::addr_of_mut!(GAME);
         *slot = Some(ArduracerGame::new());
+        // `GAME` is assigned unconditionally on the line above, so the `None`
+        // arm is unreachable. Panicking is strictly better than the `loop {}`
+        // this replaced: a silent hang on a console with no OS to kill it.
         match (*slot).as_mut() {
             Some(game) => game.run(),
-            None => loop {},
+            None => panic!("GAME was assigned above and cannot be None"),
         }
     }
 }
