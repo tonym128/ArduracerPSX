@@ -15,8 +15,6 @@ pub struct ControllerDriver {
     pub is_analog_mode: bool,
     /// Digital D-Pad steering accumulator for smooth ramp-up (-4096..+4096).
     pub dpad_steer_acc: i32,
-    /// True while the configured nitro button is held.
-    pub nitro_held: bool,
     /// True on the frame the recovery button goes down, set by [`Self::poll`]
     /// from the same pad sample that produced the vehicle input.
     pub respawn_pressed: bool,
@@ -30,7 +28,6 @@ impl ControllerDriver {
             profile,
             is_analog_mode: false,
             dpad_steer_acc: 0,
-            nitro_held: false,
             respawn_pressed: false,
             prev_buttons: 0,
         }
@@ -72,7 +69,6 @@ impl ControllerDriver {
         // holding the accelerator fired nitro every frame; and Dual Analog had
         // nitro on L1, which recovery now owns.
         let nitro = b.is_held(button::R1);
-        self.nitro_held = nitro;
 
         match self.profile {
             InputProfile::ClassicArcade => {

@@ -747,19 +747,21 @@ region) and `make ci-disc` all pass.
   it and rebalance to four sliders.
   **Files**: `crates/arduracer-core/src/{tuning,vehicle}.rs`.
 
-- [ ] **TASK-1216**: Dead GPU state. `Camera::zoom` is computed every frame and read
-  by nothing — `world_to_screen` never applies it — and the `draw_y` /
-  `_draw_offset_y` parameter is threaded through 15 call sites that all discard it,
-  which is a trap for any future renderer that does honour it. `REVIEW.md:146` and
-  `:438` both assert the zoom works; they are wrong. Either implement both or
-  delete them and correct the documents. Related: `world_to_screen` narrows
-  `i32 → i16` with no clamp and culls *after* truncating.
+- [ ] **TASK-1216**: `draw_y` / `_draw_offset_y` is threaded through 15 call sites
+  and every one discards it, because double-buffering is handled by
+  `FrameBuffer::swap`. It is a trap for any future renderer that does honour it.
+  Either remove the parameter or document why it exists.
+  (`Camera::zoom` is no longer part of this: batch A of the track/camera overhaul
+  made `world_to_screen` apply it. `REVIEW.md:146` and `:502` still describe the
+  old integer-step behaviour — see TASK-1218.) Related and still open:
+  `world_to_screen` narrows `i32 → i16` with no clamp and culls *after*
+  truncating.
   **Files**: `game/src/gpu/camera.rs`, `REVIEW.md`.
 
 - [ ] **TASK-1217**: Smaller UI defects. Track Select's confirm/cancel edge baseline
   is never reset on entry, so a held `Cross` confirms on frame 1; gate count renders
-  as `:`, `<`, `=` on the four circuits with 10/12/13 gates; no race-start
-  countdown (the clock arms on frame 1); no controller-disconnected state, so the
+  as `:`, `<`, `=` on the four circuits with 10/12/13 gates; no
+  controller-disconnected state, so the
   title blinks forever with no pad; memory card writes clobber the existing save
   with no slot picker or confirmation; `active_tuning_slot` is never written so only
   slot 0 is reachable; the ghost is never persisted and `GHOST_MAGIC`/`GHOST_VERSION`
