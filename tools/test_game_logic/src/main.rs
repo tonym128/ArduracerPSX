@@ -12,6 +12,21 @@ fn main() {
     let mut passed = 0;
     let mut total = 0;
 
+    /// Extracts the payload of a caught panic.
+    ///
+    /// `{:?}` on a `Box<dyn Any + Send>` prints the literal text `Any { .. }`,
+    /// which turns every failure into an identical content-free line and hides
+    /// the assertion that actually tripped.
+    fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+        if let Some(s) = payload.downcast_ref::<&'static str>() {
+            (*s).to_string()
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "non-string panic payload".to_string()
+        }
+    }
+
     macro_rules! run_test {
         ($name:expr, $func:expr) => {
             total += 1;
@@ -22,7 +37,7 @@ fn main() {
                     passed += 1;
                 }
                 Err(e) => {
-                    println!("\x1b[31mFAIL\x1b[0m: {:?}", e);
+                    println!("\x1b[31mFAIL\x1b[0m: {}", panic_message(e));
                 }
             }
         };

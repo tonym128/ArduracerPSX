@@ -2,8 +2,14 @@
 //!
 //! Pure `#![no_std]` game engine logic, physics, tuning, timing, save data,
 //! and track representation. Fully testable natively on the host workstation.
+//!
+//! `no_std` is applied only to non-test builds, so `cargo test` can exercise the
+//! real game logic on the host while the `mipsel-sony-psx` target keeps its
+//! freestanding guarantee.
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+// Rejects unsafe code in target builds, per the AGENT.md hardware discipline.
+#![cfg_attr(not(test), deny(unsafe_code))]
 
 pub mod ai;
 pub mod ai_profiles;

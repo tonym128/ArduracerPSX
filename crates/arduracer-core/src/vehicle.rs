@@ -27,6 +27,8 @@ const DRAG_RETAIN: Fixed = Fixed::from_raw(4062);
 const BRAKE_FORCE: Fixed = Fixed::from_raw(180);
 /// Reverse gear thrust, ~40% of forward thrust.
 const REVERSE_SCALE: Fixed = Fixed::from_raw(1638);
+/// Hard ceiling on reverse speed, ~14% of `BASE_TOP_SPEED`.
+const REVERSE_SPEED_LIMIT: Fixed = Fixed::from_raw(2000);
 /// Turbo impulse applied per tick while a boost is active.
 const BOOST_THRUST: Fixed = Fixed::from_raw(80);
 /// Extra top speed headroom while a boost is active.
@@ -260,11 +262,15 @@ impl VehicleState {
                 self.is_reversing = true;
                 let accel = self.tuning.scaled_acceleration(BASE_ACCEL);
                 let reverse = REVERSE_SCALE * accel * input.brake * traction;
-                let reverse_speed = -(self.velocity.dot(forward_dir));
-                let limit = Fixed::from_raw(2000);
-                if reverse_speed < limit {
-                    self.velocity = self.velocity - forward_dir.scale(reverse);
+                // Apply the thrust first, then clamp. Sampling the reverse speed
+                // before adding the impulse let the car overshoot the cap by a
+                // full tick of thrust every time the clamp engaged.
+                let mut trial = self.velocity - forward_dir.scale(reverse);
+                let backward = -trial.dot(forward_dir);
+                if backward > REVERSE_SPEED_LIMIT {
+                    trial = trial + forward_dir.scale(backward - REVERSE_SPEED_LIMIT);
                 }
+                self.velocity = trial;
             }
         }
 
