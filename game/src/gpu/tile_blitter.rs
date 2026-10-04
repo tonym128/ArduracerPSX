@@ -5,7 +5,7 @@
 //! clipping and seamless edge-to-edge alignment.
 
 use crate::gpu::camera::Camera;
-use arduracer_core::{TrackDef, TrackTile, TILE_SIZE};
+use arduracer_core::{TrackDef, TrackTile, ALL_TRACKS, TILE_SIZE};
 use psx_gpu as gpu;
 
 const TILE: i32 = TILE_SIZE;
@@ -22,8 +22,81 @@ fn is_corridor(tile: TrackTile) -> bool {
     )
 }
 
+type Rgb = (u8, u8, u8);
+
+/// Per-cup environment palette (biome).
+#[derive(Copy, Clone)]
+pub struct Palette {
+    pub road: Rgb,
+    pub road2: Rgb,
+    pub grass: Rgb,
+    pub patch_a: Rgb,
+    pub patch_b: Rgb,
+    pub curb_a: Rgb,
+    pub curb_b: Rgb,
+}
+
+/// Bronze: classic GP speedway.
+const PAL_SPEEDWAY: Palette = Palette {
+    road: (44, 46, 52),
+    road2: (40, 42, 48),
+    grass: (28, 62, 34),
+    patch_a: (22, 52, 28),
+    patch_b: (24, 55, 30),
+    curb_a: (225, 30, 45),
+    curb_b: (245, 245, 250),
+};
+/// Silver: neon-lit night city, wet midnight asphalt.
+const PAL_NEON_CITY: Palette = Palette {
+    road: (24, 26, 40),
+    road2: (22, 24, 36),
+    grass: (14, 18, 34),
+    patch_a: (10, 14, 28),
+    patch_b: (18, 12, 36),
+    curb_a: (255, 40, 200),
+    curb_b: (40, 230, 255),
+};
+/// Gold: red canyon, tan tarmac and sandstone.
+const PAL_CANYON: Palette = Palette {
+    road: (78, 66, 56),
+    road2: (72, 60, 50),
+    grass: (150, 82, 46),
+    patch_a: (130, 68, 38),
+    patch_b: (166, 98, 56),
+    curb_a: (230, 120, 30),
+    curb_b: (250, 235, 200),
+};
+/// Platinum: alpine / marina, cool blue-grey road with snowy verges.
+const PAL_ALPINE: Palette = Palette {
+    road: (52, 60, 74),
+    road2: (48, 56, 70),
+    grass: (206, 218, 232),
+    patch_a: (180, 198, 220),
+    patch_b: (226, 234, 244),
+    curb_a: (30, 90, 220),
+    curb_b: (250, 250, 255),
+};
+
+/// Chooses the biome palette for a track from its cup (6 tracks per cup).
+fn palette_for(track: &TrackDef) -> Palette {
+    let mut cup = 0usize;
+    for (i, t) in ALL_TRACKS.iter().enumerate() {
+        if t.name == track.name {
+            cup = i / 6;
+            break;
+        }
+    }
+    match cup {
+        0 => PAL_SPEEDWAY,
+        1 => PAL_NEON_CITY,
+        2 => PAL_CANYON,
+        _ => PAL_ALPINE,
+    }
+}
+
 /// Renders all visible track tiles for the active camera frame.
 pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
+    let pal = palette_for(track);
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
 
@@ -59,7 +132,9 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
             match tile {
                 TrackTile::Tarmac => {
                     // Dark asphalt road base
-                    gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 38, 40, 46);
+                    gpu::draw_rect_flat(
+                        screen_x, screen_y, tile_sz, tile_sz, pal.road.0, pal.road.1, pal.road.2,
+                    );
 
                     // Road texture grain / racing groove
                     let hash = ((tx as i32 * 7) ^ (ty as i32 * 13)) & 3;
@@ -83,7 +158,9 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                 }
                 TrackTile::StartFinish => {
                     // Base track surface
-                    gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 38, 40, 46);
+                    gpu::draw_rect_flat(
+                        screen_x, screen_y, tile_sz, tile_sz, pal.road.0, pal.road.1, pal.road.2,
+                    );
 
                     // Start/finish line must be perpendicular to initial car heading
                     let start_is_vert_travel =
@@ -136,7 +213,15 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                 }
                 TrackTile::Checkpoint => {
                     // Dark asphalt underlay
-                    gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 36, 38, 44);
+                    gpu::draw_rect_flat(
+                        screen_x,
+                        screen_y,
+                        tile_sz,
+                        tile_sz,
+                        pal.road2.0,
+                        pal.road2.1,
+                        pal.road2.2,
+                    );
 
                     if vert_flow && !horiz_flow {
                         // Luminous neon cyan timing beam across the vertical track
@@ -156,7 +241,9 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                 }
                 TrackTile::Curb => {
                     // Dark asphalt underlay so curb blends with tarmac
-                    gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 38, 40, 46);
+                    gpu::draw_rect_flat(
+                        screen_x, screen_y, tile_sz, tile_sz, pal.road.0, pal.road.1, pal.road.2,
+                    );
 
                     // Alternating Red & White rumble curb blocks
                     let is_vert_curb =
@@ -165,9 +252,9 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                         // Vertical curb bordering corridor: stripes alternate vertically
                         for i in 0..4i16 {
                             let (cr, cg, cb) = if (i + (tx as i16) + (ty as i16)) % 2 == 0 {
-                                (225, 30, 45) // Crimson Red
+                                pal.curb_a
                             } else {
-                                (245, 245, 250) // Crisp White
+                                pal.curb_b
                             };
                             gpu::draw_rect_flat(
                                 screen_x,
@@ -183,9 +270,9 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                         // Horizontal or corner curb: stripes alternate horizontally
                         for i in 0..4i16 {
                             let (cr, cg, cb) = if (i + (tx as i16) + (ty as i16)) % 2 == 0 {
-                                (225, 30, 45) // Crimson Red
+                                pal.curb_a
                             } else {
-                                (245, 245, 250) // Crisp White
+                                pal.curb_b
                             };
                             gpu::draw_rect_flat(
                                 screen_x + i * 16,
@@ -201,19 +288,45 @@ pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
                 }
                 TrackTile::OffRoad => {
                     // Rich emerald grass terrain
-                    gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 28, 62, 34);
+                    gpu::draw_rect_flat(
+                        screen_x,
+                        screen_y,
+                        tile_sz,
+                        tile_sz,
+                        pal.grass.0,
+                        pal.grass.1,
+                        pal.grass.2,
+                    );
 
                     // Subtle darker grass patches for organic texture
                     let patch = ((tx as i32 * 11) + (ty as i32 * 5)) & 3;
                     if patch == 0 {
-                        gpu::draw_rect_flat(screen_x + 12, screen_y + 12, 24, 24, 22, 52, 28);
+                        gpu::draw_rect_flat(
+                            screen_x + 12,
+                            screen_y + 12,
+                            24,
+                            24,
+                            pal.patch_a.0,
+                            pal.patch_a.1,
+                            pal.patch_a.2,
+                        );
                     } else if patch == 1 {
-                        gpu::draw_rect_flat(screen_x + 36, screen_y + 28, 20, 20, 24, 55, 30);
+                        gpu::draw_rect_flat(
+                            screen_x + 36,
+                            screen_y + 28,
+                            20,
+                            20,
+                            pal.patch_b.0,
+                            pal.patch_b.1,
+                            pal.patch_b.2,
+                        );
                     }
                 }
                 TrackTile::OilSlick => {
                     // Asphalt base
-                    gpu::draw_rect_flat(screen_x, screen_y, tile_sz, tile_sz, 38, 40, 46);
+                    gpu::draw_rect_flat(
+                        screen_x, screen_y, tile_sz, tile_sz, pal.road.0, pal.road.1, pal.road.2,
+                    );
 
                     // Iridescent dark purple slick puddle
                     gpu::draw_rect_flat(screen_x + 8, screen_y + 8, 48, 48, 32, 18, 48);
