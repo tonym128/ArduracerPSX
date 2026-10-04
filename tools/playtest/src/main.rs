@@ -12,14 +12,34 @@
 //! consumed by `convert_levels.py`, so medal targets stay achievable instead of
 //! being aspirational numbers inherited from the 8-bit original.
 //!
+//! # Par-time drift is a failure
+//!
+//! `levels.rs` carries a *generated* par table (`dev`/`gold`/`silver`/`bronze`
+//! ticks per circuit). Any physics or tuning change that moves a measured lap
+//! time invalidates it, and an invalidated par table silently moves every medal
+//! boundary in the game. So a measured-vs-stored mismatch is reported as an
+//! error and the process exits non-zero, exactly like an undrivable circuit.
+//!
+//! The escape hatch is the recalibration workflow itself: `--calibrate`
+//! rewrites `tools/track_cook/par_calibration.json` from the fresh
+//! measurements (and `make calibrate-tracks` then regenerates `levels.rs`), so
+//! a `--calibrate` run never fails on the drift it is about to fix.
+//! `--allow-par-drift` prints the drift without failing, for the window between
+//! landing a physics change and re-committing the recalibrated table. Neither is
+//! used by CI: `make playtest` runs with the strict default.
+//!
 //! Usage:
 //!   cargo run --manifest-path tools/playtest/Cargo.toml --release
 //!   cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+//!   cargo run --manifest-path tools/playtest/Cargo.toml --release -- --allow-par-drift
 //!   cargo run --manifest-path tools/playtest/Cargo.toml --release -- --render
 
 use std::fmt::Write as _;
 
 use arduracer_core::*;
+
+#[cfg(test)]
+mod tests;
 
 /// Laps the reference driver attempts per track.
 const LAPS_PER_TRACK: u8 = 5;
@@ -30,6 +50,16 @@ const TICK_BUDGET: u32 = 60_000;
 /// Silver/Bronze add slack so a first clean run still earns a medal.
 const SILVER_FACTOR: f64 = 1.12;
 const BRONZE_FACTOR: f64 = 1.28;
+/// How much faster than the default tune the best swept preset must lap, as a
+/// percentage, for `TUNING_SWEEP` to have proven anything.
+///
+/// `best_tuning_for` returns the *default* lap unchanged when no preset beats
+/// it, so without this the sweep would report "ok" if the Garage sliders were
+/// silently dropped from the physics, or if every preset tied. Measured across
+/// all 24 circuits the best preset is 7.9%-22.4% quicker than the default
+/// tune, so a 5% floor is comfortably below the real signal while still being
+/// an order of magnitude above the noise of a one-tick timing change.
+const MIN_TUNING_GAIN_PCT: u32 = 5;
 
 // ---------------------------------------------------------------------------
 // Reference driver
@@ -194,6 +224,11 @@ const TUNING_SWEEP: [CarTuning; 6] = [
 ];
 
 /// Tuning whose lap sets the Dev Platinum target (the sweep winner).
+///
+/// Returns `(preset, best_lap)`. If no preset completes a full set of laps
+/// faster than `default_best`, the default preset is returned unchanged --
+/// callers must therefore assert the returned lap actually beats the default
+/// (see [`MIN_TUNING_GAIN_PCT`]) instead of assuming the sweep won.
 fn best_tuning_for(track: &TrackDef, default_best: u32) -> (CarTuning, u32) {
     let mut best = (TUNING_SWEEP[0], default_best);
     for t in TUNING_SWEEP.iter().skip(1) {
@@ -206,6 +241,32 @@ fn best_tuning_for(track: &TrackDef, default_best: u32) -> (CarTuning, u32) {
         }
     }
     best
+}
+
+/// A measured-vs-stored par-time mismatch for one circuit, or `None` when the
+/// generated table in `levels.rs` still matches what the simulation measures.
+fn par_drift(track: &TrackDef, dev: u32, gold: u32, silver: u32, bronze: u32) -> Option<String> {
+    let p = track.par_times;
+    let mismatched: Vec<String> = [
+        (p.dev_platinum_ticks, dev, "dev"),
+        (p.gold_ticks, gold, "gold"),
+        (p.silver_ticks, silver, "silver"),
+        (p.bronze_ticks, bronze, "bronze"),
+    ]
+    .iter()
+    .filter(|(stored, _, _)| *stored != u32::MAX)
+    .filter(|(stored, measured, _)| stored != measured)
+    .map(|(stored, measured, name)| format!("{name} {stored}->{measured}"))
+    .collect();
+
+    if mismatched.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "{}: par table is stale ({}); run `make calibrate-tracks`",
+        track.name,
+        mismatched.join(", ")
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +365,9 @@ fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
 fn main() {
     let calibrate = std::env::args().any(|a| a == "--calibrate");
     let render = std::env::args().any(|a| a == "--render");
+    let allow_par_drift = std::env::args().any(|a| a == "--allow-par-drift");
     let mut all_errors: Vec<String> = Vec::new();
+    let mut par_drift_lines: Vec<String> = Vec::new();
     let mut par_table = String::new();
 
     println!("=======================================================================");
@@ -391,6 +454,17 @@ fn main() {
             errors.push("dev platinum target is slower than the gold target".to_string());
         }
 
+        // The sweep exists to prove the Garage sliders reach the physics. If the
+        // best preset is not measurably quicker than the default tune then
+        // tuning is either ignored by the vehicle model or every preset tied,
+        // and the Dev Platinum target below is meaningless.
+        if dev_best as u64 * 100 > gold as u64 * (100 - MIN_TUNING_GAIN_PCT) as u64 {
+            errors.push(format!(
+                "best swept tuning lap ({} ticks) is not at least {}% faster than the default tune ({} ticks): the Garage sliders are not reaching the physics",
+                dev_best, MIN_TUNING_GAIN_PCT, gold
+            ));
+        }
+
         let _ = writeln!(
             par_table,
             "  {{ \"track\": \"{}\", \"dev\": {}, \"gold\": {}, \"silver\": {}, \"bronze\": {}, \"tuned_ticks\": {}, \"tuning\": [{}, {}, {}, {}, {}] }},",
@@ -399,16 +473,24 @@ fn main() {
             dev_tuning.drift_stability, dev_tuning.gearing
         );
 
-        let mismatched =
-            dev != track.par_times.dev_platinum_ticks || gold != track.par_times.gold_ticks;
-        let status = if errors.is_empty() {
-            if mismatched {
-                "ok (needs recal)"
-            } else {
-                "ok"
+        // Generated par table vs. what the simulation measures right now.
+        let drift = par_drift(track, dev, gold, silver, bronze);
+        if let Some(line) = &drift {
+            par_drift_lines.push(line.clone());
+            // `--calibrate` is about to rewrite the table, so it must not fail
+            // on the drift it is fixing; `--allow-par-drift` is the explicit
+            // opt-out for the recalibration window. Everything else is strict.
+            if !allow_par_drift && !calibrate {
+                errors.push(line.clone());
             }
-        } else {
+        }
+
+        let status = if !errors.is_empty() {
             "FAIL"
+        } else if drift.is_some() {
+            "PAR DRIFT"
+        } else {
+            "ok"
         };
 
         println!(
@@ -442,6 +524,23 @@ fn main() {
         println!("  RESULT: all 24 circuits are playable (5 laps player + 5 AI rivals).");
     } else {
         println!("  RESULT: {} failure(s) found.", all_errors.len());
+    }
+    if !par_drift_lines.is_empty() {
+        println!(
+            "  PAR DRIFT: {} circuit(s) no longer match tools/track_cook/par_calibration.json:",
+            par_drift_lines.len()
+        );
+        for line in &par_drift_lines {
+            println!("       -> {}", line);
+        }
+        if allow_par_drift {
+            println!("       (--allow-par-drift: reported only, not failed)");
+        } else if calibrate {
+            println!("       (--calibrate: par_calibration.json has been rewritten from these");
+            println!("        measurements. Run `make calibrate-tracks` to regenerate levels.rs.)");
+        } else {
+            println!("       Fix with: make calibrate-tracks");
+        }
     }
     println!("       (def_s = default tune reference lap, tuned_s = best swept tuning)");
     println!("        Par times are measured; re-run with --calibrate after tuning changes.)");

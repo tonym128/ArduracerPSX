@@ -31,12 +31,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install MIPS bare-metal toolchain & media tools
+      - name: Install media tools
+        # ffmpeg for tools/audio_cook/wav2vag.py. No MIPS binutils: the build
+        # goes through cargo/rust-lld and the RAM gate reads the link map, so
+        # nothing here shells out to objdump/nm/readelf.
         run: |
           sudo apt-get update
-          sudo apt-get install -y binutils-mipsel-linux-gnu ffmpeg
+          sudo apt-get install -y ffmpeg
 
       - name: Show toolchain
         run: rustup show
@@ -60,9 +63,14 @@ jobs:
       - name: Check the vendored PSoXide SDK is present
         run: make deps
 
+      - name: Run the host test suite
+        # This workflow triggers on `v*` tags, which ci.yml does not run on, so
+        # without this a tag could deploy a build that never passed any gate.
+        run: make test
+
       - name: Build PS1 Executable, ISO, and Disc Images
         run: |
-          make disc
+          make ci-disc
           make iso
 
       - name: Stage Web Arcade Assets
@@ -80,11 +88,16 @@ jobs:
       # GitHub Actions. Do not set `enablement: true` here without also adding a
       # PAT secret; with GITHUB_TOKEN it cannot succeed.
       - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           enablement: false
 
       - name: Upload Web Arcade Artifact
+        # v3 is the pair upload-pages-artifact documents for deploy-pages@v4
+        # (its own README still pins deploy-pages@v4). v5 exists but changed
+        # dotfile handling, so bumping the pair needs a real deploy to validate.
+        # Nothing under web/ is a dotfile, so the upgrade is safe whenever it is
+        # done -- just not something to do blind.
         uses: actions/upload-pages-artifact@v3
         with:
           path: './web'

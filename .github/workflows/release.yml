@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -52,10 +52,13 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
-      - name: Install MIPS bare-metal toolchain & media tools
+      - name: Install media tools
+        # ffmpeg for tools/audio_cook/wav2vag.py. No MIPS binutils: the build
+        # goes through cargo/rust-lld and the RAM gate reads the link map, so
+        # nothing here shells out to objdump/nm/readelf.
         run: |
           sudo apt-get update
-          sudo apt-get install -y binutils-mipsel-linux-gnu ffmpeg zip
+          sudo apt-get install -y ffmpeg zip
 
       - name: Show toolchain
         run: rustup show
@@ -82,13 +85,24 @@ jobs:
         # error partway through packaging.
         run: make deps
 
+      - name: Run the host test suite
+        # ci.yml only runs on push to main/master and on pull_request, so a
+        # release cut straight from a tag never passed any gate. Run the fast
+        # host suite here so a red tree cannot be published.
+        run: make test
+
+      - name: Enforce the PSX static RAM budget
+        # `make release` depends on `disc` -> `exe`, but the budget gate lived
+        # only in `make ci-game`, which this workflow never called.
+        run: make ci-game
+
       - name: Package Full Release Distribution
         # Pass the tag's version so the archive is named for the release being
         # cut. Without this the zip kept whatever VERSION defaulted to.
         run: make release VERSION=${{ steps.check_release.outputs.version }}
 
       - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.check_release.outputs.tag }}
           name: "Arduracer PSX ${{ steps.check_release.outputs.tag }} - PlayStation 1 Master"
