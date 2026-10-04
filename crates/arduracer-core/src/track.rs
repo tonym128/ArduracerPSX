@@ -17,8 +17,30 @@ use crate::timing::{CheckpointGate, ParTimes};
 pub const MAX_TRACK_CHECKPOINTS: usize = 16;
 /// Maximum dimension of a track grid (up to 32x32 tiles).
 pub const MAX_TRACK_DIM: usize = 32;
+/// Largest tile index the `u8` tile API can represent.
+///
+/// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
+/// largest possible circuit (32 tiles) is still addressable. `tile_at` rejects
+/// anything wider than the grid it belongs to and answers `Barrier`.
+pub const MAX_TILE_INDEX: u8 = (MAX_TRACK_DIM - 1) as u8;
 /// World-space size of a single track tile.
 pub const TILE_SIZE: i32 = 64;
+
+/// Integer square root (floor) of a `u64`. No floats: the core is `no_std`
+/// Q20.12 arithmetic only.
+fn isqrt_u64(n: u64) -> u64 {
+    if n < 2 {
+        return n;
+    }
+    // Newton's method seeded with a power-of-two upper bound.
+    let mut x = n;
+    let mut y = x.div_ceil(2);
+    while y < x {
+        x = y;
+        y = (x + n / x) / 2;
+    }
+    x
+}
 
 /// A single cell of a track's tile grid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -98,6 +120,18 @@ pub struct TrackDef {
 }
 
 impl TrackDef {
+    /// Whether the grid dimensions fit inside the `u8` tile API and the
+    /// [`MAX_TRACK_DIM`] ceiling. Never enforced by the accessors (they stay
+    /// total either way) but it is what every cooker and level integrity check
+    /// wants to assert.
+    #[inline]
+    pub fn dimensions_are_valid(&self) -> bool {
+        self.width >= 1
+            && self.height >= 1
+            && (self.width as usize) <= MAX_TRACK_DIM
+            && (self.height as usize) <= MAX_TRACK_DIM
+    }
+
     /// Total world-space width of the circuit in world units.
     pub const fn world_width(&self) -> i32 {
         self.width as i32 * TILE_SIZE
@@ -106,6 +140,26 @@ impl TrackDef {
     /// Total world-space height of the circuit in world units.
     pub const fn world_height(&self) -> i32 {
         self.height as i32 * TILE_SIZE
+    }
+
+    /// Largest legal world coordinate of the circuit, one unit *inside* the
+    /// outer wall.
+    ///
+    /// The last tile spans `[width*TILE_SIZE - TILE_SIZE, width*TILE_SIZE)`, so
+    /// its centre is `width*TILE_SIZE - TILE_SIZE/2` and its last legal integer
+    /// coordinate is `width*TILE_SIZE - 1`. Clamping a car to
+    /// `world_width()` instead parks it one unit past the grid, where
+    /// `tile_at` reports `Barrier`: no traction, no speed, and a wall nobody
+    /// can escape.
+    #[inline]
+    pub fn max_inside_x(&self) -> i32 {
+        (self.world_width() - 1).max(0)
+    }
+
+    /// See [`TrackDef::max_inside_x`] for the vertical axis.
+    #[inline]
+    pub fn max_inside_y(&self) -> i32 {
+        (self.world_height() - 1).max(0)
     }
 
     /// Returns the raw tile at a grid coordinate, or `Barrier` when out of bounds.
@@ -133,26 +187,64 @@ impl TrackDef {
         self.tile_at(tx, ty).is_road()
     }
 
+    /// Whether a car should *aim* to be on this tile: the racing surface plus
+    /// the drivable hazards that sit on top of it.
+    ///
+    /// [`TrackDef::is_road_at`] excludes boost pads and oil slicks even though
+    /// both are perfectly drivable, so navigation that only accepts road tiles
+    /// treats a boost strip as a hole in the circuit.
+    #[inline]
+    pub fn is_line_tile(&self, tx: u8, ty: u8) -> bool {
+        matches!(
+            self.tile_at(tx, ty),
+            TrackTile::Tarmac
+                | TrackTile::Curb
+                | TrackTile::StartFinish
+                | TrackTile::Checkpoint
+                | TrackTile::BoostPad
+                | TrackTile::OilSlick
+        )
+    }
+
     /// Converts a world position into the containing tile column.
+    ///
+    /// Total for every input, which is why `pub` fields without a constructor
+    /// are safe to pass around: negative positions clamp to `0` and anything
+    /// past the largest representable circuit saturates at [`MAX_TILE_INDEX`].
+    ///
+    /// The returned index is *not* clamped against a particular track's
+    /// `width`; it can legitimately be `>= width` for a position beyond the
+    /// grid, and [`TrackDef::tile_at`] then reports `Barrier`. Callers that
+    /// want an on-track tile must clamp themselves (as the vehicle and the AI
+    /// do with `.min(width - 1)`).
     #[inline]
     pub fn tile_x_of(world_x: Fixed) -> u8 {
-        // Negative positions saturate to 0 so callers never see wrapped u8s.
-        let v = world_x.to_int();
-        if v <= 0 {
-            0
-        } else {
-            (v / TILE_SIZE) as u8
-        }
+        Self::tile_index_of(world_x)
     }
 
     /// Converts a world position into the containing tile row.
+    ///
+    /// See [`TrackDef::tile_x_of`]: total, saturating, and not clamped against
+    /// any particular track's `height`.
     #[inline]
     pub fn tile_y_of(world_y: Fixed) -> u8 {
-        let v = world_y.to_int();
-        if v <= 0 {
-            0
+        Self::tile_index_of(world_y)
+    }
+
+    /// Shared world-unit -> tile-index mapping (total, saturating, never wraps).
+    #[inline]
+    fn tile_index_of(world: Fixed) -> u8 {
+        // `to_int` is an arithmetic shift, so this is at worst -524288 and at
+        // best 524287: the division cannot overflow.
+        let units = world.to_int();
+        if units <= 0 {
+            return 0;
+        }
+        let tile = units / TILE_SIZE;
+        if tile >= MAX_TRACK_DIM as i32 {
+            MAX_TILE_INDEX
         } else {
-            (v / TILE_SIZE) as u8
+            tile as u8
         }
     }
 
@@ -162,31 +254,51 @@ impl TrackDef {
         Fixed::from_int(tile as i32 * TILE_SIZE + TILE_SIZE / 2)
     }
 
+    /// Number of checkpoints that actually exist, clamped to the array.
+    ///
+    /// [`TrackDef::checkpoint_count`] is a `pub u8` with no constructor, so a
+    /// hand-built `TrackDef` can claim more gates than the fixed-size
+    /// [`TrackDef::checkpoints`] array holds. Every accessor goes through this
+    /// so such a value degrades to "all 16" instead of indexing past the end.
+    #[inline]
+    pub fn active_checkpoint_count(&self) -> usize {
+        (self.checkpoint_count as usize).min(MAX_TRACK_CHECKPOINTS)
+    }
+
     /// Active checkpoint gates as a slice.
+    ///
+    /// Total: the length is clamped by [`TrackDef::active_checkpoint_count`],
+    /// so this can never slice out of bounds for any `checkpoint_count`.
     #[inline]
     pub fn checkpoint_slice(&self) -> &[CheckpointGate] {
-        &self.checkpoints[..self.checkpoint_count as usize]
+        let count = self.active_checkpoint_count();
+        &self.checkpoints[..count]
     }
 
     /// Number of nodes in a full circuit: every checkpoint plus the start/finish.
     ///
     /// AI navigation walks `0 ..= route_len() - 1`, wrapping back to 0, so the
     /// start/finish is part of the racing line rather than a shortcut the drivers
-    /// skip.
+    /// skip. Always at least 1, so `% route_len()` can never divide by zero.
     #[inline]
     pub fn route_len(&self) -> usize {
-        self.checkpoint_count as usize + 1
+        self.active_checkpoint_count() + 1
     }
 
     /// The `idx`-th node of the circuit (checkpoints in driving order, then the
     /// start/finish gate). `idx` wraps modulo [`TrackDef::route_len`].
+    ///
+    /// Total: `idx >= active_checkpoint_count()` (which includes every `idx`
+    /// past the end of the circuit) resolves to the start/finish gate, and the
+    /// lookup into `checkpoints` goes through `get` rather than an index.
     #[inline]
     pub fn route_node(&self, idx: usize) -> CheckpointGate {
-        let n = self.checkpoint_count as usize;
-        if idx >= n {
-            self.start_gate
-        } else {
-            self.checkpoints[idx]
+        if idx >= self.active_checkpoint_count() {
+            return self.start_gate;
+        }
+        match self.checkpoints.get(idx) {
+            Some(&gate) => gate,
+            None => self.start_gate,
         }
     }
 
@@ -201,8 +313,15 @@ impl TrackDef {
 
     /// Approximate centre-line length of the circuit in world units, used for
     /// pace balancing and lap-time sanity checks.
+    ///
+    /// This sums the *Manhattan* distance between consecutive route-node
+    /// centres, so it deliberately over-estimates a real racing line (a car
+    /// cuts the corner instead of driving the right-angle dog-leg). It is
+    /// therefore a safe numerator for a lap-time floor but not a safe measure
+    /// of how far a car actually has to travel -- see
+    /// [`TrackDef::min_route_length`] for that.
     pub fn route_length(&self) -> i32 {
-        if self.checkpoint_count == 0 {
+        if self.active_checkpoint_count() == 0 {
             return self.world_width() + self.world_height();
         }
         let mut total = 0i32;
@@ -214,6 +333,44 @@ impl TrackDef {
             prev = p;
         }
         total += (prev.x - start.x).to_int().abs() + (prev.y - start.y).to_int().abs();
+        total
+    }
+
+    /// Lower bound on the distance any car must travel to complete one circuit.
+    ///
+    /// For each consecutive pair of route nodes this is the distance between
+    /// their gate *rectangles* (zero when they overlap or touch), so a car
+    /// clipping the nearest corner of every gate still cannot do better.
+    /// Dividing this by a car's top speed gives the physically achievable
+    /// lap-time floor: anything faster means the driver skipped part of the
+    /// circuit.
+    ///
+    /// Note this is a *bound*, not a prediction: a real racing line is longer,
+    /// because a car cannot drive a straight line between two corners. See
+    /// [`TrackDef::route_length`] for the deliberately pessimistic (Manhattan)
+    /// figure used for pace balancing.
+    ///
+    /// Total for any `TrackDef`: the walk is bounded by [`Self::route_len`],
+    /// gate coordinates are `u8` so the squares fit an `i64`, and the addition
+    /// saturates.
+    pub fn min_route_length(&self) -> i32 {
+        let n = self.route_len();
+        let mut total = 0i32;
+        for idx in 0..n {
+            let a = self.route_node(idx);
+            let b = self.route_node((idx + 1) % n);
+            // Axis-separated gap between the two gate rectangles, in world units.
+            let dx = (a.x as i32 - (b.x as i32 + b.width as i32))
+                .max(b.x as i32 - (a.x as i32 + a.width as i32))
+                .max(0)
+                * TILE_SIZE;
+            let dy = (a.y as i32 - (b.y as i32 + b.height as i32))
+                .max(b.y as i32 - (a.y as i32 + a.height as i32))
+                .max(0)
+                * TILE_SIZE;
+            let gap = isqrt_u64(dx as u64 * dx as u64 + dy as u64 * dy as u64);
+            total = total.saturating_add(gap.min(i32::MAX as u64) as i32);
+        }
         total
     }
 
@@ -245,5 +402,366 @@ impl TrackDef {
         let here = Self::gate_centre(&self.route_node(best_idx));
         let next = Self::gate_centre(&self.route_node((best_idx + 1) % n));
         (here, heading_towards(here, next))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::levels::ALL_TRACKS;
+
+    /// A 10x10 all-tarmac grid, 16 gates at 1x1 each, with a hand-editable count.
+    fn scratch_track(checkpoint_count: u8) -> TrackDef {
+        let gates = [
+            CheckpointGate {
+                x: 1,
+                y: 1,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 5,
+                y: 1,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 8,
+                y: 1,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 8,
+                y: 5,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 8,
+                y: 8,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 5,
+                y: 8,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 1,
+                y: 8,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 1,
+                y: 5,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 3,
+                y: 3,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 6,
+                y: 3,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 3,
+                y: 6,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 6,
+                y: 6,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 2,
+                y: 2,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 7,
+                y: 2,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 2,
+                y: 7,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: 7,
+                y: 7,
+                width: 1,
+                height: 1,
+            },
+        ];
+        static TILES: [TrackTile; 100] = [TrackTile::Tarmac; 100];
+        TrackDef {
+            name: "SCRATCH",
+            width: 10,
+            height: 10,
+            start_pos: Vec2::new(Fixed::from_int(96), Fixed::from_int(96)),
+            start_heading: 0,
+            start_gate: CheckpointGate {
+                x: 1,
+                y: 1,
+                width: 1,
+                height: 1,
+            },
+            par_times: ParTimes::default(),
+            checkpoint_count,
+            checkpoints: gates,
+            tiles: &TILES,
+        }
+    }
+
+    // --- bug 11: checkpoint_slice / route_node above the array capacity -------
+
+    #[test]
+    fn checkpoint_count_above_capacity_cannot_panic() {
+        // `checkpoint_count` is a pub u8 with no constructor: 20 used to slice
+        // `[..20]` out of a 16-element array.
+        let track = scratch_track(20);
+        assert_eq!(track.active_checkpoint_count(), MAX_TRACK_CHECKPOINTS);
+        assert_eq!(track.checkpoint_slice().len(), MAX_TRACK_CHECKPOINTS);
+        assert_eq!(track.route_len(), MAX_TRACK_CHECKPOINTS + 1);
+        // And every route index, including far past the end, resolves safely.
+        for idx in 0..64 {
+            let node = track.route_node(idx);
+            assert!(node.is_active(), "route node {idx} came back empty");
+        }
+        assert_eq!(track.route_node(MAX_TRACK_CHECKPOINTS), track.start_gate);
+        assert_eq!(
+            track.route_node(MAX_TRACK_CHECKPOINTS + 5),
+            track.start_gate
+        );
+    }
+
+    #[test]
+    fn checkpoint_count_at_and_below_capacity_is_unchanged() {
+        for count in 0..=(MAX_TRACK_CHECKPOINTS as u8) {
+            let track = scratch_track(count);
+            assert_eq!(track.active_checkpoint_count(), count as usize);
+            assert_eq!(track.checkpoint_slice().len(), count as usize);
+            assert_eq!(track.route_len(), count as usize + 1);
+            for idx in 0..count as usize {
+                assert_eq!(track.route_node(idx), track.checkpoints[idx]);
+            }
+        }
+    }
+
+    #[test]
+    fn route_node_is_total_for_every_usize() {
+        let track = scratch_track(4);
+        let count = track.active_checkpoint_count();
+        // Every index at or past the checkpoint count is the start/finish line,
+        // however absurd the index is.
+        for idx in [
+            count,
+            count + 1,
+            count + 2,
+            MAX_TRACK_CHECKPOINTS,
+            16,
+            17,
+            255,
+            256,
+            4096,
+            1 << 20,
+            usize::MAX / 2,
+            usize::MAX,
+        ] {
+            assert_eq!(track.route_node(idx), track.start_gate, "idx {idx}");
+        }
+        // And a count that overruns the array still resolves every index.
+        let over = scratch_track(20);
+        for idx in 0..128usize {
+            let node = over.route_node(idx);
+            assert!(node.is_active(), "route node {idx} came back empty");
+        }
+    }
+
+    #[test]
+    fn route_len_is_never_zero_so_modulo_is_safe() {
+        for count in [0u8, 1, 16, 20, 255] {
+            assert!(scratch_track(count).route_len() >= 1);
+        }
+    }
+
+    // --- bug 12: tile_x_of / tile_y_of must be total and saturating ---------
+
+    #[test]
+    fn tile_index_never_wraps_for_positive_coordinates() {
+        // Everything inside the largest representable circuit (32 tiles) is an
+        // exact division.
+        for tile in 0..MAX_TILE_INDEX {
+            for unit in [
+                tile as i32 * TILE_SIZE,
+                tile as i32 * TILE_SIZE + TILE_SIZE - 1,
+            ] {
+                assert_eq!(TrackDef::tile_x_of(Fixed::from_int(unit)), tile, "{unit}");
+                assert_eq!(TrackDef::tile_y_of(Fixed::from_int(unit)), tile, "{unit}");
+            }
+        }
+        // Past the largest circuit the index saturates at the ceiling.
+        // `(v / TILE_SIZE) as u8` used to wrap mod 256 instead, so these all
+        // came back as tile 0 (or some arbitrary low tile).
+        for (units, wrapped_before) in [
+            (2_048i32, 0u8), // 32 tiles
+            (4_096, 64),     // 64 tiles
+            (8_191, 127),    // 127 tiles
+            (16_383, 255),   // 255 tiles -- one below the wrap
+            (16_384, 0),     // 256 tiles -> wrapped to 0
+            (100_000, 26),   // 1562 tiles -> wrapped
+            (524_287, 31),   // 8191 tiles, the largest representable world
+        ] {
+            assert_eq!(
+                TrackDef::tile_x_of(Fixed::from_int(units)),
+                MAX_TILE_INDEX,
+                "tile_x_of({units}) used to report tile {wrapped_before}"
+            );
+            assert_eq!(TrackDef::tile_y_of(Fixed::from_int(units)), MAX_TILE_INDEX);
+        }
+        assert_eq!(TrackDef::tile_y_of(Fixed::from_raw(i32::MIN)), 0);
+        assert_eq!(
+            TrackDef::tile_y_of(Fixed::from_raw(i32::MAX)),
+            MAX_TILE_INDEX
+        );
+    }
+
+    #[test]
+    fn tile_index_is_monotonic_across_the_whole_legal_world() {
+        let mut previous = 0u8;
+        let mut units = 0i32;
+        while units <= MAX_TILE_INDEX as i32 * TILE_SIZE {
+            let tx = TrackDef::tile_x_of(Fixed::from_int(units));
+            assert!(tx >= previous, "tile_x_of went backwards at {units}");
+            previous = tx;
+            units += 7;
+        }
+        // A full sweep never exceeds the ceiling.
+        units = 0;
+        while units < 200_000 {
+            assert!(TrackDef::tile_y_of(Fixed::from_int(units)) <= MAX_TILE_INDEX);
+            units += 311;
+        }
+    }
+
+    #[test]
+    fn tile_index_handles_negatives_and_zero() {
+        for units in [i32::MIN, -100_000, -64, -1, 0] {
+            assert_eq!(TrackDef::tile_x_of(Fixed::from_int(units)), 0, "{units}");
+            assert_eq!(TrackDef::tile_y_of(Fixed::from_int(units)), 0, "{units}");
+        }
+        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(63)), 0);
+        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(64)), 1);
+    }
+
+    #[test]
+    fn tile_index_matches_the_tile_centres() {
+        for tile in 0..=MAX_TILE_INDEX {
+            let centre = TrackDef::tile_centre(tile);
+            assert_eq!(TrackDef::tile_x_of(centre), tile);
+            assert_eq!(TrackDef::tile_y_of(centre), tile);
+        }
+    }
+
+    #[test]
+    fn every_shipped_track_is_inside_the_tile_index_range() {
+        for track in ALL_TRACKS.iter() {
+            assert!(
+                track.dimensions_are_valid(),
+                "{}: bad dimensions",
+                track.name
+            );
+            // Every legal coordinate of the grid maps back inside the grid.
+            for units in [0, 1, track.world_width() / 2, track.world_width() - 1] {
+                let tx = TrackDef::tile_x_of(Fixed::from_int(units));
+                assert!(tx < track.width, "{}: x={units} -> tile {tx}", track.name);
+            }
+            for units in [0, 1, track.world_height() / 2, track.world_height() - 1] {
+                let ty = TrackDef::tile_y_of(Fixed::from_int(units));
+                assert!(ty < track.height, "{}: y={units} -> tile {ty}", track.name);
+            }
+            assert!(track.max_inside_x() < track.world_width());
+            assert!(track.max_inside_y() < track.world_height());
+            assert!(track.max_inside_x() >= 0);
+        }
+    }
+
+    // --- route_length / min_route_length -------------------------------------
+
+    #[test]
+    fn min_route_length_is_a_true_lower_bound_on_the_circuit() {
+        for track in ALL_TRACKS.iter() {
+            let min = track.min_route_length();
+            assert!(min > 0, "{}: zero-length lower bound", track.name);
+            assert!(
+                min <= track.route_length(),
+                "{}: min {} exceeds manhattan {}",
+                track.name,
+                min,
+                track.route_length()
+            );
+        }
+    }
+
+    #[test]
+    fn line_tiles_cover_the_racing_surface_and_the_hazards_on_it() {
+        for track in ALL_TRACKS.iter() {
+            for ty in 0..track.height {
+                for tx in 0..track.width {
+                    let tile = track.tile_at(tx, ty);
+                    if tile.is_road() {
+                        assert!(
+                            track.is_line_tile(tx, ty),
+                            "{}: ({tx},{ty}) {:?} is road but not a line tile",
+                            track.name,
+                            tile
+                        );
+                    }
+                    if tile.is_solid() {
+                        assert!(
+                            !track.is_line_tile(tx, ty),
+                            "{}: ({tx},{ty}) is scenery but claims to be a line tile",
+                            track.name
+                        );
+                    }
+                }
+            }
+        }
+        // Boost pads and oil slicks are drivable but are not `is_road`, which is
+        // why navigation needs this predicate at all.
+        let mut pad = scratch_track(4);
+        pad.tiles = Box::leak(Box::new([TrackTile::BoostPad; 100]));
+        assert!(!pad.is_road_at(0, 0));
+        assert!(pad.is_line_tile(0, 0));
+        let mut slick = scratch_track(4);
+        slick.tiles = Box::leak(Box::new([TrackTile::OilSlick; 100]));
+        assert!(!slick.is_road_at(0, 0));
+        assert!(slick.is_line_tile(0, 0));
+    }
+
+    #[test]
+    fn isqrt_is_floored_and_correct() {
+        for n in [0u64, 1, 2, 3, 4, 8, 9, 15, 16, 255, 4096, 65535] {
+            let r = isqrt_u64(n);
+            assert!(r * r <= n, "isqrt({n}) = {r} overshoots");
+            assert!((r + 1) * (r + 1) > n, "isqrt({n}) = {r} undershoots");
+        }
     }
 }

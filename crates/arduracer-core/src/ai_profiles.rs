@@ -3,15 +3,84 @@
 //! Defines 5 distinct AI personalities with custom liveries, tuning setups,
 //! and driving styles (Speeder, Tactician, Drifter, Brawler, Rookie).
 
+use crate::math::{self, Fixed};
 use crate::tuning::CarTuning;
+
+/// Lowest documented aggression / drift-tendency value.
+pub const MIN_PERSONALITY: u8 = 1;
+/// Highest documented aggression / drift-tendency value.
+pub const MAX_PERSONALITY: u8 = 10;
+/// Aggression at which the braking bias is neutral (1.0x).
+pub const NEUTRAL_AGGRESSION: u8 = 5;
+/// Q20.12 step in the braking bias per point of aggression.
+const AGGRESSION_STEP: i32 = 130;
+/// Drift tendency at which a rival is an apex hunter and may hang the tail out.
+pub const BLAZE_DRIFT_TENDENCY: u8 = 7;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct AiProfile {
     pub name: &'static str,
     pub tuning: CarTuning,
     pub color: (u8, u8, u8),
-    pub aggression: u8,     // 1..10
-    pub drift_tendency: u8, // 1..10
+    /// Willingness to carry speed through corners: 1..=10 (see [`MIN_PERSONALITY`]
+    /// and [`MAX_PERSONALITY`]). Always read through [`Aggression::brake_bias`],
+    /// which clamps, because this is a bare `pub u8` on a `pub` struct.
+    pub aggression: u8,
+    /// Willingness to drift: 1..=10. Always read through
+    /// [`DriftTendency::clamped`].
+    pub drift_tendency: u8,
+}
+
+impl AiProfile {
+    /// Whether every field of the profile is inside its documented range.
+    ///
+    /// Not enforced by the constructor -- `AI_PROFILES` is a `const`, and the
+    /// five shipped personalities are hand-authored -- but it is what a save file
+    /// or a future track editor must check before handing a profile to the AI.
+    pub fn is_valid(&self) -> bool {
+        self.aggression >= MIN_PERSONALITY
+            && self.aggression <= MAX_PERSONALITY
+            && self.drift_tendency >= MIN_PERSONALITY
+            && self.drift_tendency <= MAX_PERSONALITY
+            && self.tuning.is_valid()
+    }
+}
+
+/// Personality aggression, clamped to its documented range.
+pub struct Aggression;
+
+impl Aggression {
+    /// Lowest documented aggression.
+    pub const MIN: u8 = MIN_PERSONALITY;
+    /// Highest documented aggression.
+    pub const MAX: u8 = MAX_PERSONALITY;
+    /// Braking bias for an aggression value: `NEUTRAL_AGGRESSION` is neutral
+    /// (1.0x) and each step either side is `AGGRESSION_STEP`/4096.
+    ///
+    /// The clamp is the point: the AI used to compute
+    /// `4096 + (aggression - 5) * 130` straight off an unvalidated `pub u8`, so
+    /// `aggression = 255` handed the rival an 8.93x top-speed multiplier and
+    /// `aggression = 0` a 0.84x one, neither of which is a personality.
+    pub fn brake_bias(aggression: u8) -> Fixed {
+        let level = aggression.clamp(Self::MIN, Self::MAX) as i32;
+        Fixed::from_raw(math::FP_ONE + (level - NEUTRAL_AGGRESSION as i32) * AGGRESSION_STEP)
+    }
+}
+
+/// Personality drift tendency, clamped to its documented range.
+pub struct DriftTendency;
+
+impl DriftTendency {
+    /// The value at which a rival is an apex hunter.
+    pub const BLAZE: u8 = BLAZE_DRIFT_TENDENCY;
+    /// Lowest documented drift tendency.
+    pub const MIN: u8 = MIN_PERSONALITY;
+    /// Highest documented drift tendency.
+    pub const MAX: u8 = MAX_PERSONALITY;
+    /// Drift tendency clamped to `MIN..=MAX`.
+    pub fn clamped(drift_tendency: u8) -> u8 {
+        drift_tendency.clamp(Self::MIN, Self::MAX)
+    }
 }
 
 pub const AI_PROFILES: [AiProfile; 5] = [
