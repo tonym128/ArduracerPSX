@@ -30,7 +30,10 @@ pub const MAX_ROUTE_SAMPLES: usize = 192;
 pub const DEFAULT_SAMPLES_PER_SPAN: usize = 8;
 
 /// A closed centreline with cumulative arc lengths, in world units.
-#[derive(Copy, Clone, Debug)]
+///
+/// `PartialEq`/`Eq` so a timer carrying a route stays comparable; it is plain
+/// data with no float members.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Route {
     points: [Vec2; MAX_ROUTE_SAMPLES],
     /// Arc length at each sample. `arc[0]` is always 0.
@@ -87,17 +90,22 @@ impl Route {
         }
         route.count = count;
 
-        // Cumulative arc length around the loop.
+        // Cumulative arc length around the loop, in *world units*.
+        //
+        // Deliberately not Q20.12: `arc` and `total` are `u16`, so raw units
+        // would saturate at 65535 -- i.e. any circuit longer than 16 world units
+        // would report a full lap as 65535 and every gate would collapse onto one
+        // arc position. `distance_raw` already returns whole world units.
         let mut acc: u32 = 0;
         route.arc[0] = 0;
         for i in 1..count {
-            let d = distance_raw(route.points[i], route.points[i - 1]) * FP_ONE;
-            acc = acc.saturating_add(d.max(0) as u32);
+            let d = distance_raw(route.points[i], route.points[i - 1]).max(0) as u32;
+            acc = acc.saturating_add(d);
             route.arc[i] = acc.min(u16::MAX as u32) as u16;
         }
         // Closing segment back to the first sample.
-        let d = distance_raw(route.points[0], route.points[count - 1]) * FP_ONE;
-        route.total = acc.saturating_add(d.max(0) as u32).min(u16::MAX as u32) as u16;
+        let d = distance_raw(route.points[0], route.points[count - 1]).max(0) as u32;
+        route.total = acc.saturating_add(d).min(u16::MAX as u32) as u16;
         route
     }
 

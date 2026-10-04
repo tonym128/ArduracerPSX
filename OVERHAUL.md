@@ -2,9 +2,24 @@
 
 Planning document. Each step below is a proposal with a defined "done" condition.
 
-**Status:** steps 7, 8 and 9 are implemented and verified (branch
-`feat/overhaul-batch-a-camera-start`). Steps 1-6 remain and must land together:
-a centreline nothing renders is dead weight. Step 10 is mandatory once they do.
+**Status:** steps 7, 8 and 9 are implemented and verified. Step 1 is implemented
+(`arduracer_core::Route`, with the centreline *derived* by fitting a spline
+through each circuit's already-ordered gate centres -- no level-pipeline change
+needed, and it matches the AI's own gate-to-gate line by construction).
+
+**Steps 3 and 4 are blocked on step 2, and this was measured, not assumed.**
+Migrating lap validation to centreline-relative, direction-aware arc crossings
+works -- a prototype scored forward laps and correctly refused reverse ones on
+all 24 circuits -- but `tools/playtest`'s reference driver then **stalled on every
+hairpin**, because a spline through gate centres overshoots there and stops being
+a line the car can drive. The centreline is the wrong validation line until the
+*road* is drivable: a curve can be geometrically correct and still run off the
+inside of a corner. Step 2 (authored runoff margin, and a road-quality pass on the
+tight circuits) has to land first. Enabling arc validation before then would
+reject legitimate laps on exactly the tracks where driving is hardest.
+
+Consequence for the plan: the reference driver is the canary for this. When step
+2 lands, `make playtest` must be re-run before step 4 is enabled.
 
 **The level pipeline regenerates byte-identically.** Verified while starting
 step 1: `python3 tools/track_cook/convert_levels.py` rewrites `levels.rs` with an
@@ -78,6 +93,18 @@ polyline, so this costs effectively no ROM.
 *Done when:* every `TrackDef` exposes a closed, non-self-intersecting centreline
 and `cargo run -p test_game_logic` confirms closure for all 24 circuits.
 
+*Implemented, differently to plan.* Rather than emitting control points from the
+cooker, `Route::from_track` fits the spline at runtime from the ordered gates the
+level data already contains. That is why no cooker change, and no `levels.rs`
+regeneration, is needed.
+
+Two traps this hit, both now guarded by tests: arc positions are **world units in
+a `u16`**, so accumulating them in Q20.12 saturates at 65535 -- every circuit
+longer than 16 units then reports a full lap as 65535 and all gates collapse onto
+one arc, which silently fails every lap. And `nearest()` must be given a **full
+scan** when deriving gate arcs: chaining the search hint put a start/finish line at
+the wrong arc on Arduboy Oval (669 instead of 1284).
+
 ### 2. Author an explicit runoff margin
 
 Give every circuit a margin of at least 6 tiles of drivable `OffRoad` beyond the
@@ -111,7 +138,7 @@ depending on tile coordinates.
 *Done when:* every gate's `half_width` >= the corridor half-width at its
 `arc_pos`, asserted for all 24 circuits.
 
-### 4. Rewrite lap validation as plane crossing
+### 4. Rewrite lap validation as plane crossing  *(blocked on step 2)*
 
 `LapTimer` scores a lap from `contains_tile` coverage with no ordering and no
 direction check — which is why **driving backwards through every gate scores a
@@ -123,6 +150,16 @@ audit items #5 and #15 together, and makes the wider gates meaningful.
 
 *Done when:* a forward clean lap validates, a reversed lap does not, and a lap
 with skipped gates does not.
+
+*Blocked, with evidence.* A prototype of this passed: walking a circuit's
+centreline scores laps on all 24 tracks, and driving the same centreline backwards
+scores nothing on any of them -- which is the defect closed. But feeding the real
+physics through it, `make playtest` completed **zero** laps on the hairpins and
+serpentines (Twin Hairpin, The Serpent, Metropolis 10) and only recovered the
+oval-style circuits after the reference driver was changed to follow the centreline
+with a lookahead. The cause is that a spline through gate centres overshoots on
+tight turns and leaves the road, so it cannot be the validation line until the
+road is drivable. Do step 2 first.
 
 ### 5. Render the road as a ribbon, not tiles
 
