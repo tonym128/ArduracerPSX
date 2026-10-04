@@ -47,8 +47,19 @@ jobs:
           mkdir -p web/roms
           cp dist/arduracer.exe dist/arduracer.cue dist/arduracer.bin dist/arduracer.iso web/roms/
 
+      # PREREQUISITE (one-time, needs a repo admin): this workflow can only
+      # *read* the Pages site. `actions/configure-pages`' `enablement` input
+      # defaults to false, and its own description notes it "requires a token
+      # other than GITHUB_TOKEN" -- the workflow token cannot create the site.
+      # So if the site does not exist yet, this step fails with a bare
+      # "HttpError: Not Found" on GET /repos/{owner}/{repo}/pages.
+      # Fix once under Settings -> Pages -> Build and deployment -> Source ->
+      # GitHub Actions. Do not set `enablement: true` here without also adding a
+      # PAT secret; with GITHUB_TOKEN it cannot succeed.
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: false
 
       - name: Upload Web Arcade Artifact
         uses: actions/upload-pages-artifact@v3

@@ -388,6 +388,42 @@ then the pinned revision is advisory, and `psoxide/PROVENANCE.md` is the record.
 
 ---
 
+## 1d. The web build is not deployed: the Pages site does not exist
+
+`https://tonym128.github.io/ArduracerPSX/` is the repository's configured
+`homepage` and the target of `.github/workflows/deploy-pages.yml`, but it returns
+**404**: no Pages deployment has ever succeeded, so there is no public page to
+play the game on. `make web` serves the same `web/` app on `localhost:8080`.
+
+Two distinct failures, read from the run history rather than guessed:
+
+1. **Fixed.** Run `37186362573` (commit `ba2839a`) failed at *Build PS1
+   Executable, ISO, and Disc Images* — `deploy-pages.yml` never provisioned the
+   SDK, so it hit the same missing-`psoxide/sdk` failure `ci.yml` had. The
+   vendored SDK fixed it; that step now passes.
+2. **Open, needs a human.** Run `37186646858` (commit `f5e38d1`) gets past the
+   build and fails at *Setup GitHub Pages*:
+
+   ```
+   Get Pages site failed. Please verify that the repository has Pages enabled
+   and configured to build using GitHub Actions... Error: Not Found
+   ```
+
+   `GET /repos/{owner}/{repo}/pages` returns 404, i.e. **no Pages site exists**
+   for this repository. `actions/configure-pages`' `enablement` input defaults to
+   `false`, and its description states it "requires a token other than
+   `GITHUB_TOKEN`" — so the action only reads the site and cannot create it.
+   Setting `enablement: true` without also supplying a PAT secret cannot succeed.
+
+   **Fix once, as a repo admin:** Settings -> Pages -> Build and deployment ->
+   Source -> **GitHub Actions**.
+
+Note: `.nojekyll` is *not* needed here — Actions-based Pages publishing serves the
+uploaded artifact directly without running Jekyll, and `web/` contains no
+underscore-prefixed paths.
+
+---
+
 ## 2. Principal Architect
 
 - [x] **Boundary cleanliness** — `arduracer-core` remains 100 % hardware-free:
