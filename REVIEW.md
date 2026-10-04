@@ -424,6 +424,34 @@ underscore-prefixed paths.
 
 ---
 
+## 1e. The deployed build shipped a silent placeholder intro
+
+The live site's `arduracer.exe` was **253,952 bytes** where a local build is
+**346,112** — a 91 KB gap that is exactly `assets/INTRO.ADPCM`. The disc still
+passed the `ci-disc` gate, so nothing flagged it.
+
+**Cause.** `tools/fmv_cook/cook_intro_str.py` needs `psxavenc` to encode the
+intro. Without it, line 207 falls back to the procedural FMV generator — which
+discards the *whole* cinematic, not just the audio, and writes a 16-byte silent
+ADPCM so compilation cannot break. `psxavenc` is not installed by any workflow,
+so every CI run produced the placeholder. Found by comparing the deployed
+artifact's size against a local build, then reading the cook script.
+
+**Fix.** All three workflows that cook assets (ci's `disc` job, `deploy-pages`,
+`release`) now install `psxavenc` from a pinned release (v0.3.1) with the
+archive **and** extracted-binary SHA-256 verified. ci's `host` and `game` jobs
+do not cook assets and are deliberately untouched.
+
+Verified: with the pinned release on `PATH`, a fresh clone's `make assets`
+produces `INTRO.ADPCM` at 91,520 bytes and `INTRO.STR` at 1,546,240 — matching
+a local build, where the missing encoder produced the 16-byte stub.
+
+The silent fallback also now emits a `::warning` Actions annotation, and
+`ARTHURACER_REQUIRE_FMV_ENCODER=1` turns it into a hard failure for anyone who
+would rather CI refuse to build than ship a placeholder.
+
+---
+
 ## 2. Principal Architect
 
 - [x] **Boundary cleanliness** — `arduracer-core` remains 100 % hardware-free:

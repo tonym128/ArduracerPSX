@@ -207,9 +207,26 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
     psxavenc = find_psxavenc()
     if not psxavenc:
         print(
-            "psxavenc not found; falling back to procedural FMV generator.",
+            "psxavenc not found; falling back to procedural FMV generator. The "
+            "cooked FMV will be a silent placeholder, not the real cinematic.",
             file=sys.stderr,
         )
+        # This used to degrade silently, and did: CI shipped a placeholder intro
+        # because the runner had no psxavenc. Annotate so it is impossible to
+        # miss, and so a build that wanted the real FMV can fail on it.
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(
+                "::warning title=FMV encoder missing::psxavenc was not found, so "
+                "the intro FMV was replaced by a silent procedural placeholder. "
+                "Install psxavenc (see the workflow's 'Install psxavenc' step) to "
+                "ship the real cinematic.",
+                file=sys.stderr,
+            )
+        if os.environ.get("ARTHURACER_REQUIRE_FMV_ENCODER"):
+            raise SystemExit(
+                "psxavenc is required (ARTHURACER_REQUIRE_FMV_ENCODER is set) "
+                "but was not found."
+            )
         return False
 
     os.makedirs(os.path.dirname(os.path.abspath(str_out)), exist_ok=True)

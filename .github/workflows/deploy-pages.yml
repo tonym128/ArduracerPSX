@@ -16,6 +16,13 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+env:
+  # FMV encoder used by tools/fmv_cook/cook_intro_str.py. Pinned with checksums;
+  # without it the intro FMV degrades to a silent procedural placeholder.
+  PSXAVENC_VERSION: "0.3.1"
+  PSXAVENC_SHA256: ad22b887683631149fb8c7c85ecea8bb760dd482f9e18cce2b35b11319e95e51
+  PSXAVENC_BIN_SHA256: 135fa941d750f6be0dd4176ffbab9fd70d801d68f931f1a609c4e701ef95972a
+
 jobs:
   build-and-deploy:
     environment:
@@ -33,6 +40,22 @@ jobs:
 
       - name: Show toolchain
         run: rustup show
+
+      - name: Install psxavenc (FMV encoder)
+        # tools/fmv_cook/cook_intro_str.py silently falls back to a procedural
+        # placeholder FMV -- no audio -- when psxavenc is absent. That is what CI
+        # shipped: the deployed exe was 253,952 bytes against 346,112 for a local
+        # build, which is exactly the 91 KB intro ADPCM. Pinned release, checksum
+        # verified on both the archive and the extracted binary.
+        run: |
+          set -euo pipefail
+          curl -sSL -o /tmp/psxavenc.zip \
+            https://github.com/WonderfulToolchain/psxavenc/releases/download/v${PSXAVENC_VERSION}/psxavenc-linux.zip
+          echo "${PSXAVENC_SHA256}  /tmp/psxavenc.zip" | sha256sum -c -
+          unzip -o -q /tmp/psxavenc.zip -d /tmp/psxavenc
+          echo "${PSXAVENC_BIN_SHA256}  /tmp/psxavenc/bin/psxavenc" | sha256sum -c -
+          sudo install -m 0755 /tmp/psxavenc/bin/psxavenc /usr/local/bin/psxavenc
+          psxavenc 2>&1 | head -1 || true
 
       - name: Check the vendored PSoXide SDK is present
         run: make deps
