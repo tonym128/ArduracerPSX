@@ -14,6 +14,20 @@ pub enum CddaState {
     Muted,
 }
 
+/// SetMode byte for Red Book playback: CD-DA enabled, single speed.
+///
+/// SetMode bit 7 is the drive's *rate* select and it governs CD-DA playback,
+/// not just data reads (0 = 1x, 1 = 2x). Our masters are 44.1 kHz Red Book
+/// audio (GAME.md 6.1), so bit 7 must stay clear or every track comes out
+/// an octave up at double tempo. Streaming that genuinely wants 2x -- the FMV
+/// reader -- programs the mode itself through `psx_pack::cd::SectorReader`.
+const CDDA_PLAY_MODE: u8 = cdrom::MODE_CDDA;
+
+/// Build-time guard on the invariant above: any future edit that sneaks the
+/// double-speed bit back into the music mode breaks compilation instead of
+/// silently doubling every track's tempo.
+const _: () = assert!(CDDA_PLAY_MODE & cdrom::MODE_DOUBLE_SPEED == 0);
+
 pub struct CddaController {
     pub current_track: u8,
     pub state: CddaState,
@@ -31,10 +45,15 @@ impl CddaController {
 
     /// Initializes CD-ROM drive mode for CD-DA playback.
     pub fn init(&mut self) {
-        cdrom::try_set_mode(cdrom::MODE_DOUBLE_SPEED | cdrom::MODE_CDDA, 50_000);
+        self.apply_mode();
         cdrom::try_demute(50_000);
         spu::set_cd_volume(self.volume, self.volume);
         spu::enable_cd_audio(true);
+    }
+
+    /// Programs the drive mode [`CDDA_PLAY_MODE`] describes.
+    fn apply_mode(&mut self) {
+        cdrom::try_set_mode(CDDA_PLAY_MODE, 50_000);
     }
 
     /// Begins playback of a specific 1-based CD-DA audio track (Track 2+).
@@ -43,6 +62,10 @@ impl CddaController {
             return;
         }
         self.current_track = track;
+        // The mode byte is drive-global and shared with the FMV sector reader,
+        // so re-assert ours before every Play: a stale 2x/streaming mode would
+        // otherwise leave the track silent (CD-DA enable clear) or running fast.
+        self.apply_mode();
         cdrom::try_demute(50_000);
         cdrom::try_play_track(track, 50_000);
         self.state = CddaState::Playing;
