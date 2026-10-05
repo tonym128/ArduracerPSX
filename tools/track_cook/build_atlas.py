@@ -239,9 +239,32 @@ def main() -> int:
     # from the circuit's perimeter, since control points closer than a cell
     # collapse onto a shared tile centre -- see `compile_circuit.control_points`.
     par = calibrated_par(name)
+    # The road half-width is specified in world units by the generator and
+    # converted here, rather than left as a cell count. The cell size has already
+    # changed once (64 -> 32 world units); a cell count baked into this call would
+    # have halved the width of every road in the game the next time it did, with
+    # nothing failing -- `half_width` is just a number in a struct literal.
     code.append(cc.emit_rust(name.replace(" ", "_"), grid, centre,
                              ident=ident, checkpoints=CHECKPOINTS,
-                             par=par, route_nodes=ROUTE_NODES))
+                             par=par, route_nodes=ROUTE_NODES,
+                             half_width_cells=gen.ROAD_HALF_WORLD / cc.TILE_SIZE))
+    assert int(gen.ROAD_HALF_WORLD / cc.TILE_SIZE * cc.TILE_SIZE) == gen.ROAD_HALF_WORLD, (
+        "ROAD_HALF_WORLD is not a whole number of cells wide at the current "
+        "TILE_SIZE; the compiled road would be narrower than authored"
+    )
+    # The generator sizes its shapes in cells; the compiler sizes the world. If
+    # those two definitions of a cell disagree, every circuit silently changes
+    # size and nothing downstream can tell -- the images still validate and the
+    # tiles still compile. They are the same constant, asserted rather than
+    # restated.
+    assert gen.WORLD_PER_CELL == cc.TILE_SIZE, (
+        f"generator assumes {gen.WORLD_PER_CELL} world units per cell, the engine "
+        f"says {cc.TILE_SIZE}; every circuit would be the wrong size"
+    )
+    assert gen.GRID <= cc.MAX_TRACK_DIM, (
+        f"the generator authors {gen.GRID} cells per side but the engine "
+        f"addresses at most {cc.MAX_TRACK_DIM}"
+    )
 
     # One geometry, every slot. See the module docstring: `ALL_TRACKS` is
     # positionally indexed by the game's cup and track-select code, so it has to

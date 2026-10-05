@@ -49,22 +49,41 @@ from PIL import Image
 
 # --- Grid ---------------------------------------------------------------------
 
-#: Cells per side. Matches `MAX_TRACK_DIM` 64 with room to spare; the cell is the
-#: atom of both physics and authoring, so a 48-cell square is 3,072 world units at
-#: `TILE_SIZE` 64 -- a stage-sized circuit rather than a lap of a car park.
-GRID = 48
+#: Cells per side. Matches `MAX_TRACK_DIM`, and the cell is the atom of both
+#: physics and authoring: one cell is one `TrackTile` byte and one square of the
+#: data image.
+#:
+#: 96 cells of 32 world units is the same 3,072-unit world the circuit occupied
+#: when it was 48 cells of 64, at twice the resolution. Everything below is
+#: therefore expressed in *cells* and the world size is unchanged -- the road
+#: half-width doubles to 5.0 cells to stay 160 world units wide, which is why
+#: the road looks the same size to the car while its edge is half as blocky.
+GRID = 96
+
+#: World units per cell. Mirrors `TILE_SIZE` in `arduracer_core::track`; asserted
+#: against the compiled circuit rather than trusted, because the two drifting
+#: apart would silently halve the width of every road.
+WORLD_PER_CELL = 32
 
 #: Raster resolution per cell for the *data* image. 3 is the smallest that
 #: survives majority-vote resolution of the kerb fringe, which is ~0.7 cells.
 DATA_PX = 3
 
 #: Raster resolution per cell for the *visual* image. Painted, so it wants room.
-VISUAL_PX = 16
+#:
+#: 8 rather than 16 because the grid doubled while the master image stayed
+#: 768x768: 96 cells x 8 px is the same file size as 48 x 16 was, so doubling the
+#: authoring resolution cost nothing on disk or in the pipeline.
+VISUAL_PX = 8
 
 #: Raster is taken at this multiple of the data resolution, then majority-voted
 #: down. 4x4 = 16 samples per cell is ample to resolve a 0.7-cell fringe; the
 #: default 3 px/cell with no supersampling leaves edges ambiguous.
-SUPERSAMPLE = 4
+SUPERSAMPLE = 3
+
+#: Side of the authored master image, in pixels. Fixed so the visual PNG does not
+#: grow with the grid: 96 cells x 8 px = 768, unchanged from 48 x 16.
+SIZE = GRID * VISUAL_PX
 
 # --- Palette, mirroring tools/track_cook/palette.json exactly ------------------
 #
@@ -116,14 +135,23 @@ RGB_TUPLE = {
 
 # --- Road cross-section, in cells ---------------------------------------------
 #
-# The spec asks for a 2-3 cell drivable width. These are half-widths, because
-# the road is drawn as a *stroke* on the centreline and a stroke is centred.
-# 1.25 cells of half-width gives 2.5 cells across, mid-range.
+# Half-widths, because the road is drawn as a *stroke* on the centreline and a
+# stroke is centred.
+#
+# The road is specified in **world units**, not cells, and converted. A 2.5-cell
+# road was 160 world units across when a cell was 64; halving the cell would have
+# silently halved it to 80, which is less than three car lengths -- the circuit
+# would have felt like a corridor. Anchoring to `half_width` and deriving cells
+# from `WORLD_PER_CELL` is what stops the two definitions drifting apart when the
+# cell size changes again. `build_atlas` asserts the compiled `half_width` still
+# matches `ROAD_HALF_WORLD`.
 
-ROAD_HALF_CELLS = 1.25     # tarmac half-width
+ROAD_HALF_WORLD = 160      # tarmac half-width, world units
 KERB_CELLS = 0.7           # rumble band outside the tarmac
 RUNOFF_CELLS = 3.2         # gravel band outside the kerb
 WALL_CELLS = 1.0           # barrier band outside the runoff
+
+ROAD_HALF_CELLS = ROAD_HALF_WORLD / WORLD_PER_CELL   # 5.0 at 32 units per cell
 
 #: Infield surface, and the surface beyond the runoff. Both are scenery-adjacent:
 #: `compile_circuit` treats anything not in its ROAD set as surroundings, which is
@@ -522,34 +550,41 @@ def write_outputs(spec: dict, outdir: str) -> dict:
 #:
 #:     straight_half + radius + wall_hw <= GRID / 2 - 1
 #:
-#: with `wall_hw = road_hw + KERB_CELLS + RUNOFF_CELLS + WALL` = 1.25 + 0.7 + 3.2 + 1.0 =
-#: 6.15 cells. `straight_half` 9, `radius` 7 gives 22.15, so the ring spans
-#: columns 1.85..46.15 and rows 10.85..37.15. The *road* stops much earlier, at
-#: `straight_half + radius + road_hw` = 17.25, i.e. columns 6.75..41.25, which is
-#: what `compile_circuit.validate` actually checks.
+#: with `wall_hw = ROAD_HALF_CELLS + KERB_CELLS + RUNOFF_CELLS + WALL_CELLS` =
+#: 5.0 + 0.7 + 3.2 + 1.0 = 9.9 cells. `straight_half` 20, `radius` 16 gives 45.9,
+#: so the ring spans columns 2.1..93.9 and rows 29.1..66.9 on a 96-cell grid --
+#: tight against the border, which is the constraint that actually limits this
+#: shape. The *road* stops at `straight_half + radius + road_hw` = 41, i.e.
+#: columns 7..89, and `compile_circuit.validate` checks the road, not the wall.
 #:
-#: Two earlier attempts (15/8, then 12/7) both failed validation, and with the
-#: *same* pair of errors each time: a road cell on the border, plus a phantom
-#: "second piece of road". Both are one bug. The ring ran off the edge of the
-#: grid, so `find_regions` clipped it into two fragments where it met the border
-#: and the wrap-around. Neither error named the cause, which is why the first
-#: attempt looked like two unrelated problems.
+#: 20/16 rather than the 18/14 that exactly preserved the previous footprint,
+#: because the lap floor in `test_game_logic` is 5,000 world units and 18/14
+#: drives a 4,853-unit lap -- just under it. The floor was calibrated against
+#: circuits roughly a third larger than this one. Enlarging the circuit is the
+#: right response: lowering a quality gate to admit the thing it was written to
+#: catch is the wrong one.
+#:
+#: Two much earlier attempts (15/8, then 12/7, at the original 48-cell grid) both
+#: failed validation with the *same* pair of errors: a road cell on the border,
+#: plus a phantom "second piece of road". Both were one bug -- the ring ran off
+#: the edge of the grid, so `find_regions` clipped it into two fragments at the
+#: wrap. Neither error named the cause, which is why it read as two problems.
 CIRCUITS = [
     {
         "name": "Hells Bells",
-        "straight_half": 9.0,
-        "radius": 7.0,
+        "straight_half": 20.0,
+        "radius": 16.0,
         "runoff": GRAVEL,
         # (fraction of lap, code, half-length across road, half-thickness along)
         "marks": [
-            (0.00, START_LINE, ROAD_HALF_CELLS + KERB_CELLS, 0.6),
-            (0.17, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.35),
-            (0.34, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.35),
-            (0.50, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.35),
-            (0.66, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.35),
-            (0.83, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.35),
-            (0.10, BOOST, ROAD_HALF_CELLS, 0.5),
-            (0.60, BOOST, ROAD_HALF_CELLS, 0.5),
+            (0.00, START_LINE, ROAD_HALF_CELLS + KERB_CELLS, 1.2),
+            (0.17, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
+            (0.34, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
+            (0.50, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
+            (0.66, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
+            (0.83, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
+            (0.10, BOOST, ROAD_HALF_CELLS, 1.0),
+            (0.60, BOOST, ROAD_HALF_CELLS, 1.0),
         ],
         "note": "Hand-authored SVG oval. Baseline for the image pipeline.",
     },

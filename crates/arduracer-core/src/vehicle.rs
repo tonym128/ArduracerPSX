@@ -1060,6 +1060,31 @@ mod tests {
     // bug 1: wall contact must be a penalty, not a death sentence
     // ========================================================================
 
+    /// How far inside a cell a test places a car, in world units.
+    ///
+    /// A fraction of `TILE_SIZE` so "just inside the edge" stays just inside the
+    /// edge when the cell size changes. The original was a literal `4`, chosen for
+    /// a 64-unit cell; at 32 units it is still inside, but the *matching* `60`
+    /// in the paired cases is not.
+    const fn near_edge() -> i32 {
+        TILE_SIZE / 16
+    }
+
+    /// Cell indices the wall tests start the car at, on [`track_with_east_wall`].
+    ///
+    /// Both east of the road (cells 0..10) and west of the barrier column
+    /// (cells 11..13). Expressed as cells so the world positions follow
+    /// `TILE_SIZE` instead of assuming it.
+    const WALL_TEST_STARTS: [usize; 2] = [8, 10];
+
+    /// World position of `WALL_TEST_STARTS[i]` on row 5 of the east-wall fixture.
+    fn wall_test_start(i: usize) -> Vec2 {
+        Vec2::new(
+            TrackDef::tile_centre(WALL_TEST_STARTS[i] as u8),
+            TrackDef::tile_centre(5),
+        )
+    }
+
     /// A 14x10 circuit with a solid Barrier column down its east side.
     ///
     /// These three tests used to drive into the east wall of `ALL_TRACKS[0]`.
@@ -1071,6 +1096,13 @@ mod tests {
     ///
     /// A purpose-built fixture is immune to level regeneration, and
     /// `east_wall_is_solid` below asserts the wall is actually there.
+    ///
+    /// Every world position the wall tests use is derived from a *cell index*
+    /// through [`TILE_SIZE`], never written as a world literal. They were, and
+    /// halving the cell silently moved the wall: a 14-cell fixture at 64 units
+    /// reached x=896, and the starts at 560/630 were comfortably on road; at 32
+    /// units the grid ends at 448 and both starts were inside the barrier. Three
+    /// tests failed on a constant that only changed meaning.
     fn track_with_east_wall() -> TrackDef {
         const W: usize = 14;
         const H: usize = 10;
@@ -1126,17 +1158,19 @@ mod tests {
             "the east-wall fixture lost its barrier column"
         );
         // And the cars these tests place must actually be able to reach it.
-        for start_x in [560, 630] {
-            let tx = TrackDef::tile_x_of(Fixed::from_int(start_x));
+        for start_x in [WALL_TEST_STARTS[0], WALL_TEST_STARTS[1]] {
+            let start_world = TrackDef::tile_centre(start_x as u8).to_int();
+            let tx = TrackDef::tile_x_of(Fixed::from_int(start_world));
             assert!(
                 track.tile_at(tx, 5) != TrackTile::Barrier,
-                "the car starts inside the wall at x={start_x}"
+                "the car starts inside the wall at x={start_world}"
             );
         }
         // There must be a solid tile somewhere east of both starting positions,
         // with road in between -- that is what makes these tests meaningful.
-        for start_x in [560, 630] {
-            let start_tx = TrackDef::tile_x_of(Fixed::from_int(start_x));
+        for start_x in [WALL_TEST_STARTS[0], WALL_TEST_STARTS[1]] {
+            let start_world = TrackDef::tile_centre(start_x as u8).to_int();
+            let start_tx = TrackDef::tile_x_of(Fixed::from_int(start_world));
             assert_eq!(
                 track.tile_at(start_tx, 5),
                 TrackTile::Tarmac,
@@ -1171,7 +1205,7 @@ mod tests {
         // existed while measuring nothing at all, which is why the loss of
         // track 1's barriers went unnoticed alongside it.
         let mut car = VehicleState {
-            position: Vec2::new(Fixed::from_int(560), Fixed::from_int(320)),
+            position: wall_test_start(0),
             heading: 1024, // due east, into the wall
             velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
             speed: Fixed::from_int(3),
@@ -1223,7 +1257,7 @@ mod tests {
         // and the car backs off, with no respawn.
         let track = track_with_east_wall();
         let mut car = VehicleState {
-            position: Vec2::new(Fixed::from_int(560), Fixed::from_int(320)),
+            position: wall_test_start(0),
             heading: 1024, // due east
             velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
             speed: Fixed::from_int(3),
@@ -1435,7 +1469,7 @@ mod tests {
         // tile with zero traction and zero top speed.
         let track = track_with_east_wall();
         let mut car = VehicleState {
-            position: Vec2::new(Fixed::from_int(630), Fixed::from_int(320)),
+            position: wall_test_start(1),
             heading: 1024,
             velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
             speed: Fixed::from_int(3),
@@ -1493,9 +1527,13 @@ mod tests {
         for (tx, ty) in [(4u8, 4u8), (5, 5), (4, 5), (5, 4)] {
             assert!(solid_at(&track, tx, ty), "test setup: ({tx},{ty})");
             // Drop the car just inside the top-left of the block.
+            // `near_edge` is a fraction of a cell, not a world literal: these
+            // offsets used to be 4 units into a 64-unit cell, which is "just
+            // inside the edge" at that size and "halfway across the cell" -- and
+            // past the far edge -- at 32.
             let inside = Vec2::new(
-                Fixed::from_int(tx as i32 * TILE_SIZE + 4),
-                Fixed::from_int(ty as i32 * TILE_SIZE + 4),
+                Fixed::from_int(tx as i32 * TILE_SIZE + near_edge()),
+                Fixed::from_int(ty as i32 * TILE_SIZE + near_edge()),
             );
             let mut car = VehicleState {
                 position: inside,
@@ -1516,15 +1554,24 @@ mod tests {
     #[test]
     fn a_solid_tile_pushes_the_car_out_through_the_nearest_face() {
         let track = walled_track();
-        // A car whose centre sits 4 units inside the LEFT edge of the block at
-        // (4,4) must exit west; 4 units inside the TOP edge must exit north.
+        // A car whose centre sits just inside the LEFT edge of the block at
+        // (4,4) must exit west; just inside the TOP edge must exit north.
+        //
+        // The offsets are fractions of a cell for the same reason as above: they
+        // were written as 4 and 60 against a 64-unit cell, and 60 is *outside* a
+        // 32-unit one, so the right-hand and bottom cases silently moved the car
+        // into a neighbouring tile and the test failed for a reason that had
+        // nothing to do with the exit direction it was checking.
+        let edge = near_edge();
+        let far = TILE_SIZE - edge;
+        let mid = TILE_SIZE / 2;
         let cases = [
-            (4i32, 4i32, 4i32, 20i32, -1i32, 0i32), // left face -> (-1, 0)
-            (4, 4, 60, 4, 0, -1),                   // top face  -> ( 0,-1)
-            (5, 5, 4, 60, 0, 1),                    // right block, bottom face
+            (4i32, 4i32, edge, mid, -1i32, 0i32), // left face -> (-1, 0)
+            (4, 4, mid, edge, 0, -1),             // top face  -> ( 0,-1)
+            (5, 5, edge, far, 0, 1),              // right block, bottom face
             // Equidistant from all four faces of the block's corner tile: the
             // tie breaks towards the face the car is moving out through.
-            (4, 4, 60, 60, 0, -1),
+            (4, 4, far, far, 0, -1),
         ];
         for (tx, ty, lx, ly, nx_expected, ny_expected) in cases {
             let mut car = VehicleState {

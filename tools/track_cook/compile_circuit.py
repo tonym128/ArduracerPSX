@@ -299,8 +299,40 @@ CODE_TO_TILE = {
 }
 
 import math
+import os
+import re
 
-TILE_SIZE = 64
+
+def _rust_const(name: str) -> int:
+    """Reads `pub const <name>: usize/i32 = N;` out of the Rust source.
+
+    The cell size is shared between the compiler and the engine, and hardcoding a
+    second copy in Python is how it silently drifts: the engine went from 64 to 32
+    world units per cell, this file kept saying 64, and *nothing failed*. The
+    circuits validated, `build_atlas` emitted them, and every test that did not
+    inspect world coordinates passed -- while the compiled route extended to cell
+    161 on a 96-cell grid, and the AI could no longer complete a lap.
+
+    Reading it is the only way this stays correct across the next change. A
+    missing or unparseable constant is an error, not a default.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    src = os.path.join(root, "crates", "arduracer-core", "src", "track.rs")
+    with open(src) as f:
+        text = f.read()
+    m = re.search(r"pub const %s\s*:\s*(?:usize|i32)\s*=\s*(\d+)\s*;" % name, text)
+    if not m:
+        raise RuntimeError(
+            f"could not find `pub const {name}` in {src}; the compiler and the "
+            f"engine must agree on it"
+        )
+    return int(m.group(1))
+
+
+#: World units per surface cell. Mirrors `TILE_SIZE` in `arduracer_core::track`.
+TILE_SIZE = _rust_const("TILE_SIZE")
+#: Largest cell index a circuit may use, per `MAX_TRACK_DIM`.
+MAX_TRACK_DIM = _rust_const("MAX_TRACK_DIM")
 MAX_CHECKPOINTS = 24
 
 

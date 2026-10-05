@@ -1718,16 +1718,16 @@ fn test_all_24_tracks_integrity() {
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
-        // Upper bound tracks MAX_TRACK_DIM (64): the runoff margin pads every
-        // circuit with 4 tiles on each side, and the authored circuits are
-        // written at up to 56 so the padded grid fills the ceiling exactly.
+        // Upper bound is `MAX_TRACK_DIM`, read rather than restated: it was 64
+        // and is now 96, and a literal here would have failed every circuit for
+        // a reason that had nothing to do with the circuits.
         assert!(
-            track.width >= 10 && track.width <= 64,
+            track.width >= 10 && track.width as usize <= MAX_TRACK_DIM,
             "Track {} width invalid",
             idx + 1
         );
         assert!(
-            track.height >= 10 && track.height <= 64,
+            track.height >= 10 && track.height as usize <= MAX_TRACK_DIM,
             "Track {} height invalid",
             idx + 1
         );

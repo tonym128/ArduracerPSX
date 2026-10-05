@@ -17,19 +17,45 @@ use crate::timing::{CheckpointGate, ParTimes};
 /// Checkpoint slots per circuit. Longer circuits need proportionally more split
 /// points so a straight is not one long blind gate.
 pub const MAX_TRACK_CHECKPOINTS: usize = 24;
-/// Maximum dimension of a track grid (up to 32x32 tiles).
-/// Largest circuit grid edge, in tiles. A 64x64 grid is 4096 world units per side
-/// at `TILE_SIZE` 64 -- the smallest that reads as a stage atlas rather than a
-/// circuit. Raised from 40 for the authored circuits; `MAX_TILE_INDEX` follows.
-pub const MAX_TRACK_DIM: usize = 64;
-/// Largest tile index the `u8` tile API can represent.
+/// Maximum dimension of a track grid, in cells.
+///
+/// 96 rather than 64. Cells are half the world size they used to be (see
+/// [`TILE_SIZE`]), so this is the same 3,072-unit world at twice the resolution.
+/// `MAX_TILE_INDEX` follows.
+///
+/// The ceiling is RAM, not taste. A cell is one byte as a `TrackTile`, so 96x96
+/// costs 9,216 bytes a circuit -- 221 KB for all 24 resident, inside the
+/// ~347 KB the PSX build has free. The next step down, 192x192, is 884 KB and
+/// does not fit; see the note on [`TILE_SIZE`] for why 16-unit cells are the
+/// floor rather than the ceiling.
+pub const MAX_TRACK_DIM: usize = 96;
+/// Largest cell index the `u8` cell API can represent.
 ///
 /// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
-/// largest possible circuit (32 tiles) is still addressable. `tile_at` rejects
-/// anything wider than the grid it belongs to and answers `Barrier`.
+/// largest possible circuit is still addressable. `tile_at` rejects anything
+/// wider than the grid it belongs to and answers `Barrier`.
 pub const MAX_TILE_INDEX: u8 = (MAX_TRACK_DIM - 1) as u8;
-/// World-space size of a single track tile.
-pub const TILE_SIZE: i32 = 64;
+/// World-space size of one surface cell.
+///
+/// 32, halved from the 64 it was when a "tile" was also the thing the renderer
+/// drew a square for. The world is unchanged at 96 x 32 = 3,072 units a side;
+/// the cell just carries half as much area, so the collision surface is four
+/// times finer and the road edge is no longer a 64-unit staircase.
+///
+/// # Why this is 32 and not smaller
+///
+/// One world unit per cell -- true per-pixel physics -- is 3072 x 3072 cells.
+/// At four bits per code (the palette has exactly 16 entries) that is 4.7 MB
+/// for a *single* circuit. The machine has 2 MB of RAM, of which the build
+/// gate allows 999 KB and currently uses ~652 KB. It is not close: even one
+/// circuit at one byte per cell is 9.4 MB.
+///
+/// So the data is coarse and the *rendering* is per-pixel. That is the split
+/// `LEVEL-FORMAT.md` argues for, and the arithmetic above is why it is forced
+/// rather than merely tidy. The visual side has no such limit -- a texture in
+/// VRAM is sampled per screen pixel -- so appearance is fine-grained even where
+/// collision is not.
+pub const TILE_SIZE: i32 = 32;
 
 /// Integer square root (floor) of a `u64`. No floats: the core is `no_std`
 /// Q20.12 arithmetic only.
@@ -645,12 +671,15 @@ mod tests {
 
     #[test]
     fn tile_index_handles_negatives_and_zero() {
-        for units in [i32::MIN, -100_000, -64, -1, 0] {
+        for units in [i32::MIN, -100_000, -32, -1, 0] {
             assert_eq!(TrackDef::tile_x_of(Fixed::from_int(units)), 0, "{units}");
             assert_eq!(TrackDef::tile_y_of(Fixed::from_int(units)), 0, "{units}");
         }
-        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(63)), 0);
-        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(64)), 1);
+        // Boundary is `TILE_SIZE`, not a literal: this test asserted 63/64 when a
+        // cell was 64 units, and would have passed a cell size that was silently
+        // wrong by being written against the old constant's value.
+        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(TILE_SIZE - 1)), 0);
+        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(TILE_SIZE)), 1);
     }
 
     #[test]

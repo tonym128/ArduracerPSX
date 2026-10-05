@@ -38,10 +38,16 @@ const fn grid_with_wall_at(wx: usize, wy: usize) -> [TrackTile; GRID * GRID] {
 /// cannot interfere with the thing under test.
 static FLAT_TILES: [TrackTile; GRID * GRID] = [TrackTile::Tarmac; GRID * GRID];
 
-/// The same grid with a single solid tile at grid (4, 3). The tile spans world
-/// x in [256, 320) and y in [192, 256), so a car placed inside it can be pushed
-/// at every one of the tile's faces.
-static WALL_TILES: [TrackTile; GRID * GRID] = grid_with_wall_at(4, 3);
+/// The same grid with a single solid tile at grid (4, 3), so a car placed
+/// inside it can be pushed at every one of the tile's faces.
+///
+/// The tile's *world* extent is `TILE_SIZE` wide, not the `[256, 320)` this comment
+/// used to state. The cell halved from 64 to 32 world units, which moved the wall
+/// without moving the test: the face-push cases below place the car by world
+/// offset from the tile, and a 60-unit offset is outside a 32-unit cell, so they
+/// were testing a neighbouring tile entirely.
+const WALL_CELL: (usize, usize) = (4, 3);
+static WALL_TILES: [TrackTile; GRID * GRID] = grid_with_wall_at(WALL_CELL.0, WALL_CELL.1);
 
 /// Where the straight test circuit starts, in grid coordinates. Its only
 /// checkpoint is due north, so the desired heading is exactly 0 BAM.
@@ -216,20 +222,29 @@ fn the_best_swept_tuning_beats_the_default_tune_by_the_required_margin() {
 /// per rival -- it shifts the aim point sideways by a fixed world offset in the
 /// car's perpendicular frame, and the proportional steering gain then turns the
 /// resulting heading error into a command. Quantities that still exist:
-const AVOIDANCE_TILES: i32 = 1;
+const AVOIDANCE_BOX: i32 = 64;
 /// Perpendicular aim-point shift applied per rival in the near field.
-const AVOIDANCE_OFFSET_UNITS: i32 = TILE_SIZE;
 /// Distance beyond which a rival is ignored entirely.
-const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_TILES * TILE_SIZE * 2;
 /// The near-field test is a box half this wide in each axis.
-const AVOID_HALF: i32 = AVOIDANCE_TILES * TILE_SIZE;
+///
+/// All absolute world units, mirroring `ai.rs`. They were expressed in tiles,
+/// which coupled the AI's driving distances to the collision grid resolution:
+/// halving the cell halved every avoidance distance, and the rival-avoidance
+/// tests caught it as a steering command too small to see.
+const AVOIDANCE_OFFSET_UNITS: i32 = 64;
+const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_BOX * 2;
+const AVOID_HALF: i32 = AVOIDANCE_BOX;
+
+/// World position of the straight test circuit's start cell.
+fn ai_start_pos() -> Vec2 {
+    Vec2::new(
+        Fixed::from_int(STRAIGHT_START.0 as i32 * TILE_SIZE + TILE_SIZE / 2),
+        Fixed::from_int(STRAIGHT_START.1 as i32 * TILE_SIZE + TILE_SIZE / 2),
+    )
+}
 
 fn ai_on_the_straight() -> AiRacer {
-    AiRacer::new(
-        Vec2::new(Fixed::from_int(1056), Fixed::from_int(1824)),
-        0,
-        AI_PROFILES[0],
-    )
+    AiRacer::new(ai_start_pos(), 0, AI_PROFILES[0])
 }
 
 /// A rival standing next to the AI pushes the steering command *away* from it,
@@ -319,8 +334,15 @@ fn avoidance_accumulates_across_a_pack_and_saturates() {
         "a pack must not steer past full lock, got {three}"
     );
     assert_eq!(
-        AVOIDANCE_OFFSET_UNITS, TILE_SIZE,
-        "a single rival dodges by exactly one tile"
+        AVOIDANCE_OFFSET_UNITS, AVOIDANCE_BOX,
+        "a single rival dodges by one avoidance-box width"
+    );
+    // The dodge must be a real steering command, not a nudge lost in the
+    // proportional gain. A single rival has to move the command enough for the
+    // car to leave the obstacle's lane.
+    assert!(
+        one.abs() >= FP_ONE / 32,
+        "one rival must produce a visible avoidance command, got {one}"
     );
     assert!(
         three > -FP_ONE / 2,
@@ -401,11 +423,11 @@ fn avoidance_ignores_a_rival_at_the_exact_same_position() {
 #[test]
 fn a_rival_avoids_a_car_parked_in_its_path() {
     let track = straight();
-    let blocker = rival_at(
-        Vec2::new(Fixed::from_int(1056), Fixed::from_int(1824)),
-        0,
-        -18,
-    );
+    // Derived from the straight's start cell, not written as a world literal:
+    // 1056, 1824 is cell (16, 28) only while a cell is 64 units. The lateral
+    // offset is inside the avoidance box either way, so this placement held --
+    // but by accident, which is not a thing to build on.
+    let blocker = rival_at(ai_start_pos(), 0, -18);
 
     let mut blocked = ai_on_the_straight();
     let mut unblocked = ai_on_the_straight();
@@ -598,9 +620,25 @@ fn the_leaderboard_orders_every_competitor() {
 #[test]
 fn a_car_inside_an_interior_wall_is_always_ejected_onto_drivable_tiles() {
     let track = synthetic_track(&WALL_TILES);
-    let (wx, wy) = (4u8, 3u8);
+    let (wx, wy) = (WALL_CELL.0 as u8, WALL_CELL.1 as u8);
 
-    let offsets: [(i32, i32); 5] = [(1, 1), (10, 5), (32, 32), (60, 60), (62, 3)];
+    // Offsets are *fractions* of a cell, scaled up: `(1,1)`, `(10,5)`, mid-cell,
+    // the far corner, and a corner skewed on one axis. Written as world literals
+    // they were sized for a 64-unit cell; at 32 units the `(60,60)` and `(62,3)`
+    // cases placed the car two cells away from the wall, so the test silently
+    // covered the ejection from a cell that had none.
+    // Denominators are small enough that no offset rounds to zero or to a full
+    // cell: at 32 units, `TILE_SIZE / 8 / 4` is 1 and `TILE_SIZE - .../8` is the
+    // cell itself, which put the car in the *next* cell along.
+    let near = TILE_SIZE / 16 + 1;
+    let far = TILE_SIZE - near;
+    let offsets: [(i32, i32); 5] = [
+        (near, near),
+        (near * 2, near),
+        (TILE_SIZE / 2, TILE_SIZE / 2),
+        (far, far),
+        (far, near * 2),
+    ];
     let headings: [(i32, i32); 8] = [
         (2, 0),
         (-2, 0),

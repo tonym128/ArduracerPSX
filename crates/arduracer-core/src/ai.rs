@@ -142,16 +142,24 @@ fn tile_centre_world(tx: u8, ty: u8) -> Vec2 {
     )
 }
 
-/// Half-width of the obstacle-avoidance box, expressed in tiles.
+/// Half-width of the obstacle-avoidance box, in world units.
 ///
 /// The old test was `ox.abs() < 14 && oy.abs() < 20` on *world* deltas: a 14x20
-/// unit box, smaller than one 64-unit tile, so rivals routinely drove through
-/// each other. Sized in tiles instead.
-const AVOIDANCE_TILES: i32 = 1;
+/// unit box, smaller than one tile, so rivals routinely drove through each other.
+/// The fix sized the box in *tiles*, which was correct reasoning -- these are
+/// driving distances, not resolution choices -- but it expressed them as
+/// `1 * TILE_SIZE`, and `TILE_SIZE` is a collision-resolution parameter. Halving
+/// it silently halved every avoidance distance in the game, and the AI's dodge
+/// became too small to steer the car at all.
+///
+/// Absolute world units from here on. The value is the pre-halving one, so
+/// avoidance behaves identically at any cell size; `AVOIDANCE_BOX` is asserted
+/// to be at least a car width in `tests`.
+const AVOIDANCE_BOX: i32 = 64;
 /// Lateral offset used to dodge an obstacle, in world units.
-const AVOIDANCE_OFFSET_UNITS: i32 = TILE_SIZE;
+const AVOIDANCE_OFFSET_UNITS: i32 = 64;
 /// Distance beyond which an obstacle is ignored entirely (world units).
-const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_TILES * TILE_SIZE * 2;
+const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_BOX * 2;
 /// Proportional steering gain; full lock is reached at ~54 degrees of error.
 ///
 /// Deliberately modest. At the old gain of 6 the loop saturated after 15 degrees
@@ -332,11 +340,11 @@ impl AiRacer {
 
     /// Lateral dodge, in world units, to steer around cars in the near field.
     ///
-    /// The box is sized in *tiles* (`AVOIDANCE_TILES`), because the old
+    /// The box is sized in world units (`AVOIDANCE_BOX`), because the old
     /// `ox.abs() < 14 && oy.abs() < 20` world-delta test was a 14x20 unit box --
     /// smaller than a single tile -- so rivals drove through each other.
     fn avoidance_offset(&self, other_positions: &[Vec2]) -> i32 {
-        let half = AVOIDANCE_TILES * TILE_SIZE;
+        let half = AVOIDANCE_BOX;
         let mut offset = 0i32;
         for other_pos in other_positions {
             let dx = (other_pos.x - self.state.position.x).to_int();
@@ -1025,7 +1033,7 @@ mod tests {
         // other.
         let track = ALL_TRACKS[0];
         let racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
-        let half = AVOIDANCE_TILES * TILE_SIZE;
+        let half = AVOIDANCE_BOX;
         assert!(half >= TILE_SIZE, "the box must be at least one tile wide");
 
         // Inside the box -> dodge.
