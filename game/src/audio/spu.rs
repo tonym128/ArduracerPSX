@@ -13,6 +13,14 @@ pub const VOICE_BOOST: Voice = Voice::V3;
 pub const VOICE_CHIME: Voice = Voice::V4;
 pub const VOICE_INTRO: Voice = Voice::V5;
 pub const VOICE_UI: Voice = Voice::V6;
+/// Curb rumble. Needs its own voice: the skid voice is keyed on and off by the
+/// drift state machine, so sharing it made the rumble inaudible (TASK-1207a).
+pub const VOICE_CURB: Voice = Voice::V7;
+
+/// Curb rumble level and pitch. Quieter and lower than the skid voice so it
+/// reads as a rumble strip rather than a squeal.
+pub const CURB_VOLUME: i16 = 0x0800;
+pub const CURB_PITCH: u16 = 0x0800;
 
 // SPU RAM layout, in upload order. The intro sample is placed *after* the
 // soundbank rather than at a fixed low address: the bank grows every time a
@@ -157,6 +165,18 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
     );
 
     VOICE_UI.configure_sample(ui_addr, UI_MOVE_RATE, Volume::MAX, Adsr::sample_one_shot());
+
+    // The curb voice plays the *skid* sample from its own address: a curb rumble
+    // and a tire squeal are the same kind of noise, and a dedicated sample
+    // would cost SPU RAM for no audible gain.
+    VOICE_CURB.configure_sample(
+        skid_addr,
+        TIRE_SCREECH_RATE,
+        Volume::SILENCE,
+        Adsr::sample(),
+    );
+    VOICE_CURB.set_loop_addr(skid_addr);
+    VOICE_CURB.set_pitch(psx_spu::Pitch::raw(CURB_PITCH));
 
     // Ensure intro audio voice is stopped
     Voice::key_off(VOICE_INTRO.mask());

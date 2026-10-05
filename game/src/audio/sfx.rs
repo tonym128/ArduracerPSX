@@ -3,7 +3,11 @@
 //! Manages procedural tire screech volume/pitch scaling, barrier collision
 //! impacts, turbo boost whooshes, and checkpoint completion chimes.
 
-use crate::audio::spu::{VOICE_BOOST, VOICE_CHIME, VOICE_CRASH, VOICE_SKID, VOICE_UI};
+use crate::audio::audio_policy::CrashGate;
+use crate::audio::spu::{
+    CURB_PITCH, CURB_VOLUME, VOICE_BOOST, VOICE_CHIME, VOICE_CRASH, VOICE_CURB, VOICE_SKID,
+    VOICE_UI,
+};
 use arduracer_core::{Fixed, SurfaceType, VehicleState};
 use psx_spu::{Pitch, Voice, Volume};
 
@@ -13,6 +17,9 @@ pub struct SfxPlayer {
     curb_playing: bool,
     prev_boost_ticks: u16,
     prev_checkpoints: u8,
+    /// Edge detection and rate limiting for barrier impacts. The decision
+    /// itself lives in `audio_policy::CrashGate` so it can be host-tested.
+    crash: CrashGate,
 }
 
 impl Default for SfxPlayer {
@@ -29,6 +36,7 @@ impl SfxPlayer {
             curb_playing: false,
             prev_boost_ticks: 0,
             prev_checkpoints: 0,
+            crash: CrashGate::new(),
         }
     }
 
@@ -64,7 +72,13 @@ impl SfxPlayer {
     pub fn silence(&mut self) {
         self.prev_boost_ticks = 0;
         self.prev_checkpoints = 0;
-        self.curb_playing = false;
+        self.crash.reset();
+
+        if self.curb_playing {
+            self.curb_playing = false;
+            VOICE_CURB.set_volume(Volume::SILENCE, Volume::SILENCE);
+            Voice::key_off(VOICE_CURB.mask());
+        }
 
         if self.skid_playing {
             self.skid_playing = false;
@@ -127,21 +141,35 @@ impl SfxPlayer {
             }
         }
 
-        // 2. Curb rumble loop: reuses the skid voice at a low, gritty level so
-        // clipping a rumble strip is audible without a dedicated sample.
-        if surface.triggers_curb_rumble() && player.speed > Fixed::from_raw(600) {
-            let vol = Volume(0x0800);
-            VOICE_SKID.set_volume(vol, vol);
-            self.curb_playing = true;
-        } else if self.curb_playing && !self.skid_playing {
-            let vol = Volume::SILENCE;
-            VOICE_SKID.set_volume(vol, vol);
-            Voice::key_off(VOICE_SKID.mask());
+        // 2. Curb rumble: reuses the *skid sample* on a dedicated voice rather
+        //    than the skid voice itself.
+        //
+        //    It used to write volume and pitch to `VOICE_SKID`, which is keyed
+        //    on only in the drift branch above, and the `else` below keyed it
+        //    straight back off. So clipping a rumble strip at speed produced no
+        //    sound at all, and while drifting on a curb the two branches fought
+        //    over one voice (TASK-1207a).
+        let on_curb = surface.triggers_curb_rumble() && player.speed > Fixed::from_raw(600);
+        if on_curb {
+            if !self.curb_playing {
+                VOICE_CURB.set_pitch(Pitch::raw(CURB_PITCH));
+                VOICE_CURB.set_volume(Volume(CURB_VOLUME), Volume(CURB_VOLUME));
+                Voice::key_on(VOICE_CURB.mask());
+                self.curb_playing = true;
+            }
+        } else if self.curb_playing {
             self.curb_playing = false;
+            VOICE_CURB.set_volume(Volume::SILENCE, Volume::SILENCE);
+            Voice::key_off(VOICE_CURB.mask());
         }
 
         // 3. Barrier collision (authoritative, from the collision solver).
-        if hit_wall {
+        //
+        //    Edge-detected, with a refractory period. `hit_wall` is true on
+        //    *every* frame the car touches a barrier, so the old unconditional
+        //    `if hit_wall` restarted the 0.25 s impact sample 60 times a second
+        //    -- heard as a buzz rather than a crash (TASK-1207b).
+        if self.crash.should_fire(hit_wall) {
             self.play_crash();
         }
 

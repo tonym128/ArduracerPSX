@@ -1,8 +1,12 @@
 //! Dynamic Engine RPM Pitch Synthesizer.
 //!
 //! Synthesizes continuous engine pitch modulation on SPU Voice 0, mapping
-//! real-time RPM (1000–8500 RPM) to SPU hardware pitch registers (0x0800–0x3FFF).
+//! real-time RPM (`MIN_RPM`..=`MAX_RPM`) to an SPU pitch in
+//! `MIN_ENGINE_PITCH`..=`MAX_ENGINE_PITCH`. The ceiling keeps the loop inside
+//! its Nyquist limit; the map itself lives in `audio_policy.rs` so it can be
+//! host-tested.
 
+use crate::audio::audio_policy::{engine_pitch_for, IDLE_PITCH, MAX_ENGINE_PITCH};
 use crate::audio::spu::VOICE_ENGINE;
 use arduracer_core::Fixed;
 use psx_spu::{Pitch, Volume};
@@ -21,7 +25,9 @@ impl Default for EngineAudio {
 impl EngineAudio {
     pub const fn new() -> Self {
         EngineAudio {
-            current_pitch: 0x0A00,
+            // Resting pitch, also clamped: the old seed of 0x0A00 was already
+            // above the ceiling.
+            current_pitch: IDLE_PITCH,
             // Silent, not `0x1000`. The idle target computed in `update` bottoms
             // out at `0x0C00` and can never reach zero, so a non-zero seed is
             // audible on its own -- it drones from construction until the first
@@ -49,12 +55,15 @@ impl EngineAudio {
 
     /// Updates engine synthesizer parameters based on vehicle state.
     pub fn update(&mut self, engine_rpm: u16, throttle: Fixed) {
-        let rpm = engine_rpm.clamp(900, 8500);
-
-        // Map 900..8500 RPM to SPU hardware pitch range 0x0700..0x3400
-        // (44.1kHz playback rate multiplier in Q5.12)
-        let rpm_span = (rpm - 900) as u32;
-        let target_pitch = (0x0700u32 + (rpm_span * 0x2D00) / 7600) as u16;
+        // Map RPM to an SPU pitch, clamped so the loop cannot be driven past
+        // its own Nyquist limit.
+        //
+        // The pitch register is a Q12 multiplier on the sample rate, so 0x1000
+        // replays a 22.05 kHz sample at exactly its recorded rate and anything
+        // above that folds the harmonics back over themselves -- the old map
+        // reached 0x3400, 3.25x, 2.4x past Nyquist, which is why the engine
+        // sounds like a buzz at high RPM (TASK-1207).
+        let target_pitch = engine_pitch_for(engine_rpm);
 
         // Smooth pitch transitions (1/4th step per 60Hz frame)
         if target_pitch > self.current_pitch {
@@ -81,7 +90,7 @@ impl EngineAudio {
                 .saturating_sub((self.current_vol - target_vol) >> 3);
         }
 
-        VOICE_ENGINE.set_pitch(Pitch::raw(self.current_pitch));
+        VOICE_ENGINE.set_pitch(Pitch::raw(self.current_pitch.min(MAX_ENGINE_PITCH)));
         let vol = Volume(self.current_vol);
         VOICE_ENGINE.set_volume(vol, vol);
     }
