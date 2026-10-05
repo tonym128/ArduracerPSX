@@ -1,18 +1,46 @@
 //! In-Game Arcade Racing HUD for PlayStation 1.
 //!
 //! Renders the tachometer rev bar, nitro gauge, digital speedometer, gear indicator,
-//! lap counter, checkpoint tracker, lap timer, live delta split, and dynamic
-//! minimap with full circuit outline and racer blips.
+//! lap counter, checkpoint tracker, lap timer, live delta split, and the minimap
+//! with full circuit outline and racer blips.
+//!
+//! The minimap's static half -- the circuit outline -- is *baked into a VRAM
+//! texture once per track load* by [`bake_minimap`] and blitted as a single sprite
+//! each frame. It used to be rebuilt from scratch every frame, one GP0 rectangle
+//! per tile across the whole grid: 1,444 rectangles and ~7,200 GP0 words on the
+//! padded 38x38 circuits, about 43 % of the 16.67 ms frame budget, to redraw an
+//! image that cannot change while the circuit does not (TASK-1202). The moving
+//! half -- the racer blips -- stays as primitives drawn on top.
 
+use crate::gpu::texlayout::{minimap_colour, minimap_step, MINIMAP_SIZE};
+use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
-use arduracer_core::{AiRacer, LapTimer, TrackDef, TrackTile, VehicleState, NITRO_MAX_TICKS};
+use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
 use psx_gpu as gpu;
+use psx_gpu::material::BlendMode;
+
+/// Bakes the circuit outline into `slot` and uploads it.
+///
+/// Call once per track load, never per frame: the upload is a DMA transfer and
+/// the image is static for the whole race.
+pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
+    slot.begin_compose();
+    let step_x = minimap_step(track.width);
+    let step_y = minimap_step(track.height);
+    // One pixel of overlap so adjacent tiles do not leave seams at this scale.
+    let w = step_x.max(1) + 1;
+    let h = step_y.max(1) + 1;
+    for ty in 0..track.height as i32 {
+        for tx in 0..track.width as i32 {
+            let tile = track.tile_at(tx as u8, ty as u8);
+            let (r, g, b) = minimap_colour(tile);
+            slot.fill_rect(tx * step_x, ty * step_y, w, h, (r, g, b));
+        }
+    }
+    slot.upload();
+}
 
 pub const HUD_MARGIN: u16 = 8;
-/// Width of the minimap panel in pixels.
-pub const MINIMAP_SIZE: u16 = 56;
-/// Inner drawing area of the minimap panel.
-const MINIMAP_INNER: i32 = (MINIMAP_SIZE - 8) as i32;
 
 /// Formats `MM:SS.ccc` into a fixed 8 character buffer (no allocation).
 fn format_time(buf: &mut [u8; 8], ticks: u32) {
@@ -78,6 +106,7 @@ pub fn render_hud<const N: usize>(
     track: &TrackDef,
     rank: u8,
     rivals: &[AiRacer],
+    minimap_texture: &TextureSlot,
 ) {
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
     gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
@@ -224,29 +253,12 @@ pub fn render_hud<const N: usize>(
         36,
     );
 
-    let step_x = MINIMAP_INNER / (track.width as i32).max(1);
-    let step_y = MINIMAP_INNER / (track.height as i32).max(1);
+    let step_x = minimap_step(track.width);
+    let step_y = minimap_step(track.height);
 
-    // Circuit track outline
-    for ty in 0..track.height as i32 {
-        for tx in 0..track.width as i32 {
-            let tile = track.tile_at(tx as u8, ty as u8);
-            let (r, g, b) = match tile {
-                TrackTile::StartFinish => (255, 255, 255),
-                TrackTile::Checkpoint => (0, 210, 255),
-                TrackTile::Curb => (180, 185, 195),
-                TrackTile::BoostPad => (255, 160, 20),
-                _ if tile.is_road() => (100, 110, 125),
-                TrackTile::Barrier => (35, 35, 45),
-                _ => (25, 45, 28),
-            };
-            let px = map_x + 4 + (tx * step_x) as i16;
-            let py = map_y + 4 + (ty * step_y) as i16;
-            let w = (step_x.max(1) + 1) as u16;
-            let h = (step_y.max(1) + 1) as u16;
-            gpu::draw_rect_flat(px, py, w, h, r, g, b);
-        }
-    }
+    // The circuit outline is already in VRAM; one sprite packet replaces the
+    // per-tile rectangle walk.
+    minimap_texture.blit(map_x + 4, map_y + 4, BlendMode::Opaque);
 
     // Rival blips
     for rival in rivals {

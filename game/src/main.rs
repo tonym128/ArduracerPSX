@@ -24,7 +24,10 @@ use arduracer_core::{
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
-use gpu::{render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer};
+use gpu::{
+    bake_minimap, render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer,
+    TextureSlot,
+};
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
@@ -66,6 +69,8 @@ pub struct ArduracerGame {
     pub pause: PauseMenu,
     pub paused: bool,
     pub show_hud: bool,
+    /// VRAM-resident minimap image, re-baked whenever the circuit changes.
+    pub minimap_texture: TextureSlot,
     pub current_track: &'static TrackDef,
     pub current_track_idx: usize,
     pub fb: FrameBuffer,
@@ -119,7 +124,7 @@ impl ArduracerGame {
             state_mgr.current = GameState::MainMenu;
         }
 
-        ArduracerGame {
+        let game = ArduracerGame {
             frame_counter: 0,
             player,
             rivals,
@@ -129,6 +134,7 @@ impl ArduracerGame {
             timer,
             pause: PauseMenu::new(),
             paused: false,
+            minimap_texture: TextureSlot::new(crate::gpu::texlayout::MAX_DIM),
             show_hud: true,
             current_track: track,
             current_track_idx: 0,
@@ -139,7 +145,11 @@ impl ArduracerGame {
             ghost: LapGhostRecorder::new(0),
             start: StartSequence::new(),
             memcard,
-        }
+        };
+        // The boot track never goes through `load_track`, so bake its minimap
+        // here or the HUD would blit an empty texture until the first load.
+        bake_minimap(&game.minimap_texture, game.current_track);
+        game
     }
 
     /// Loads and resets the active circuit.
@@ -149,6 +159,9 @@ impl ArduracerGame {
         self.current_track = ALL_TRACKS[idx];
         self.ghost.reset(idx as u8);
         self.reset_race();
+        // Re-bake the minimap for the new circuit. Once per load: the image is
+        // static for the whole race, so this must not be per-frame (TASK-1202).
+        bake_minimap(&self.minimap_texture, self.current_track);
 
         // Play the CD-DA theme corresponding to the active cup:
         // Cup 1 (Tracks 1-6) -> CD-DA Track 3 ("Asphalt Adrenaline" Eurobeat)
@@ -597,7 +610,14 @@ impl ArduracerGame {
 
                     // i. In-Game HUD overlay (Select hides it for clean screenshots)
                     if self.show_hud {
-                        render_hud(&self.player, &self.timer, track, player_rank, &self.rivals);
+                        render_hud(
+                            &self.player,
+                            &self.timer,
+                            track,
+                            player_rank,
+                            &self.rivals,
+                            &self.minimap_texture,
+                        );
                     }
                 }
                 GameState::Results => {

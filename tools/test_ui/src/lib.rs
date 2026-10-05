@@ -33,6 +33,9 @@ mod effects_sim;
 #[path = "../../../game/src/gpu/palette.rs"]
 mod palette;
 
+#[path = "../../../game/src/gpu/texlayout.rs"]
+mod texlayout;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -2070,5 +2073,141 @@ mod ui_defect_tests {
             menu.tuning.top_speed, DEFAULT_SLIDER,
             "the default preset is not the default setup"
         );
+    }
+}
+
+/// TASK-1204: the game had no texture pipeline at all, and TASK-1202's minimap
+/// burned ~43 % of the frame rebuilding a static image.
+///
+/// What is checkable headlessly is the *arithmetic* -- where the slot lives, that
+/// it cannot collide with a framebuffer, that the quantiser agrees with the
+/// polygon path, and that the bake covers the whole circuit. The DMA upload and
+/// the sprite blit are MMIO and need hardware.
+#[cfg(test)]
+mod texture_pipeline_tests {
+    use super::palette::to_bgr555;
+    use super::texlayout::{
+        minimap_colour, minimap_step, pack_bgr555, slot_overlaps_framebuffers, MAX_DIM,
+        MINIMAP_INNER, SLOT_BYTES, TEXTURE_X, TEXTURE_Y,
+    };
+    use arduracer_core::TrackTile;
+
+    #[test]
+    fn the_texture_quantiser_agrees_with_the_polygon_one() {
+        // If these diverged, the same RGB would be one colour in a polygon and
+        // another in a sprite.
+        for (r, g, b) in [
+            (0u8, 0u8, 0u8),
+            (255, 255, 255),
+            (44, 46, 52),
+            (40, 42, 48),
+            (225, 30, 45),
+            (206, 218, 232),
+            (1, 2, 3),
+        ] {
+            assert_eq!(
+                pack_bgr555(r, g, b),
+                to_bgr555((r, g, b)),
+                "({r},{g},{b}) quantises differently in the two paths"
+            );
+        }
+    }
+
+    /// Const-evaluated, because these are layout facts rather than runtime
+    /// behaviour -- clippy rejects `assert!` on constants, and rightly so: they
+    /// are also asserted at compile time in `texlayout.rs`. Re-checking them here
+    /// documents the invariants from the test side.
+    const fn no_overlap() -> bool {
+        !slot_overlaps_framebuffers() && TEXTURE_X >= super::texlayout::SCREEN_W
+    }
+
+    const fn fits_vram() -> bool {
+        TEXTURE_X + MAX_DIM <= 1024 && TEXTURE_Y + MAX_DIM <= 512
+    }
+
+    #[test]
+    fn the_slot_does_not_overlap_a_framebuffer() {
+        // The invariant an earlier draft got wrong: placing the slot at Y 480
+        // puts it inside the second framebuffer's Y range.
+        assert!(no_overlap(), "the slot overlaps a framebuffer");
+    }
+
+    #[test]
+    fn the_slot_fits_in_vram() {
+        assert!(fits_vram(), "the slot overflows VRAM");
+    }
+
+    /// 64 x 64 at 2 bytes per pixel. The number the module's VRAM budget commits
+    /// to; if this changes, that table is wrong.
+    #[test]
+    fn the_slot_costs_the_documented_vram() {
+        assert_eq!(MAX_DIM, 64);
+        assert_eq!(SLOT_BYTES, 8_192);
+    }
+
+    /// Every tile type must be legible on the minimap: not transparent black, and
+    /// not the same colour as another tile type.
+    #[test]
+    fn every_tile_type_has_a_distinct_legible_minimap_colour() {
+        let tiles = [
+            TrackTile::StartFinish,
+            TrackTile::Checkpoint,
+            TrackTile::Curb,
+            TrackTile::BoostPad,
+            TrackTile::Barrier,
+            TrackTile::Tarmac,
+            TrackTile::OffRoad,
+            TrackTile::OilSlick,
+        ];
+        let mut seen: Vec<(TrackTile, u16)> = Vec::new();
+        for tile in tiles {
+            let (r, g, b) = minimap_colour(tile);
+            let word = to_bgr555((r, g, b));
+            assert_ne!(word, 0, "{tile:?} renders as transparent black");
+            for (other, other_word) in &seen {
+                assert_ne!(
+                    word, *other_word,
+                    "{tile:?} and {other:?} are the same colour on the minimap"
+                );
+            }
+            seen.push((tile, word));
+        }
+    }
+
+    /// The bake must cover the whole grid, or a tile outside the composed region
+    /// leaves a hole in the circuit outline.
+    #[test]
+    fn the_bake_covers_every_tile_of_the_largest_circuits() {
+        for (w, h) in [(38u8, 38u8), (40, 40), (30, 30), (4, 4)] {
+            let step_x = minimap_step(w);
+            let step_y = minimap_step(h);
+            let last_x = (w as i32 - 1) * step_x;
+            let last_y = (h as i32 - 1) * step_y;
+            let stamp_w = step_x.max(1) + 1;
+            let stamp_h = step_y.max(1) + 1;
+            assert!(
+                last_x + stamp_w <= MAX_DIM as i32,
+                "{w}x{h}: the last column ends at {}, past the {MAX_DIM}-px slot",
+                last_x + stamp_w
+            );
+            assert!(
+                last_y + stamp_h <= MAX_DIM as i32,
+                "{w}x{h}: the last row ends at {}, past the {MAX_DIM}-px slot",
+                last_y + stamp_h
+            );
+        }
+    }
+
+    /// The step must never be zero, or every tile would stack on one pixel.
+    #[test]
+    fn the_bake_step_is_never_zero() {
+        for w in [0u8, 1, 2, 10, 30, 38, 40, 255] {
+            assert!(minimap_step(w) >= 1, "step collapsed for width {w}");
+        }
+    }
+
+    #[test]
+    fn the_minimap_inner_area_is_the_documented_size() {
+        assert_eq!(MINIMAP_INNER, 48, "the 56x56 panel has a 48px inner area");
     }
 }
