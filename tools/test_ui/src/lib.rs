@@ -27,6 +27,9 @@ mod car_geometry;
 #[path = "../../../game/src/ui/tuning_input.rs"]
 mod tuning_input;
 
+#[path = "../../../game/src/gpu/effects_sim.rs"]
+mod effects_sim;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -765,8 +768,8 @@ mod start_tests {
 /// Vehicle polygon geometry. `car_renderer.rs` draws through `psx_gpu` and so
 /// cannot be linked on the host, but the vertex maths behind it is pure integer
 /// arithmetic and is exactly where TASK-1203's bug lived.
+#[cfg(test)]
 mod car_geometry_tests {
-    #[allow(unused_imports)]
     use super::car_geometry::{make_quad, make_rect_at, twice_area, Rot};
 
     /// The eight cardinal headings plus four diagonals, in BAMs (1024 per
@@ -883,8 +886,8 @@ mod car_geometry_tests {
 }
 
 /// TASK-1209: the pause menu opened itself on frame 1 of a race.
+#[cfg(test)]
 mod pause_start_arming_tests {
-    #[allow(unused_imports)]
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
 
     const NOTHING: PauseInput = PauseInput {
@@ -999,10 +1002,9 @@ mod pause_start_arming_tests {
 /// The invariant that matters is therefore not "the sliders feel right" but
 /// "no setup the garage can produce is outside the range the card write
 /// accepts". These tests assert that as a property over a long random walk.
+#[cfg(test)]
 mod tuning_budget_tests {
-    #[allow(unused_imports)]
     use super::tuning_input::{Reject, Slider, TuningInput, TuningMenu};
-    #[allow(unused_imports)]
     use arduracer_core::tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
 
     const IDLE: TuningInput = TuningInput {
@@ -1465,5 +1467,248 @@ mod tuning_budget_tests {
         // The gauge and the gate both index off these constants; if a slider
         // ever started outside the range the arithmetic would be nonsense.
         assert!((MIN_SLIDER..=MAX_SLIDER).contains(&DEFAULT_SLIDER));
+    }
+}
+
+/// TASK-1206: particles and skidmarks were emitted but effectively invisible.
+#[cfg(test)]
+mod effects_tests {
+    use super::effects_sim::{
+        ParticleSystem, ParticleType, SkidmarkBuffer, MAX_PARTICLES, MAX_SKIDMARKS,
+        SKIDMARK_FADE_FROM, SKIDMARK_LIFE, SMOKE_LIFE, SPARK_LIFE,
+    };
+    use arduracer_core::{Fixed, Vec2};
+
+    const SOMEWHERE: Vec2 = Vec2::new(Fixed::from_int(400), Fixed::from_int(400));
+
+    /// The ring is stamped at most once per frame, so a mark cannot outlive the
+    /// buffer or it is always overwritten mid-fade.
+    #[test]
+    fn a_skidmark_outlives_the_buffer_that_holds_it() {
+        assert!(
+            SKIDMARK_LIFE as usize <= MAX_SKIDMARKS,
+            "life {SKIDMARK_LIFE} exceeds the {MAX_SKIDMARKS}-slot ring, so every \
+             mark is overwritten before it fades"
+        );
+    }
+
+    #[test]
+    fn a_skidmark_actually_reaches_its_faded_stage() {
+        // The regression: at life 180 against a 96-slot ring the fade threshold
+        // was unreachable in practice.
+        let mut marks = SkidmarkBuffer::new();
+        marks.emit(SOMEWHERE, 0);
+        let mut saw_fresh = false;
+        let mut saw_faded = false;
+        for _ in 0..SKIDMARK_LIFE {
+            let (_, faded) = marks.visible().next().expect("mark must be live");
+            if faded {
+                saw_faded = true;
+            } else {
+                saw_fresh = true;
+            }
+            marks.tick();
+        }
+        assert!(saw_fresh, "the mark was never drawn as fresh rubber");
+        assert!(
+            saw_faded,
+            "the mark never reached its faded stage, so the fade branch is dead code"
+        );
+    }
+
+    #[test]
+    fn a_skidmark_expires_rather_than_lingering() {
+        let mut marks = SkidmarkBuffer::new();
+        marks.emit(SOMEWHERE, 0);
+        assert_eq!(marks.live_count(), 1);
+        for _ in 0..SKIDMARK_LIFE {
+            marks.tick();
+        }
+        assert_eq!(marks.live_count(), 0, "the mark outlived its lifetime");
+    }
+
+    #[test]
+    fn the_fade_threshold_is_inside_the_lifetime() {
+        assert!(
+            (SKIDMARK_FADE_FROM as usize) < SKIDMARK_LIFE as usize,
+            "a fade threshold at or past the lifetime is unreachable"
+        );
+    }
+
+    #[test]
+    fn a_continuous_slide_fills_the_ring_and_stays_stable() {
+        // Emitting every frame for longer than the ring is deep must not grow
+        // the live count without bound.
+        let mut marks = SkidmarkBuffer::new();
+        for frame in 0..(MAX_SKIDMARKS * 3) {
+            marks.emit(SOMEWHERE, frame as u16);
+            marks.tick();
+        }
+        assert!(
+            marks.live_count() <= MAX_SKIDMARKS,
+            "live marks exceeded the ring capacity"
+        );
+        // Once the ring is saturated it stays saturated: a slot is reclaimed
+        // only as it is reused, so the count sits at capacity less the one slot
+        // whose life expires this frame.
+        assert!(
+            marks.live_count() >= MAX_SKIDMARKS - 1,
+            "the ring never filled: only {} of {MAX_SKIDMARKS} slots live",
+            marks.live_count()
+        );
+    }
+
+    /// Smoke used to be emitted at the car's exact centre with zero velocity,
+    /// so it never drifted clear of the opaque body quad drawn over it.
+    #[test]
+    fn smoke_drifts_away_from_where_it_was_emitted() {
+        let mut particles = ParticleSystem::new();
+        assert!(particles.emit_smoke(SOMEWHERE));
+        let born = particles
+            .pool
+            .iter()
+            .find(|p| p.ptype == ParticleType::TireSmoke)
+            .expect("a puff must exist")
+            .pos;
+        assert_ne!(born, SOMEWHERE, "the puff was born inside the car");
+
+        let mut moved = false;
+        for _ in 0..8 {
+            particles.tick();
+            let now = particles
+                .pool
+                .iter()
+                .find(|p| p.ptype == ParticleType::TireSmoke)
+                .expect("the puff must still exist")
+                .pos;
+            if (now.y - born.y).abs() > Fixed::from_int(2) {
+                moved = true;
+            }
+        }
+        assert!(
+            moved,
+            "smoke never drifted; it sat on the car and was painted over"
+        );
+    }
+
+    #[test]
+    fn smoke_slows_as_it_disperses() {
+        let mut particles = ParticleSystem::new();
+        particles.emit_smoke(SOMEWHERE);
+        let idx = particles
+            .pool
+            .iter()
+            .position(|p| p.ptype == ParticleType::TireSmoke)
+            .unwrap();
+        let launch = particles.pool[idx].vel.y.raw().abs();
+        for _ in 0..6 {
+            particles.tick();
+        }
+        assert!(
+            particles.pool[idx].vel.y.raw().abs() < launch,
+            "smoke did not decelerate"
+        );
+    }
+
+    /// `max_life` used to be written but never read; the renderer branched on
+    /// absolute `life` bands, so appearance depended on the countdown value
+    /// rather than on the particle's age.
+    #[test]
+    fn age_fraction_runs_from_birth_to_expiry() {
+        let mut particles = ParticleSystem::new();
+        particles.emit_smoke(SOMEWHERE);
+        let idx = particles
+            .pool
+            .iter()
+            .position(|p| p.ptype == ParticleType::TireSmoke)
+            .unwrap();
+
+        let birth = particles.pool[idx].age_fraction();
+        assert_eq!(birth, 0, "a newborn particle reported as fully aged");
+
+        // Tick to the last live frame. The puff is culled on the tick after
+        // that, so the final live frame is `life == 1`, not `life == 0`.
+        let mut previous = birth;
+        for _ in 0..(SMOKE_LIFE - 1) {
+            particles.tick();
+            let age = particles.pool[idx].age_fraction();
+            assert!(age >= previous, "age went backwards: {previous} then {age}");
+            previous = age;
+        }
+        assert!(
+            previous >= 240,
+            "the puff never approached full age: {previous}"
+        );
+        // And once it is culled, the fraction saturates rather than wrapping.
+        particles.tick();
+        assert_eq!(
+            particles.pool[idx].age_fraction(),
+            255,
+            "an expired particle did not report full age"
+        );
+    }
+
+    #[test]
+    fn age_fraction_is_monotonic_for_sparks_too() {
+        let mut particles = ParticleSystem::new();
+        particles.emit_sparks(SOMEWHERE, Vec2::new(Fixed::ONE, Fixed::ZERO));
+        let idx = particles
+            .pool
+            .iter()
+            .position(|p| p.ptype == ParticleType::Sparks)
+            .unwrap();
+        assert_eq!(particles.pool[idx].age_fraction(), 0);
+        for _ in 0..SPARK_LIFE {
+            particles.tick();
+        }
+        assert_eq!(particles.live_count(), 0, "sparks outlived their lifetime");
+    }
+
+    /// A dead particle must report a usable fraction rather than dividing by a
+    /// zero `max_life`.
+    #[test]
+    fn a_dead_particle_reports_full_age_instead_of_dividing_by_zero() {
+        let system = ParticleSystem::new();
+        let p = system.pool[0];
+        assert_eq!(p.max_life, 0);
+        assert_eq!(p.age_fraction(), 255);
+    }
+
+    #[test]
+    fn sparks_fly_outward_from_the_contact_normal() {
+        let mut particles = ParticleSystem::new();
+        let emitted = particles.emit_sparks(SOMEWHERE, Vec2::new(Fixed::ZERO, Fixed::ONE));
+        assert_eq!(emitted, 3, "all three spark directions must be emitted");
+        for p in particles.pool.iter().filter(|p| p.ptype.is_live()) {
+            assert!(p.vel.length() > Fixed::ZERO, "a spark was emitted at rest");
+        }
+    }
+
+    #[test]
+    fn the_pool_does_not_overflow() {
+        let mut particles = ParticleSystem::new();
+        for _ in 0..(MAX_PARTICLES + 20) {
+            particles.emit_smoke(SOMEWHERE);
+        }
+        assert_eq!(
+            particles.live_count(),
+            MAX_PARTICLES,
+            "the pool exceeded its capacity instead of refusing new particles"
+        );
+    }
+
+    #[test]
+    fn exhausted_particles_are_reclaimed() {
+        let mut particles = ParticleSystem::new();
+        particles.emit_smoke(SOMEWHERE);
+        assert_eq!(particles.live_count(), 1);
+        for _ in 0..SMOKE_LIFE {
+            particles.tick();
+        }
+        assert_eq!(particles.live_count(), 0);
+        assert!(
+            particles.emit_smoke(SOMEWHERE),
+            "a full pool of dead particles stopped accepting new ones"
+        );
     }
 }

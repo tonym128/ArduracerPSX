@@ -189,11 +189,48 @@ impl ArduracerGame {
         self.show_hud = true;
     }
 
+    /// Draws the five rivals back-to-front by screen row.
+    ///
+    /// Cars were previously drawn in array order with the player unconditionally
+    /// last, so two cars on the same stretch of road interpenetrated: the one
+    /// nearer the camera was painted over by the one behind it (TASK-1206).
+    /// Sorting by projected screen `y` gives a painter's order that matches
+    /// which car is actually in front.
+    fn render_rivals_sorted(&self, draw_y: i16) {
+        // Insertion sort by depth. Five elements: cheaper in code size than
+        // allocating a buffer.
+        let mut order = [0usize; 5];
+        let mut depth = [0i16; 5];
+        for (i, rival) in self.rivals.iter().enumerate() {
+            order[i] = i;
+            depth[i] = self.camera.world_to_screen(rival.state.position, draw_y).1;
+        }
+        for i in 1..order.len() {
+            let mut j = i;
+            while j > 0 && depth[order[j - 1]] > depth[order[j]] {
+                order.swap(j - 1, j);
+                j -= 1;
+            }
+        }
+        for idx in order {
+            let rival = &self.rivals[idx];
+            render_car(
+                &rival.state,
+                &self.camera,
+                draw_y,
+                false,
+                rival.profile.color,
+            );
+        }
+    }
+
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self, draw_y: i16) {
         psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 18, 20, 26);
         render_track(self.current_track, &self.camera, draw_y);
         self.skidmarks.render(&self.camera, draw_y);
+        // Same ordering rule as the live frame: smoke belongs on top of the cars
+        // it came from (TASK-1206).
         self.particles.render(&self.camera, draw_y);
         for rival in &self.rivals {
             render_car(
@@ -543,20 +580,17 @@ impl ArduracerGame {
                         self.timer.current_lap_ticks,
                         draw_y,
                     );
-                    // e. Particle effects
-                    self.particles.render(&self.camera, draw_y);
-                    // f. AI Rivals rendering
-                    for rival in &self.rivals {
-                        render_car(
-                            &rival.state,
-                            &self.camera,
-                            draw_y,
-                            false,
-                            rival.profile.color,
-                        );
-                    }
-                    // g. Player race car (Crimson Red: 220, 25, 45)
+                    // e. AI Rivals rendering, painter's order: farthest (smallest
+                    // screen y) first, so overlapping cars occlude correctly
+                    // instead of interpenetrating (TASK-1206).
+                    self.render_rivals_sorted(draw_y);
+                    // f. Player race car (Crimson Red: 220, 25, 45)
                     render_car(&self.player, &self.camera, draw_y, false, (220, 25, 45));
+                    // g. Particle effects, drawn *after* the cars. They used to be
+                    // drawn here (step e, before the cars) so the opaque body quad
+                    // painted over every puff, which is why smoke was invisible
+                    // even though it was being emitted (TASK-1206).
+                    self.particles.render(&self.camera, draw_y);
                     // h. Start lights, drawn above the HUD while the grid is
                     // still counting down. Always visible: they are the signal
                     // that the clock has not started yet.
