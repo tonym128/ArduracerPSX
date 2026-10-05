@@ -873,6 +873,9 @@ mod tests {
             checkpoint_count: 8,
             checkpoints: gates,
             tiles: Box::leak(Box::new(tiles)),
+            // No authored centreline: exercises the gate-derived fallback.
+            route: &[],
+            half_width: 0,
         }
     }
 
@@ -1470,6 +1473,9 @@ mod tests {
             checkpoint_count: 4,
             checkpoints: gates,
             tiles: Box::leak(Box::new(tiles)),
+            // No authored centreline: exercises the gate-derived fallback.
+            route: &[],
+            half_width: 0,
         };
         let mut car = VehicleState {
             position: Vec2::new(

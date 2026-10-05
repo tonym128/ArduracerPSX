@@ -117,25 +117,21 @@ impl Route {
     /// would put lap validation outside the world. Clamping here rather than in
     /// the interpolator keeps the curve's shape intact everywhere else.
     pub fn from_track(track: &crate::track::TrackDef) -> Self {
+        // Preferred: the control points the cooker rasterised the road along. Same
+        // curve, same parameterisation, so the centreline *is* the road rather than
+        // an approximation of it.
+        if !track.route.is_empty() {
+            return Route::from_nodes(track.route, DEFAULT_SAMPLES_PER_SPAN);
+        }
+        // Fallback for hand-written fixtures with no authored centreline: fit one
+        // through the gate centres. An approximation, and measurably not the road --
+        // which is exactly why the cooker emits the real thing.
         let mut nodes: [Vec2; 17] = [Vec2::ZERO; 17];
         let n = track.route_len().min(17);
         for (i, slot) in nodes.iter_mut().enumerate().take(n) {
             *slot = crate::track::TrackDef::gate_centre(&track.route_node(i));
         }
-        let mut route = Route::from_nodes(&nodes[..n], DEFAULT_SAMPLES_PER_SPAN);
-        route.clamp_into_bounds(track.world_width(), track.world_height());
-        route
-    }
-
-    /// Clamps every sample into `0..=world`, so the centreline cannot leave the
-    /// circuit that the gates it is derived from sit inside.
-    fn clamp_into_bounds(&mut self, world_w: i32, world_h: i32) {
-        for i in 0..self.count {
-            let max_x = (world_w - 1).max(0);
-            let max_y = (world_h - 1).max(0);
-            self.points[i].x = Fixed::from_int(self.points[i].x.to_int().clamp(0, max_x));
-            self.points[i].y = Fixed::from_int(self.points[i].y.to_int().clamp(0, max_y));
-        }
+        Route::from_nodes(&nodes[..n], DEFAULT_SAMPLES_PER_SPAN)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -145,6 +141,11 @@ impl Route {
     /// Number of centreline samples.
     pub fn len(&self) -> usize {
         self.count
+    }
+
+    /// Iterate the centreline samples in order.
+    pub fn points_iter(&self) -> impl Iterator<Item = Vec2> + '_ {
+        self.points[..self.count].iter().copied()
     }
 
     /// Centreline sample `i`.
@@ -367,10 +368,15 @@ fn catmull_rom(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: Fixed) -> Vec2 {
             c.raw() as i64,
             d.raw() as i64,
         );
+        // `a..d` are Q20.12 and `t`, `t2`, `t3` are Q12 fractions, so *every*
+        // product needs exactly one renormalising divide by `one`. Dividing the
+        // squared and cubed terms by `one^2` and `one^3` instead shrinks the
+        // curvature by 4096x and 16.7M x, which flattens the spline into a
+        // straight line between control points.
         let sum = (2 * b)
             + (-a + c) * t / one
-            + (2 * a - 5 * b + 4 * c - d) * t2 / (one * one)
-            + (-a + 3 * b - 3 * c + d) * t3 / (one * one * one);
+            + (2 * a - 5 * b + 4 * c - d) * t2 / one
+            + (-a + 3 * b - 3 * c + d) * t3 / one;
         sum >> 1
     }
 

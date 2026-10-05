@@ -16,7 +16,7 @@ use crate::timing::{CheckpointGate, ParTimes};
 /// Maximum checkpoints per track.
 pub const MAX_TRACK_CHECKPOINTS: usize = 16;
 /// Maximum dimension of a track grid (up to 32x32 tiles).
-pub const MAX_TRACK_DIM: usize = 32;
+pub const MAX_TRACK_DIM: usize = 40;
 /// Largest tile index the `u8` tile API can represent.
 ///
 /// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
@@ -117,6 +117,15 @@ pub struct TrackDef {
     pub checkpoints: [CheckpointGate; MAX_TRACK_CHECKPOINTS],
     /// Row-major tile grid, `height * width` entries.
     pub tiles: &'static [TrackTile],
+    /// Authored racing-line control points in world space, in order. The core
+    /// builds [`Route`](crate::Route) from these rather than from the checkpoint
+    /// gates, so the AI follows the centreline instead of a gate-to-gate chord.
+    /// Empty means "derive a fallback from the gates" (test fixtures only).
+    pub route: &'static [Vec2],
+    /// Half-width of the drivable corridor in world units. Runoff beyond it is
+    /// open ground. Zero means "unknown", which the fallback treats as a whole
+    /// tile wide.
+    pub half_width: u16,
 }
 
 impl TrackDef {
@@ -559,6 +568,9 @@ mod tests {
             checkpoint_count,
             checkpoints: gates,
             tiles: &TILES,
+            // No authored centreline: exercises the gate-derived fallback.
+            route: &[],
+            half_width: 0,
         }
     }
 
@@ -652,14 +664,15 @@ mod tests {
         // Past the largest circuit the index saturates at the ceiling.
         // `(v / TILE_SIZE) as u8` used to wrap mod 256 instead, so these all
         // came back as tile 0 (or some arbitrary low tile).
+        // Coordinates past the largest circuit (40 tiles) saturate.
         for (units, wrapped_before) in [
-            (2_048i32, 0u8), // 32 tiles
-            (4_096, 64),     // 64 tiles
-            (8_191, 127),    // 127 tiles
-            (16_383, 255),   // 255 tiles -- one below the wrap
-            (16_384, 0),     // 256 tiles -> wrapped to 0
-            (100_000, 26),   // 1562 tiles -> wrapped
-            (524_287, 31),   // 8191 tiles, the largest representable world
+            (2_624i32, 41), // 41 tiles -- one past the ceiling
+            (4_096, 64),    // 64 tiles
+            (8_191, 127),   // 127 tiles
+            (16_383, 255),  // 255 tiles -- one below the wrap
+            (16_384, 0),    // 256 tiles -> wrapped to 0
+            (100_000, 26),  // 1562 tiles -> wrapped
+            (524_287, 31),  // 8191 tiles, the largest representable world
         ] {
             assert_eq!(
                 TrackDef::tile_x_of(Fixed::from_int(units)),

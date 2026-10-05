@@ -211,6 +211,14 @@ fn main() {
         test_route_crossing_is_direction_aware
     );
     run_test!(
+        "Centreline stays on the road",
+        test_centreline_stays_on_the_road
+    );
+    run_test!(
+        "Runtime curve matches a float reference",
+        test_runtime_curve_matches_float_reference
+    );
+    run_test!(
         "Sprint Short synthesised a missing start line",
         test_sprint_short_has_a_start_line
     );
@@ -915,6 +923,108 @@ fn test_route_crossing_is_direction_aware() {
     );
 }
 
+fn test_centreline_stays_on_the_road() {
+    // The centreline is the road by construction: the cooker emits the control
+    // points it rasterised the corridor along, so the runtime evaluates the same
+    // curve. A sample on OffRoad means the two diverged again, and the line cannot
+    // be used for lap validation or for drawing the road.
+    for track in ALL_TRACKS.iter() {
+        assert!(
+            !track.route.is_empty(),
+            "{}: cooker emitted no TrackDef::route",
+            track.name
+        );
+        let route = Route::from_track(track);
+        assert!(!route.is_empty(), "{}: empty centreline", track.name);
+        for i in 0..route.len() {
+            let p = route.point(i);
+            assert!(
+                p.x.to_int() >= 0
+                    && p.y.to_int() >= 0
+                    && p.x.to_int() < track.world_width()
+                    && p.y.to_int() < track.world_height(),
+                "{}: sample {i} at ({},{}) is outside the {}x{} world",
+                track.name,
+                p.x.to_int(),
+                p.y.to_int(),
+                track.world_width(),
+                track.world_height()
+            );
+            let tile = track.tile_at(TrackDef::tile_x_of(p.x), TrackDef::tile_y_of(p.y));
+            // OilSlick and BoostPad are *placed on the racing surface* on
+            // purpose, so only OffRoad and Barrier count as "not the road".
+            assert!(
+                !matches!(tile, TrackTile::OffRoad | TrackTile::Barrier),
+                "{}: sample {i} sits on {tile:?} at tile ({},{})",
+                track.name,
+                TrackDef::tile_x_of(p.x),
+                TrackDef::tile_y_of(p.y)
+            );
+        }
+    }
+}
+
+fn test_runtime_curve_matches_float_reference() {
+    // The runtime evaluates the spline in Q20.12; the cooker evaluates it in f64.
+    // Agreement to within a rounding step is what makes the emitted centreline the
+    // same line as the painted road.
+    fn reference(points: &[Vec2], samples: usize) -> Vec<(f64, f64)> {
+        let n = points.len();
+        let mut out = Vec::new();
+        for i in 0..n {
+            let (p0, p1, p2, p3) = (
+                points[(i + n - 1) % n],
+                points[i],
+                points[(i + 1) % n],
+                points[(i + 2) % n],
+            );
+            for k in 0..samples {
+                let t = k as f64 / samples as f64;
+                let (t2, t3) = (t * t, t * t * t);
+                let cr = |a: f64, b: f64, c: f64, d: f64| {
+                    0.5 * (2.0 * b
+                        + (-a + c) * t
+                        + (2.0 * a - 5.0 * b + 4.0 * c - d) * t2
+                        + (-a + 3.0 * b - 3.0 * c + d) * t3)
+                };
+                // Exact control points: truncating them to whole world units would
+                // make the reference itself quantised and hide real runtime error.
+                let f = |v: Fixed| v.raw() as f64 / 4096.0;
+                let (ax, ay) = (f(p0.x), f(p0.y));
+                let (bx, by) = (f(p1.x), f(p1.y));
+                let (cx, cy) = (f(p2.x), f(p2.y));
+                let (dx, dy) = (f(p3.x), f(p3.y));
+                out.push((cr(ax, bx, cx, dx), cr(ay, by, cy, dy)));
+            }
+        }
+        out
+    }
+
+    for track in ALL_TRACKS.iter() {
+        let route = Route::from_track(track);
+        let expect = reference(track.route, arduracer_core::DEFAULT_SAMPLES_PER_SPAN);
+        assert_eq!(
+            expect.len(),
+            route.len(),
+            "{}: sample count differs from the reference",
+            track.name
+        );
+        for (i, (p, want)) in route.points_iter().zip(expect.iter()).enumerate() {
+            let dx = (p.x.to_int() as f64 - want.0).abs();
+            let dy = (p.y.to_int() as f64 - want.1).abs();
+            assert!(
+                dx.max(dy) <= 2.0,
+                "{}: sample {i} runtime ({},{}) vs reference ({:.1},{:.1})",
+                track.name,
+                p.x.to_int(),
+                p.y.to_int(),
+                expect[i].0,
+                expect[i].1
+            );
+        }
+    }
+}
+
 fn test_track_bounds_are_solid() {
     let track = ALL_TRACKS[0];
     let mut car = VehicleState {
@@ -1487,13 +1597,15 @@ fn test_all_24_tracks_integrity() {
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
+        // Upper bound tracks MAX_TRACK_DIM (40): the runoff margin pads every
+        // circuit with 4 tiles on each side.
         assert!(
-            track.width >= 10 && track.width <= 32,
+            track.width >= 10 && track.width <= 40,
             "Track {} width invalid",
             idx + 1
         );
         assert!(
-            track.height >= 10 && track.height <= 32,
+            track.height >= 10 && track.height <= 40,
             "Track {} height invalid",
             idx + 1
         );

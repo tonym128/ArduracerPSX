@@ -887,6 +887,8 @@ def build_super_stage(stage):
         "walls": stage.get("walls", {}),
         "par": (stage["bronze_cs"], stage["silver_cs"], stage["gold_cs"], stage["dev_cs"]),
         "poly": poly,
+        "route_pts": [(float(cx), float(cy)) for (cx, cy) in stage["centre"]],
+        "half_width": stage["half_width"],
     }
 
 
@@ -909,7 +911,9 @@ def heading_from_fx(raw_tile):
 
 def validate(idx, name, w, h, tiles, start, checkpoints):
     errors = []
-    if not (10 <= w <= 32 and 10 <= h <= 32):
+    # Upper bound tracks MAX_TRACK_DIM in the core crate (40): the margin pushes
+    # the largest art grids from 30x30 to 38x38.
+    if not (10 <= w <= 40 and 10 <= h <= 40):
         errors.append(f"dimensions {w}x{h} out of range")
     if tiles[start[1] * w + start[0]] != T_START:
         errors.append("start tile is not the start/finish line")
@@ -929,6 +933,36 @@ def validate(idx, name, w, h, tiles, start, checkpoints):
     if errors:
         print(f"  !! track {idx} ({name}): " + "; ".join(errors), file=sys.stderr)
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Runoff margin
+# ---------------------------------------------------------------------------
+
+# Tiles of drivable runoff added around every circuit's art grid.
+#
+# Without it the road runs to the edge of the grid, so the centreline bulges past
+# the boundary where no tile exists to be painted, and the camera can look off the
+# track. Measured on Arduboy Oval: 3 of 40 centreline samples landed on OffRoad in
+# the last column of a 10-wide grid, one tile from the nearest road.
+MARGIN_TILES = 4
+
+# Tarmac half-width in tiles for the legacy-derived circuits. Kept next to the
+# `paint_corridor` call because it is also emitted as the runtime's notion of the
+# corridor (`TrackDef::half_width`).
+CORRIDOR_HALF_WIDTH = 1.05
+
+
+def pad_grid(tiles, w, h, margin):
+    """Returns (padded_tiles, new_w, new_h) with `margin` tiles of OffRoad added on
+    every side; the original content sits at offset (margin, margin)."""
+    nw, nh = w + 2 * margin, h + 2 * margin
+    out = [T_OFFROAD] * (nw * nh)
+    for y in range(h):
+        src = y * w
+        dst = (y + margin) * nw + margin
+        out[dst:dst + w] = tiles[src:src + w]
+    return out, nw, nh
 
 
 # ---------------------------------------------------------------------------
@@ -992,7 +1026,20 @@ def emit_fx_track(code, idx, name, rows, calibration):
     if start_heading is None:
         start_heading = art_heading
     poly = corridor_polyline(start, checkpoints)
-    paint_corridor(tiles, w, h, start, checkpoints, poly=poly)
+    # The centreline control points, captured in the *same coordinate space* and
+    # from the same inputs as `poly`, then shifted with the grid below. Emitted
+    # as `TrackDef::route` so the runtime evaluates the identical curve instead of
+    # re-approximating one through the gate tiles -- which is how the centreline
+    # came to disagree with the road it was supposed to describe.
+    route_pts = ([(float(start[0]) + 0.5, float(start[1]) + 0.5)] +
+                 [(float(cx) + 0.5, float(cy) + 0.5) for (cx, cy) in checkpoints])
+    tiles, w, h = pad_grid(tiles, w, h, MARGIN_TILES)
+    start = (start[0] + MARGIN_TILES, start[1] + MARGIN_TILES)
+    checkpoints = [(cx + MARGIN_TILES, cy + MARGIN_TILES) for (cx, cy) in checkpoints]
+    poly = [(px + MARGIN_TILES, py + MARGIN_TILES) for (px, py) in poly]
+    route_pts = [(px + MARGIN_TILES, py + MARGIN_TILES) for (px, py) in route_pts]
+    paint_corridor(tiles, w, h, start, checkpoints, poly=poly,
+                   half_width=CORRIDOR_HALF_WIDTH)
     walls = FX_WALLS.get(idx, DEFAULT_WALLS)
     place_barrier_walls(tiles, w, h, poly, FX_ROAD_RADIUS, walls)
     # Re-stamp the gates: the corridor pass turns them into plain tarmac.
@@ -1006,10 +1053,13 @@ def emit_fx_track(code, idx, name, rows, calibration):
                              FX_ROAD_RADIUS, walls)
     if errors:
         return
-    emit_track_const(code, idx, name, w, h, tiles, start, start_heading, checkpoints, par)
+    emit_track_const(code, idx, name, w, h, tiles, start, start_heading,
+                     checkpoints, par, route_pts=route_pts,
+                     half_width=CORRIDOR_HALF_WIDTH)
 
 
-def emit_track_const(code, idx, name, w, h, tiles, start, start_heading, checkpoints, par):
+def emit_track_const(code, idx, name, w, h, tiles, start, start_heading,
+                     checkpoints, par, route_pts=None, half_width=None):
     """`par` is (bronze, silver, gold, dev) in 60 Hz ticks."""
     bronze, silver, gold, dev = par
     var_tiles = f"TRACK_{idx:02d}_TILES"
@@ -1063,6 +1113,14 @@ def emit_track_const(code, idx, name, w, h, tiles, start, start_heading, checkpo
             code.append("        EMPTY_GATE,")
     code.append("    ],")
     code.append(f"    tiles: &{var_tiles},")
+    code.append("    route: &[")
+    for (cx, cy) in (route_pts or []):
+        code.append("        Vec2 {")
+        code.append(f"            x: Fixed({(int(cx) * TILE_SIZE + TILE_SIZE // 2) * 4096}),")
+        code.append(f"            y: Fixed({(int(cy) * TILE_SIZE + TILE_SIZE // 2) * 4096}),")
+        code.append("        },")
+    code.append("    ],")
+    code.append(f"    half_width: {int((half_width or 0) * TILE_SIZE)},")
     code.append("};")
     code.append("")
 
@@ -1119,7 +1177,9 @@ def generate_rust_code():
         else:
             emit_track_const(code, idx, built["name"], built["w"], built["h"],
                              built["tiles"], built["start"], built["start_heading"],
-                             built["checkpoints"], calibration[built["name"]])
+                             built["checkpoints"], calibration[built["name"]],
+                             route_pts=built.get("route_pts"),
+                             half_width=built.get("half_width"))
         all_tracks.append(f"TRACK_{idx:02d}")
 
     code.append(f"/// All {len(all_tracks)} official tracks in Arduracer PSX.")

@@ -82,6 +82,9 @@ fn synthetic_track(tiles: &'static [TrackTile]) -> TrackDef {
         checkpoint_count: 1,
         checkpoints,
         tiles,
+        // No authored centreline: exercises the gate-derived fallback.
+        route: &[],
+        half_width: 0,
     }
 }
 
