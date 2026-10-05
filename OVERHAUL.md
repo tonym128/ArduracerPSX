@@ -63,8 +63,40 @@ are FX-derived: `tools/track_cook/convert_levels.py` reads
 `ArduRacerFx/Levels/*.csv`. The remaining work is authored geometry, not
 spline correction.
 
-The investigation is preserved below because it shows what was ruled out, and
-the failures that ruled it out are now regression tests.
+### The test that blocked the merge, and why it was never a regression
+
+This branch sat unmerged for several sessions because
+`a_wedged_car_can_reverse_out_of_a_wall` failed deterministically (5/5 with the
+diff, 5/5 without). It was never a physics regression. Two independent faults had
+left three wall tests reading a wall that no longer existed:
+
+- The cooker now pads every circuit with four tiles of `OffRoad` runoff. Track 1
+  contains **zero** `Barrier` tiles, so a car placed at (560, 320) and driven east
+  was travelling down open road. One test failed loudly; the other two passed
+  *vacuously*.
+- `ticks_trapped_against_wall` started from `VehicleState::default()`, which sits
+  at (0, 0) -- the grid corner -- where `tick_on_track` will not move a car. It
+  spent all 600 ticks stationary, so it reported zero for as long as it existed.
+  That test had been measuring nothing since it was written.
+
+The third fault was in the assertion itself. `a_wall_hit_is_always_recoverable_
+without_respawning` summed every spinning tick and compared against
+`SPINOUT_TICKS * 2`. But the original bug report was "569 of 600 ticks *stuck*",
+so the meaningful quantity is the **longest consecutive run**, and holding the
+accelerator into a wall legitimately keeps re-pinning the car. Measured against a
+real wall, the longest single lock is exactly `SPINOUT_TICKS` (60): the spin
+window self-expires, and braking frees the car in 23 ticks. No correct
+implementation can satisfy the old total-ticks threshold.
+
+The three tests now use a purpose-built 14x10 fixture with a solid east wall, and
+each asserts non-vacuity -- that a wall is present, that the car reaches it, and
+that it spins at all. A green wall test that measures nothing is worse than a
+failing one.
+
+The lesson worth keeping: bisecting a diff cannot find this. Every bisection step
+kept pointing at the physics, because the physics was never involved. The cause
+was in the *fixture's* relationship to generated data, which no amount of
+reverting source files would reveal.
 
 What that leaves, as the next thing to investigate rather than assume:
 

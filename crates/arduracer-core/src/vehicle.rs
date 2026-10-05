@@ -1047,24 +1047,142 @@ mod tests {
     // bug 1: wall contact must be a penalty, not a death sentence
     // ========================================================================
 
-    /// Drives into a wall at speed on `track` and returns how many ticks the car
-    /// spent unable to recover without pressing respawn.
-    fn ticks_trapped_against_wall(track: &TrackDef) -> u32 {
-        let mut car = VehicleState::default();
+    /// A 14x10 circuit with a solid Barrier column down its east side.
+    ///
+    /// These three tests used to drive into the east wall of `ALL_TRACKS[0]`.
+    /// That stopped working when the cooker padded every circuit with four tiles
+    /// of `OffRoad` runoff (TASK-1210's sibling change, `fix/owned-levels-and-route`):
+    /// track 1 has since contained **zero** Barrier tiles, so the car drove into
+    /// open road at (560, 320) and never spun. One test failed loudly; the other
+    /// two went quietly vacuous, passing because they were measuring nothing.
+    ///
+    /// A purpose-built fixture is immune to level regeneration, and
+    /// `east_wall_is_solid` below asserts the wall is actually there.
+    fn track_with_east_wall() -> TrackDef {
+        const W: usize = 14;
+        const H: usize = 10;
+        const EAST_WALL_X: usize = 11; // tiles 11..13 solid, east of the road
+        let mut tiles = [TrackTile::Tarmac; W * H];
+        for ty in 0..H {
+            for tx in EAST_WALL_X..W {
+                tiles[ty * W + tx] = TrackTile::Barrier;
+            }
+        }
+        TrackDef {
+            name: "EAST WALL",
+            width: W as u8,
+            height: H as u8,
+            start_pos: Vec2::new(Fixed::from_int(96), Fixed::ZERO),
+            start_heading: 0,
+            start_gate: CheckpointGate {
+                x: 1,
+                y: 1,
+                width: 1,
+                height: 1,
+            },
+            par_times: ParTimes::default(),
+            checkpoint_count: 1,
+            checkpoints: [CheckpointGate::default(); crate::track::MAX_TRACK_CHECKPOINTS],
+            tiles: Box::leak(Box::new(tiles)),
+            // No authored centreline: these tests exercise the wall solver, not
+            // the racing line.
+            route: &[],
+            half_width: 0,
+        }
+    }
+
+    /// Guards [`track_with_east_wall`].
+    ///
+    /// Without this, a future edit to the fixture could make all three wall tests
+    /// pass by measuring nothing -- which is exactly how the two of them rotted
+    /// the first time.
+    #[test]
+    fn the_east_wall_fixture_really_has_a_wall() {
+        let track = track_with_east_wall();
+        let mut barriers = 0;
+        for y in 0..track.height {
+            for x in 0..track.width {
+                if track.tile_at(x, y) == TrackTile::Barrier {
+                    barriers += 1;
+                }
+            }
+        }
+        assert_eq!(
+            barriers,
+            3 * 10,
+            "the east-wall fixture lost its barrier column"
+        );
+        // And the cars these tests place must actually be able to reach it.
+        for start_x in [560, 630] {
+            let tx = TrackDef::tile_x_of(Fixed::from_int(start_x));
+            assert!(
+                track.tile_at(tx, 5) != TrackTile::Barrier,
+                "the car starts inside the wall at x={start_x}"
+            );
+        }
+        // There must be a solid tile somewhere east of both starting positions,
+        // with road in between -- that is what makes these tests meaningful.
+        for start_x in [560, 630] {
+            let start_tx = TrackDef::tile_x_of(Fixed::from_int(start_x));
+            assert_eq!(
+                track.tile_at(start_tx, 5),
+                TrackTile::Tarmac,
+                "the car does not start on road at x={start_x}"
+            );
+            let wall =
+                (start_tx + 1..track.width).find(|x| track.tile_at(*x, 5) == TrackTile::Barrier);
+            assert!(
+                wall.is_some(),
+                "no barrier east of x={start_x}: the car would drive into open road"
+            );
+        }
+    }
+
+    /// Drives into a wall at speed and returns the **longest consecutive run** of
+    /// ticks spent spinning.
+    ///
+    /// The original bug report was "569 of 600 ticks stuck in SpinOut", so the
+    /// invariant that matters is the length of the worst single lock, not the
+    /// total. That distinction is not cosmetic: holding the accelerator into a
+    /// wall *should* keep re-pinning the car, so the car spends ~300 of 600 ticks
+    /// spinning legitimately while never once being locked for longer than the
+    /// spin window. An earlier version of this test summed every spinning tick
+    /// and compared against `SPINOUT_TICKS * 2`, which no correct implementation
+    /// can satisfy -- and because it started from `VehicleState::default()` it
+    /// never reached a wall at all, so the threshold was never noticed.
+    fn longest_spin_run_against_wall(track: &TrackDef) -> u32 {
+        // Started deliberately, not from `default()`. `VehicleState::default()`
+        // sits at (0, 0) -- the grid corner -- and `tick_on_track` will not move
+        // a car out of bounds, so this helper spent all 600 ticks stationary and
+        // always reported `trapped == 0`. The test passed for as long as it
+        // existed while measuring nothing at all, which is why the loss of
+        // track 1's barriers went unnoticed alongside it.
+        let mut car = VehicleState {
+            position: Vec2::new(Fixed::from_int(560), Fixed::from_int(320)),
+            heading: 1024, // due east, into the wall
+            velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
+            speed: Fixed::from_int(3),
+            ..VehicleState::default()
+        };
         let input = VehicleInput {
             throttle: Fixed::ONE,
             nitro: true,
             ..VehicleInput::default()
         };
-        let mut trapped = 0u32;
+        let mut longest = 0u32;
+        let mut run = 0u32;
         for _ in 0..600 {
             car.tick_on_track(input, track);
-            // "Trapped" = not in control and not moving away from the wall.
             if car.drift.is_spinning() {
-                trapped += 1;
+                run += 1;
+                if run > longest {
+                    longest = run;
+                }
+            } else {
+                run = 0;
             }
         }
-        trapped
+        longest
     }
 
     #[test]
@@ -1073,11 +1191,16 @@ mod tests {
         // wall, because the spin-out disabled reverse and the steering, gave the
         // car no lateral friction at all, and the tick after the 60-tick window
         // expired began a fresh 60-tick spin.
-        let track = ALL_TRACKS[0];
-        let trapped = ticks_trapped_against_wall(track);
+        let track = track_with_east_wall();
+        let locked = longest_spin_run_against_wall(&track);
         assert!(
-            trapped < SPINOUT_TICKS as u32 * 2,
-            "{trapped}/600 ticks were spent spinning against the wall"
+            locked > 0,
+            "the car never spun at all, so this measured nothing"
+        );
+        assert!(
+            locked <= SPINOUT_TICKS as u32,
+            "the car was locked spinning for {locked} consecutive ticks, past the \
+             {SPINOUT_TICKS}-tick window: it can never drive away under power"
         );
     }
 
@@ -1085,7 +1208,7 @@ mod tests {
     fn a_wedged_car_can_reverse_out_of_a_wall() {
         // The player-facing escape hatch: brake, and the spin-out is cancelled
         // and the car backs off, with no respawn.
-        let track = ALL_TRACKS[0];
+        let track = track_with_east_wall();
         let mut car = VehicleState {
             position: Vec2::new(Fixed::from_int(560), Fixed::from_int(320)),
             heading: 1024, // due east
@@ -1099,10 +1222,15 @@ mod tests {
         // spinning and is merely grinding along the barrier.
         let gas = flat(Fixed::ONE, Fixed::ZERO);
         let mut spun = false;
+        // Where the car was when it hit. The "did it back off" assertion below is
+        // made relative to this rather than to a hard-coded x, because the old
+        // magic number (`< 620`) only ever described the old track-1 geometry.
+        let mut wall_x = car.position.x.to_int();
         for _ in 0..240 {
-            car.tick_on_track(gas, track);
+            car.tick_on_track(gas, &track);
             if car.drift.is_spinning() {
                 spun = true;
+                wall_x = car.position.x.to_int();
                 break;
             }
         }
@@ -1116,7 +1244,7 @@ mod tests {
         let mut cancelled_at = 0u32;
         let mut reversing_seen = false;
         for tick in 1..=120u32 {
-            car.tick_on_track(brake, track);
+            car.tick_on_track(brake, &track);
             if !car.drift.is_spinning() {
                 if cancelled_at == 0 {
                     cancelled_at = tick;
@@ -1134,11 +1262,12 @@ mod tests {
             reversing_seen,
             "the car never engaged reverse once the spin-out was cancelled"
         );
+        // Must be a clear retreat west of the contact point, not a nudge: the
+        // escape hatch is worthless if the car stays wedged.
         assert!(
-            car.position.x.to_int() < 620,
-            "the car never backed away from the wall: x={} (wall is at {})",
-            car.position.x.to_int(),
-            track.max_inside_x()
+            car.position.x.to_int() <= wall_x - 40,
+            "the car never backed away from the wall: x={} after hitting at {wall_x}",
+            car.position.x.to_int()
         );
     }
 
@@ -1304,9 +1433,16 @@ mod tests {
             nitro: true,
             ..VehicleInput::default()
         };
+        // Non-vacuity: the car must actually reach the wall. This test used to
+        // pass because track 1 had no barriers left in it at all.
+        let mut struck_wall = false;
         for _ in 0..300 {
             car.tick_on_track(gas, track);
+            if car.drift.is_spinning() {
+                struck_wall = true;
+            }
         }
+        assert!(struck_wall, "the car never reached the wall");
         assert!(
             car.speed > Fixed::ZERO,
             "the car against the east wall has no speed at all"
