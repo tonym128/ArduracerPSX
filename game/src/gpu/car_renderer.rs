@@ -11,103 +11,13 @@
 //! - Twin pulsing nitro boost flame plumes
 
 use crate::gpu::camera::Camera;
-use arduracer_core::{math::cos, math::sin, VehicleState};
+use crate::gpu::car_geometry::{make_quad, make_rect_at, transform_pt, Rot};
+use arduracer_core::VehicleState;
 use psx_gpu as gpu;
-
-#[inline(always)]
-fn transform_pt(cx: i16, cy: i16, u: i32, v: i32, cos_raw: i32, sin_raw: i32) -> (i16, i16) {
-    let x = cx as i32 + ((u * cos_raw + v * sin_raw) >> 12);
-    let y = cy as i32 + ((u * sin_raw - v * cos_raw) >> 12);
-    (x as i16, y as i16)
-}
-
-/// A cached heading, as the raw Q20.12 sine/cosine the vertex transform wants.
-///
-/// Bundled because every geometry helper needs both halves and passing them as
-/// two scalars pushed `make_quad`/`make_rect_at` over clippy's argument limit.
-#[derive(Copy, Clone)]
-struct Rot {
-    cos_raw: i32,
-    sin_raw: i32,
-}
-
-impl Rot {
-    #[inline(always)]
-    fn from_bams(angle: u16) -> Self {
-        Rot {
-            cos_raw: cos(angle).raw() as i32,
-            sin_raw: sin(angle).raw() as i32,
-        }
-    }
-}
-
-#[inline(always)]
-fn make_quad(
-    cx: i16,
-    cy: i16,
-    w_front: i32,
-    w_rear: i32,
-    l_front: i32,
-    l_rear: i32,
-    rot: Rot,
-) -> [(i16, i16); 4] {
-    [
-        transform_pt(cx, cy, -w_front, l_front, rot.cos_raw, rot.sin_raw),
-        transform_pt(cx, cy, w_front, l_front, rot.cos_raw, rot.sin_raw),
-        transform_pt(cx, cy, -w_rear, -l_rear, rot.cos_raw, rot.sin_raw),
-        transform_pt(cx, cy, w_rear, -l_rear, rot.cos_raw, rot.sin_raw),
-    ]
-}
 
 #[inline(always)]
 fn draw_line(p0: (i16, i16), p1: (i16, i16), col: (u8, u8, u8)) {
     gpu::draw_line_mono(p0.0, p0.1, p1.0, p1.1, col.0, col.1, col.2);
-}
-
-#[inline(always)]
-fn make_rect_at(
-    cx: i16,
-    cy: i16,
-    center_u: i32,
-    center_v: i32,
-    half_w: i32,
-    half_l: i32,
-    rot: Rot,
-) -> [(i16, i16); 4] {
-    [
-        transform_pt(
-            cx,
-            cy,
-            center_u - half_w,
-            center_v + half_l,
-            rot.cos_raw,
-            rot.sin_raw,
-        ),
-        transform_pt(
-            cx,
-            cy,
-            center_u + half_w,
-            center_v + half_l,
-            rot.cos_raw,
-            rot.sin_raw,
-        ),
-        transform_pt(
-            cx,
-            cy,
-            center_u - half_w,
-            center_v - half_l,
-            rot.cos_raw,
-            rot.sin_raw,
-        ),
-        transform_pt(
-            cx,
-            cy,
-            center_u + half_w,
-            center_v - half_l,
-            rot.cos_raw,
-            rot.sin_raw,
-        ),
-    ]
 }
 
 /// Renders a vehicle with hardware-rotated polygons, drop shadow, and visual effects.
@@ -176,7 +86,10 @@ pub fn render_car(
     } else {
         (25, 38, 55) // Deep polarized reflective glass
     };
-    let glass = make_quad(cx, cy, 4, 5, 4, -4, rot);
+    // `make_quad` negates `l_rear` itself, so this must be positive. Passing a
+    // negative length cancelled the negation and put all four vertices on the
+    // same row, giving the canopy zero area at every heading (TASK-1203).
+    let glass = make_quad(cx, cy, 4, 5, 4, 7, rot);
     gpu::draw_quad_flat(glass, glass_color.0, glass_color.1, glass_color.2);
 
     // Windshield front glare reflection line

@@ -144,4 +144,27 @@ impl PauseMenu {
     pub fn sync_edges(&mut self, input: PauseInput) {
         self.prev = input;
     }
+
+    /// Arms the menu for a race that is about to start.
+    ///
+    /// `Start` is a confirm button on the title, main menu and track select
+    /// screens in sequence, so a player who holds it while navigating loads the
+    /// race with the button still down. The baseline starts at "nothing held",
+    /// so the very first racing frame reads that as a fresh press and the pause
+    /// veil opens on frame 1 with the music stopped (TASK-1209).
+    ///
+    /// There is no pad to sample here, so treat *every* button as held: the
+    /// player then has to release before any of them can re-trigger. That is
+    /// the same contract `MainMenu` and `TrackSelectScreen` use for
+    /// `prev_confirm`.
+    pub fn arm_for_race_start(&mut self) {
+        self.prev = PauseInput {
+            start: true,
+            select: true,
+            cross: true,
+            circle: true,
+            up: true,
+            down: true,
+        };
+    }
 }

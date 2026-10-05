@@ -4,6 +4,7 @@
 //! particle systems, and the in-game HUD.
 
 pub mod camera;
+pub mod car_geometry;
 pub mod car_renderer;
 pub mod hud_renderer;
 pub mod particles;

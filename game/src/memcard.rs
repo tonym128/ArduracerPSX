@@ -215,11 +215,23 @@ impl MemoryCardManager {
     }
 
     /// Stores one of the three garage tuning presets.
-    pub fn store_tuning(&mut self, slot: usize, tuning: arduracer_core::CarTuning) {
-        if slot < 3 && tuning.is_valid() {
-            self.save_data.tuning_slots[slot] = tuning;
-            self.is_dirty = true;
+    ///
+    /// Returns `false` when the write was refused, so the caller can tell the
+    /// player instead of discarding their setup silently. This used to return
+    /// nothing and reject quietly: the garage allowed slider values outside
+    /// `is_valid`'s range, so an invalid setup was dropped here, `is_dirty`
+    /// stayed false, and the following `flush()` returned early with no error
+    /// anywhere on screen (TASK-1210).
+    pub fn store_tuning(&mut self, slot: usize, tuning: arduracer_core::CarTuning) -> bool {
+        if slot >= 3 {
+            return false;
         }
+        if !tuning.is_valid() {
+            return false;
+        }
+        self.save_data.tuning_slots[slot] = tuning;
+        self.is_dirty = true;
+        true
     }
 }
 

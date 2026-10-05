@@ -157,6 +157,11 @@ impl ArduracerGame {
         // Cup 4 (Tracks 19-24) -> CD-DA Track 6 ("Apex Predator" Trance)
         let cdda_track = 3 + ((idx / 6) as u8).min(3);
         self.audio.cdda.play_track(cdda_track);
+        // `Start` confirms through the title, main menu and track select, so a
+        // player can load a stage still holding it. Without this the first
+        // racing frame reads that as a fresh press and the pause veil opens
+        // itself with the music stopped (TASK-1209).
+        self.pause.arm_for_race_start();
         // A stage loaded: the engine synth may sound again. Still gated on
         // `!paused`, and `reset_race` below clears the veil, so this cannot arm
         // the engine while the pause menu is up.
@@ -170,7 +175,7 @@ impl ArduracerGame {
         self.player = VehicleState::new(
             track.start_pos,
             track.start_heading,
-            self.state_mgr.garage.tuning,
+            self.state_mgr.garage.tuning(),
         );
         self.rivals = spawn_rivals(track.start_pos, track.start_heading);
         self.camera = Camera::new(track.start_pos);
@@ -238,9 +243,13 @@ impl ArduracerGame {
                                 // Load the active preset from the memory card.
                                 let slot = self.memcard.save_data.active_tuning_slot as usize;
                                 if slot < 3 {
-                                    self.state_mgr.garage.tuning =
-                                        self.memcard.save_data.tuning_slots[slot];
+                                    self.state_mgr
+                                        .garage
+                                        .load_tuning(self.memcard.save_data.tuning_slots[slot]);
                                 }
+                                // A `Cross`/`Start` held on the main menu must
+                                // not save-and-exit on the garage's first frame.
+                                self.state_mgr.garage.sync_edges(&pad);
                                 self.state_mgr.current = GameState::Garage;
                             }
                             MenuItem::Records => {
@@ -254,12 +263,17 @@ impl ArduracerGame {
                 GameState::Garage => {
                     self.audio.ui_frame(pad.buttons.bits());
                     if self.state_mgr.garage.update(&pad) {
-                        self.player.tuning = self.state_mgr.garage.tuning;
+                        let tuning = self.state_mgr.garage.tuning();
+                        self.player.tuning = tuning;
                         // Persist the preset to the active save slot (TASK-602).
+                        // `store_tuning` reports a refusal: the garage's own
+                        // bounds now match `is_valid`, so this should not fire,
+                        // but a silent discard here would lose the player's work
+                        // with no indication (TASK-1210).
                         let slot = self.memcard.save_data.active_tuning_slot as usize;
-                        self.memcard
-                            .store_tuning(slot, self.state_mgr.garage.tuning);
-                        self.memcard.flush();
+                        if self.memcard.store_tuning(slot, tuning) {
+                            self.memcard.flush();
+                        }
                         self.state_mgr.current = GameState::MainMenu;
                     }
                     psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
@@ -329,6 +343,10 @@ impl ArduracerGame {
                                 PauseChoice::RestartRace => {
                                     self.reset_race();
                                     self.audio.enter_race();
+                                    // Same held-`Start` hazard as `load_track`:
+                                    // the restart happens from inside the veil,
+                                    // where the button is necessarily held.
+                                    self.pause.arm_for_race_start();
                                     // Restarting skips frames; adopt the buttons
                                     // held right now so the same press is not
                                     // re-read against the fresh race.

@@ -425,15 +425,62 @@ mod tests {
             gearing: 2,
         };
         assert!(!over_budget.is_valid());
-        m.store_tuning(0, over_budget);
+        assert!(
+            !m.store_tuning(0, over_budget),
+            "store_tuning must report the refusal so the caller can tell the player"
+        );
         assert_eq!(m.save_data.tuning_slots[0], CarTuning::default());
         assert!(!m.is_dirty, "a rejected tuning must not dirty the save");
 
-        m.store_tuning(3, valid);
+        assert!(
+            !m.store_tuning(3, valid),
+            "an out-of-range slot must be reported as refused"
+        );
         assert!(!m.is_dirty, "an out-of-range slot must not dirty the save");
 
-        m.store_tuning(0, valid);
+        assert!(m.store_tuning(0, valid), "a valid setup must be accepted");
         assert_eq!(m.save_data.tuning_slots[0], valid);
         assert!(m.is_dirty);
+    }
+
+    /// TASK-1210's actual failure mode: a setup the garage could build but the
+    /// card write refuses, with `is_dirty` left false so `flush` returned early
+    /// and the player was told nothing. The refusal must now be *visible* to
+    /// the caller rather than silent.
+    #[test]
+    fn a_refused_tuning_is_reported_so_the_caller_can_say_so() {
+        let mut m = MemoryCardManager::new();
+        // A slider at 8: outside the 1..=7 range `is_valid` checks.
+        let out_of_range = CarTuning {
+            top_speed: 8,
+            acceleration: 4,
+            handling: 4,
+            drift_stability: 2,
+            gearing: 2,
+        };
+        assert!(
+            !out_of_range.is_valid(),
+            "test setup must be invalid for this to mean anything"
+        );
+        assert!(!m.store_tuning(0, out_of_range));
+        assert!(!m.is_dirty);
+        // And the flush that used to be a silent no-op must still be a no-op,
+        // rather than writing the default over the player's setup.
+        let mut card = FaultCard::formatted();
+        // A blank card probes as a fresh profile; the point is that the refused
+        // setup leaves nothing to write.
+        assert_eq!(m.probe_with(&mut card), MemcardStatus::FreshProfile);
+        assert_eq!(
+            m.flush_with(&mut card),
+            m.status,
+            "flush must be a no-op while the save is clean"
+        );
+        let mut reloaded = MemoryCardManager::new();
+        reloaded.probe_with(&mut card);
+        assert_eq!(
+            reloaded.save_data.tuning_slots[0],
+            CarTuning::default(),
+            "a refused setup must not be written as anything else"
+        );
     }
 }
