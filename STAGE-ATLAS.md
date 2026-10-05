@@ -1,3 +1,10 @@
+> **Superseded in part.** The level authoring model changed after this document
+> was written: circuits are now **colour-coded images**, not tile grids or
+> parametric shapes. See [`LEVEL-FORMAT.md`](LEVEL-FORMAT.md) for the decision,
+> the palette, and the memory constraint that forces coarse-physics/author-fine.
+> Batch A below is kept for its validation work, which survives; its superellipse
+> circuit authoring does not.
+
 # STAGE ATLAS — authored circuits, streaming scenery, and props
 
 Programme plan for making the 24 circuits look and play like real stages rather

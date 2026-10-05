@@ -106,67 +106,134 @@ CURB_TILES = 0.65
 GRID_CLEARANCE_TILES = 3.0
 
 
-def _superellipse(rx, ry, exponent, phase, anchors):
-    """Samples a closed superellipse as evenly spaced anchors.
+def _rounded_loop(vertices, radii):
+    """Turns a closed polygon into anchors, filleting every vertex.
 
-    `x = rx * cos(t)^(2/e)`, `y = ry * sin(t)^(2/e)`. The exponent `e` is the
-    whole design knob:
+    This is what produces *shape*. A single superellipse cannot: raising its
+    exponent turns an oval into a stadium, and a stadium has no hairpin, no
+    right-angle corner and no esse. Every circuit came out looking like an oval
+    because that is all a superellipse is.
 
-    * `e = 2` is a plain ellipse -- no straights at all, everything is a corner.
-    * `e` around 4 is a fast sweepers' circuit.
-    * `e` around 8 is a stadium: long straights joined by tight, constant-radius
-      corners.
+    The polygon supplies the shape and the per-vertex radius supplies the
+    character: a small radius is a tight corner, a large one a sweeper, and a
+    near-180-degree vertex is a hairpin. The edge between two vertices is a
+    straight by construction, so "long straight then corner" is just "two
+    vertices far apart".
 
-    Sampling an analytic curve rather than filleting a polygon is deliberate.
-    Two earlier approaches both produced cusps, where the anchor polyline folded
-    back on itself and the runtime spline inherited a 140-degree kink:
+    ### The fillet geometry, which is easy to get subtly wrong
 
-    * **Fillet a closed polygon.** The arc centre is `r / sin(theta/2)` from the
-      vertex. Getting that wrong is invisible at exactly 90 degrees, where
-      `sin` and `cos` agree, and wrong everywhere else.
-    * **Straights plus corner angles.** Normalising the turns to sum to 360
-      closes the *angles* but not the *positions*: a circuit can turn exactly
-      once and still spiral away, because the straight lengths and radii do not
-      balance.
+    For a vertex with signed turn `theta` and fillet radius `r`:
 
-    A closed analytic curve cannot have either problem. It closes by
-    construction, it is smooth by construction, and where the straights are is a
-    direct consequence of the exponent.
+    * tangent distance along each edge is `r * |tan(theta / 2)|`;
+    * the arc centre is `r / |sin(theta / 2)|` from the vertex, along the
+      bisector.
+
+    Using `r / cos(theta / 2)` for the centre is the natural-looking mistake and
+    it **coincides at exactly 90 degrees**, where sin and cos agree -- so a
+    right-angle test case passes and every other corner is wrong. The arc then
+    misses its tangent point and the anchor polyline folds back on itself,
+    producing a cusp that the runtime spline inherits.
+
+    Radii are clamped so a fillet cannot overrun either adjacent edge, which is
+    what stops two corners on a short edge from overlapping.
     """
-    power = 2.0 / exponent
+    n = len(vertices)
+    if n != len(radii):
+        raise ValueError(f"{n} vertices but {len(radii)} radii")
+    if n < 3:
+        raise ValueError("a loop needs at least 3 vertices")
 
-    def at(t):
-        c, sn = math.cos(t), math.sin(t)
-        return (rx * math.copysign(abs(c) ** power, c),
-                ry * math.copysign(abs(sn) ** power, sn))
+    def sub(a, b):
+        return (a[0] - b[0], a[1] - b[1])
 
-    # Sample densely, then pick anchors at **equal arc-length** intervals.
-    #
-    # Sampling by curve parameter instead is what a naive implementation does,
-    # and it is wrong for a superellipse: at exponent 9 most of the parameter
-    # range maps to the four corners and very little to the straights, so the
-    # anchors bunch up on the corners and spread out along the straights --
-    # which is exactly backwards. The crowding also made two centreline samples
-    # nearly coincident, so `Route::nearest` reported a different arc for a
-    # hinted and a full scan at the same point.
-    dense = 2048
-    raw = [at(phase + 2.0 * math.pi * i / dense) for i in range(dense + 1)]
-    cum = [0.0]
-    for i in range(1, len(raw)):
-        cum.append(cum[-1] + math.hypot(raw[i][0] - raw[i - 1][0],
-                                        raw[i][1] - raw[i - 1][1]))
-    total = cum[-1]
+    def add(a, b):
+        return (a[0] + b[0], a[1] + b[1])
+
+    def scale(a, k):
+        return (a[0] * k, a[1] * k)
+
+    def length(a):
+        return math.hypot(a[0], a[1])
+
+    def norm(a):
+        m = length(a)
+        if m < 1e-9:
+            raise ValueError("duplicate consecutive vertices")
+        return (a[0] / m, a[1] / m)
+
+    edges = [norm(sub(vertices[(i + 1) % n], vertices[i])) for i in range(n)]
+
+    fillets = []
+    for i in range(n):
+        v = vertices[i]
+        u_in = edges[(i - 1) % n]
+        u_out = edges[i]
+        cross = u_in[0] * u_out[1] - u_in[1] * u_out[0]
+        dot = u_in[0] * u_out[0] + u_in[1] * u_out[1]
+        theta = math.atan2(cross, dot)  # signed turn, in (-pi, pi]
+        if abs(theta) < 1e-6:
+            fillets.append(None)
+            continue
+        tan_half = math.tan(theta / 2.0)
+        r = abs(radii[i])
+        tangent = r * abs(tan_half)
+        # Clamp against both adjacent edges so neighbouring fillets cannot meet.
+        prev_len = length(sub(v, vertices[(i - 1) % n]))
+        next_len = length(sub(vertices[(i + 1) % n], v))
+        # 0.42, not 0.5: at exactly half the shared edge the two neighbouring
+        # fillets meet, so `p_out` of one equals `p_in` of the next and the
+        # interior straight anchors collapse onto the arc endpoints. The
+        # resulting zero-length spans are what produced 135-degree cusps in the
+        # esses. The gap has to be positive, not merely non-negative.
+        limit = 0.42 * min(prev_len, next_len)
+        if tangent > limit:
+            tangent = limit
+            r = abs(tangent / tan_half)
+        p_in = sub(v, scale(u_in, tangent))
+        p_out = add(v, scale(u_out, tangent))
+        # Bisector direction is `u_out - u_in`, **not** `u_in + u_out`. The two
+        # have the same magnitude, so the distance formula is unaffected and the
+        # error hides in the direction: `u_in + u_out` points outboard on a left
+        # turn, putting the centre on the wrong side of the corner. The arc then
+        # misses `p_out` by a factor of sqrt(2) and the polyline cusps.
+        bis = norm(sub(u_out, u_in))
+        centre = add(v, scale(bis, r / abs(math.sin(theta / 2.0))))
+        fillets.append({
+            "theta": theta, "p_in": p_in, "p_out": p_out,
+            "centre": centre, "radius": r,
+        })
+
     pts = []
-    seg = 0
-    for i in range(anchors):
-        target = total * i / anchors
-        while seg < dense and cum[seg + 1] < target:
-            seg += 1
-        span = cum[seg + 1] - cum[seg]
-        t = (target - cum[seg]) / span if span > 1e-9 else 0.0
-        a, b = raw[seg], raw[seg + 1]
-        pts.append((round(a[0] + (b[0] - a[0]) * t, 2),
-                    round(a[1] + (b[1] - a[1]) * t, 2)))
+    for i in range(n):
+        f = fillets[i]
+        nxt = fillets[(i + 1) % n]
+        if f is None:
+            v = vertices[i]
+            pts.append((round(v[0], 2), round(v[1], 2)))
+            continue
+        steps = max(
+            2, int(round(abs(math.degrees(f["theta"])) / CORNER_ANCHOR_DEG))
+        )
+        a0 = math.atan2(f["p_in"][1] - f["centre"][1], f["p_in"][0] - f["centre"][0])
+        for k in range(steps + 1):
+            a = a0 + f["theta"] * (k / steps)
+            pts.append((
+                round(f["centre"][0] + math.cos(a) * f["radius"], 2),
+                round(f["centre"][1] + math.sin(a) * f["radius"], 2),
+            ))
+        if nxt is not None:
+            a, b = f["p_out"], nxt["p_in"]
+            # Interior anchors keep the straight collinear through Catmull-Rom.
+            # Three is better than two: the span out of a fillet's exit anchor
+            # is not straight, because the tangent there points into the corner.
+            # Skipped entirely when the gap is tiny, since anchors closer than
+            # this make the span shorter than the spline's own resolution.
+            gap = length(sub(b, a))
+            if gap > 3.0 * STRAIGHT_ANCHOR_TILES:
+                for k in (1, 2, 3):
+                    t = k / 4.0
+                    pts.append((round(a[0] + (b[0] - a[0]) * t, 2),
+                                round(a[1] + (b[1] - a[1]) * t, 2)))
     return pts
 
 

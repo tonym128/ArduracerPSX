@@ -1,0 +1,160 @@
+{
+  "$comment": "Authoring palette for Arduracer PSX circuits. An AI generating a level writes an image using ONLY these 16 RGB values. See LEVEL-FORMAT.md.",
+  "bits_per_cell": 4,
+  "cell_size_world_units": 64,
+  "palette": [
+    {
+      "index": 0,
+      "rgb": "#000000",
+      "name": "VOID",
+      "grip": null,
+      "top_speed": null,
+      "drivable": false,
+      "notes": "outside the circuit; never referenced"
+    },
+    {
+      "index": 1,
+      "rgb": "#3C3E44",
+      "name": "TARMAC",
+      "grip": 1.0,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "racing surface"
+    },
+    {
+      "index": 2,
+      "rgb": "#4A4C54",
+      "name": "TARMAC_WORN",
+      "grip": 0.98,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "subtle variation for painted lap lines"
+    },
+    {
+      "index": 3,
+      "rgb": "#E8E8F0",
+      "name": "KERB_WHITE",
+      "grip": 0.9,
+      "top_speed": 0.98,
+      "drivable": true,
+      "notes": "rumble curb; audio + haptic"
+    },
+    {
+      "index": 4,
+      "rgb": "#D8283C",
+      "name": "KERB_RED",
+      "grip": 0.9,
+      "top_speed": 0.98,
+      "drivable": true,
+      "notes": "rumble curb; must alternate with KERB_WHITE"
+    },
+    {
+      "index": 5,
+      "rgb": "#2E5A34",
+      "name": "GRASS",
+      "grip": 0.55,
+      "top_speed": 0.7,
+      "drivable": true,
+      "notes": "runoff"
+    },
+    {
+      "index": 6,
+      "rgb": "#6B5432",
+      "name": "GRAVEL",
+      "grip": 0.42,
+      "top_speed": 0.55,
+      "drivable": true,
+      "notes": "runoff, slower"
+    },
+    {
+      "index": 7,
+      "rgb": "#7A6090",
+      "name": "SAND",
+      "grip": 0.35,
+      "top_speed": 0.45,
+      "drivable": true,
+      "notes": "runoff, slowest"
+    },
+    {
+      "index": 8,
+      "rgb": "#8A1FB0",
+      "name": "OIL",
+      "grip": 0.02,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "near-zero lateral grip"
+    },
+    {
+      "index": 9,
+      "rgb": "#FF8A10",
+      "name": "BOOST",
+      "grip": 1.0,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "instant impulse along heading"
+    },
+    {
+      "index": 10,
+      "rgb": "#F2F2F2",
+      "name": "START_LINE",
+      "grip": 1.0,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "start/finish, also a lap gate"
+    },
+    {
+      "index": 11,
+      "rgb": "#00D2FF",
+      "name": "GATE",
+      "grip": 1.0,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "checkpoint gate"
+    },
+    {
+      "index": 12,
+      "rgb": "#2A2E38",
+      "name": "WALL",
+      "grip": null,
+      "top_speed": null,
+      "drivable": false,
+      "notes": "solid; blocks the car"
+    },
+    {
+      "index": 13,
+      "rgb": "#5A4632",
+      "name": "TUNNEL",
+      "grip": 1.0,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "tarmac + roof"
+    },
+    {
+      "index": 14,
+      "rgb": "#3A5A7A",
+      "name": "BRIDGE",
+      "grip": 1.0,
+      "top_speed": 1.0,
+      "drivable": true,
+      "notes": "tarmac; crosses below another section"
+    },
+    {
+      "index": 15,
+      "rgb": "#FF2E88",
+      "name": "SCENERY",
+      "grip": 0.5,
+      "top_speed": 0.6,
+      "drivable": true,
+      "notes": "palm/rock/fence/spectator base"
+    }
+  ],
+  "rules": [
+    "TARMAC must form exactly one closed connected ring; spurs and dead ends are errors.",
+    "The drivable ring is 2 to 3 cells wide. Wider reads as a car park.",
+    "Every drivable cell must be reachable from every other.",
+    "Every TARMAC cell must reach WALL or runoff within 6 cells.",
+    "KERB_WHITE and KERB_RED must alternate along a kerb edge.",
+    "BOOST, OIL, GATE and START_LINE must be surrounded by TARMAC.",
+    "VOID is forbidden inside the circuit bounding box."
+  ]
+}
