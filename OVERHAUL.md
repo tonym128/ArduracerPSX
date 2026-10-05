@@ -7,7 +7,12 @@ Planning document. Each step below is a proposal with a defined "done" condition
 through each circuit's already-ordered gate centres -- no level-pipeline change
 needed, and it matches the AI's own gate-to-gate line by construction).
 
-**Steps 3 and 4 are blocked, on a measured and still-unresolved cause.**
+**Steps 3 and 4 are blocked, on a cause that is now identified (see below).**
+The blocker is the *geometry source*, not the maths: the centreline still comes
+from fitting a spline through gates that the FX artwork implies, and steps 3/4
+should not be enabled until the circuits are authored on PSX terms. What follows
+records the investigation that led there, kept because the conclusion is
+non-obvious.
 Migrating lap validation to centreline-relative, direction-aware arc crossings
 works arithmetically -- a prototype scored forward laps and correctly refused
 reverse ones on all 24 circuits. But `tools/playtest`'s reference driver then
@@ -15,7 +20,7 @@ reverse ones on all 24 circuits. But `tools/playtest`'s reference driver then
 Serpent, Metropolis 10); the oval-style circuits recovered only after the driver
 was changed to follow the centreline with a lookahead.
 
-**The cause is not yet established, and an earlier guess in this document was
+**The cause *was* established, and an earlier guess in this document was
 wrong.** It was first attributed to Catmull-Rom overshoot at hairpins. Testing
 that directly refuted it:
 
@@ -32,6 +37,35 @@ that directly refuted it:
   spline tile *corners* to match the cooker's raw coordinates (3 -> 1, but other
   invariants broke); moving both cooker and core to tile *centres* (1 -> 2).
 
+### Root cause (found on `fix/owned-levels-and-route`)
+
+The runtime curve and the cooker's polyline were **not the same curve**. The
+Catmull-Rom basis terms were evaluated as
+
+```
++ (2*a - 5*b + 4*c - d) * t2 / (one * one)
++ (-a + 3*b - 3*c + d) * t3 / (one * one * one)
+```
+
+`t2` and `t3` are `t` and `t*t` squared and cubed respectively, so `one*one` and
+`one*one*one` are constants -- the intent was clearly `/ one`. The division
+collapsed each term by a factor of 4096 and 16.7 million, flattening the spline
+into straight segments between control points, which is why samples landed off
+the painted road at exactly the tightest corners and nowhere else. The cooker
+writes the road from its own polyline, so the two diverged while looking like
+the same formulation.
+
+With that fixed, `test_centreline_stays_on_the_road` passes on all 24 circuits
+and `test_runtime_curve_matches_float_reference` pins the runtime evaluation
+against an `f64` reference. Both the centreline-on-road invariant and the arc
+crossing maths are therefore sound. What is still missing is that the circuits
+are FX-derived: `tools/track_cook/convert_levels.py` reads
+`ArduRacerFx/Levels/*.csv`. The remaining work is authored geometry, not
+spline correction.
+
+The investigation is preserved below because it shows what was ruled out, and
+the failures that ruled it out are now regression tests.
+
 What that leaves, as the next thing to investigate rather than assume:
 
 1. Whether the runtime spline and the cooker's polyline are the *same* curve at
@@ -47,9 +81,11 @@ What that leaves, as the next thing to investigate rather than assume:
    samples by distorting the curve, which then breaks other invariants. Treat it
    as masking a level-data problem, not as the fix.
 
-Do **not** enable arc validation before this is resolved: it would reject
-legitimate laps on exactly the circuits where driving is hardest. The reference
-driver is the canary -- when step 2 lands, re-run `make playtest` before step 4.
+Arc validation is now safe to enable: the canary passes on every circuit. See
+`fix/owned-levels-and-route`, which is **not yet merged** because one core
+physics test (`a_wedged_car_can_reverse_out_of_a_wall`) regressed deterministically
+on it and the cause is still unknown. That is a separate problem from the
+geometry, and it should be understood before steps 3 and 4 ride in on top of it.
 
 **The level pipeline regenerates byte-identically.** Verified while starting
 step 1: `python3 tools/track_cook/convert_levels.py` rewrites `levels.rs` with an

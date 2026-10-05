@@ -492,15 +492,22 @@ would rather CI refuse to build than ship a placeholder.
 Comfortably inside the ~2,001,152-byte link region, and the `.bss` is dominated
 by fixed-size arenas rather than surprises: ghost telemetry 10.8 KB, memory-card
 scratch 8 KB, particles 64 × 32 B, skidmarks 96 × 24 B, FMV decode buffers
-128 KB.
+**260 KiB** *(corrected by TASK-1218: this was recorded as 128 KB; `VideoStorage`
+is 6 slots × 16 chunks × 2016 B plus a 64 KiB RLE buffer, a 5 KiB column buffer
+and a 2 KiB sector buffer -- 13.4 % of usable RAM, and far more than the ~59 KiB
+the FIFO actually needs. Reducing the ring would free ~200 KiB but changes
+playback depth, so it needs an emulator pass rather than a headless one.)*
 
 - [x] **I-cache locality** — the hot physics loop (`VehicleState::tick`) is a
   flat sequence of inline fixed-point ops with no dispatch and no allocation. No
   recursion, no `dyn`.
 - [x] **GPU DMA / ordering tables** — unchanged from Phase 3; the double-buffered
   OT path via `FrameBuffer::swap()` and DMA channel 2 is untouched by this pass.
-- [x] **VRAM** — the camera zoom is applied as an *integer* tile-size step so the
-  tilemap stays pixel-locked and cannot resample into garbage.
+- [x] **VRAM** — *(corrected by TASK-1218)*. This originally read "the camera
+  zoom is applied as an *integer* tile-size step". That described the pre-Batch-A
+  behaviour. Speed-reactive zoom now lives in `Camera::world_to_screen`, which
+  multiplies by a Q20.12 factor and is the single projection every layer goes
+  through, so zoom cannot drift between cars, particles, skidmarks and tiles.
 - [x] **SPU budget** — `game/src/audio/soundbank.rs` was unchanged; still well
   under the 200 KB target.
 
@@ -526,10 +533,15 @@ is a small fraction of the 16.67 ms slice on a 33.87 MHz R3000A.
   --render` dumps every circuit as ASCII for eyeball review.
 - [x] **Off-road feedback** — 0.35× speed cap, large-motor rumble, and the
   surface readout on the minimap (verge renders distinctly from tarmac).
-- [x] **Audio feedback** — engine RPM synth tracks the new speed scale; tire
-  squeal is driven by drift state, curb chatter reuses the skid voice, and crash
-  audio is now driven by the *authoritative* collision result instead of a
-  speed-delta heuristic that stopped working under the old integrator.
+- [x] Audio feedback — engine RPM synth tracks the new speed scale; tire
+  squeal is driven by drift state, and crash audio is driven by the
+  *authoritative* collision result instead of a speed-delta heuristic that
+  stopped working under the old integrator.
+  *(corrected by TASK-1207: "curb chatter reuses the skid voice" was false --
+  sharing the voice made it inaudible, because the drift state machine keys that
+  voice on and straight back off. Curb rumble now has its own voice. The crash
+  trigger is also edge-detected with a refractory period, since `hit_wall` is
+  true on every frame of contact.)*
 - [x] **Medal progression is real** — tuning measurably matters: the swept best
   setup is 6–25 % faster than default on every circuit (e.g. Arduboy Oval
   6.63 s → 5.38 s). Gold = default tune, Silver = default +12 %, Bronze =

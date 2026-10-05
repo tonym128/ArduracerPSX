@@ -25,9 +25,9 @@
 | :--- | :--- | :--- |
 | Formatting | `make fmt-check` | clean |
 | Lints (`-D warnings`) | `make clippy` | clean |
-| Game-logic suite | `make test` | **40 / 40** |
+| Host test suites | `make test` | **157** core, **45 / 45** game-logic, **16** memcard, **92** UI, **27** audio, **14** playtest |
 | Circuit playability | `make playtest` | **24 / 24** (player + 5 AI rivals, 5 laps each) |
-| MIPS build + RAM budget | `make exe` | 307 KB / 2 MB static (**14.6 %**) |
+| MIPS build + RAM budget | `make exe` | 555,556 B of statics = **26.5 %** of 2 MB, within the 50 %-of-usable ceiling |
 | Disc mastering | `make disc` | 185 MB BIN + CUE, 7 tracks (Plattypus 15 FPS FMV + full CD-DA soundtrack) |
 | Video Playback Gate | `make ci && make ci-disc` | **PASS** (15 FPS BS v2, 5 sectors/frame, 6-slot FIFO ring, DMA2 VRAM upload) |
 
@@ -222,6 +222,11 @@ defect log, and the documented deviations.
 - [x] **TASK-305**: Semi-transparent particle engine.
   - **Worktree**: `wt-gpu-renderer`
   - **Files**: `game/src/gpu/particles.rs`
+  - **Note (TASK-1218)**: this was originally marked `[x]` while **no
+    `BlendMode` was used anywhere** -- the particle fade was three discrete
+    opaque greys. `draw_quad_flat_blended` now exists and the ghost car, smoke
+    and skidmarks genuinely blend. The *additive* variant is still unused: the
+    smoke and skidmark passes use `BlendMode::Average`.
   - **Specs**:
     - Additive blending (`GPU_BLEND_ADD`) for sparks on wall contact, turbo flame exhaust.
     - Billowing tire smoke particles during hard drift slides.
@@ -424,7 +429,7 @@ Both of these are the same defect seen twice: the SPU voices owned by
 game loop (`main.rs`). Nothing ever silences a voice, so whatever volume a voice
 was last given stays latched on the hardware.
 
-- [ ] **TASK-1301**: Cut the car sound when a round ends.
+- [x] **TASK-1301**: Cut the car sound when a round ends.
   - **Problem**: entering `GameState::Results` stops `audio.tick()`, so the engine
     synthesizer keeps droning at the volume it held on the final racing frame, and
     any latched tire-squeal or impact voice keeps sounding over the results screen.
@@ -435,7 +440,7 @@ was last given stays latched on the hardware.
   - **Tests**: `tools/test_ui`-style host coverage that a voice's volume reaches
     zero after `silence()` and that `silence()` is idempotent.
 
-- [ ] **TASK-1302**: Remove the SFX / non-CD audio from the start screen.
+- [x] **TASK-1302**: Remove the SFX / non-CD audio from the start screen.
   - **Problem**: `EngineAudio::new()` initialises `current_vol: 0x1000`, i.e.
     **non-zero**, and on the title/attract screen `audio.tick()` never runs, so
     nothing ever writes the idle volume down. The engine voice is audible from
@@ -604,7 +609,7 @@ region) and `make ci-disc` all pass.
 
 ### Critical — graphics and frame pacing
 
-- [ ] **TASK-1201**: Frame synchronisation is absent, so double-buffering provides
+- [x] **TASK-1201**: Frame synchronisation is absent, so double-buffering provides
   no protection. The frame loop is a bare `wait_vblank(); fb.swap()`, and
   `FrameBuffer::swap()` writes its three `GP0(02h/10h)` words through raw
   `write_gp0` with no `wait_cmd_ready()` — unlike every other GP0 writer in the
@@ -615,6 +620,16 @@ region) and `make ci-disc` all pass.
   `queue_gp1_at_vblank` + `draw_done`) and switch the six full-screen clears from
   a rasterised `draw_rect_flat` (76,800 px/frame, ~90 % overdrawn) to
   `FrameBuffer::clear()` / `GP0(02h)`.
+  **Outcome (TASK-1218 sweep)**: Fixed in `d25be7a`. `AudioPolicy` gates `AudioSystem::tick`; `leave_race()`
+  on `Racing -> Results` cuts the engine before the tick that follows in the same
+  frame, and on `QuitToMenu`.
+  **Outcome (TASK-1218 sweep)**: Fixed in `d25be7a`. `EngineAudio::new()` starts at zero volume and the policy
+  leaves the race voices disarmed until a stage loads.
+  **Outcome (TASK-1218 sweep)**: Fixed. Presentation goes through `begin_deferred_swap` +
+  `queue_gp1_at_vblank` behind a GP0(1Fh) completion flag, `wait_cmd_ready()` was
+  added to `FrameBuffer::swap` and `apply_draw_target`, and the six rasterised
+  full-screen clears became single GP0 rectangle fills. **Needs an emulator pass**
+  to confirm visually.
   **Files**: `game/src/main.rs`, `game/src/video.rs`.
   **Verify**: needs a hardware or emulator pass; cannot be confirmed headless.
 
@@ -626,7 +641,7 @@ region) and `make ci-disc` all pass.
   rival/player blips as separate primitives drawn on top. Depends on TASK-1204.
   **File**: `game/src/gpu/hud_renderer.rs:232`.
 
-- [ ] **TASK-1203**: The cockpit canopy quad is degenerate. `make_quad` negates
+- [x] **TASK-1203**: The cockpit canopy quad is degenerate. `make_quad` negates
   `l_rear` internally, but the glass passes `l_rear = -4` where every other call
   site passes a positive value, which cancels the negation and puts all four
   vertices on the same row. Measured twice-area: **0** at 0°, 90°, 180° and 270°.
@@ -639,11 +654,14 @@ region) and `make ci-disc` all pass.
   or textured primitives in `game/src`, so VRAM sits 71 % idle. Prerequisite for
   TASK-1202. Respect the 1 MB budget, 256 px / 64 px page alignment and 15-bit
   BGR555 packing, and document the VRAM accounting.
+  **Outcome (TASK-1218 sweep)**: Fixed. `l_rear` sign corrected; both quad helpers also emitted bowtie-order
+  vertices (a second, separate defect found while writing the regression test);
+  maths moved to `car_geometry.rs` so `tools/test_ui` can reach it.
   **Files**: `game/src/gpu/*`, `game/src/video.rs`.
 
 ### High — rendering correctness
 
-- [ ] **TASK-1205**: Zero semi-transparency in the renderer — `semi_transparent` is
+- [x] **TASK-1205**: Zero semi-transparency in the renderer — `semi_transparent` is
   hard-wired `false` in every polygon opcode. The ghost car is fully opaque solid
   blue, smoke "fades" in 3 discrete opaque greys, and skidmarks step once from one
   colour to another. Also: dithering is never enabled (`gpu::init()`'s `GP1(01h)`
@@ -652,9 +670,14 @@ region) and `make ci-disc` all pass.
   `0x14A6`, so on tracks 1–6 the "dark asphalt" underlay of every timing gate is
   byte-identical to the surrounding tarmac. TODO TASK-305 previously claimed
   additive blending shipped; it did not.
+  **Outcome (TASK-1218 sweep)**: Partially fixed. The `PAL_SPEEDWAY` road/road2 collision is fixed and every palette
+  is now checked for it; `draw_quad_flat_blended` added and used for the ghost,
+  smoke and skidmarks. **Dithering is not fixed**: `gp0::draw_mode` puts the flag
+  at GP0(E1h) bit 9, which is the X mask, so enabling it is inert rather than
+  functional.
   **Files**: `game/src/gpu/{car_renderer,particles,skidmarks,tile_blitter}.rs`.
 
-- [ ] **TASK-1206**: Particles are effectively invisible. They are rendered
+- [x] **TASK-1206**: Particles are effectively invisible. They are rendered
   *before* the cars (`main.rs:183` vs `:185`/`:193`, and `:473` vs `:476`), so the
   opaque body quad paints over them; smoke is emitted at the car's exact centre
   with zero velocity so it never drifts; `max_life` is written in three places and
@@ -663,11 +686,13 @@ region) and `make ci-disc` all pass.
   single-frame flash. There is also no depth sorting anywhere: cars are drawn in
   array order with the player unconditionally last, so overlapping cars
   interpenetrate.
+  **Outcome (TASK-1218 sweep)**: Fixed. Draw order, smoke velocity, age-driven decay, skidmark ring sizing and
+  depth sorting; simulation moved to `effects_sim.rs`.
   **Files**: `game/src/gpu/{particles,skidmarks}.rs`, `game/src/main.rs`.
 
 ### High — audio and input
 
-- [ ] **TASK-1207**: Three SPU defects in `game/src/audio/`. (a) Curb rumble is
+- [x] **TASK-1207**: Three SPU defects in `game/src/audio/`. (a) Curb rumble is
   never audible: the curb branch writes volume/pitch on `VOICE_SKID`, which is
   keyed on only in the *drift* branch, and the `else` immediately `key_off`s it.
   (b) `if hit_wall { play_crash() }` has no edge detector and `hit_wall` is true
@@ -677,6 +702,9 @@ region) and `make ci-disc` all pass.
   reaches 3.25× on a 22.05 kHz sample, 2.4× past the SPU's Nyquist limit, and
   `INTRO_ADDR` overlaps the checkpoint chime by 2,288 bytes with no compile-time
   guard.
+  **Outcome (TASK-1218 sweep)**: Fixed. Curb rumble has its own voice; the crash trigger is edge-detected with a
+  refractory period; the engine pitch map is clamped to its Nyquist limit; the
+  intro address no longer overlaps the bank.
   **Files**: `game/src/audio/{sfx,spu,engine_audio}.rs`.
 
 - [ ] **TASK-1208**: Force feedback is entirely inert. `actuator_bytes()` has no
@@ -690,20 +718,23 @@ region) and `make ci-disc` all pass.
 
 ### Critical — state machine and data loss
 
-- [ ] **TASK-1209**: The pause menu opens itself on frame 1 of a race. `load_track`
+- [x] **TASK-1209**: The pause menu opens itself on frame 1 of a race. `load_track`
   never calls `pause.sync_edges()`, and `PauseMenu::new()` initialises
   `prev.start = false`, while `Start` is a confirm button on three consecutive
   screens — so holding `Start` from the title through Main Menu and Track Select
   loads the race already paused, music stopped.
+  **Outcome (TASK-1218 sweep)**: Fixed. `arm_for_race_start` is called on load and on restart.
   **Files**: `game/src/main.rs`, `game/src/ui/pause_input.rs`.
 
-- [ ] **TASK-1210**: The garage silently discards tuning setups. The sliders allow
+- [x] **TASK-1210**: The garage silently discards tuning setups. The sliders allow
   **0–10** but `CarTuning::is_valid()` requires **1–7** and `total_points() == 20`,
   so `memcard.rs` drops the setup; `flush()` still runs but `store_tuning` never set
   `is_dirty`, so it returns early with no error banner and no message. One
   `Triangle` press also wipes the whole setup with no confirmation or undo, and
   "POINTS REMAINING" wraps at 9 while the value ranges 0–20. Use the exported
   `MIN_SLIDER`/`MAX_SLIDER` as the bounds and surface any rejection.
+  **Outcome (TASK-1218 sweep)**: Fixed. Bounds taken from the same exported constants as `is_valid`; `Triangle`
+  confirms; refusals explain themselves; `store_tuning` reports refusal.
   **Files**: `game/src/ui/tuning_screen.rs`, `game/src/memcard.rs`.
 
 ### High — missing screens and features
@@ -732,22 +763,24 @@ region) and `make ci-disc` all pass.
   live Grand Prix with no confirmation.
   **Files**: `game/src/ui/{results,pause}.rs`, `game/src/main.rs`.
 
-- [ ] **TASK-1214**: The pad is polled twice per racing frame — `main.rs:199` and
+- [x] **TASK-1214**: The pad is polled twice per racing frame — `main.rs:199` and
   again inside `ControllerDriver::update` — two full SIO0 transactions per frame,
   and the UI snapshot and `VehicleInput` come from different instants, so a `Start`
   tap can open the pause menu without reaching the vehicle.
+  **Outcome (TASK-1218 sweep)**: Fixed. One poll per frame, shared by the UI and the vehicle.
   **Files**: `game/src/main.rs`, `game/src/input/pad.rs`.
 
 ### Medium — remaining smaller defects
 
-- [ ] **TASK-1215**: `gearing` is completely inert. It appears only in the struct,
+- [x] **TASK-1215**: `gearing` is completely inert. It appears only in the struct,
   `is_valid`, `total_points`, save (de)serialisation and the AI profiles; no
   physics, audio or HUD code reads it. Five of the 20 allocatable tuning points buy
   nothing while the Garage shows the slider. Implement it in `vehicle.rs` or remove
   it and rebalance to four sliders.
+  **Outcome (TASK-1218 sweep)**: Fixed. `gearing` shapes the torque curve and is exactly neutral at the default.
   **Files**: `crates/arduracer-core/src/{tuning,vehicle}.rs`.
 
-- [ ] **TASK-1216**: `draw_y` / `_draw_offset_y` is threaded through 15 call sites
+- [x] **TASK-1216**: `draw_y` / `_draw_offset_y` is threaded through 15 call sites
   and every one discards it, because double-buffering is handled by
   `FrameBuffer::swap`. It is a trap for any future renderer that does honour it.
   Either remove the parameter or document why it exists.
@@ -756,9 +789,10 @@ region) and `make ci-disc` all pass.
   old integer-step behaviour — see TASK-1218.) Related and still open:
   `world_to_screen` narrows `i32 → i16` with no clamp and culls *after*
   truncating.
+  **Outcome (TASK-1218 sweep)**: Fixed. `draw_y` removed from every signature; `world_to_screen` saturates.
   **Files**: `game/src/gpu/camera.rs`, `REVIEW.md`.
 
-- [ ] **TASK-1217**: Smaller UI defects. Track Select's confirm/cancel edge baseline
+- [x] **TASK-1217**: Smaller UI defects. Track Select's confirm/cancel edge baseline
   is never reset on entry, so a held `Cross` confirms on frame 1; gate count renders
   as `:`, `<`, `=` on the four circuits with 10/12/13 gates; no
   controller-disconnected state, so the
@@ -768,12 +802,18 @@ region) and `make ci-disc` all pass.
   have no serializer, with the module doc still claiming 11 KB fits in an 8 KB card
   block; `VideoStorage` reserves 262.5 KiB of BSS for ~59 KiB of need (13.4 % of
   usable RAM, recorded as 128 KB in `REVIEW.md:495`).
+  **Outcome (TASK-1218 sweep)**: Partially fixed. The gate-count glyphs (`b'0' + count` printed ':', '<' and '='
+  for 10/12/13 gates), Track Select's entry edge baseline, and the unreachable
+  tuning presets 1 and 2 are all fixed. **Still open**: no controller-disconnected
+  state, no memory-card slot picker or write confirmation, and the ghost car is
+  never persisted (`GHOST_MAGIC`/`GHOST_VERSION` still have no serializer, and the
+  module doc still claims 11 KB fits an 8 KB card block).
   **Files**: `game/src/ui/*`, `game/src/memcard.rs`, `game/src/ghost_*.rs`,
   `game/src/video.rs`.
 
 ### Not code — documentation corrections
 
-- [ ] **TASK-1218**: `REVIEW.md` and `TODO.md` make three claims the code
+- [x] **TASK-1218**: `REVIEW.md` and `TODO.md` make three claims the code
   contradicts: the speed-dependent camera zoom (`REVIEW.md:146` and the `[x]`
   VRAM sign-off at `:502`), curb rumble audio (`:530`, "curb chatter reuses the
   skid voice"), and the FMV decode buffer size (`:495` says 128 KB; the static is
@@ -782,4 +822,5 @@ region) and `make ci-disc` all pass.
   `TODO.md` still reports the game-logic suite as 40/40; it is now 149 core tests
   plus 42/15/13/14 in the host tools, and the static footprint is 27 % rather than
   14.6 %.
+  **Outcome (TASK-1218 sweep)**: Fixed. REVIEW.md and the gate table corrected; the numbers above are current.
   **Files**: `REVIEW.md`, `TODO.md`.
