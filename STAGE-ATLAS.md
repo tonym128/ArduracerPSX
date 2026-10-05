@@ -308,3 +308,159 @@ fatal in the physics.
 2. Add the two closure assertions to the generator so a non-closing circuit fails
    loudly instead of quietly producing a broken map.
 3. Recalibrate par, then `make playtest`.
+
+---
+
+# HANDOVER — 2026-10-05
+
+Everything above this line is history. The closure fix described in "Root cause
+of all of it" is **done**: all 24 circuits are closed, filleted polygons and
+`assert_closed()` gates them at generation time. This section is the current
+state and the work that remains.
+
+Branch: `feat/atlas-and-authored-circuits` in worktree `.worktrees/wt-atlas`.
+`main` is untouched. Tip: `dcfa17c`.
+
+| Commit | What |
+| :--- | :--- |
+| `a56ef9d` | Circuits authored as closed polygons; closure asserted at generation |
+| `184fa5f` | Fixed a double-applied fit transform in `render()` |
+| `1dda059` | Longer straights; stopped repeating the route's first control point |
+| `432d4d4` | Replaced all ten serpentines with closed rings |
+| `5a7e9d5` | Restored Longbow's fillet radius to 13.0 |
+| `dcfa17c` | Recalibrated par from measured reference laps |
+
+## Current test state
+
+- **Core: 155 passed, 3 failed.**
+- **Game logic: 46/49 — STALE.** Last measured *before* the serpentine
+  replacement. Re-run it before trusting any number below.
+
+Failing core tests:
+- `ai::tests::every_rival_drives_a_real_racing_line_on_every_circuit` — Longbow
+- `ai::tests::every_rival_finishes_every_circuit_within_the_playtest_budget`
+- `ai::tests::the_look_ahead_point_lies_on_a_drivable_tile`
+
+## Do these three things, in this order
+
+### 1. Root-cause Longbow. Do not retune shapes until you have.
+
+This is the blocker for everything else. Until it is understood, every geometry
+change moves failures around for reasons nobody can see.
+
+The facts, all verified:
+
+- `HEAD~1` circuits -> Longbow **passes**. Current circuits -> Longbow **fails**.
+- The generator line is **byte-identical** in both:
+  `_ring(4, 36, 24, 0.0, 4.2), 13.0`
+- The emitted `TrackDef`'s start position, heading, half-width and route point
+  count **all match** between the two.
+- The failure is **deterministic** across three runs.
+- It fails when the test runs **in isolation**, and `drive_one_lap` builds a
+  fresh `AiRacer` per call, so there is no shared state to blame.
+
+So Longbow's own definition and its own emitted data are the same in both cases
+and the result still differs. Something outside Longbow is responsible.
+
+**Start here:** diff the whole of `crates/arduracer-core/src/levels.rs` between
+`HEAD~1` and now, looking at circuit **ordering** and at any **shared/static
+arena or packing**. A neighbour's data changing Longbow's behaviour has the exact
+signature of a packing bug.
+
+**Caveat on my own evidence:** my block-extraction diff grabbed ~1 MB instead of
+Longbow's block, so its regex for the next circuit boundary is wrong. The values
+it printed are consistent, but "identical" there is weaker than it sounds.
+Re-derive it properly rather than trusting that diff.
+
+### 2. Wire par times into the atlas pipeline
+
+**`build_atlas.py` never reads `par_calibration.json`** — not one reference. The
+numbers `dcfa17c` measured cannot reach `levels.rs` through the atlas pipeline,
+so the emitted par times are stale or absent. This is a known missing link, not
+a mystery, and a strong candidate for the failing AI lap-budget test.
+
+Four circuits reported **no measurement** during calibration — Foundry Spiral,
+Rattlesnake Pass, Cinder Bowl, Switchback. The written JSON has plausible values
+for all 24 (nothing below 100), so the `->1` in the log looks like a display
+artifact, but that was **not confirmed**. Check those four before trusting them.
+
+### 3. Then the remaining gates
+
+- Game logic 46/49: route node 4 off-road, an arc wrapping twice per lap, and
+  the longest-straight floor (24 samples, circuit reported 17).
+- Re-derive the straight/width/lap floors — the user has approved treating them
+  as calibration artifacts of the deleted FX circuits, not design intent.
+- Measure static headroom against the 999,424-byte budget (old circuits used
+  678,436).
+- `make playtest`, then `fmt-check`, `clippy`, `test`, `ci`.
+
+## TRAP: `make calibrate-tracks` destroys this branch
+
+Do not run the target as written. Its second step runs
+`tools/track_cook/convert_levels.py`, which **writes**
+`crates/arduracer-core/src/levels.rs` from the 20 legacy `ArduRacerFx/Levels/*.csv`
+files and calls itself "the single source of truth" for that file.
+
+`ArduRacerFx/` **is present** in this worktree, so `require-fx-levels` passes and
+that step *will* run, replacing all 24 image-derived circuits with the legacy CSV
+pipeline this branch exists to retire.
+
+Run only the first step instead:
+
+```
+cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+```
+
+That writes `tools/track_cook/par_calibration.json` and touches nothing else.
+Better still, make `convert_levels.py` refuse to run when the atlas pipeline owns
+`levels.rs`, so this cannot happen to the next person.
+
+## Pitfalls already paid for — do not rediscover these
+
+1. **Serpentines are not circuits.** An out-and-back zigzag has *zero net turn*.
+   It is an S, and it fails the +/-360 check no matter how it is mirrored. These
+   are now rings. Do not reintroduce one.
+2. **A smaller fillet radius is a *tighter* corner.** I changed Longbow
+   13.0 -> 9.0, called it "loosening", and it inverted the meaning. That change
+   is a plausible cause of the Longbow failure.
+3. **Never transform coordinates twice.** `render()` densified into cell space
+   and then let the stamping loop apply `scale`/`dx`/`dy` again. Everything was
+   painted ~2.5x too big and clipped off the grid; `Right Angles` came out as an
+   L-shape. Apply the fit exactly once, where the conversion happens.
+4. **Size sample steps in cell space, after the fit.** Straight anchors spaced in
+   authoring units were 9.8 cells apart against a 2.5-cell-wide road, so
+   stamping left holes and split the ring in two.
+5. **`SCENERY` (15) must not be in the validator's `ROAD` set.** Scenery lives in
+   the infield, so counting it as road made all 24 circuits look like they had a
+   stray island.
+6. **Do not repeat the route's first control point.** The walker closes the
+   polyline by repeating point 0; carrying that into `resample_uniform` puts
+   control point 95 exactly on point 0, a zero-length span, and Catmull-Rom takes
+   its tangent from `(next - prev) / 2`.
+7. **Bulk `str.replace(..., 1)` on shared substrings is unsafe** when editing
+   circuit definitions — several `_ring(...)` calls share text like `0.0, 3.0)`.
+   Verify each landed on the intended circuit.
+8. **A Python straight-length predictor over-estimated ~3.5x** against the real
+   spline, because the route is a Catmull-Rom through 96 arc-length-uniform
+   controls sampled 8x per span. Use the Rust test as the oracle, not a model.
+9. `add_walls()` in `generate_circuit_images.py` is **dead code** — it computes a
+   `ring` and returns `out` unmodified. `wall_the_edge()` is what actually walls.
+
+## Context you will need
+
+- Read `LEVEL-FORMAT.md` for the two-image format and the validation rules.
+- `tools/track_cook/generate_circuit_images.py` — the polygon builders `_ring`,
+  `_rect`, `CIRCUITS`, `poly_walk`, `assert_closed`, `fit_scale`, `render`,
+  `compose`, `add_walls`, `wall_the_edge`.
+- `tools/track_cook/compile_circuit.py` — `ROAD`/`SURFACE` sets, `load_data`,
+  `downsample`, `find_regions`, `resample_uniform`, `emit_rust`.
+- `tools/track_cook/build_atlas.py` — validates all 24 and writes `levels.rs`.
+- The AI lap tests are in `crates/arduracer-core/src/ai.rs` around line 620-665;
+  `drive_one_lap` builds a fresh racer and gives it 60,000 ticks for two laps.
+- Ceilings already lifted: `MAX_TRACK_DIM=64`, `MAX_TRACK_CHECKPOINTS=24`,
+  `MAX_ROUTE_SAMPLES=768`, route arcs widened to `u32`.
+- Grid is 48x48 cells, `SIZE=768`, `CELL=16`; the PNGs are 3 px per cell.
+
+Iteration is slow: each shape change needs `generate_circuit_images.py`, then
+`build_atlas.py`, then a `cargo test` rebuild. Budget accordingly and prefer
+batching changes.
