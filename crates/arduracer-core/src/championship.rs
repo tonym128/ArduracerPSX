@@ -309,7 +309,7 @@ pub fn finishing_lap(lap: u8, finished: bool) -> u8 {
 mod tests {
     use super::*;
     use crate::ai_profiles::AI_PROFILES;
-    use crate::levels::ALL_TRACKS;
+    use crate::levels::{ALL_TRACKS, AUTHORED_TRACKS};
     use crate::math::Fixed;
 
     fn rivals_on(
@@ -629,7 +629,17 @@ mod tests {
             }
             assert!(session.advance_stage(), "cup {cup} should report done");
         }
-        assert_eq!(ALL_TRACKS[TOTAL_TRACKS - 1].name, "Ivory Straits");
+        // The last slot holds the last authored circuit.
+        //
+        // Was a hardcoded `"Ivory Straits"`. That is only true while there are
+        // 24 *distinct* circuits; with one authored circuit replicated across
+        // every slot (see `levels.rs`), the last slot is the same oval as the
+        // first, and the literal names a circuit that no longer exists. The
+        // assertion worth keeping is the structural one -- the final stage of the
+        // final cup lands on the final slot -- which the index assertion above
+        // already covers. What is checked here is only that the slot is the
+        // authored one, so this keeps testing the *table*, not the schedule.
+        assert_eq!(ALL_TRACKS[TOTAL_TRACKS - 1].name, AUTHORED_TRACKS[0].name);
     }
 
     #[test]

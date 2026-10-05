@@ -311,8 +311,13 @@ def tile_centre(c):
     emitting the corner put every control point half a tile (32 world units) off
     the road, which on a 2.5-cell road is enough to land on a barrier, and it
     left the runtime spline cutting corners.
+
+    Accepts a float and rounds, because a control point's position along the
+    centreline carries sub-cell information: `int(c)` threw away the fraction and
+    collapsed neighbouring control points onto the same tile centre whenever they
+    were closer together than one cell. See `control_points`.
     """
-    return int(c) * TILE_SIZE + TILE_SIZE // 2
+    return round(c) * TILE_SIZE + TILE_SIZE // 2
 
 
 def resample_uniform(points, count):
@@ -352,8 +357,57 @@ def resample_uniform(points, count):
     return out
 
 
+def control_points(points, want):
+    """Resamples to at most `want` control points, spaced at least one cell apart.
+
+    The spacing constraint is not cosmetic and not a limit on precision: control
+    points are emitted at **tile centres**, so two points closer than one cell
+    round onto the same centre and produce a zero-length span. Catmull-Rom takes
+    its tangent at a control point from `(next - prev) / 2`, so a zero-length span
+    does not merely waste a point -- it throws the tangent at the seam and the
+    spline leaves the road there.
+
+    `resample_uniform` alone cannot avoid this: it picks points at equal arc
+    length, and equal arc length means the spacing is `perimeter / want`. On a
+    short circuit that is sub-cell however few points you ask for. The first
+    version of the authored oval asked for 96 -- the historical number, chosen for
+    24 large circuits -- and got 0.83 cells per control point, so 18 of its 96
+    collapsed onto their neighbour and `test_route_arc_follows_the_car` reported
+    the arc wrapping twice in one lap.
+
+    So the count is now *derived from the geometry*: the densest spacing that
+    still fits the route reservoir, capped at `want`.
+    """
+    if len(points) < 3:
+        return list(points)
+
+    closed = len(points) > 2 and math.dist(points[0], points[-1]) > 1e-6
+    perim = 0.0
+    for i in range(len(points) - 1):
+        perim += math.dist(points[i], points[i + 1])
+    if closed:
+        perim += math.dist(points[-1], points[0])
+
+    # One cell of minimum spacing, so no two control points share a tile centre.
+    affordable = max(3, int(perim))
+    n = max(3, min(want, affordable))
+    pts = resample_uniform(points, n)
+
+    # `resample_uniform` picks at equal arc length, so the above is a bound, not a
+    # guarantee -- a corner can still bring two closer than a cell. Drop any
+    # interior point that does, keeping the last so the loop stays closed.
+    kept = [pts[0]]
+    for p in pts[1:]:
+        if math.dist(p, kept[-1]) >= 1.0:
+            kept.append(p)
+    if closed and math.dist(pts[-1], pts[0]) < 1.0 and len(kept) > 3:
+        pass  # last point is within a cell of the first: the loop closes anyway
+    return kept
+
+
 def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
-              half_width_cells=2.5, par=(6000, 5000, 4000, 3000)):
+              half_width_cells=2.5, par=(6000, 5000, 4000, 3000),
+              route_nodes=96):
     """Writes one circuit as a complete `TrackDef` static.
 
     Complete rather than just tiles-and-route so it drops straight into the
@@ -378,8 +432,27 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     sx, sy = centre[0]
     out.append(f"    start_pos: Vec2 {{ x: Fixed({tile_centre(sx) * 4096}), "
                f"y: Fixed({tile_centre(sy) * 4096}) }},")
-    nx, ny = centre[1]
-    out.append(f"    start_heading: {heading_bams(sx, sy, nx, ny)},")
+    # Heading from the first sample to the *first sample that differs from it*.
+    #
+    # Not `centre[1]`. The centreline is sampled more finely than the cell grid,
+    # so a stadium's opening straight puts several samples inside one tile and
+    # `centre[1]` can be the same point as `centre[0]`. The heading then comes
+    # out of `atan2(0, 0)` as 0 -- due north, whichever way the circuit actually
+    # runs. The car spawns on the start line facing the barrier, and with the
+    # throttle held the first thing it does is drive into the wall.
+    #
+    # Nothing about the emitted data looks wrong when this happens: 0 is a
+    # perfectly valid BAM value. It was only visible on screen, as a car that
+    # would not move.
+    heading = heading_bams(centre[0][0], centre[0][1],
+                           centre[min(1, len(centre) - 1)][0],
+                           centre[min(1, len(centre) - 1)][1])
+    for i in range(1, len(centre)):
+        if centre[i] != centre[0]:
+            heading = heading_bams(centre[0][0], centre[0][1],
+                                   centre[i][0], centre[i][1])
+            break
+    out.append(f"    start_heading: {heading},")
 
     out.append("    start_gate: CheckpointGate {")
     out.append(f"        x: {int(sx)},")
@@ -430,7 +503,7 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     while (len(route_src) > 2
            and math.dist(route_src[0][:2], route_src[-1][:2]) < 1e-6):
         route_src.pop()
-    pts = resample_uniform(route_src, 96)
+    pts = control_points(route_src, route_nodes)
     for (cx, cy) in pts:
         out.append("        Vec2 {")
         out.append(f"            x: Fixed({tile_centre(cx) * 4096}),")
@@ -443,9 +516,16 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
 
 
 def heading_bams(x0, y0, x1, y1):
-    """Bearing from one centreline sample to the next, as the engine wants it."""
-    dx = int(x1) * TILE_SIZE - int(x0) * TILE_SIZE
-    dy = int(y1) * TILE_SIZE - int(y0) * TILE_SIZE
+    """Bearing from one centreline sample to the next, as the engine wants it.
+
+    Accepts floats and does *not* truncate to whole tiles. The truncation that
+    used to be here (`int(x1) * TILE_SIZE`) threw away the entire displacement
+    when the two samples were less than a tile apart, and the heading collapsed
+    to north. Sub-tile direction is exactly the information this function exists
+    to preserve.
+    """
+    dx = (x1 - x0) * TILE_SIZE
+    dy = (y1 - y0) * TILE_SIZE
     # Compass: 0 = north (-y), clockwise positive.
     import math as _m
     deg = _m.degrees(_m.atan2(dx, -dy)) % 360.0

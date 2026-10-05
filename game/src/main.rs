@@ -41,6 +41,23 @@ pub const SCREEN_HEIGHT: u16 = 240;
 /// Staggered grid slots behind the pole car, alternating sides of the road.
 const GRID_OFFSETS: [(i32, i32); 5] = [(-48, 16), (-96, -16), (-144, 16), (-192, -16), (-240, 0)];
 
+/// Whether AI rivals take part in a race.
+///
+/// **Off, deliberately.** One authored circuit exists (`Hells Bells`), so every
+/// grid slot holds the same oval. Five rivals would be stacked on one racing
+/// line, racing the player for a position on a circuit they all know as well as
+/// the car does -- noise, not a race.
+///
+/// Gating all three of *drive*, *spawn* and *render* from one flag is the point.
+/// Rivals that are spawned but not ticked are parked on the start line, still
+/// drawn and still occupying road, so a tick-only gate would leave the player
+/// driving away from five stationary cars. The rivals themselves are left in
+/// place rather than deleted, so this is a constant flip and the standings code
+/// keeps compiling against a real array.
+///
+/// Switch back on as soon as a second circuit exists to race on.
+const RIVALS_ENABLED: bool = false;
+
 /// Spawns 5 AI rivals on staggered grid positions behind the player.
 fn spawn_rivals(start_pos: Vec2, start_heading: u16) -> [AiRacer; 5] {
     let mut rivals = [
@@ -210,6 +227,9 @@ impl ArduracerGame {
     /// Sorting by projected screen `y` gives a painter's order that matches
     /// which car is actually in front.
     fn render_rivals_sorted(&self) {
+        if !RIVALS_ENABLED {
+            return;
+        }
         // Insertion sort by depth. Five elements: cheaper in code size than
         // allocating a buffer.
         let mut order = [0usize; 5];
@@ -481,7 +501,9 @@ impl ArduracerGame {
                     for i in 0..5 {
                         other_positions[i + 1] = self.rivals[i].state.position;
                     }
-                    if self.start.phase() == StartPhase::Racing || self.start.just_started() {
+                    if RIVALS_ENABLED
+                        && (self.start.phase() == StartPhase::Racing || self.start.just_started())
+                    {
                         // Rivals launch with the player: held on the grid until
                         // the lights go out, like a standing start.
                         for i in 0..5 {

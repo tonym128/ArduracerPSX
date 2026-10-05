@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 48 48" shape-rendering="geometricPrecision">
+<!-- Hells Bells: authored circuit, cell units. -->
+<!-- centreline: stadium, straight_half=9.0, radius=7.0 -->
+<rect x="0" y="0" width="48" height="48" fill="#2E5A34"/>
+<path d="M 15.0000 17.0000 L 33.0000 17.0000 A 7.0000 7.0000 0 0 1 33.0000 31.0000 L 15.0000 31.0000 A 7.0000 7.0000 0 0 1 15.0000 17.0000 Z" fill="none" stroke="#2A2E38" stroke-width="12.3000" stroke-linecap="butt"/>
+<path d="M 15.0000 17.0000 L 33.0000 17.0000 A 7.0000 7.0000 0 0 1 33.0000 31.0000 L 15.0000 31.0000 A 7.0000 7.0000 0 0 1 15.0000 17.0000 Z" fill="none" stroke="#6B5432" stroke-width="10.3000" stroke-linecap="butt"/>
+<path d="M 15.0000 17.0000 L 33.0000 17.0000 A 7.0000 7.0000 0 0 1 33.0000 31.0000 L 15.0000 31.0000 A 7.0000 7.0000 0 0 1 15.0000 17.0000 Z" fill="none" stroke="#E8E8F0" stroke-width="3.9000" stroke-linecap="butt"/>
+<path d="M 15.0000 17.0000 L 33.0000 17.0000 A 7.0000 7.0000 0 0 1 33.0000 31.0000 L 15.0000 31.0000 A 7.0000 7.0000 0 0 1 15.0000 17.0000 Z" fill="none" stroke="#D8283C" stroke-width="3.9000" stroke-linecap="butt" stroke-dasharray="2.00 2.00" stroke-dashoffset="0.00"/>
+<path d="M 15.0000 17.0000 L 33.0000 17.0000 A 7.0000 7.0000 0 0 1 33.0000 31.0000 L 15.0000 31.0000 A 7.0000 7.0000 0 0 1 15.0000 17.0000 Z" fill="none" stroke="#3C3E44" stroke-width="2.5000" stroke-linecap="butt"/>
+<polygon points="14.4000,15.0500 14.4000,18.9500 15.6000,18.9500 15.6000,15.0500" fill="#F2F2F2" stroke="none"/>
+<polygon points="28.1500,15.0500 28.1500,18.9500 28.8500,18.9500 28.8500,15.0500" fill="#00D2FF" stroke="none"/>
+<polygon points="41.5044,21.1744 37.7433,22.2062 37.9285,22.8813 41.6896,21.8495" fill="#00D2FF" stroke="none"/>
+<polygon points="33.3500,32.9500 33.3500,29.0500 32.6500,29.0500 32.6500,32.9500" fill="#00D2FF" stroke="none"/>
+<polygon points="20.6000,32.9500 20.6000,29.0500 19.9000,29.0500 19.9000,32.9500" fill="#00D2FF" stroke="none"/>
+<polygon points="6.8464,27.7184 10.4756,26.2905 10.2193,25.6391 6.5901,27.0670" fill="#00D2FF" stroke="none"/>
+<polygon points="22.5000,15.7500 22.5000,18.2500 23.5000,18.2500 23.5000,15.7500" fill="#FF8A10" stroke="none"/>
+<polygon points="25.5000,32.2500 25.5000,29.7500 24.5000,29.7500 24.5000,32.2500" fill="#FF8A10" stroke="none"/>
+</svg>
