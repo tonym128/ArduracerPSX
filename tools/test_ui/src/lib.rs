@@ -30,6 +30,9 @@ mod tuning_input;
 #[path = "../../../game/src/gpu/effects_sim.rs"]
 mod effects_sim;
 
+#[path = "../../../game/src/gpu/palette.rs"]
+mod palette;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -1710,5 +1713,123 @@ mod effects_tests {
             particles.emit_smoke(SOMEWHERE),
             "a full pool of dead particles stopped accepting new ones"
         );
+    }
+}
+
+/// TASK-1205: the "dark asphalt" gate underlay was invisible on tracks 1-6.
+#[cfg(test)]
+mod palette_tests {
+    use super::palette::{to_bgr555, Palette, PALETTES};
+
+    const CUP_NAMES: [&str; 4] = ["Bronze", "Silver", "Gold", "Platinum"];
+
+    /// The regression itself. VRAM stores 5 bits per channel, and the authored
+    /// 8-bit values were never checked for surviving that truncation.
+    #[test]
+    fn the_bronze_gate_underlay_is_distinct_from_the_road() {
+        let bronze = PALETTES[0];
+        assert_ne!(
+            to_bgr555(bronze.road),
+            to_bgr555(bronze.road2),
+            "Bronze road and road2 quantise to the same VRAM word \
+             0x{:04X}: the timing-gate underlay is invisible",
+            to_bgr555(bronze.road)
+        );
+    }
+
+    /// Every palette, every pair. This is the check that was missing.
+    #[test]
+    fn no_palette_collapses_two_colours_onto_one_vram_word() {
+        for (cup, palette) in PALETTES.iter().enumerate() {
+            assert!(
+                palette.is_distinct(),
+                "{} palette: {:?} quantise to the same VRAM word",
+                CUP_NAMES[cup],
+                palette.first_collision()
+            );
+        }
+    }
+
+    #[test]
+    fn the_gate_underlay_is_darker_than_the_road_in_every_cup() {
+        // The underlay is meant to read as shaded asphalt, so it must still be
+        // darker per channel after truncation -- not merely "different".
+        for (cup, palette) in PALETTES.iter().enumerate() {
+            assert!(
+                to_bgr555(palette.road2) < to_bgr555(palette.road),
+                "{} palette: road2 (0x{:04X}) is not darker than road (0x{:04X})",
+                CUP_NAMES[cup],
+                to_bgr555(palette.road2),
+                to_bgr555(palette.road)
+            );
+        }
+    }
+
+    #[test]
+    fn the_road_and_underlay_stay_visibly_apart() {
+        // A one-bit difference is technically distinct but invisible in play.
+        // The gate underlay has to read as a clear band.
+        for (cup, palette) in PALETTES.iter().enumerate() {
+            let delta = to_bgr555(palette.road).abs_diff(to_bgr555(palette.road2));
+            assert!(
+                delta >= 0x0400,
+                "{} palette: road and road2 differ by only 0x{:04X}, \
+                 which is under one full red channel",
+                CUP_NAMES[cup],
+                delta
+            );
+        }
+    }
+
+    #[test]
+    fn quantisation_never_widens_a_colour_beyond_one_5bit_bucket() {
+        // Sanity check on the quantiser itself: the result must be within 7 of
+        // the input on every channel, i.e. only the low three bits are dropped.
+        for palette in PALETTES.iter() {
+            for (name, (r, g, b)) in palette.entries() {
+                let word = to_bgr555((r, g, b));
+                let r5 = ((word & 0x1F) * 8) as i32;
+                let g5 = (((word >> 5) & 0x1F) * 8) as i32;
+                let b5 = (((word >> 10) & 0x1F) * 8) as i32;
+                for (channel, original, restored) in [("r", r, r5), ("g", g, g5), ("b", b, b5)] {
+                    assert!(
+                        (original as i32 - restored).abs() <= 7,
+                        "{name}: channel {channel} {original} -> {restored}, off by more than one bucket"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_curbs_stay_visible_against_their_own_road() {
+        // A kerb that truncates into the tarmac is not a kerb.
+        for (cup, palette) in PALETTES.iter().enumerate() {
+            let road = to_bgr555(palette.road);
+            for name in ["curb_a", "curb_b"] {
+                let colour = match name {
+                    "curb_a" => palette.curb_a,
+                    _ => palette.curb_b,
+                };
+                let word = to_bgr555(colour);
+                assert_ne!(
+                    word, road,
+                    "{} palette: {name} is the same colour as the road",
+                    CUP_NAMES[cup]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_palette_reports_the_offending_pair() {
+        // The check is only useful if it can say *which* two collided.
+        let broken = Palette {
+            road: (44, 46, 52),
+            road2: (40, 42, 48),
+            ..PALETTES[0]
+        };
+        assert!(!broken.is_distinct());
+        assert_eq!(broken.first_collision(), Some(("road", "road2")));
     }
 }

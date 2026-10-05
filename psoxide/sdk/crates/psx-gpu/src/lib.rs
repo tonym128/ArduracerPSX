@@ -496,6 +496,29 @@ pub fn draw_quad_flat(verts: [(i16, i16); 4], r: u8, g: u8, b: u8) {
     write_gp0(pack_vertex(verts[3].0, verts[3].1));
 }
 
+/// Draw a flat-shaded quad with a native blend equation applied.
+///
+/// The quad counterpart of [`draw_tri_flat_blended`]. Without it there is no way
+/// to draw a translucent *quad*: `draw_quad_flat` hard-wires the
+/// semi-transparent command bit off, so the ghost car, smoke and skidmarks could
+/// only ever be fully opaque (TASK-1205).
+///
+/// `BlendMode::Opaque` falls through to [`draw_quad_flat`] rather than issuing a
+/// pointless blended command.
+pub fn draw_quad_flat_blended(verts: [(i16, i16); 4], r: u8, g: u8, b: u8, blend_mode: BlendMode) {
+    if !blend_mode.is_translucent() {
+        draw_quad_flat(verts, r, g, b);
+        return;
+    }
+    TextureMaterial::blended(0, 0, (r, g, b), blend_mode).apply_draw_mode();
+    wait_cmd_ready();
+    write_gp0(gp0::polygon_opcode(false, true, false, true, false) | pack_color(r, g, b));
+    write_gp0(pack_vertex(verts[0].0, verts[0].1));
+    write_gp0(pack_vertex(verts[1].0, verts[1].1));
+    write_gp0(pack_vertex(verts[2].0, verts[2].1));
+    write_gp0(pack_vertex(verts[3].0, verts[3].1));
+}
+
 /// Draw a textured quad (GP0 0x2C, 9 words) with a single tint.
 ///
 /// Vertex order is the PSX fan convention:

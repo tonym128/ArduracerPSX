@@ -22,60 +22,7 @@ fn is_corridor(tile: TrackTile) -> bool {
     )
 }
 
-type Rgb = (u8, u8, u8);
-
-/// Per-cup environment palette (biome).
-#[derive(Copy, Clone)]
-pub struct Palette {
-    pub road: Rgb,
-    pub road2: Rgb,
-    pub grass: Rgb,
-    pub patch_a: Rgb,
-    pub patch_b: Rgb,
-    pub curb_a: Rgb,
-    pub curb_b: Rgb,
-}
-
-/// Bronze: classic GP speedway.
-const PAL_SPEEDWAY: Palette = Palette {
-    road: (44, 46, 52),
-    road2: (40, 42, 48),
-    grass: (28, 62, 34),
-    patch_a: (22, 52, 28),
-    patch_b: (24, 55, 30),
-    curb_a: (225, 30, 45),
-    curb_b: (245, 245, 250),
-};
-/// Silver: neon-lit night city, wet midnight asphalt.
-const PAL_NEON_CITY: Palette = Palette {
-    road: (24, 26, 40),
-    road2: (22, 24, 36),
-    grass: (14, 18, 34),
-    patch_a: (10, 14, 28),
-    patch_b: (18, 12, 36),
-    curb_a: (255, 40, 200),
-    curb_b: (40, 230, 255),
-};
-/// Gold: red canyon, tan tarmac and sandstone.
-const PAL_CANYON: Palette = Palette {
-    road: (78, 66, 56),
-    road2: (72, 60, 50),
-    grass: (150, 82, 46),
-    patch_a: (130, 68, 38),
-    patch_b: (166, 98, 56),
-    curb_a: (230, 120, 30),
-    curb_b: (250, 235, 200),
-};
-/// Platinum: alpine / marina, cool blue-grey road with snowy verges.
-const PAL_ALPINE: Palette = Palette {
-    road: (52, 60, 74),
-    road2: (48, 56, 70),
-    grass: (206, 218, 232),
-    patch_a: (180, 198, 220),
-    patch_b: (226, 234, 244),
-    curb_a: (30, 90, 220),
-    curb_b: (250, 250, 255),
-};
+use crate::gpu::palette::{Palette, PALETTES};
 
 /// Chooses the biome palette for a track from its cup (6 tracks per cup).
 fn palette_for(track: &TrackDef) -> Palette {
@@ -86,12 +33,7 @@ fn palette_for(track: &TrackDef) -> Palette {
             break;
         }
     }
-    match cup {
-        0 => PAL_SPEEDWAY,
-        1 => PAL_NEON_CITY,
-        2 => PAL_CANYON,
-        _ => PAL_ALPINE,
-    }
+    PALETTES[cup & 3]
 }
 
 /// Renders all visible track tiles for the active camera frame.

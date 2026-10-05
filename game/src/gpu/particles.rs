@@ -5,8 +5,9 @@
 //! this file only decides pixels.
 
 use crate::gpu::camera::Camera;
-use crate::gpu::effects_sim::{ParticleSystem, ParticleType};
+use crate::gpu::effects_sim::{Particle, ParticleSystem, ParticleType};
 use psx_gpu as gpu;
+use psx_gpu::material::BlendMode;
 
 /// Smoke quad half-extent at full life and at birth, in pixels.
 const SMOKE_LARGE: i16 = 4;
@@ -23,21 +24,23 @@ impl ParticleSystem {
 
             match p.ptype {
                 ParticleType::TireSmoke => {
-                    // Grows and darkens as it ages, driven by `age_fraction`
-                    // rather than absolute `life` bands. Three steps, because
-                    // semi-transparency is not available (TASK-1205) and the
-                    // fade has to be carried by brightness instead.
-                    let (half, level) = Self::smoke_appearance(age);
-                    let (r, g, b) = (230 - level, 235 - level, 240 - level);
-                    gpu::draw_rect_flat(
-                        sx - half,
-                        sy - half,
-                        (half * 2 + 1) as u16,
-                        (half * 2 + 1) as u16,
-                        r,
-                        g,
-                        b,
-                    );
+                    // Grows as it ages and *fades out*. The fade used to be
+                    // faked by stepping through three discrete opaque greys,
+                    // because nothing in the renderer could blend; with
+                    // `draw_quad_flat_blended` there it is a real gradient
+                    // (TASK-1205).
+                    let half = Self::smoke_half_extent(age);
+                    // Older smoke is dimmer as well as larger, so the two cues
+                    // reinforce each other.
+                    let level = (age as u16 * 110) / 255;
+                    let (r, g, b) = (230 - level as u8, 235 - level as u8, 240 - level as u8);
+                    let verts = [
+                        (sx - half, sy - half),
+                        (sx + half, sy - half),
+                        (sx + half, sy + half),
+                        (sx - half, sy + half),
+                    ];
+                    gpu::draw_quad_flat_blended(verts, r, g, b, BlendMode::Average);
                 }
                 ParticleType::Sparks => {
                     let (r, g, b) = if age < 128 {
@@ -52,15 +55,13 @@ impl ParticleSystem {
         }
     }
 
-    /// Maps an age fraction to a quad half-extent and a brightness drop.
+    /// Maps an age fraction to the smoke quad's half-extent, in pixels.
     ///
-    /// Split out so the mapping is checkable arithmetic rather than buried
-    /// `if` chains in the draw loop.
-    pub fn smoke_appearance(age: u8) -> (i16, u8) {
-        match age {
-            0..=63 => (SMOKE_SMALL, 0),
-            64..=159 => (SMOKE_SMALL + 1, 40),
-            _ => (SMOKE_LARGE, 95),
-        }
+    /// Split out so the mapping is checkable arithmetic rather than buried in
+    /// the draw loop. Linear in age, so the puff expands smoothly instead of
+    /// jumping between the three sizes the old opaque fade cycled through.
+    pub fn smoke_half_extent(age: u8) -> i16 {
+        SMOKE_SMALL
+            + ((SMOKE_LARGE - SMOKE_SMALL) as u32 * age as u32 / Particle::ONE as u32) as i16
     }
 }

@@ -8,6 +8,7 @@ pub mod car_geometry;
 pub mod car_renderer;
 pub mod effects_sim;
 pub mod hud_renderer;
+pub mod palette;
 pub mod particles;
 pub mod skidmarks;
 pub mod tile_blitter;
