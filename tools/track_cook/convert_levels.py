@@ -945,6 +945,11 @@ def validate(idx, name, w, h, tiles, start, checkpoints):
 # the boundary where no tile exists to be painted, and the camera can look off the
 # track. Measured on Arduboy Oval: 3 of 40 centreline samples landed on OffRoad in
 # the last column of a 10-wide grid, one tile from the nearest road.
+# Mirrors `arduracer_core::track::MAX_TRACK_CHECKPOINTS`. Duplicated rather than
+# imported because the cooker runs on the host with plain CPython and has no
+# access to the crate.
+MAX_TRACK_CHECKPOINTS = 24
+
 MARGIN_TILES = 4
 
 # Tarmac half-width in tiles for the legacy-derived circuits. Kept next to the
@@ -1100,7 +1105,7 @@ def emit_track_const(code, idx, name, w, h, tiles, start, start_heading,
     code.append("    },")
     code.append(f"    checkpoint_count: {len(checkpoints)},")
     code.append("    checkpoints: [")
-    for cidx in range(16):
+    for cidx in range(MAX_TRACK_CHECKPOINTS):
         if cidx < len(checkpoints):
             cx, cy = checkpoints[cidx]
             code.append("        CheckpointGate {")

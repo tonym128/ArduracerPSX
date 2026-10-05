@@ -24,7 +24,12 @@ use crate::math::{Fixed, Vec2, FP_ONE, FP_SHIFT};
 ///
 /// 17 gates (16 checkpoints plus the start/finish) at 8 samples per span is 136,
 /// so 192 leaves headroom without needing a heap allocation on hardware.
-pub const MAX_ROUTE_SAMPLES: usize = 192;
+/// Centreline samples per route. With `DEFAULT_SAMPLES_PER_SPAN` this caps
+/// authored control points at `MAX_ROUTE_SAMPLES / DEFAULT_SAMPLES_PER_SPAN`.
+/// Raised from 192 (24 control points) to 288 (36), because a large authored
+/// circuit with smooth corners needs more anchors than FX gate spacing ever
+/// provided. Costs ~1 KB per `Route`; six are live (player + five rivals).
+pub const MAX_ROUTE_SAMPLES: usize = 288;
 
 /// Default spline resolution: samples generated per span between gates.
 pub const DEFAULT_SAMPLES_PER_SPAN: usize = 8;
@@ -37,9 +42,15 @@ pub const DEFAULT_SAMPLES_PER_SPAN: usize = 8;
 pub struct Route {
     points: [Vec2; MAX_ROUTE_SAMPLES],
     /// Arc length at each sample. `arc[0]` is always 0.
-    arc: [u16; MAX_ROUTE_SAMPLES],
+    /// Arc length at each sample, in world units. `u32`, not `u16`.
+    ///
+    /// `u16` saturates at 65,535 world units -- 1,023 tiles of lap. A 96x96 grid
+    /// reaches ~24,576, so it fits today, but the margin is only 2.6x and
+    /// saturation is silent: every gate collapses onto one arc and no lap ever
+    /// validates, with no error to point at.
+    arc: [u32; MAX_ROUTE_SAMPLES],
     count: usize,
-    total: u16,
+    total: u32,
 }
 
 impl Default for Route {
@@ -92,20 +103,23 @@ impl Route {
 
         // Cumulative arc length around the loop, in *world units*.
         //
-        // Deliberately not Q20.12: `arc` and `total` are `u16`, so raw units
-        // would saturate at 65535 -- i.e. any circuit longer than 16 world units
-        // would report a full lap as 65535 and every gate would collapse onto one
-        // arc position. `distance_raw` already returns whole world units.
+        // Deliberately not Q20.12: `distance_raw` returns whole world units, and
+        // running them through Q20.12 fixed point would divide the real
+        // precision away (a 16-unit lap would saturate the old `u16` accumulator
+        // at 65535). The accumulator is `u32` for the same reason it was ever a
+        // hazard at all: arc length is a monotonically increasing quantity, and
+        // saturating it silently collapses every gate onto one arc position, so
+        // no lap ever validates and nothing errors.
         let mut acc: u32 = 0;
         route.arc[0] = 0;
         for i in 1..count {
             let d = distance_raw(route.points[i], route.points[i - 1]).max(0) as u32;
             acc = acc.saturating_add(d);
-            route.arc[i] = acc.min(u16::MAX as u32) as u16;
+            route.arc[i] = acc;
         }
         // Closing segment back to the first sample.
         let d = distance_raw(route.points[0], route.points[count - 1]).max(0) as u32;
-        route.total = acc.saturating_add(d).min(u16::MAX as u32) as u16;
+        route.total = acc.saturating_add(d);
         route
     }
 
@@ -154,12 +168,12 @@ impl Route {
     }
 
     /// Distance along the centreline of sample `i`, in world units.
-    pub fn arc_at(&self, i: usize) -> u16 {
+    pub fn arc_at(&self, i: usize) -> u32 {
         self.arc[i.min(self.count.saturating_sub(1))]
     }
 
     /// Total length of the closed loop, in world units.
-    pub fn total_len(&self) -> u16 {
+    pub fn total_len(&self) -> u32 {
         self.total
     }
 
@@ -171,7 +185,7 @@ impl Route {
     /// a respawn, where the car can be anywhere).
     ///
     /// Returns `(arc_position, distance_to_centreline, sample_index)`.
-    pub fn nearest(&self, pos: Vec2, hint: usize) -> (u16, i32, usize) {
+    pub fn nearest(&self, pos: Vec2, hint: usize) -> (u32, i32, usize) {
         if self.count == 0 {
             return (0, 0, 0);
         }
@@ -198,9 +212,9 @@ impl Route {
     }
 
     /// Smallest and largest sample index in a window around `hint`, wrapping.
-    fn scan_window(&self, pos: Vec2, hint: usize, radius: usize) -> (u16, i32, usize) {
+    fn scan_window(&self, pos: Vec2, hint: usize, radius: usize) -> (u32, i32, usize) {
         let n = self.count;
-        let mut best = (0u16, i32::MAX, hint);
+        let mut best = (0u32, i32::MAX, hint);
         for step in 0..=radius * 2 {
             let idx = (hint + n - (radius % n) + step) % n;
             let (arc, d, _) = self.project(pos, idx);
@@ -220,8 +234,8 @@ impl Route {
         best
     }
 
-    fn scan_all(&self, pos: Vec2) -> (u16, i32, usize) {
-        let mut best = (0u16, i32::MAX, 0usize);
+    fn scan_all(&self, pos: Vec2) -> (u32, i32, usize) {
+        let mut best = (0u32, i32::MAX, 0usize);
         for i in 0..self.count {
             let (arc, d, _) = self.project(pos, i);
             if d < best.1 {
@@ -233,7 +247,7 @@ impl Route {
 
     /// Projects `pos` onto the segment starting at sample `i`, returning the
     /// interpolated arc position, perpendicular distance and clamped sample index.
-    fn project(&self, pos: Vec2, i: usize) -> (u16, i32, usize) {
+    fn project(&self, pos: Vec2, i: usize) -> (u32, i32, usize) {
         let n = self.count;
         let a = self.points[i];
         let b = self.points[(i + 1) % n];
@@ -261,7 +275,11 @@ impl Route {
             y: Fixed::from_raw(cy),
         };
         let seg_len = (isqrt(len_sq as u64) >> FP_SHIFT) as i32;
-        let arc = (self.arc[i] as i32 + seg_len * t).clamp(0, self.total as i32) as u16;
+        // Interpolated arc position. `u32` arithmetic with a saturating clamp: an
+        // interpolated arc must never wrap past the end of the route, or a gate
+        // near the finish would be reported as being near the start.
+        let arc =
+            (self.arc[i] as i64 + (seg_len as i64 * t as i64)).clamp(0, self.total as i64) as u32;
         (arc, distance_raw(pos, closest), i)
     }
 
@@ -271,7 +289,7 @@ impl Route {
     /// This is the whole of centreline-relative lap validation: the previous
     /// tile-box test could not tell a forward crossing from a reverse one, which
     /// is why driving backwards through every gate used to score a lap.
-    pub fn crossed(&self, prev: u16, cur: u16, gate_arc: u16, forward: bool) -> bool {
+    pub fn crossed(&self, prev: u32, cur: u32, gate_arc: u32, forward: bool) -> bool {
         let total = self.total as i32;
         if total == 0 {
             return false;

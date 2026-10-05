@@ -9,7 +9,7 @@
 use crate::drift::DriftState;
 use crate::math::{self, Fixed, Vec2, FP_ONE};
 use crate::surface::SurfaceType;
-use crate::track::{TrackDef, TILE_SIZE};
+use crate::track::{TrackDef, MAX_TRACK_CHECKPOINTS, TILE_SIZE};
 use crate::tuning::CarTuning;
 
 /// Unladen top speed in world units per tick (~3.42 u/tick == ~205 u/s).
@@ -750,6 +750,14 @@ mod tests {
         }
     }
 
+    /// Extends a short gate list to the full `checkpoints` array capacity.
+    fn padded_gates(src: &[CheckpointGate]) -> [CheckpointGate; MAX_TRACK_CHECKPOINTS] {
+        let mut out = [CheckpointGate::default(); MAX_TRACK_CHECKPOINTS];
+        let n = src.len().min(MAX_TRACK_CHECKPOINTS);
+        out[..n].copy_from_slice(&src[..n]);
+        out
+    }
+
     /// All-tarmac grid with a solid block parked in the middle of the road.
     fn walled_track() -> TrackDef {
         // 10x10, ring road on the perimeter, one Barrier at (4..6, 4..6).
@@ -759,7 +767,7 @@ mod tests {
                 tiles[ty * 10 + tx] = TrackTile::Barrier;
             }
         }
-        let gates = [
+        let gates_src = [
             CheckpointGate {
                 x: 1,
                 y: 1,
@@ -871,7 +879,9 @@ mod tests {
             },
             par_times: ParTimes::default(),
             checkpoint_count: 8,
-            checkpoints: gates,
+            // Pad to the full gate capacity; `checkpoint_count` selects the
+            // live ones.
+            checkpoints: padded_gates(&gates_src),
             tiles: Box::leak(Box::new(tiles)),
             // No authored centreline: exercises the gate-derived fallback.
             route: &[],
@@ -1592,7 +1602,7 @@ mod tests {
             y: 1,
             width: 1,
             height: 1,
-        }; 16];
+        }; crate::track::MAX_TRACK_CHECKPOINTS];
         let track = TrackDef {
             name: "EDGEBLOCK",
             width: 10,

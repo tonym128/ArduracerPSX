@@ -14,9 +14,14 @@ use crate::surface::SurfaceType;
 use crate::timing::{CheckpointGate, ParTimes};
 
 /// Maximum checkpoints per track.
-pub const MAX_TRACK_CHECKPOINTS: usize = 16;
+/// Checkpoint slots per circuit. Longer circuits need proportionally more split
+/// points so a straight is not one long blind gate.
+pub const MAX_TRACK_CHECKPOINTS: usize = 24;
 /// Maximum dimension of a track grid (up to 32x32 tiles).
-pub const MAX_TRACK_DIM: usize = 40;
+/// Largest circuit grid edge, in tiles. A 64x64 grid is 4096 world units per side
+/// at `TILE_SIZE` 64 -- the smallest that reads as a stage atlas rather than a
+/// circuit. Raised from 40 for the authored circuits; `MAX_TILE_INDEX` follows.
+pub const MAX_TRACK_DIM: usize = 64;
 /// Largest tile index the `u8` tile API can represent.
 ///
 /// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
@@ -451,106 +456,33 @@ mod tests {
     use super::*;
     use crate::levels::ALL_TRACKS;
 
-    /// A 10x10 all-tarmac grid, 16 gates at 1x1 each, with a hand-editable count.
+    /// A 10x10 all-tarmac grid with the full gate array filled, and a
+    /// hand-editable live count.
+    ///
+    /// The gates are *generated* across the capacity rather than hand-written.
+    /// A literal list silently under-fills when `MAX_TRACK_CHECKPOINTS` grows:
+    /// the array still has the right length, but the tail is `default()` and
+    /// therefore inactive, so any test asserting every route node resolves fails
+    /// for a reason that has nothing to do with what it is testing.
     fn scratch_track(checkpoint_count: u8) -> TrackDef {
-        let gates = [
-            CheckpointGate {
-                x: 1,
-                y: 1,
+        const GRID: usize = 10;
+        let mut gates = [CheckpointGate::default(); MAX_TRACK_CHECKPOINTS];
+        for (i, slot) in gates.iter_mut().enumerate() {
+            // Walk the grid perimeter so every gate is distinct and on tarmac.
+            let edge = GRID - 2;
+            let (x, y) = match i % 4 {
+                0 => (i % (GRID - 1), 1),
+                1 => (edge, i % (GRID - 1)),
+                2 => (edge - (i % edge), edge),
+                _ => (1, edge - (i % edge)),
+            };
+            *slot = CheckpointGate {
+                x: x as u8,
+                y: y as u8,
                 width: 1,
                 height: 1,
-            },
-            CheckpointGate {
-                x: 5,
-                y: 1,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 8,
-                y: 1,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 8,
-                y: 5,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 8,
-                y: 8,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 5,
-                y: 8,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 1,
-                y: 8,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 1,
-                y: 5,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 3,
-                y: 3,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 6,
-                y: 3,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 3,
-                y: 6,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 6,
-                y: 6,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 2,
-                y: 2,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 7,
-                y: 2,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 2,
-                y: 7,
-                width: 1,
-                height: 1,
-            },
-            CheckpointGate {
-                x: 7,
-                y: 7,
-                width: 1,
-                height: 1,
-            },
-        ];
+            };
+        }
         static TILES: [TrackTile; 100] = [TrackTile::Tarmac; 100];
         TrackDef {
             name: "SCRATCH",
@@ -578,9 +510,10 @@ mod tests {
 
     #[test]
     fn checkpoint_count_above_capacity_cannot_panic() {
-        // `checkpoint_count` is a pub u8 with no constructor: 20 used to slice
-        // `[..20]` out of a 16-element array.
-        let track = scratch_track(20);
+        // `checkpoint_count` is a pub u8 with no constructor, so it can exceed
+        // the array. Asked for well past capacity so the test keeps meaning
+        // something as `MAX_TRACK_CHECKPOINTS` grows.
+        let track = scratch_track(MAX_TRACK_CHECKPOINTS as u8 + 4);
         assert_eq!(track.active_checkpoint_count(), MAX_TRACK_CHECKPOINTS);
         assert_eq!(track.checkpoint_slice().len(), MAX_TRACK_CHECKPOINTS);
         assert_eq!(track.route_len(), MAX_TRACK_CHECKPOINTS + 1);
@@ -632,8 +565,8 @@ mod tests {
             assert_eq!(track.route_node(idx), track.start_gate, "idx {idx}");
         }
         // And a count that overruns the array still resolves every index.
-        let over = scratch_track(20);
-        for idx in 0..128usize {
+        let over = scratch_track(MAX_TRACK_CHECKPOINTS as u8 + 4);
+        for idx in 0..(MAX_TRACK_CHECKPOINTS * 2) {
             let node = over.route_node(idx);
             assert!(node.is_active(), "route node {idx} came back empty");
         }
@@ -641,7 +574,7 @@ mod tests {
 
     #[test]
     fn route_len_is_never_zero_so_modulo_is_safe() {
-        for count in [0u8, 1, 16, 20, 255] {
+        for count in [0u8, 1, 16, 20, 24, 255] {
             assert!(scratch_track(count).route_len() >= 1);
         }
     }
@@ -664,15 +597,19 @@ mod tests {
         // Past the largest circuit the index saturates at the ceiling.
         // `(v / TILE_SIZE) as u8` used to wrap mod 256 instead, so these all
         // came back as tile 0 (or some arbitrary low tile).
-        // Coordinates past the largest circuit (40 tiles) saturate.
+        // Coordinates past the largest circuit saturate. The first entry is
+        // computed from `MAX_TRACK_DIM` rather than written down, so raising the
+        // grid ceiling cannot leave this probing a legal coordinate and quietly
+        // asserting the wrong thing.
+        let one_past = (MAX_TRACK_DIM as i32 + 1) * TILE_SIZE;
         for (units, wrapped_before) in [
-            (2_624i32, 41), // 41 tiles -- one past the ceiling
-            (4_096, 64),    // 64 tiles
-            (8_191, 127),   // 127 tiles
-            (16_383, 255),  // 255 tiles -- one below the wrap
-            (16_384, 0),    // 256 tiles -> wrapped to 0
-            (100_000, 26),  // 1562 tiles -> wrapped
-            (524_287, 31),  // 8191 tiles, the largest representable world
+            (one_past, 0), // one past the ceiling
+            (4_096, 64),   // 64 tiles
+            (8_191, 127),  // 127 tiles
+            (16_383, 255), // 255 tiles -- one below the wrap
+            (16_384, 0),   // 256 tiles -> wrapped to 0
+            (100_000, 26), // 1562 tiles -> wrapped
+            (524_287, 31), // 8191 tiles, the largest world
         ] {
             assert_eq!(
                 TrackDef::tile_x_of(Fixed::from_int(units)),
