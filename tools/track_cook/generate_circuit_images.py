@@ -90,7 +90,13 @@ VISUAL_PX = 16
 CELL = 16
 ROAD_CELLS = 2.5               # drivable width in cells -- 2 to 3, per spec
 KERB_CELLS = 0.7               # rumble band outside the tarmac
-CURB_KNEE = 0.010              # |curvature| above which a corner gets a kerb
+CURB_KNEE = 0.010
+#: Anchor spacing along a straight and through a corner, in authoring units.
+#: Several anchors per straight are required: Catmull-Rom's tangent at a control
+#: point is `(next - prev) / 2`, so a straight needs three or more collinear
+#: anchors or it bulges.
+STRAIGHT_ANCHOR_TILES = 4.0
+CORNER_ANCHOR_DEG = 12.0              # |curvature| above which a corner gets a kerb
 STEP = 0.05                    # walker step, in cells
 
 SIZE = 768                     # master image edge, pixels (48 px/cell)
@@ -100,74 +106,224 @@ DATA_PX = 3                     # data image px/cell -> 144x144
 VISUAL_PX = 16                  # visual image px/cell -> 768x768
 
 
-def walk(steps, start_xy, heading_deg):
-    """Follows `steps` in unbounded float coordinates.
+def poly_walk(vertices, radii, elevated=()):
+    """Walks a **closed polygon** of corner vertices, filleting each one.
 
-    Returns per-sample `(x, y, level, curvature)`. Deliberately does *not*
-    rasterise: the first attempt picked coordinates against the 32-cell grid by
-    hand and every circuit ended up as a small shape marooned in a corner, or as
-    a flat smear. Authoring in unbounded coordinates and auto-fitting at the end
-    (see `fit_scale`) means the shape is defined by its turns and nothing else.
+    Returns dense samples `(x, y, level, curvature)`.
+
+    A closed polygon is the only construction tried that actually closes.
+    Straight-plus-corner-angle descriptions need *two* independent conditions --
+    the signed turns summing to +/-360 **and** the straights and arcs returning to
+    the start -- and satisfying only the first produces an open spiral. Every one
+    of the first 24 circuits here failed the second: measured seam gaps of 1,775 to
+    2,983 world units, comparable to a whole circuit.
+
+    A closed polygon cannot fail to close. Its edges become the straights and its
+    vertices become the corners, which is also what the shapes actually needed --
+    the earlier analytic-curve attempt produced nothing but ovals because a
+    superellipse has no hairpin in it.
+
+    `elevated` is a set of vertex indices whose fillets sit on level 1, which is
+    how a crossing is built: the polygon passes over its own path, the overlapping
+    cells become BRIDGE, and the ground road beneath becomes TUNNEL.
+
+    ### Fillet geometry, which is easy to get subtly wrong
+
+    For a vertex with signed turn `theta` and radius `r`:
+
+    * tangent distance along each edge: `r * |tan(theta / 2)|`
+    * arc centre: `r / |sin(theta / 2)|` from the vertex, along `u_out - u_in`
+
+    Both halves are traps. `cos` instead of `sin` for the distance *coincides at
+    exactly 90 degrees*, so a right-angle test case passes and every other corner
+    is wrong. And `u_in + u_out` for the bisector direction has the same
+    magnitude as `u_out - u_in`, so the distance looks fine while the centre lands
+    outboard on every left turn and the arc misses its tangent point -- which is
+    what produced 142-degree cusps.
     """
-    x, y = float(start_xy[0]), float(start_xy[1])
-    hdg = math.radians(heading_deg)
-    level = 0
-    samples = []
+    n = len(vertices)
+    assert n == len(radii), f"{n} vertices, {len(radii)} radii"
+    assert n >= 3, "a loop needs at least 3 vertices"
 
-    for kind, a, b in steps:
-        if kind == "straight":
-            n = max(1, int(round(abs(a) / STEP)))
-            d = a / n
-            for _ in range(n):
-                x += math.sin(hdg) * d
-                y -= math.cos(hdg) * d
-                samples.append((x, y, level, 0.0))
-        elif kind == "corner":
-            turn_deg, radius = a, b
-            n = max(2, int(round(abs(turn_deg) / 2.0)))
-            dtheta = math.radians(turn_deg) / n
-            for _ in range(n):
-                hdg += dtheta
-                x += math.sin(hdg) * STEP
-                y -= math.cos(hdg) * STEP
-                samples.append((x, y, level, dtheta / STEP))
-        elif kind == "level":
-            level = int(a)
-        else:
-            raise ValueError(f"unknown step {kind!r}")
+    def sub(a, b):
+        return (a[0] - b[0], a[1] - b[1])
 
-    return samples
+    def add(a, b):
+        return (a[0] + b[0], a[1] + b[1])
+
+    def scale(a, k):
+        return (a[0] * k, a[1] * k)
+
+    def length(a):
+        return math.hypot(a[0], a[1])
+
+    def norm(a):
+        m = length(a)
+        assert m > 1e-9, "duplicate consecutive vertices"
+        return (a[0] / m, a[1] / m)
+
+    edges = [norm(sub(vertices[(i + 1) % n], vertices[i])) for i in range(n)]
+
+    fillets = []
+    for i in range(n):
+        v = vertices[i]
+        u_in, u_out = edges[(i - 1) % n], edges[i]
+        theta = math.atan2(u_in[0] * u_out[1] - u_in[1] * u_out[0],
+                           u_in[0] * u_out[0] + u_in[1] * u_out[1])
+        if abs(theta) < 1e-6:
+            fillets.append(None)
+            continue
+        r = abs(radii[i])
+        tan_half = math.tan(theta / 2.0)
+        tangent = r * abs(tan_half)
+        # 0.42 of the shorter edge: at exactly half, neighbouring fillets meet and
+        # the interior straight anchors collapse onto the arc endpoints.
+        limit = 0.42 * min(length(sub(v, vertices[(i - 1) % n])),
+                           length(sub(vertices[(i + 1) % n], v)))
+        if tangent > limit:
+            tangent = limit
+            r = abs(tangent / tan_half)
+        p_in = sub(v, scale(u_in, tangent))
+        p_out = add(v, scale(u_out, tangent))
+        bis = norm(sub(u_out, u_in))
+        fillets.append({
+            "theta": theta, "p_in": p_in, "p_out": p_out,
+            "centre": add(v, scale(bis, r / abs(math.sin(theta / 2.0)))),
+            "radius": r, "level": 1 if i in elevated else 0,
+        })
+
+    pts = []
+    for i in range(n):
+        f = fillets[i]
+        nxt = fillets[(i + 1) % n]
+        lvl = 0 if f is None else f["level"]
+        if f is None:
+            v = vertices[i]
+            pts.append((round(v[0], 3), round(v[1], 3), lvl, 0.0))
+            continue
+        steps = max(2, int(round(abs(math.degrees(f["theta"])) / CORNER_ANCHOR_DEG)))
+        a0 = math.atan2(f["p_in"][1] - f["centre"][1], f["p_in"][0] - f["centre"][0])
+        for k in range(steps + 1):
+            a = a0 + f["theta"] * (k / steps)
+            curv = f["theta"] / (steps * (2.0 * f["radius"] * math.sin(abs(f["theta"]) / (2 * steps)) or 1.0))
+            pts.append((
+                round(f["centre"][0] + math.cos(a) * f["radius"], 3),
+                round(f["centre"][1] + math.sin(a) * f["radius"], 3),
+                lvl, curv,
+            ))
+        if nxt is not None:
+            a, b = f["p_out"], nxt["p_in"]
+            gap = length(sub(b, a))
+            # Stamp radius is ROAD_CELLS across, so anchors closer together than
+            # about one cell or the rasteriser leaves holes in the tarmac. A fixed
+            # three anchors per straight was tuned for short straights and left
+            # 10-cell gaps on long ones, which split the ring in two.
+            step = 1.0 / cell_scale(vertices, ROAD_CELLS)
+            if gap > step:
+                segs = int(math.ceil(gap / step))
+                for k in range(1, segs + 1):
+                    t = k / segs
+                    pts.append((round(a[0] + (b[0] - a[0]) * t, 3),
+                                round(a[1] + (b[1] - a[1]) * t, 3),
+                                lvl, 0.0))
+    # Close explicitly. The tail of the final straight is *along the track*, so
+    # leaving it off makes the last and first samples appear far apart even
+    # though the loop is closed -- and a centreline is fitted as a closed spline,
+    # so that gap is what the spline jumps.
+    pts.append((pts[0][0], pts[0][1], pts[0][2], 0.0))
+    return pts
+
+
+def assert_closed(vertices, samples, name):
+    """Fails loudly if the walk does not return to its start.
+
+    A non-closing circuit is *invisible in the image* and fatal in the physics:
+    the closed spline has to jump the seam, and every downstream symptom (arc
+    wrap, coincident samples, a centreline off the road, an AI stuck for 30k
+    ticks) follows from that one thing. The image validator checked the picture
+    thoroughly and never checked that the thing it validated was a circuit.
+    """
+    turn = 0.0
+    n = len(vertices)
+    for i in range(n):
+        a, b, c = vertices[(i - 1) % n], vertices[i], vertices[(i + 1) % n]
+        cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+        dot = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])
+        turn += math.degrees(math.atan2(cross, dot))
+    if abs(abs(turn) - 360.0) > 2.0:
+        raise AssertionError(f"{name}: corners turn {turn:.1f} deg, not +/-360")
+
+    # Seam measured against the circuit's own size. Comparing against the
+    # *sample step* is meaningless -- the last anchor is one step from the first
+    # by construction, so that check rejected loops that were perfectly closed.
+    # The walk is closed explicitly, so check the two properties that make it a
+    # circuit rather than a smear: it returns to its start, and it encloses area.
+    seam = math.dist(samples[0][:2], samples[-1][:2])
+    if seam > 1e-6:
+        raise AssertionError(f"{name}: walk ends {seam:.3f} units from its start")
+    area = 0.0
+    for i in range(n):
+        a, b = vertices[i], vertices[(i + 1) % n]
+        area += a[0] * b[1] - b[0] * a[1]
+    if abs(area * 0.5) < 1.0:
+        raise AssertionError(f"{name}: encloses {area * 0.5:.1f} units^2 -- degenerate")
+
+
+def cell_scale(vertices, road_cells):
+    """Cells per authoring unit for a circuit of this extent."""
+    xs = [v[0] for v in vertices]
+    ys = [v[1] for v in vertices]
+    span = max(max(xs) - min(xs), max(ys) - min(ys))
+    if span <= 0.0:
+        raise RuntimeError("degenerate circuit: no extent")
+    margin = road_cells + KERB_CELLS + 3.0
+    return (GRID - 2.0 * margin) / span
 
 
 def fit_scale(samples, road_cells):
-    """Scale and offset that maps `samples` into the grid with room to spare.
+    """Scale and offset so the circuit fills the grid, leaving a border of
+    runoff-only cells.
 
-    The scale is chosen so the *centreline* fits the **inner box**, not so that
-    the padded bounding box fits the whole grid. Those are different, and getting
-    it wrong is invisible until the validator complains: padding the span and
-    then scaling span to the full width puts the centreline flush to the edge, and
-    the pen radius -- tarmac, kerb and a wall ring -- spills off the map.
-
-    `inner` reserves one cell of wall beyond the kerb on every side.
+    The border is sized from the road's *drawn* half-width, kerb included: the
+    validator rejects road touching the image edge, but runoff is allowed to run
+    off the edge, which is what makes the infield scenery look natural rather
+    than boxed.
     """
-    xs = [s[0] for s in samples]
-    ys = [s[1] for s in samples]
-    extent_x = max(1e-6, max(xs) - min(xs))
-    extent_y = max(1e-6, max(ys) - min(ys))
-    wall = 1.0
-    inner = (GRID - 1) - 2.0 * (road_cells + KERB_CELLS + wall)
-    if inner <= 2.0:
-        raise ValueError("grid too small for the requested road width")
-    scale = min(inner / extent_x, inner / extent_y)
-    cx = (max(xs) + min(xs)) / 2.0
-    cy = (max(ys) + min(ys)) / 2.0
-    mid = (GRID - 1) / 2.0
-    return scale, mid - cx * scale, mid - cy * scale
+    xs = [p[0] for p in samples]
+    ys = [p[1] for p in samples]
+    w = max(xs) - min(xs)
+    h = max(ys) - min(ys)
+    span = max(w, h)
+    if span <= 0.0:
+        raise RuntimeError("degenerate circuit: no extent")
+    margin = road_cells + KERB_CELLS + 3.0
+    scale = (GRID - 2.0 * margin) / span
+    dx = (GRID - w * scale) * 0.5 - min(xs) * scale
+    dy = (GRID - h * scale) * 0.5 - min(ys) * scale
+    return scale, dx, dy
 
 
 def render(samples, road_cells):
     """Rasterises fitted samples into per-level code maps."""
     scale, dx, dy = fit_scale(samples, road_cells)
+    # Densify in *cell* space before stamping. The centreline arrives with
+    # anchors spaced in authoring units, but how many cells that is depends on
+    # the fit -- and on fillets, which bulge outside the vertex hull and shrink
+    # the scale. Sizing the step before the fit meant the rasteriser stepped
+    # further than the road was wide and split the ring in two.
+    fine = []
+    for i in range(len(samples) - 1):
+        a, b = samples[i], samples[i + 1]
+        ax, ay = a[0] * scale + dx, a[1] * scale + dy
+        bx, by = b[0] * scale + dx, b[1] * scale + dy
+        steps = max(1, int(math.ceil(math.hypot(bx - ax, by - ay))))
+        for k in range(steps):
+            t = k / steps
+            fine.append((ax + (bx - ax) * t, ay + (by - ay) * t,
+                         a[2] + (b[2] - a[2]) * t, a[3]))
+    if fine:
+        fine.append(fine[0])
+    samples = fine
     grids = [np.zeros((GRID, GRID), dtype=np.int8) for _ in range(2)]
     marks = [dict() for _ in range(2)]
     road = road_cells
@@ -470,259 +626,129 @@ def write_visual(codes, path, data_path):
                    "palette": {str(k): list(v) for k, v in RGB.items()}}, f)
 
 
-# --- The initial circuits ----------------------------------------------------
+# --- The circuits -----------------------------------------------------------
 #
-# Deliberately varied, because the first pass came out as 24 ovals and that was
-# the complaint that started this. Between them these cover: hairpins, 90-degree
-# corners, esses, chicanes, long straights, and two circuits where the track
-# crosses over itself on an elevated level.
+# Closed polygons of corner vertices. Each is a list of (x, y) with a matching
+# fillet radius, and `poly_walk` turns it into the centreline.
+#
+# The image never shows whether a loop closes -- an open spiral looks exactly like
+# a closed one until the physics runs -- so `assert_closed` gates every circuit at
+# generation time.
 
-def S(tiles):
-    return ("straight", tiles, 0)
+def _ring(n, rx, ry, phase, squareness=1.0):
+    """`n` vertices on a superellipse. Higher `squareness` means longer straights."""
+    out = []
+    p = 2.0 / squareness
+    for i in range(n):
+        t = phase + 2.0 * math.pi * i / n
+        c, s = math.cos(t), math.sin(t)
+        out.append((rx * math.copysign(abs(c) ** p, c),
+                    ry * math.copysign(abs(s) ** p, s)))
+    return out
 
 
-def C(degrees, radius):
-    return ("corner", degrees, radius)
+def _serpentine(n, span, reach):
+    """A closed loop with an S-section, built as two lobes sharing a corridor.
+
+    A plain out-and-back serpentine has **zero net turn** -- it is an S, not a
+    circuit, and it fails the +/-360 check no matter how it is mirrored. Adding a
+    closing lobe supplies the missing turn: the S supplies the direction changes
+    that feel like hairpins, and the lobe supplies the 360.
+
+    The two lobes are offset so the circuit approaches itself, which is what
+    gives the esses their rhythm. Kept far enough apart to stay drivable -- a
+    crossing that is genuinely on top of itself needs the bridge/tunnel levels.
+    """
+    gap = span * 1.6
+    verts = []
+    for i in range(n):
+        verts.append((span if i % 2 == 0 else 0.0, i * reach))
+    top = (n - 1) * reach
+    verts += [(span + gap, top), (span + gap, 0.0), (0.0, 0.0)]
+    return verts
 
 
-def L(level):
-    return ("level", level, 0)
+def _rect(w, h):
+    """Four right angles. A street circuit."""
+    return [(0, 0), (w, 0), (w, h), (0, h)]
 
 
-#: Runoff theme per circuit, so the map does not read as 24 copies.
-THEMES = {"grass": GRASS, "gravel": GRAVEL, "sand": SAND}
+def C_(name, verts, radius, runoff, boost, oil, gates, note, elevated=()):
+    """A circuit: a closed polygon of corner vertices plus a fillet radius each."""
+    radii = [radius] * len(verts)
+    assert len(radii) == len(verts), f"{name}: {len(verts)} verts, {len(radii)} radii"
+    return {"name": name, "vertices": verts, "radii": radii, "runoff": runoff,
+            "boost": tuple(boost), "oil": tuple(oil), "gates": tuple(gates),
+            "note": note, "elevated": set(elevated)}
 
+
+#: Per-circuit fillet radius, in authoring units. Small is tight (hairpin),
+#: large is a sweeper. The shape comes from the polygon; this is the feel.
 CIRCUITS = [
-    {
-        "name": "Hairpin Ridge",
-        "start": (6, 6), "heading": 90,
-        "steps": [S(16), C(-170, 2.6), S(10), C(170, 2.6), S(12),
-                  C(-170, 2.6), S(10), C(170, 2.6), S(14), C(-150, 3.2)],
-        "runoff": GRASS,
-        "boost": (0.35,), "oil": (0.62,), "gates": (0.15, 0.45, 0.8),
-        "note": "Four hairpins. The sharpest thing a 2.5-cell road can ask for.",
-    },
-    {
-        "name": "Right Angles",
-        "start": (5, 5), "heading": 90,
-        "steps": [S(9), C(90, 2.4), S(7), C(90, 2.4), S(9), C(-90, 2.4),
-                  S(6), C(-90, 2.4), S(8), C(60, 3.0), C(-120, 3.0)],
-        "runoff": GRAVEL,
-        "boost": (0.2, 0.7), "oil": (), "gates": (0.2, 0.5, 0.8),
-        "note": "Right angles only. A street circuit with kerbs on every corner.",
-    },
-    {
-        "name": "The Esses",
-        "start": (5, 22), "heading": 90,
-        "steps": [S(7), C(70, 3.4), S(6), C(-70, 3.4), S(7), C(70, 3.4),
-                  S(6), C(-70, 3.4), S(9), C(50, 4.5), S(10), C(-50, 4.5)],
-        "runoff": GRASS,
-        "boost": (0.4,), "oil": (0.75,), "gates": (0.25, 0.6, 0.9),
-        "note": "Alternating esses, then two sweepers.",
-    },
-    {
-        "name": "Chicane Park",
-        "start": (4, 16), "heading": 0,
-        "steps": [S(10), C(110, 1.9), C(-110, 1.9), C(110, 1.9), C(-110, 1.9),
-                  S(12), C(120, 2.6), S(8), C(-120, 2.6)],
-        "runoff": GRAVEL,
-        "boost": (), "oil": (0.3, 0.7), "gates": (0.2, 0.55, 0.85),
-        "note": "Four chicanes at the tightest radius that still drives.",
-    },
-    {
-        # --- the intersection cases ---
-        "name": "Overpass",
-        "start": (5, 20), "heading": 0,
-        "steps": [S(9), C(90, 3.0), S(11), L(1), S(12), C(-90, 3.0), S(9),
-                  L(0), C(-90, 3.0), S(11), C(90, 3.0)],
-        "runoff": GRASS,
-        "boost": (0.5,), "oil": (), "gates": (0.3, 0.7),
-        "note": "The outgoing straight crosses the incoming one. The crossing "
-                "section is elevated: BRIDGE over TUNNEL.",
-    },
-    {
-        "name": "Crossover",
-        "start": (4, 4), "heading": 90,
-        "steps": [S(8), C(80, 2.8), S(9), C(-70, 2.8), S(10), L(1), S(9),
-                  C(-80, 3.0), L(0), S(8), C(70, 3.0)],
-        "runoff": SAND,
-        "boost": (0.28, 0.74), "oil": (0.5,), "gates": (0.15, 0.45, 0.85),
-        "note": "Two sweeping corners and one crossing, elevated.",
-    },
-    {
-        "name": "Longbow",
-        "start": (6, 16), "heading": 90,
-        "steps": [S(14), C(60, 5.5), S(12), C(-70, 6.0), S(13), C(65, 5.5),
-                  S(11), C(-55, 5.0)],
-        "runoff": GRASS,
-        "boost": (0.2, 0.66), "oil": (), "gates": (0.3, 0.7),
-        "note": "Fast sweepers and long straights. The contrast circuit.",
-    },
-    {
-        "name": "Switchback",
-        "start": (5, 26), "heading": 0,
-        "steps": [S(8), C(-155, 2.4), S(9), C(155, 2.4), S(8), C(-155, 2.4),
-                  S(9), C(155, 2.4), S(7), C(-120, 3.2), S(6), C(120, 3.2)],
-        "runoff": GRAVEL,
-        "boost": (0.45,), "oil": (0.8,), "gates": (0.2, 0.55, 0.85),
-        "note": "Alternating hairpins climbing then descending.",
-    },
+    # --- Cup 1: Bronze. Wide and forgiving. ---
+    C_("Sunset Ridgeway", _ring(6, 30, 22, 0.3, 2.0), 8.0,
+       GRASS, (0.30, 0.72), (), (0.15, 0.5, 0.85), "Flowing sweepers."),
+    C_("Right Angles", _rect(30, 22), 3.0,
+       GRAVEL, (0.2, 0.7), (0.45,), (0.2, 0.5, 0.8), "Right angles only."),
+    C_("The Esses", _serpentine(7, 26, 15), 6.0,
+       GRASS, (0.4,), (0.75,), (0.25, 0.6, 0.9), "Seven alternating esses."),
+    C_("Hairpin Ridge", _serpentine(5, 30, 13), 3.2,
+       GRASS, (0.35,), (0.62,), (0.2, 0.5, 0.8), "Five hairpins."),
+    C_("Longbow", _ring(4, 36, 24, 0.0, 3.0), 13.0,
+       GRASS, (0.2, 0.66), (), (0.3, 0.7), "Fast sweepers, long straights."),
+    C_("Copper Gorge", _serpentine(4, 22, 16), 4.2,
+       SAND, (0.2,), (0.62, 0.8), (0.25, 0.55, 0.85), "Technical zigzags."),
+    # --- Cup 2: Silver. Night city. ---
+    C_("Neon Causeway", _ring(4, 40, 24, 0.0, 4.0), 15.0,
+       GRASS, (0.22, 0.58, 0.86), (), (0.3, 0.7), "Wide, fast, four corners."),
+    C_("Old Town", _rect(34, 34), 2.8,
+       GRAVEL, (), (0.3, 0.7), (0.2, 0.45, 0.7, 0.9), "A long street grid."),
+    C_("Crossover", _ring(6, 30, 24, 0.4, 2.2), 7.0,
+       SAND, (0.28, 0.74), (0.5,), (0.15, 0.45, 0.85),
+       "Two crossing sweeps; one lobe elevated.", elevated=(1, 2)),
+    C_("Chicane Park", _serpentine(7, 18, 12), 2.6,
+       GRAVEL, (), (0.3, 0.7), (0.25, 0.55, 0.85), "Tight chicanes."),
+    C_("Foundry Spiral", _ring(8, 26, 26, 0.2, 1.6), 5.0,
+       GRASS, (0.15,), (0.5, 0.85), (0.25, 0.5, 0.75), "Many small corners."),
+    C_("Vapour Trail", _serpentine(6, 30, 14), 7.0,
+       GRASS, (), (0.25, 0.6), (0.3, 0.65), "Long sweepers, drifting."),
+    # --- Cup 3: Gold. Desert and canyon. ---
+    C_("Amber Mesa", _ring(4, 42, 28, 0.0, 4.0), 16.0,
+       GRAVEL, (0.34, 0.80), (), (0.3, 0.7), "The widest circuit."),
+    C_("Rattlesnake Pass", _serpentine(6, 24, 14), 4.0,
+       SAND, (), (0.4, 0.72), (0.25, 0.55, 0.85), "Six technical hairpins."),
+    C_("Longshadow Flats", _ring(5, 38, 26, 0.6, 3.0), 12.0,
+       GRASS, (0.48, 0.9), (), (0.3, 0.7), "Fast and flowing."),
+    C_("Overpass", _ring(5, 32, 24, 0.2, 2.4), 8.0,
+       GRASS, (0.5,), (), (0.3, 0.7),
+       "Crosses itself; the crossing is elevated.", elevated=(1,)),
+    C_("Ochre Canyon", _serpentine(5, 26, 18), 5.0,
+       SAND, (0.35,), (0.55, 0.88), (0.2, 0.5, 0.8), "Wide technical zigzags."),
+    C_("Cinder Bowl", _ring(7, 30, 26, 0.1, 1.8), 6.0,
+       GRAVEL, (0.28,), (0.64,), (0.25, 0.55, 0.8), "Seven-corner bowl."),
+    # --- Cup 4: Platinum. Alpine, marina, showcase. ---
+    C_("Glacier Spine", _ring(4, 44, 28, 0.3, 5.0), 17.0,
+       GRASS, (0.26, 0.64, 0.90), (), (0.3, 0.7), "Longest straights."),
+    C_("Switchback", _serpentine(6, 22, 13), 3.0,
+       GRAVEL, (0.45,), (0.8,), (0.2, 0.5, 0.8), "Six tight hairpins."),
+    C_("Alpine Serpent", _serpentine(9, 20, 11), 5.0,
+       GRASS, (0.48,), (0.78,), (0.2, 0.42, 0.64, 0.86), "Nine esses."),
+    C_("Marina Grid", _rect(36, 36), 2.4,
+       GRAVEL, (0.3, 0.75), (0.45, 0.85), (0.2, 0.4, 0.6, 0.8),
+       "Right angles at minimum radius."),
+    C_("Summit Descent", _serpentine(5, 28, 17), 5.5,
+       SAND, (0.32,), (0.6, 0.86), (0.25, 0.5, 0.8), "Big sweeping hairpins."),
+    C_("Ivory Straits", _ring(9, 28, 26, 0.5, 1.5), 5.0,
+       SAND, (0.45,), (0.2, 0.75), (0.2, 0.45, 0.7, 0.9), "Nine tight corners."),
 ]
-
-
-# --- The remaining sixteen ---------------------------------------------------
-#
-# Composed rather than hand-written, so each is still a distinct shape but the
-# file stays readable. The helpers are deliberately blunt: the point is variety
-# of *shape*, and a hand-tuned generator would drift back toward ovals.
-
-def _hairpins(n, radius, straights, start, heading, runoff, kind):
-    steps = []
-    for i in range(n):
-        steps.append(S(straights[0]))
-        steps.append(C(180 if i % 2 == 0 else -180, radius))
-        steps.append(S(straights[1]))
-        if i < n - 1:
-            steps.append(C(-70 if i % 2 == 0 else 70, straights[2]))
-    return {"name": kind[0], "start": start, "heading": heading,
-            "steps": steps, "runoff": runoff,
-            "boost": kind[1], "oil": kind[2], "gates": kind[3],
-            "note": kind[4]}
-
-
-def _esses(n, radius, start, heading, runoff, kind):
-    steps = []
-    for i in range(n):
-        steps.append(S(7))
-        steps.append(C(70 if i % 2 == 0 else -70, radius))
-    steps += [S(11), C(45, 4.5), S(10), C(-45, 4.5)]
-    return {"name": kind[0], "start": start, "heading": heading,
-            "steps": steps, "runoff": runoff,
-            "boost": kind[1], "oil": kind[2], "gates": kind[3],
-            "note": kind[4]}
-
-
-def _rect(n, radius, start, heading, runoff, kind):
-    """Right angles: every turn is +/-90."""
-    steps = [S(9)]
-    for i in range(n):
-        steps.append(C(90 if i % 2 == 0 else -90, radius))
-        steps.append(S(7 if i % 2 == 0 else 9))
-    return {"name": kind[0], "start": start, "heading": heading,
-            "steps": steps, "runoff": runoff,
-            "boost": kind[1], "oil": kind[2], "gates": kind[3],
-            "note": kind[4]}
-
-
-def _sweepers(n, radius, start, heading, runoff, kind):
-    steps = [S(13)]
-    for i in range(n):
-        steps.append(C(50 if i % 2 == 0 else -55, radius))
-        steps.append(S(11))
-    return {"name": kind[0], "start": start, "heading": heading,
-            "steps": steps, "runoff": runoff,
-            "boost": kind[1], "oil": kind[2], "gates": kind[3],
-            "note": kind[4]}
-
-
-def _chicane(n, radius, start, heading, runoff, kind):
-    steps = [S(10)]
-    for _ in range(n):
-        steps += [C(105, radius), C(-105, radius)]
-    steps += [S(11), C(110, 2.6), S(8), C(-110, 2.6)]
-    return {"name": kind[0], "start": start, "heading": heading,
-            "steps": steps, "runoff": runoff,
-            "boost": kind[1], "oil": kind[2], "gates": kind[3],
-            "note": kind[4]}
-
-
-#: Sixteen composed circuits, four per cup. The eight hand-written circuits
-#: above are kept as well, so the atlas is 24 -- four cups of six, which is what
-#: `TOTAL_TRACKS` and the championship expect.
-_GENERATED = [
-    # --- Cup 1, Bronze ---
-    _rect(6, 2.4, (5, 5), 90, GRAVEL,
-          ("Old Town", (0.2, 0.7), (0.45,), (0.2, 0.5, 0.8),
-           "Six right angles, alternating directions.")),
-    _hairpins(3, 2.6, (12, 9, 6), (5, 24), 0, GRASS,
-              ("Pigeon Ravine", (0.3,), (0.7,), (0.25, 0.6, 0.85),
-               "Three hairpins in a narrowing valley.")),
-    _esses(4, 3.0, (5, 20), 90, SAND,
-           ("Salt Serpent", (0.35,), (0.6,), (0.3, 0.65, 0.9),
-            "Long esses over salt, then two sweepers.")),
-    _sweepers(3, 5.0, (6, 16), 90, GRASS,
-              ("Breeze Hill", (0.25, 0.7), (), (0.35, 0.75),
-               "Fast sweepers and long straights.")),
-    _chicane(3, 2.0, (4, 14), 0, GRAVEL,
-             ("Weir Raceway", (0.4,), (0.65, 0.85), (0.25, 0.55, 0.8),
-              "Three chicanes at the tight limit.")),
-    _hairpins(4, 3.0, (11, 8, 6), (6, 6), 90, SAND,
-              ("Dustbowl", (0.2, 0.66), (0.5,), (0.15, 0.5, 0.85),
-               "Four hairpins, wide entry, sand runoff.")),
-    # --- Cup 2, Silver ---
-    _rect(8, 2.2, (5, 5), 0, GRAVEL,
-          ("Grid Nine", (), (0.3, 0.7), (0.2, 0.45, 0.7, 0.9),
-           "A long rectilinear street grid.")),
-    _esses(5, 2.8, (4, 22), 90, GRASS,
-           ("Knot Garden", (0.5,), (0.75,), (0.25, 0.5, 0.75),
-            "Five esses. The tightest rhythm circuit.")),
-    _hairpins(2, 3.4, (14, 11, 7), (6, 18), 0, SAND,
-              ("Twin Sisters", (0.4, 0.8), (), (0.3, 0.7),
-               "Two big hairpins around the middle of the lap.")),
-    _sweepers(4, 4.4, (5, 20), 90, GRASS,
-              ("Long Meadow", (0.22, 0.68), (0.5,), (0.3, 0.7),
-               "Four sweepers, all the same radius.")),
-    _rect(4, 2.6, (6, 6), 90, GRASS,
-          ("Foundry Block", (0.35,), (0.7,), (0.25, 0.6, 0.85),
-           "Right angles with a longer entry to each corner.")),
-    _chicane(4, 2.2, (5, 16), 0, SAND,
-             ("Chalk Works", (), (0.45, 0.8), (0.3, 0.6, 0.85),
-              "Four chicanes and a slow final sector.")),
-    # --- Cup 3, Gold ---
-    _hairpins(5, 2.8, (11, 8, 6), (5, 26), 0, GRASS,
-              ("Camel Back", (0.25, 0.7), (0.55,), (0.2, 0.5, 0.8),
-               "Five hairpins. The longest sequence in the game.")),
-    _sweepers(3, 6.0, (7, 14), 90, GRAVEL,
-              ("Oasis Run", (0.3, 0.72), (), (0.35, 0.75),
-               "Big-radius sweepers, gravel traps either side.")),
-    _esses(3, 4.0, (6, 8), 90, GRASS,
-           ("Cedar Bend", (0.45,), (0.7,), (0.3, 0.65, 0.9),
-            "Loose esses between two fast sweepers.")),
-    _rect(6, 2.8, (5, 6), 0, SAND,
-          ("Old Quarry", (0.3,), (0.65,), (0.2, 0.5, 0.8),
-           "Right angles cut into a quarry floor.")),
-    _chicane(5, 2.1, (4, 18), 0, GRASS,
-             ("Reed Bank", (0.5,), (0.3, 0.75), (0.25, 0.55, 0.85),
-              "Five chicanes, the longest rhythm in the game.")),
-    _hairpins(3, 3.6, (13, 10, 7), (6, 12), 90, GRAVEL,
-              ("Pass du Vent", (0.35,), (0.7,), (0.3, 0.6, 0.85),
-               "A mountain pass: three hairpins, fast between them.")),
-    # --- Cup 4, Platinum ---
-    _sweepers(5, 5.2, (6, 18), 90, GRASS,
-              ("Glacier Bends", (0.2, 0.62), (0.75,), (0.28, 0.7),
-               "Five sweepers. The fastest circuit in the game.")),
-    _hairpins(4, 2.4, (10, 8, 6), (5, 22), 0, SAND,
-              ("Harbour Hairpins", (0.4,), (0.6,), (0.22, 0.55, 0.82),
-               "Four tight hairpins, sand runoff, little room.")),
-    _esses(6, 2.6, (4, 24), 90, GRAVEL,
-           ("Alpine Serpent", (0.48,), (0.78,), (0.2, 0.42, 0.64, 0.86),
-            "Six esses. The busiest rhythm circuit.")),
-    _rect(8, 2.0, (5, 5), 90, GRASS,
-          ("Marina Grid", (0.3, 0.75), (0.45, 0.85), (0.2, 0.4, 0.6, 0.8),
-           "Eight right angles at minimum radius. Technical.")),
-]
-
-#: Four per cup from each group of six, to make 16 alongside the 8 above.
-CIRCUITS += (
-    [c for c in _GENERATED[0:6] if c in (None,) or True][0:4] +
-    _GENERATED[6:10] + _GENERATED[12:16] + _GENERATED[18:22]
-)
 
 
 def build(circuit, outdir):
-    samples = walk(circuit["steps"], circuit["start"], circuit["heading"])
-    if len(samples) < 50:
-        raise RuntimeError(f"{circuit['name']}: only {len(samples)} samples")
+    samples = poly_walk(circuit["vertices"], circuit["radii"],
+                        circuit.get("elevated", ()))
+    # No minimum-sample count: a closed 4-vertex rectangle needs far fewer
+    # anchors than a step list did, and `assert_closed` is the real gate.
+    assert_closed(circuit["vertices"], samples, circuit["name"])
     grids, marks, scale, dx, dy = render(samples, ROAD_CELLS)
     img, overlap = compose(grids, marks, circuit["runoff"])
     # Features are stamped in fitted cell coordinates, so they land on the road

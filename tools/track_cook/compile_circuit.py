@@ -55,7 +55,9 @@ SURFACE = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15}
 #: surroundings. Only the road itself must stay clear of the edge, or the map
 #: crops the circuit instead of framing it. Checking `SURFACE` here reported
 #: "the circuit runs off the map" on plain grass.
-ROAD = {1, 2, 3, 4, 8, 9, 10, 11, 13, 14, 15}
+# SCENERY (15) is drivable-looking but is not road: it is placed in the infield,
+# so counting it made every circuit look like it had a stray island of road.
+ROAD = {1, 2, 3, 4, 8, 9, 10, 11, 13, 14}
 
 
 def load_data(path, palette_path):
