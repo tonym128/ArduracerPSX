@@ -442,7 +442,11 @@ impl VehicleState {
         let traction = surface.traction();
 
         if input.throttle > Fixed::ZERO && traction > Fixed::ZERO {
-            let accel = self.tuning.scaled_acceleration(BASE_ACCEL);
+            // `gearing` shapes the torque curve rather than adding a flat
+            // multiplier: a short ratio pulls harder low down and tapers at the
+            // top, a long ratio the reverse. Neutral for the default car.
+            let gear = self.tuning.gear_thrust_factor(speed_fraction);
+            let accel = self.tuning.scaled_acceleration(BASE_ACCEL) * gear;
             self.velocity = self.velocity + forward_dir.scale(accel * input.throttle * traction);
         }
 

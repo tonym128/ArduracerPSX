@@ -137,7 +137,7 @@ pub const TRACK_01: TrackDef = TrackDef {
         bronze_ticks: 512,
         silver_ticks: 448,
         gold_ticks: 400,
-        dev_platinum_ticks: 322,
+        dev_platinum_ticks: 329,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -303,7 +303,7 @@ pub const TRACK_02: TrackDef = TrackDef {
         bronze_ticks: 509,
         silver_ticks: 446,
         gold_ticks: 398,
-        dev_platinum_ticks: 353,
+        dev_platinum_ticks: 348,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -469,7 +469,7 @@ pub const TRACK_03: TrackDef = TrackDef {
         bronze_ticks: 605,
         silver_ticks: 530,
         gold_ticks: 473,
-        dev_platinum_ticks: 409,
+        dev_platinum_ticks: 426,
     },
     checkpoint_count: 5,
     checkpoints: [
@@ -640,7 +640,7 @@ pub const TRACK_04: TrackDef = TrackDef {
         bronze_ticks: 937,
         silver_ticks: 820,
         gold_ticks: 732,
-        dev_platinum_ticks: 648,
+        dev_platinum_ticks: 672,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -836,7 +836,7 @@ pub const TRACK_05: TrackDef = TrackDef {
         bronze_ticks: 712,
         silver_ticks: 623,
         gold_ticks: 556,
-        dev_platinum_ticks: 472,
+        dev_platinum_ticks: 483,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -1002,7 +1002,7 @@ pub const TRACK_06: TrackDef = TrackDef {
         bronze_ticks: 824,
         silver_ticks: 721,
         gold_ticks: 644,
-        dev_platinum_ticks: 561,
+        dev_platinum_ticks: 579,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -1188,7 +1188,7 @@ pub const TRACK_07: TrackDef = TrackDef {
         bronze_ticks: 805,
         silver_ticks: 704,
         gold_ticks: 629,
-        dev_platinum_ticks: 575,
+        dev_platinum_ticks: 586,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -1354,7 +1354,7 @@ pub const TRACK_08: TrackDef = TrackDef {
         bronze_ticks: 851,
         silver_ticks: 745,
         gold_ticks: 665,
-        dev_platinum_ticks: 598,
+        dev_platinum_ticks: 620,
     },
     checkpoint_count: 7,
     checkpoints: [
@@ -1535,7 +1535,7 @@ pub const TRACK_09: TrackDef = TrackDef {
         bronze_ticks: 671,
         silver_ticks: 587,
         gold_ticks: 524,
-        dev_platinum_ticks: 415,
+        dev_platinum_ticks: 423,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -1701,7 +1701,7 @@ pub const TRACK_10: TrackDef = TrackDef {
         bronze_ticks: 794,
         silver_ticks: 694,
         gold_ticks: 620,
-        dev_platinum_ticks: 568,
+        dev_platinum_ticks: 584,
     },
     checkpoint_count: 5,
     checkpoints: [
@@ -2028,7 +2028,7 @@ pub const TRACK_11: TrackDef = TrackDef {
         bronze_ticks: 1082,
         silver_ticks: 946,
         gold_ticks: 845,
-        dev_platinum_ticks: 658,
+        dev_platinum_ticks: 659,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -2370,7 +2370,7 @@ pub const TRACK_12: TrackDef = TrackDef {
         bronze_ticks: 1219,
         silver_ticks: 1066,
         gold_ticks: 952,
-        dev_platinum_ticks: 815,
+        dev_platinum_ticks: 806,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -2712,7 +2712,7 @@ pub const TRACK_13: TrackDef = TrackDef {
         bronze_ticks: 1509,
         silver_ticks: 1320,
         gold_ticks: 1179,
-        dev_platinum_ticks: 996,
+        dev_platinum_ticks: 1032,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -3054,7 +3054,7 @@ pub const TRACK_14: TrackDef = TrackDef {
         bronze_ticks: 854,
         silver_ticks: 747,
         gold_ticks: 667,
-        dev_platinum_ticks: 568,
+        dev_platinum_ticks: 574,
     },
     checkpoint_count: 5,
     checkpoints: [
@@ -3381,7 +3381,7 @@ pub const TRACK_15: TrackDef = TrackDef {
         bronze_ticks: 1138,
         silver_ticks: 996,
         gold_ticks: 889,
-        dev_platinum_ticks: 723,
+        dev_platinum_ticks: 729,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -3703,7 +3703,7 @@ pub const TRACK_16: TrackDef = TrackDef {
         bronze_ticks: 997,
         silver_ticks: 872,
         gold_ticks: 779,
-        dev_platinum_ticks: 597,
+        dev_platinum_ticks: 620,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -4025,7 +4025,7 @@ pub const TRACK_17: TrackDef = TrackDef {
         bronze_ticks: 1192,
         silver_ticks: 1043,
         gold_ticks: 931,
-        dev_platinum_ticks: 839,
+        dev_platinum_ticks: 860,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -4377,7 +4377,7 @@ pub const TRACK_18: TrackDef = TrackDef {
         bronze_ticks: 1280,
         silver_ticks: 1120,
         gold_ticks: 1000,
-        dev_platinum_ticks: 848,
+        dev_platinum_ticks: 858,
     },
     checkpoint_count: 4,
     checkpoints: [
@@ -5343,7 +5343,7 @@ pub const TRACK_19: TrackDef = TrackDef {
         bronze_ticks: 2566,
         silver_ticks: 2246,
         gold_ticks: 2005,
-        dev_platinum_ticks: 1772,
+        dev_platinum_ticks: 1782,
     },
     checkpoint_count: 12,
     checkpoints: [
@@ -6349,7 +6349,7 @@ pub const TRACK_20: TrackDef = TrackDef {
         bronze_ticks: 2875,
         silver_ticks: 2516,
         gold_ticks: 2246,
-        dev_platinum_ticks: 1859,
+        dev_platinum_ticks: 1894,
     },
     checkpoint_count: 13,
     checkpoints: [
@@ -6856,7 +6856,7 @@ pub const TRACK_21: TrackDef = TrackDef {
         bronze_ticks: 1062,
         silver_ticks: 930,
         gold_ticks: 830,
-        dev_platinum_ticks: 643,
+        dev_platinum_ticks: 647,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -7332,7 +7332,7 @@ pub const TRACK_22: TrackDef = TrackDef {
         bronze_ticks: 1441,
         silver_ticks: 1261,
         gold_ticks: 1126,
-        dev_platinum_ticks: 911,
+        dev_platinum_ticks: 963,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -7802,7 +7802,7 @@ pub const TRACK_23: TrackDef = TrackDef {
         bronze_ticks: 1196,
         silver_ticks: 1046,
         gold_ticks: 934,
-        dev_platinum_ticks: 724,
+        dev_platinum_ticks: 726,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -8274,7 +8274,7 @@ pub const TRACK_24: TrackDef = TrackDef {
         bronze_ticks: 1403,
         silver_ticks: 1228,
         gold_ticks: 1096,
-        dev_platinum_ticks: 931,
+        dev_platinum_ticks: 957,
     },
     checkpoint_count: 8,
     checkpoints: [
