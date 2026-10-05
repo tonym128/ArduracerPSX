@@ -12,8 +12,14 @@ pub const VOICE_CRASH: Voice = Voice::V2;
 pub const VOICE_BOOST: Voice = Voice::V3;
 pub const VOICE_CHIME: Voice = Voice::V4;
 pub const VOICE_INTRO: Voice = Voice::V5;
+pub const VOICE_UI: Voice = Voice::V6;
 
-pub const INTRO_ADDR: SpuAddr = SpuAddr::new(0x4000);
+// SPU RAM layout, in upload order. The intro sample is placed *after* the
+// soundbank rather than at a fixed low address: the bank grows every time a
+// sample is added, and a fixed intro address silently started overlapping the
+// tail of the bank (TASK-1207). `BANK_END` must therefore be >= 0x5000.
+pub const BANK_START: u32 = 0x1010;
+pub const INTRO_ADDR: SpuAddr = SpuAddr::new(0x5000);
 pub const INTRO_SAMPLE_RATE: u32 = 16000;
 pub const INTRO_ADPCM_DATA: &[u8] = include_bytes!("../../../assets/INTRO.ADPCM");
 
@@ -41,7 +47,30 @@ pub struct SpuSoundbankAddrs {
     pub crash_addr: SpuAddr,
     pub boost_addr: SpuAddr,
     pub chime_addr: SpuAddr,
+    pub ui_addr: SpuAddr,
 }
+
+/// Where the soundbank ends once every sample is rounded up to the 8-byte
+/// alignment `init_spu_soundbank` applies. Mirrors that function exactly; the
+/// lengths are consts, so this folds at compile time.
+pub const fn bank_end() -> u32 {
+    let mut offset = BANK_START;
+    offset = (offset + ENGINE_LOOP.len() as u32 + 7) & !7;
+    offset = (offset + TIRE_SCREECH.len() as u32 + 7) & !7;
+    offset = (offset + CRASH_IMPACT.len() as u32 + 7) & !7;
+    offset = (offset + BOOST_WHOOSH.len() as u32 + 7) & !7;
+    offset = (offset + CHECKPOINT_CHIME.len() as u32 + 7) & !7;
+    offset = (offset + UI_MOVE.len() as u32 + 7) & !7;
+    offset
+}
+
+/// Compile-time guard against the bank growing into the intro sample.
+/// Without this, adding a sample is silently safe right up until it truncates
+/// the intro audio (TASK-1207).
+const _: () = assert!(
+    bank_end() <= INTRO_ADDR.byte_offset(),
+    "soundbank overlaps the intro sample: lower INTRO_ADDR or shrink the bank"
+);
 
 /// Initializes SPU hardware and uploads all sound effects into SPU RAM.
 pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
@@ -78,6 +107,15 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
     // 5. Checkpoint Chime One-shot
     let chime_addr = SpuAddr::new(current_offset);
     spu::upload_adpcm(chime_addr, &CHECKPOINT_CHIME);
+    current_offset = (current_offset + CHECKPOINT_CHIME.len() as u32 + 7) & !7;
+
+    // 6. UI Navigation Blip One-shot
+    let ui_addr = SpuAddr::new(current_offset);
+    spu::upload_adpcm(ui_addr, &UI_MOVE);
+
+    // `bank_end()` must agree with the layout built above, or the compile-time
+    // overlap guard is checking the wrong number.
+    debug_assert_eq!(bank_end(), (current_offset + UI_MOVE.len() as u32 + 7) & !7);
 
     // Configure loop voices with sustained sample envelope
     VOICE_ENGINE.configure_sample(
@@ -118,11 +156,17 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
         Adsr::sample_one_shot(),
     );
 
+    VOICE_UI.configure_sample(ui_addr, UI_MOVE_RATE, Volume::MAX, Adsr::sample_one_shot());
+
     // Ensure intro audio voice is stopped
     Voice::key_off(VOICE_INTRO.mask());
 
-    // Start engine continuous loop immediately
-    Voice::key_on(VOICE_ENGINE.mask());
+    // The engine loop starts *silent* and stays keyed on. It is deliberately
+    // not keyed off here: `EngineAudio::silence` writes a zero volume, and
+    // re-keying it every time a race starts would restart the ADPCM decoder
+    // mid-sample and click. `AudioSystem::tick` is the only writer of a
+    // non-zero engine volume, and it only runs while the policy allows.
+    VOICE_ENGINE.set_volume(Volume::SILENCE, Volume::SILENCE);
 
     SpuSoundbankAddrs {
         engine_addr,
@@ -130,5 +174,6 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
         crash_addr,
         boost_addr,
         chime_addr,
+        ui_addr,
     }
 }

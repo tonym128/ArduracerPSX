@@ -157,6 +157,10 @@ impl ArduracerGame {
         // Cup 4 (Tracks 19-24) -> CD-DA Track 6 ("Apex Predator" Trance)
         let cdda_track = 3 + ((idx / 6) as u8).min(3);
         self.audio.cdda.play_track(cdda_track);
+        // A stage loaded: the engine synth may sound again. Still gated on
+        // `!paused`, and `reset_race` below clears the veil, so this cannot arm
+        // the engine while the pause menu is up.
+        self.audio.enter_race();
     }
 
     /// Resets the current race state to the starting grid.
@@ -211,6 +215,7 @@ impl ArduracerGame {
 
             match self.state_mgr.current {
                 GameState::Title => {
+                    self.audio.ui_frame(pad.buttons.bits());
                     if self.state_mgr.title.update(&pad) {
                         self.state_mgr.current = GameState::MainMenu;
                     }
@@ -218,6 +223,7 @@ impl ArduracerGame {
                     self.state_mgr.title.render(draw_y);
                 }
                 GameState::MainMenu => {
+                    self.audio.ui_frame(pad.buttons.bits());
                     if let Some(item) = self.state_mgr.menu.update(&pad) {
                         match item {
                             MenuItem::TimeTrial => {
@@ -246,6 +252,7 @@ impl ArduracerGame {
                     self.state_mgr.menu.render(draw_y);
                 }
                 GameState::Garage => {
+                    self.audio.ui_frame(pad.buttons.bits());
                     if self.state_mgr.garage.update(&pad) {
                         self.player.tuning = self.state_mgr.garage.tuning;
                         // Persist the preset to the active save slot (TASK-602).
@@ -259,6 +266,7 @@ impl ArduracerGame {
                     self.state_mgr.garage.render(draw_y);
                 }
                 GameState::TrackSelect => {
+                    self.audio.ui_frame(pad.buttons.bits());
                     let (confirmed, cancelled) = self.state_mgr.track_select.update(&pad);
                     if let Some(track_idx) = confirmed {
                         let target_idx = if let Some(ref mut champ) = self.state_mgr.championship {
@@ -288,6 +296,10 @@ impl ArduracerGame {
                     let was_paused = self.paused;
                     if frame.start_pressed {
                         self.paused = !self.paused;
+                        // Cutting the engine has to happen here rather than in
+                        // `AudioSystem::tick`, because the paused arm of this
+                        // arm `continue`s and never reaches the tick.
+                        self.audio.set_paused(self.paused);
                         if self.paused {
                             self.audio.cdda.pause();
                         } else {
@@ -298,6 +310,12 @@ impl ArduracerGame {
                         self.show_hud = !self.show_hud;
                     }
 
+                    // Navigating the pause veil is a menu interaction, so it
+                    // gets the UI blip and nothing else.
+                    if self.paused {
+                        self.audio.ui_frame(pad.buttons.bits());
+                    }
+
                     if self.paused {
                         // The frame that opens the veil also reports the START
                         // press that opened it, so its confirm is ignored.
@@ -305,10 +323,12 @@ impl ArduracerGame {
                             match frame.choice {
                                 PauseChoice::Resume => {
                                     self.paused = false;
+                                    self.audio.set_paused(false);
                                     self.audio.cdda.resume();
                                 }
                                 PauseChoice::RestartRace => {
                                     self.reset_race();
+                                    self.audio.enter_race();
                                     // Restarting skips frames; adopt the buttons
                                     // held right now so the same press is not
                                     // re-read against the fresh race.
@@ -320,6 +340,11 @@ impl ArduracerGame {
                                 PauseChoice::QuitToMenu => {
                                     self.state_mgr.championship = None;
                                     self.state_mgr.current = GameState::MainMenu;
+                                    // `self.paused` stays true across this
+                                    // transition, so arming here would leak the
+                                    // engine into the menu.
+                                    self.audio.leave_race();
+                                    self.audio.sync_ui_edges(pad.buttons.bits());
                                     self.audio.cdda.play_track(2);
                                 }
                                 PauseChoice::None => {}
@@ -441,6 +466,11 @@ impl ArduracerGame {
                             player_rank,
                         ));
                         self.state_mgr.current = GameState::Results;
+                        // Cut before the tick below, which would otherwise run
+                        // once more this frame and re-latch a live engine volume
+                        // over the victory fanfare.
+                        self.audio.leave_race();
+                        self.audio.sync_ui_edges(pad.buttons.bits());
                         self.audio.cdda.play_track(7);
                     }
 
@@ -528,6 +558,10 @@ impl ArduracerGame {
                 }
                 GameState::Results => {
                     psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 14, 16, 22);
+                    // Already silent via the Racing -> Results transition; this
+                    // is the belt-and-braces path in case a future transition
+                    // reaches Results some other way.
+                    self.audio.ui_frame(pad.buttons.bits());
                     let mut action_cont = false;
                     let mut action_exit = false;
                     if let Some(ref mut results) = self.state_mgr.results {
@@ -553,6 +587,8 @@ impl ArduracerGame {
                         } else if self.state_mgr.championship.is_some() {
                             self.state_mgr.championship = None;
                             self.state_mgr.current = GameState::MainMenu;
+                            self.audio.leave_race();
+                            self.audio.sync_ui_edges(pad.buttons.bits());
                             self.audio.cdda.play_track(2);
                         } else {
                             self.load_track(self.current_track_idx);
@@ -561,6 +597,8 @@ impl ArduracerGame {
                     } else if action_exit {
                         self.state_mgr.championship = None;
                         self.state_mgr.current = GameState::MainMenu;
+                        self.audio.leave_race();
+                        self.audio.sync_ui_edges(pad.buttons.bits());
                         self.audio.cdda.play_track(2);
                     }
                 }

@@ -22,8 +22,29 @@ impl EngineAudio {
     pub const fn new() -> Self {
         EngineAudio {
             current_pitch: 0x0A00,
-            current_vol: 0x1000,
+            // Silent, not `0x1000`. The idle target computed in `update` bottoms
+            // out at `0x0C00` and can never reach zero, so a non-zero seed is
+            // audible on its own -- it drones from construction until the first
+            // `update` call, which the title screen never makes.
+            current_vol: 0,
         }
+    }
+
+    /// Cuts the engine voice immediately, without waiting for the release slew.
+    ///
+    /// Idempotent: calling it on an already-silent engine is a no-op, so the
+    /// state machine can call it on every frame it is not racing.
+    pub fn silence(&mut self) {
+        if self.current_vol == 0 {
+            return;
+        }
+        self.current_vol = 0;
+        VOICE_ENGINE.set_volume(Volume::SILENCE, Volume::SILENCE);
+    }
+
+    /// Whether the engine voice is currently audible.
+    pub const fn is_silent(&self) -> bool {
+        self.current_vol == 0
     }
 
     /// Updates engine synthesizer parameters based on vehicle state.

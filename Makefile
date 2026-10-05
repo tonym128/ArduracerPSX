@@ -282,6 +282,9 @@ clippy-host: require-sdk
 	@if [ -f "tools/test_ui/Cargo.toml" ]; then \
 		cargo clippy --manifest-path tools/test_ui/Cargo.toml --all-targets -- -D warnings || exit 1; \
 	fi
+	@if [ -f "tools/test_audio/Cargo.toml" ]; then \
+		cargo clippy --manifest-path tools/test_audio/Cargo.toml --all-targets -- -D warnings || exit 1; \
+	fi
 
 # `cargo test` is impossible for `game`: `game/.cargo/config.toml` sets
 # `build-std = ["core"]` for the mipsel-sony-psx target, so there is no `test`
@@ -325,6 +328,11 @@ test: require-sdk
 	@echo "Running UI state-machine suite..."
 	@if [ -f "tools/test_ui/Cargo.toml" ]; then \
 		cargo test --manifest-path tools/test_ui/Cargo.toml || exit 1; \
+	fi
+	@echo "Running audio policy suite..."
+	@echo "(race-voice gating for pause/results/menus, menu navigation cues)"
+	@if [ -f "tools/test_audio/Cargo.toml" ]; then \
+		cargo test --manifest-path tools/test_audio/Cargo.toml || exit 1; \
 	fi
 	@echo "Running playtest invariant suite..."
 	@echo "(AI obstacle avoidance, championship progression, interior-wall exit)"

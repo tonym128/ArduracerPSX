@@ -3,7 +3,7 @@
 //! Manages procedural tire screech volume/pitch scaling, barrier collision
 //! impacts, turbo boost whooshes, and checkpoint completion chimes.
 
-use crate::audio::spu::{VOICE_BOOST, VOICE_CHIME, VOICE_CRASH, VOICE_SKID};
+use crate::audio::spu::{VOICE_BOOST, VOICE_CHIME, VOICE_CRASH, VOICE_SKID, VOICE_UI};
 use arduracer_core::{Fixed, SurfaceType, VehicleState};
 use psx_spu::{Pitch, Voice, Volume};
 
@@ -45,6 +45,43 @@ impl SfxPlayer {
     /// Triggers a checkpoint crossing chime.
     pub fn play_checkpoint(&self) {
         Voice::key_on(VOICE_CHIME.mask());
+    }
+
+    /// Triggers a menu navigation blip.
+    pub fn play_ui_move(&self) {
+        Voice::key_on(VOICE_UI.mask());
+    }
+
+    /// Cuts every race SFX voice at once.
+    ///
+    /// The skid voice is a loop and needs an explicit key-off; the crash, boost
+    /// and chime voices are one-shots that self-terminate into the silence
+    /// block, so they only need their envelope cut rather than being stopped
+    /// mid-sample. Their *restart* triggers are suppressed instead, by having
+    /// the caller stop ticking.
+    ///
+    /// Idempotent, so the state machine may call it on every non-racing frame.
+    pub fn silence(&mut self) {
+        self.prev_boost_ticks = 0;
+        self.prev_checkpoints = 0;
+        self.curb_playing = false;
+
+        if self.skid_playing {
+            self.skid_playing = false;
+            self.skid_vol = 0;
+            VOICE_SKID.set_volume(Volume::SILENCE, Volume::SILENCE);
+            Voice::key_off(VOICE_SKID.mask());
+        } else if self.skid_vol != 0 {
+            // Already stopped by the fade path, but the register may still hold
+            // a non-zero value from a frame that raced the fade.
+            self.skid_vol = 0;
+            VOICE_SKID.set_volume(Volume::SILENCE, Volume::SILENCE);
+        }
+    }
+
+    /// Whether any race SFX voice is currently live.
+    pub const fn is_silent(&self) -> bool {
+        !self.skid_playing && self.skid_vol == 0 && !self.curb_playing
     }
 
     /// Updates SFX state each 60Hz tick.

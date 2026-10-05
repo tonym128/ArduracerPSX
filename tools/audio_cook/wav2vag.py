@@ -221,6 +221,25 @@ def generate_checkpoint_chime(sample_rate=22050, duration_sec=0.2):
         samples.append(int(val * 25000))
     return samples
 
+def generate_ui_move_tone(sample_rate=22050, duration_sec=0.08):
+    """Generates a short, dry, high-pitched blip for menu navigation.
+
+    Menu audio has to sit under CD-DA music without competing with it, so this
+    is deliberately quiet and percussive rather than tonal or ringing: a fast
+    attack, an immediate exponential decay, and no low end to muddy the mix.
+    """
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    for i in range(num_samples):
+        t = i / sample_rate
+        # Very fast decay so the blip cannot overlap the next one while a
+        # button is being tapped repeatedly.
+        env = math.exp(-55.0 * t)
+        blip = math.sin(2 * math.pi * 1400.0 * t)
+        overtone = math.sin(2 * math.pi * 2100.0 * t) * 0.3
+        samples.append(int(max(-1.0, min(1.0, blip + overtone)) * env * 16000))
+    return samples
+
 def export_rust_soundbank(out_rs_path):
     """Encodes all standard sound effects and writes a Rust module."""
     sfx_defs = [
@@ -229,6 +248,7 @@ def export_rust_soundbank(out_rs_path):
         ("CRASH_IMPACT", generate_crash_tone(22050, 0.25), 22050, False),
         ("BOOST_WHOOSH", generate_boost_whoosh(22050, 0.35), 22050, False),
         ("CHECKPOINT_CHIME", generate_checkpoint_chime(22050, 0.2), 22050, False),
+        ("UI_MOVE", generate_ui_move_tone(22050, 0.08), 22050, False),
     ]
 
     with open(out_rs_path, "w") as f:
