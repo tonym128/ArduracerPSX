@@ -146,3 +146,53 @@ Stated plainly, because some of it gets thrown away:
 
 Steps 1-2 are small and unblock everything. Step 3 is the one that matters and
 the one with no shortcut.
+
+
+---
+
+## Initial circuit images
+
+`tools/track_cook/generate_circuit_images.py` renders the first set:
+
+    python3 tools/track_cook/generate_circuit_images.py
+
+Per circuit, three files in `tracks/`:
+
+| File | What it is |
+| :--- | :--- |
+| `<Name>.png` | the colour-coded master map, 512x512 at 16 px/cell (32x32 cells) |
+| `<Name>_tex.png` | the baked gameplay texture, 128x128, 8-bit palette indices |
+| `<Name>.line.json` | the centreline in fitted cell coordinates, with a level per sample |
+
+The eight cover deliberately different shapes, because "24 ovals" was the
+complaint that started this:
+
+| Circuit | Shape |
+| :--- | :--- |
+| Hairpin Ridge | four hairpins, the tightest thing a 2.5-cell road asks for |
+| Right Angles | right angles only, a street circuit, kerbs on every corner |
+| The Esses | alternating esses, then two sweepers |
+| Chicane Park | four chicanes at minimum drivable radius |
+| Overpass | **crosses itself**, elevated |
+| Crossover | **crosses itself**, two sweeping corners into the crossing |
+| Longbow | fast sweepers and long straights (the contrast circuit) |
+| Switchback | alternating hairpins climbing then descending |
+
+### Two things the images cannot express
+
+**A crossing is two sections in one footprint.** The elevated section and the
+section beneath it occupy the same 2D cells, so a single colour per cell can only
+show one of them. The image marks the crossing `BRIDGE` and the ground road either
+side `TUNNEL` -- a rendering compromise. The *data* keeps them apart with a level
+per cell, which is what the compiled collision map uses. Without that, a flat map
+would fuse the two into one unrecognisable blob at the junction.
+
+**Runoff themes are per circuit** (grass / gravel / sand), so the set does not read
+as eight copies of the same image.
+
+### Not yet done
+
+The images are the map basis; the gameplay renderer still draws the old tile grid.
+Nothing is drivable in-game yet. Per the order of work in this document, the next
+step is replacing `tile_blitter.rs` with per-pixel geometry rendering -- that is
+the step that removes the blockiness, and nothing before it will look right.
