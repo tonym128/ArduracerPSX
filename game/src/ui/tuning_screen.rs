@@ -5,7 +5,7 @@
 //! complete with real-time stats and a rotating 3D turntable vehicle preview.
 
 use crate::ui::font::{draw_char, draw_text};
-use crate::ui::tuning_input::{Reject, TuningInput, TuningMenu};
+use crate::ui::tuning_input::{Reject, TuningInput, TuningMenu, SLOT_COUNT};
 use arduracer_core::math;
 use arduracer_core::tuning::{CarTuning, MAX_SLIDER, MIN_SLIDER};
 use psx_gpu as gpu;
@@ -40,6 +40,23 @@ impl TuningScreen {
         self.menu.tuning
     }
 
+    /// Which preset the garage is editing.
+    pub fn slot(&self) -> usize {
+        self.menu.slot
+    }
+
+    /// Adopts the presets stored on the card and selects `slot`.
+    pub fn load_slots(&mut self, slots: &[CarTuning; SLOT_COUNT], slot: usize) {
+        self.menu = TuningMenu::new(slots[slot.min(SLOT_COUNT - 1)]);
+        self.menu.load_slot(slot, slots[slot.min(SLOT_COUNT - 1)]);
+        self.banner_frames = 0;
+    }
+
+    /// Records that this preset should be persisted on exit.
+    pub fn mark_dirty(&mut self) {
+        self.menu.mark_dirty();
+    }
+
     /// Adopts a stored preset, discarding any in-progress edits and any armed
     /// reset prompt.
     pub fn load_tuning(&mut self, tuning: CarTuning) {
@@ -67,6 +84,8 @@ impl TuningScreen {
             circle: b.is_held(button::CIRCLE),
             start: b.is_held(button::START),
             triangle: b.is_held(button::TRIANGLE),
+            l1: b.is_held(button::L1),
+            r1: b.is_held(button::R1),
         }
     }
 
@@ -237,6 +256,9 @@ impl TuningScreen {
                 1,
             );
         }
+
+        draw_text(24, 182, "L1/R1: PRESET", (130, 150, 170), 1);
+        draw_text(150, 182, "1/3", (255, 220, 0), 1);
 
         // Instructions Footer
         draw_text(

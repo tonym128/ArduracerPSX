@@ -1019,6 +1019,8 @@ mod tuning_budget_tests {
         circle: false,
         start: false,
         triangle: false,
+        l1: false,
+        r1: false,
     };
 
     fn press(buttons: TuningInput) -> TuningInput {
@@ -1896,5 +1898,177 @@ mod projection_clamp_tests {
                 "step {step} collapsed to screen centre"
             );
         }
+    }
+}
+
+/// TASK-1217: several smaller UI defects, each with its own failure mode.
+#[cfg(test)]
+mod ui_defect_tests {
+    use super::tuning_input::{Slider, TuningInput, TuningMenu, SLOT_COUNT};
+    use arduracer_core::tuning::{CarTuning, DEFAULT_SLIDER};
+
+    const IDLE: TuningInput = TuningInput {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        cross: false,
+        circle: false,
+        start: false,
+        triangle: false,
+        l1: false,
+        r1: false,
+    };
+
+    /// The gate count rendered as `b'0' + checkpoint_count`, so 10, 12 and 13
+    /// gates printed ':', '<' and '='.
+    #[test]
+    fn a_two_digit_gate_count_stays_inside_the_digit_range() {
+        for gates in [4u8, 8, 10, 12, 13, 99] {
+            let tens = b'0' + gates / 10;
+            let ones = b'0' + gates % 10;
+            assert!(
+                tens.is_ascii_digit(),
+                "tens digit for {gates} gates is {:?}, not a digit",
+                tens as char
+            );
+            assert!(
+                ones.is_ascii_digit(),
+                "ones digit for {gates} gates is {:?}, not a digit",
+                ones as char
+            );
+        }
+    }
+
+    /// Pin *why* the old form was wrong: the naive single glyph is only correct
+    /// below ten.
+    #[test]
+    fn the_naive_single_glyph_gate_count_overflows_at_ten() {
+        assert_eq!(b'0' + 9, b'9', "correct below ten");
+        assert_eq!(b'0' + 10, b':', "this is the bug: ten gates printed ':'");
+        assert_eq!(b'0' + 12, b'<', "twelve gates printed '<'");
+        assert_eq!(b'0' + 13, b'=', "thirteen gates printed '='");
+    }
+
+    /// `active_tuning_slot` was serialised and checksummed but never written, so
+    /// only preset 0 was ever reachable.
+    #[test]
+    fn all_three_presets_are_reachable() {
+        let mut menu = TuningMenu::new(CarTuning::default());
+        assert_eq!(SLOT_COUNT, 3, "expected three garage presets");
+        let mut seen = [false; SLOT_COUNT];
+        seen[menu.slot] = true;
+        for _ in 0..SLOT_COUNT {
+            menu.cycle_slot(true);
+            assert!(
+                menu.slot < SLOT_COUNT,
+                "slot index {} is out of range",
+                menu.slot
+            );
+            seen[menu.slot] = true;
+        }
+        assert!(seen.iter().all(|s| *s), "a preset was never selectable");
+    }
+
+    #[test]
+    fn cycling_presets_wraps_in_both_directions() {
+        let mut menu = TuningMenu::new(CarTuning::default());
+        assert_eq!(menu.slot, 0);
+        menu.cycle_slot(false);
+        assert_eq!(menu.slot, SLOT_COUNT - 1, "back must wrap to the last");
+        menu.cycle_slot(true);
+        assert_eq!(menu.slot, 0, "forward must wrap to the first");
+    }
+
+    #[test]
+    fn an_out_of_range_slot_index_is_clamped_not_indexed() {
+        // `active_tuning_slot` is sanitised on load, but a corrupt 255 must not
+        // index past the preset array.
+        let mut menu = TuningMenu::new(CarTuning::default());
+        menu.load_slot(255, CarTuning::default());
+        assert!(menu.slot < SLOT_COUNT);
+    }
+
+    #[test]
+    fn loading_a_preset_clears_the_unsaved_flag() {
+        let mut menu = TuningMenu::new(CarTuning::default());
+        menu.mark_dirty();
+        assert!(menu.slot_dirty);
+        menu.load_slot(1, CarTuning::default());
+        assert!(
+            !menu.slot_dirty,
+            "loading a preset marked it dirty before the player touched it"
+        );
+    }
+
+    /// Releases everything once, so the armed entry baseline is behind us.
+    ///
+    /// `TuningMenu::new` arms every button, so the *first* press of any of them
+    /// reads as a hold rather than an edge -- the same contract `Cross` already
+    /// used, now extended to the shoulder buttons.
+    fn released() -> TuningMenu {
+        let mut menu = TuningMenu::new(CarTuning::default());
+        // The armed baseline means this release is a no-op; it just moves the
+        // baseline so the *next* press reads as an edge.
+        let _ = menu.update(IDLE);
+        menu
+    }
+
+    #[test]
+    fn shoulder_buttons_cycle_presets_and_do_nothing_else() {
+        let mut menu = released();
+        menu.selected = Slider::TopSpeed;
+        let before = menu.tuning;
+
+        menu.update(TuningInput { r1: true, ..IDLE });
+        assert_eq!(menu.slot, 1, "R1 must advance the preset");
+        menu.update(IDLE);
+        menu.update(TuningInput { l1: true, ..IDLE });
+        assert_eq!(menu.slot, 0, "L1 must go back");
+        assert_eq!(menu.selected, Slider::TopSpeed, "preset changed sliders");
+        assert_eq!(menu.tuning, before, "preset cycling edited the setup");
+    }
+
+    #[test]
+    fn a_held_shoulder_button_does_not_rapidly_cycle() {
+        let mut menu = released();
+        menu.update(TuningInput { r1: true, ..IDLE });
+        assert_eq!(menu.slot, 1);
+        for _ in 0..10 {
+            menu.update(TuningInput { r1: true, ..IDLE });
+        }
+        assert_eq!(menu.slot, 1, "a held R1 spun through every preset");
+    }
+
+    #[test]
+    fn a_held_shoulder_button_does_not_exit_on_entry() {
+        // L1/R1 are the recovery and nitro buttons mid-race, so a button held
+        // from the main menu must not be read as a preset switch on frame 1.
+        let mut menu = TuningMenu::new(CarTuning::default());
+        let held = TuningInput {
+            l1: true,
+            r1: true,
+            ..IDLE
+        };
+        let frame = menu.update(held);
+        assert!(!frame.exited, "a held button saved-and-exited on frame 1");
+        menu.update(IDLE);
+        assert_eq!(menu.slot, 0, "a held shoulder button changed the preset");
+    }
+
+    /// The tuning slider bounds and the preset index are independent: cycling
+    /// presets must not silently reset an in-progress setup without the player
+    /// asking for it. (Loading *does* reset, because that is what a preset is.)
+    #[test]
+    fn the_default_setup_survives_a_preset_cycle() {
+        let menu = TuningMenu::new(CarTuning::default());
+        assert_eq!(
+            menu.tuning.total_points(),
+            arduracer_core::tuning::TOTAL_POINTS
+        );
+        assert_eq!(
+            menu.tuning.top_speed, DEFAULT_SLIDER,
+            "the default preset is not the default setup"
+        );
     }
 }

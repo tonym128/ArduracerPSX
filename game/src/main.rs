@@ -263,10 +263,12 @@ impl ArduracerGame {
                         match item {
                             MenuItem::TimeTrial => {
                                 self.state_mgr.championship = None;
+                                self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::GrandPrix => {
                                 self.state_mgr.championship = Some(ChampionshipSession::new(0));
+                                self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::TuningGarage => {
@@ -283,6 +285,7 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::Garage;
                             }
                             MenuItem::Records => {
+                                self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                         }
@@ -300,8 +303,13 @@ impl ArduracerGame {
                         // bounds now match `is_valid`, so this should not fire,
                         // but a silent discard here would lose the player's work
                         // with no indication (TASK-1210).
-                        let slot = self.memcard.save_data.active_tuning_slot as usize;
+                        // Persist to the preset the player selected in the
+                        // garage, and record the selection so it is the one
+                        // loaded next time (TASK-1217).
+                        let slot = self.state_mgr.garage.slot();
                         if self.memcard.store_tuning(slot, tuning) {
+                            self.memcard.save_data.active_tuning_slot = slot as u8;
+                            self.memcard.mark_dirty();
                             self.memcard.flush();
                         }
                         self.state_mgr.current = GameState::MainMenu;

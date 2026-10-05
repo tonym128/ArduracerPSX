@@ -172,6 +172,15 @@ impl MemoryCardManager {
         self.status
     }
 
+    /// Marks the save dirty after an in-memory field was changed directly.
+    ///
+    /// `store_tuning` does this for itself; `active_tuning_slot` is a bare
+    /// `SaveData` field with no setter, so a caller that changes it has to say
+    /// so or the selection is never written (TASK-1217).
+    pub fn mark_dirty(&mut self) {
+        self.is_dirty = true;
+    }
+
     /// Writes the save to the physical card. Only call when `is_dirty`.
     #[cfg(not(feature = "host-test"))]
     pub fn flush(&mut self) -> MemcardStatus {

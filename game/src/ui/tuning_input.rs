@@ -96,6 +96,9 @@ pub enum Reject {
     Unbalanced,
 }
 
+/// Number of garage presets a player can choose between.
+pub const SLOT_COUNT: usize = arduracer_core::save::TOTAL_TUNING_SLOTS;
+
 /// Buttons the garage cares about, for one frame.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TuningInput {
@@ -107,6 +110,10 @@ pub struct TuningInput {
     pub circle: bool,
     pub start: bool,
     pub triangle: bool,
+    /// Shoulder buttons cycle presets. Separate from the D-pad because the
+    /// sliders already own up/down/left/right.
+    pub l1: bool,
+    pub r1: bool,
 }
 
 /// Everything one garage frame needs to know.
@@ -131,6 +138,10 @@ pub struct TuningMenu {
     pub selected: Slider,
     /// A `Triangle` press is armed and awaiting `Cross`.
     pub reset_pending: bool,
+    /// Which of the three presets is loaded and will be saved.
+    pub slot: usize,
+    /// Whether the current slot has been written since the last load.
+    pub slot_dirty: bool,
     /// Buttons held on the previous frame; the sole edge-detection state.
     prev: TuningInput,
 }
@@ -143,6 +154,8 @@ impl TuningMenu {
             tuning,
             selected: Slider::TopSpeed,
             reset_pending: false,
+            slot: 0,
+            slot_dirty: false,
             prev: TuningInput {
                 up: false,
                 down: false,
@@ -152,6 +165,8 @@ impl TuningMenu {
                 circle: true,
                 start: true,
                 triangle: false,
+                l1: true,
+                r1: true,
             },
         }
     }
@@ -195,6 +210,31 @@ impl TuningMenu {
         Ok(())
     }
 
+    /// Moves to another preset, wrapping at the ends.
+    ///
+    /// `active_tuning_slot` was serialised and checksummed but never written, so
+    /// the garage could only ever load and save preset 0 -- the other two were
+    /// unreachable (TASK-1217).
+    pub fn cycle_slot(&mut self, forward: bool) {
+        if forward {
+            self.slot = (self.slot + 1) % SLOT_COUNT;
+        } else {
+            self.slot = (self.slot + SLOT_COUNT - 1) % SLOT_COUNT;
+        }
+    }
+
+    /// Adopts the setup stored in `slot` and selects it.
+    pub fn load_slot(&mut self, slot: usize, tuning: CarTuning) {
+        self.slot = slot.min(SLOT_COUNT - 1);
+        self.tuning = tuning;
+        self.slot_dirty = false;
+    }
+
+    /// Records that the exit path should persist the current slot.
+    pub fn mark_dirty(&mut self) {
+        self.slot_dirty = true;
+    }
+
     /// Whether the setup may be written to the card.
     ///
     /// This is `CarTuning::is_valid` by another name, stated where the decision
@@ -220,6 +260,8 @@ impl TuningMenu {
         let left = edge(input.left, prev.left);
         let right = edge(input.right, prev.right);
         let triangle = edge(input.triangle, prev.triangle);
+        let l1 = edge(input.l1, prev.l1);
+        let r1 = edge(input.r1, prev.r1);
         let cross = edge(input.cross, prev.cross);
         let circle = edge(input.circle, prev.circle);
         let start = edge(input.start, prev.start);
@@ -255,6 +297,12 @@ impl TuningMenu {
         }
 
         // Triangle arms a confirmation instead of wiping the setup outright.
+        if r1 {
+            self.cycle_slot(true);
+        } else if l1 {
+            self.cycle_slot(false);
+        }
+
         if triangle {
             self.reset_pending = true;
             frame.reset_requested = true;

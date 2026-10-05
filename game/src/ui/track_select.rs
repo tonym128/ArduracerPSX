@@ -8,6 +8,17 @@ use arduracer_core::{TrackDef, ALL_TRACKS};
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
 
+/// Draws `value` as two decimal digits at `x`, advancing by one glyph width.
+///
+/// Hardware-free apart from the two `draw_char` calls, so the digit arithmetic
+/// is separated from the drawing.
+fn draw_count(mut x: u16, y: u16, value: u8, colour: (u8, u8, u8)) {
+    let clamped = value.min(99);
+    draw_char(x, y, b'0' + clamped / 10, colour, 1);
+    x += 8;
+    draw_char(x, y, b'0' + clamped % 10, colour, 1);
+}
+
 pub struct TrackSelectScreen {
     pub selected_track_idx: usize,
     pub prev_left: bool,
@@ -28,13 +39,32 @@ impl TrackSelectScreen {
     pub const fn new() -> Self {
         TrackSelectScreen {
             selected_track_idx: 0,
-            prev_left: false,
-            prev_right: false,
-            prev_up: false,
-            prev_down: false,
-            prev_confirm: true, // Edge-trigger: must release before confirming
+            // All armed: every one of these confirms or navigates on the main
+            // menu immediately before this screen, so a button still held on
+            // entry must be released before it can act (TASK-1217).
+            prev_left: true,
+            prev_right: true,
+            prev_up: true,
+            prev_down: true,
+            prev_confirm: true,
             prev_cancel: true,
         }
+    }
+
+    /// Adopts the buttons held right now as the edge baseline.
+    ///
+    /// `Cross`/`Start` confirm a stage here and also confirm on the main menu
+    /// immediately before, so a player who holds one while navigating loads the
+    /// race on the very first frame (TASK-1217). There is no pad to sample in
+    /// `new`, so every button starts armed and must be released first -- the same
+    /// contract `MainMenu` and `TuningMenu` use.
+    pub fn arm_for_entry(&mut self) {
+        self.prev_left = true;
+        self.prev_right = true;
+        self.prev_up = true;
+        self.prev_down = true;
+        self.prev_confirm = true;
+        self.prev_cancel = true;
     }
 
     /// Handles carousel navigation. Returns:
@@ -179,12 +209,14 @@ impl TrackSelectScreen {
         // Track Dimensions & Checkpoints Box (Right Panel)
         gpu::draw_rect_flat(170, par_y, 126, 76, 30, 36, 48);
         draw_text(178, (par_y + 8) as u16, "GATES: ", (0, 220, 255), 1);
-        draw_char(
+        // Two decimal digits. `b'0' + count` overflowed the digit range on the
+        // four circuits with 10, 12 and 13 gates, rendering ':', '<' and '='
+        // instead of a number (TASK-1217).
+        draw_count(
             234,
             (par_y + 8) as u16,
-            b'0' + track.checkpoint_count,
+            track.checkpoint_count,
             (255, 255, 255),
-            1,
         );
 
         draw_text(178, (par_y + 26) as u16, "LAPS:  5", (0, 220, 255), 1);
