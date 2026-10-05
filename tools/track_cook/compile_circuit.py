@@ -296,6 +296,8 @@ CODE_TO_TILE = {
     15: "TrackTile::OffRoad",       # SCENERY
 }
 
+import math
+
 TILE_SIZE = 64
 MAX_CHECKPOINTS = 24
 
@@ -309,6 +311,43 @@ def tile_centre(c):
     left the runtime spline cutting corners.
     """
     return int(c) * TILE_SIZE + TILE_SIZE // 2
+
+
+def resample_uniform(points, count):
+    """Picks `count` points at **equal arc length**.
+
+    Decimating by index (`points[::n]`) is the obvious thing and it is wrong.
+    The centreline walker moves in small steps through a corner and large steps
+    along a straight, so index-decimation bunches control points up at exactly
+    the tightest corners and leaves long gaps between them. Catmull-Rom takes its
+    tangent at a control point from `(next - prev) / 2`, so a corner point with
+    distant neighbours gets an enormous tangent and the spline swings off the
+    road -- which is what put `Hairpin Ridge`'s first samples on a Barrier.
+
+    Equal arc length gives evenly spaced control points and therefore stable
+    tangents everywhere.
+    """
+    n = len(points)
+    if n < 3 or count < 3:
+        return list(points)
+    cum = [0.0]
+    for i in range(1, n):
+        cum.append(cum[-1] + math.hypot(points[i][0] - points[i - 1][0],
+                                        points[i][1] - points[i - 1][1]))
+    total = cum[-1]
+    if total <= 0:
+        return list(points)
+    out = []
+    seg = 0
+    for k in range(count):
+        target = total * k / count
+        while seg < n - 1 and cum[seg + 1] < target:
+            seg += 1
+        span = cum[seg + 1] - cum[seg]
+        t = (target - cum[seg]) / span if span > 1e-9 else 0.0
+        a, b = points[seg], points[seg + 1]
+        out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    return out
 
 
 def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
@@ -375,13 +414,10 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
 
     out.append(f"    tiles: &{ident}_TILES,")
     out.append("    route: &[")
-    # The runtime samples the spline 8 times per span, so the emitted control
-    # points are decimated to what the route reservoir can hold (768 samples =
-    # 96 spans). Aim near the ceiling: at 480 the spline cut straight across the
-    # hairpins, whose radius is 2.6 cells -- barely wider than the road itself --
-    # and put centreline samples on Barrier.
-    span = max(1, (len(centre) * 8) // 700)
-    pts = centre[::span]
+    # The runtime samples the spline 8 times per span, so at most
+    # `MAX_ROUTE_SAMPLES / 8` control points fit. Resampled to equal arc length
+    # rather than decimated by index -- see `resample_uniform`.
+    pts = resample_uniform(centre, 96)
     for (cx, cy) in pts:
         out.append("        Vec2 {")
         out.append(f"            x: Fixed({tile_centre(cx) * 4096}),")

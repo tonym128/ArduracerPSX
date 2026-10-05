@@ -257,8 +257,54 @@ is the geometry, the centreline, or the gate positions.
   hairpins. Targeting ~700 fixed nothing on its own -- which is how the start-line
   problem above became visible instead of being masked by overshoot elsewhere.
 
+### Root cause of all of it: the circuits do not close
+
+Measured across all 24: **0 of 24 are closed loops.** The seam gap between the
+last and first control point is 1,775 to 2,983 world units -- the walker ends
+where it started *only by accident of the grid*, and the gap is larger than most
+of the circuit's radius.
+
+The centreline is fitted as a **closed** Catmull-Rom, so it must connect the last
+point back to the first. With a seam that large, the spline has to jump it, and
+everything downstream follows from that one fact:
+
+| Symptom | Why |
+| :--- | :--- |
+| arc wraps twice per lap | the seam jump is read as forward progress, then re-wrapped |
+| hinted vs full `nearest()` disagree | two places on the route are near-coincident across the seam |
+| coincident centreline samples | the spline passes through the same point twice while jumping it |
+| centreline on `Barrier` at sample 1-2 | the tangent at control point 0 is `(next - prev)/2` with `prev` on the far side of the circuit, so it points off the track |
+| AI stuck for 30k ticks | it is trying to drive a jump that is not there |
+
+Sample 1-2 of `Hairpin Ridge` is at y=2,400 on a straight whose control points run
+x = 288, 352, 416, 544. The runtime spline puts sample 2 at x=128 -- *behind* the
+first control point, off the end of the straight. That is the seam, not
+overshoot, and no amount of resampling or radius tuning will move it.
+
+### The fix
+
+The circuit *descriptions* have to form closed loops. Two conditions:
+
+1. **The turn must close**: signed corner angles sum to +/-360.
+2. **The displacement must close**: the straights and arcs must return to the
+   start, which is a second, independent constraint.
+
+Condition 1 alone is not enough, and assuming it was is what produced 24 open
+spirals. The reliable construction is a **closed polygon of corner vertices,
+filleted** -- a closed polygon cannot fail to close, and the edges become straights
+and the vertices become corners. That is what the earlier superellipse work threw
+away for being too uniform; the answer is not "a smooth analytic curve" but "an
+explicit closed outline".
+
+`generate_circuit_images.py` should therefore validate, at generation time:
+turn sum +/-360 *and* seam gap below one control-point step. A circuit that fails
+must not produce an image, because a broken loop is invisible in the picture and
+fatal in the physics.
+
 ### Next
 
-Fix the start-line/wall interaction first: the wall ring must not be stamped
-where the start box is, or the start must be pushed clear of the road edge. Then
-re-diagnose the AI, which may be the same root cause as the arc wrap.
+1. Re-author the 24 circuits as closed, filleted polygons. The images do not need
+   regenerating for this -- only the walk does.
+2. Add the two closure assertions to the generator so a non-closing circuit fails
+   loudly instead of quietly producing a broken map.
+3. Recalibrate par, then `make playtest`.

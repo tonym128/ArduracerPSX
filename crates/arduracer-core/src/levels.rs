@@ -237,11 +237,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1441792),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(1966080),
+            x: Fixed(1703936),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -249,7 +249,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -257,7 +257,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -293,7 +293,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6946816),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -301,15 +301,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(8257536),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -329,11 +325,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7471104),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -341,7 +337,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6422528),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(5898240),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -357,11 +357,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4587520),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -369,12 +369,20 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -397,7 +405,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -405,7 +413,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -413,15 +421,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(6946816),
-        },
-        Vec2 {
             x: Fixed(6684672),
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -429,7 +433,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -442,11 +446,15 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(9043968),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -470,14 +478,14 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(7733248),
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7471104),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -485,15 +493,19 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(6422528),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(6160384),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(5636096),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -502,10 +514,10 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -514,18 +526,22 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(4325376),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(4587520),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(4849664),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5111808),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -533,7 +549,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -569,7 +585,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -577,7 +593,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(10354688),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -585,8 +601,8 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(3801088),
+            x: Fixed(11141120),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -594,10 +610,10 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11403264),
-            y: Fixed(3276800),
+            y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(3014656),
         },
     ],
@@ -847,6 +863,10 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(1179648),
+        },
+        Vec2 {
             x: Fixed(5373952),
             y: Fixed(1179648),
         },
@@ -859,10 +879,6 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(1179648),
-        },
-        Vec2 {
             x: Fixed(6422528),
             y: Fixed(1179648),
         },
@@ -872,6 +888,10 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6946816),
+            y: Fixed(1179648),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -892,11 +912,15 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(1179648),
+            y: Fixed(1441792),
         },
         Vec2 {
             x: Fixed(8781824),
             y: Fixed(1441792),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(1703936),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -908,15 +932,15 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(9043968),
             y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -936,6 +960,10 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -947,8 +975,8 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(5373952),
+            x: Fixed(8781824),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -975,7 +1003,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7471104),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -1003,11 +1031,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -1032,6 +1060,14 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -1052,6 +1088,10 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -1061,10 +1101,6 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(3014656),
             y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -1080,10 +1116,18 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(3014656),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(3276800),
             y: Fixed(10354688),
         },
         Vec2 {
@@ -1095,15 +1139,15 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(10616832),
-        },
-        Vec2 {
             x: Fixed(4063232),
             y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(4325376),
+            y: Fixed(10616832),
+        },
+        Vec2 {
+            x: Fixed(4587520),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -1127,11 +1171,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6422528),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -1159,6 +1203,10 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(10878976),
         },
         Vec2 {
+            x: Fixed(8257536),
+            y: Fixed(11141120),
+        },
+        Vec2 {
             x: Fixed(8519680),
             y: Fixed(11141120),
         },
@@ -1175,7 +1223,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(11141120),
         },
     ],
@@ -1409,7 +1457,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(1441792),
+            x: Fixed(1179648),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -1417,7 +1465,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1441792),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -1429,7 +1477,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(1966080),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -1442,10 +1490,6 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2490368),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(2752512),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -1455,6 +1499,14 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(3014656),
             y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -1482,7 +1534,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -1498,7 +1550,11 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(3801088),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -1529,10 +1585,6 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(5111808),
-        },
-        Vec2 {
             x: Fixed(4849664),
             y: Fixed(5111808),
         },
@@ -1545,7 +1597,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -1569,7 +1621,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -1583,6 +1635,10 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(6160384),
             y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -1598,7 +1654,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -1606,7 +1662,11 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(6684672),
@@ -1618,10 +1678,6 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(6946816),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -1661,10 +1717,6 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(6946816),
-        },
-        Vec2 {
             x: Fixed(8519680),
             y: Fixed(6946816),
         },
@@ -1693,6 +1745,10 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(7208960),
+        },
+        Vec2 {
             x: Fixed(9568256),
             y: Fixed(7208960),
         },
@@ -1710,6 +1766,14 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(10092544),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -1721,7 +1785,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(10354688),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -1755,6 +1819,10 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -2008,15 +2076,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(10878976),
-        },
-        Vec2 {
-            x: Fixed(3014656),
             y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(10354688),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -2044,15 +2108,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(3014656),
             y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -2080,14 +2140,14 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(3014656),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -2099,7 +2159,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(3538944),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -2111,7 +2171,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4063232),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(4063232),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -2120,22 +2184,22 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(4325376),
             y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(4587520),
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -2153,10 +2217,6 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(5373952),
             y: Fixed(6422528),
-        },
-        Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -2184,15 +2244,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(5636096),
             y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(4587520),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -2220,7 +2276,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -2232,15 +2288,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(5636096),
             y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(2490368),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -2267,7 +2319,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1441792),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(5636096),
+            y: Fixed(1441792),
+        },
+        Vec2 {
+            x: Fixed(5636096),
             y: Fixed(1441792),
         },
         Vec2 {
@@ -2275,11 +2331,19 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(1179648),
+        },
+        Vec2 {
             x: Fixed(6160384),
             y: Fixed(1179648),
         },
         Vec2 {
             x: Fixed(6160384),
+            y: Fixed(1179648),
+        },
+        Vec2 {
+            x: Fixed(6422528),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -2296,7 +2360,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6946816),
-            y: Fixed(1703936),
+            y: Fixed(1441792),
         },
         Vec2 {
             x: Fixed(6946816),
@@ -2307,11 +2371,19 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(1703936),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(1703936),
+        },
+        Vec2 {
             x: Fixed(7471104),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -2327,7 +2399,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(8257536),
             y: Fixed(2228224),
         },
         Vec2 {
@@ -2339,12 +2415,12 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(2752512),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -2368,7 +2444,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(2490368),
+            y: Fixed(2228224),
         },
     ],
     half_width: 160,
@@ -2646,10 +2722,6 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(1179648),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -2657,8 +2729,16 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(1441792),
+            x: Fixed(1179648),
             y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(1441792),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(1441792),
@@ -2753,10 +2833,6 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(7208960),
-            y: Fixed(6946816),
-        },
-        Vec2 {
             x: Fixed(7471104),
             y: Fixed(6946816),
         },
@@ -2817,7 +2893,7 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -2882,6 +2958,10 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11403264),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(11141120),
             y: Fixed(2490368),
         },
         Vec2 {
@@ -2957,11 +3037,11 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
             y: Fixed(2228224),
         },
         Vec2 {
@@ -2971,6 +3051,10 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(5898240),
             y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(1703936),
         },
     ],
     half_width: 160,
@@ -3203,7 +3287,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(1441792),
+            x: Fixed(1179648),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -3215,7 +3299,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(1966080),
+            x: Fixed(1703936),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -3228,10 +3312,6 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(2490368),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -3243,7 +3323,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -3263,7 +3343,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -3287,12 +3367,12 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(4063232),
@@ -3304,7 +3384,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(5898240),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(4063232),
@@ -3324,10 +3404,14 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(4063232),
+            y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(4325376),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -3344,10 +3428,10 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -3360,10 +3444,6 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4849664),
-            y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(5111808),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -3375,11 +3455,19 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(5636096),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(5898240),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -3387,7 +3475,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -3399,19 +3487,11 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(7733248),
-        },
-        Vec2 {
             x: Fixed(6684672),
             y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(6946816),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -3423,7 +3503,11 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -3431,7 +3515,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7471104),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -3467,7 +3551,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(8781824),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -3479,7 +3563,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -3496,11 +3580,11 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -3508,7 +3592,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -3520,14 +3604,14 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10354688),
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10354688),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -3548,7 +3632,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -3557,6 +3641,14 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -3805,7 +3897,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(1441792),
+            x: Fixed(1179648),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -3813,7 +3905,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1441792),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -3834,10 +3926,6 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(2490368),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -3877,10 +3965,6 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(4063232),
-        },
-        Vec2 {
             x: Fixed(4063232),
             y: Fixed(4063232),
         },
@@ -3902,7 +3986,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4587520),
-            y: Fixed(4063232),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -3926,11 +4010,15 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(5111808),
             y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -3953,6 +4041,10 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(5636096),
         },
         Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(5636096),
+        },
+        Vec2 {
             x: Fixed(5636096),
             y: Fixed(5636096),
         },
@@ -3966,10 +4058,10 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(5636096),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -3982,6 +4074,10 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(6160384),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -4005,19 +4101,11 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(6684672),
-        },
-        Vec2 {
             x: Fixed(6946816),
             y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(6946816),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(7208960),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -4033,7 +4121,11 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7471104),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(7471104),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -4061,16 +4153,16 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(6422528),
+            x: Fixed(8781824),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -4091,6 +4183,10 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(9568256),
             y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(9568256),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -4118,7 +4214,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(6946816),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -4130,7 +4226,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -4142,11 +4238,15 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -4158,7 +4258,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -4170,7 +4270,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4408,10 +4508,6 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11403264),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(11403264),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -4432,10 +4528,6 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11403264),
-            y: Fixed(6160384),
-        },
-        Vec2 {
-            x: Fixed(11403264),
             y: Fixed(5898240),
         },
         Vec2 {
@@ -4451,7 +4543,7 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(11403264),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -4468,6 +4560,10 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(10354688),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -4479,16 +4575,16 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
+            y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(9830400),
             y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(9830400),
             y: Fixed(6160384),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -4504,10 +4600,14 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(9306112),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -4515,12 +4615,12 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(8781824),
             y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(8519680),
@@ -4531,7 +4631,7 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -4556,10 +4656,6 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(6422528),
-        },
-        Vec2 {
-            x: Fixed(7995392),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -4580,10 +4676,10 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -4592,6 +4688,10 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7471104),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -4612,6 +4712,10 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -4623,7 +4727,11 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(6160384),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -4631,7 +4739,7 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -4639,16 +4747,16 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(5636096),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(5636096),
             y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(5636096),
             y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -4659,20 +4767,20 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(4849664),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(4587520),
             y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(4587520),
             y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -4684,15 +4792,15 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4587520),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(4587520),
             y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(4587520),
             y: Fixed(5898240),
-        },
-        Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -4719,12 +4827,12 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4587520),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -4732,14 +4840,22 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(3276800),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(2752512),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -4755,11 +4871,11 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(1966080),
+            x: Fixed(1703936),
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1441792),
             y: Fixed(5636096),
         },
         Vec2 {
@@ -4768,7 +4884,7 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(5111808),
+            y: Fixed(5373952),
         },
     ],
     half_width: 160,
@@ -5001,6 +5117,10 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(3014656),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(3014656),
         },
@@ -5058,7 +5178,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5070,7 +5190,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5082,11 +5202,15 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(4587520),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3538944),
             y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5101,11 +5225,15 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(4063232),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(4325376),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -5150,6 +5278,10 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(6160384),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -5162,7 +5294,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(5636096),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -5191,6 +5323,14 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(6160384),
             y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(6422528),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -5241,7 +5381,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8257536),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -5255,6 +5395,14 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(8781824),
             y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(9043968),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(9043968),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -5266,7 +5414,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(7995392),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -5278,7 +5426,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(8519680),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -5290,7 +5438,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(9043968),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -5301,7 +5449,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -5346,10 +5494,6 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(11403264),
             y: Fixed(9568256),
         },
     ],
@@ -5588,11 +5732,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -5600,15 +5744,15 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -5616,15 +5760,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(5111808),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -5632,7 +5772,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(4325376),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -5643,16 +5787,20 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(3276800),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(3538944),
             y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(4063232),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5664,11 +5812,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5676,15 +5824,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(6684672),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5692,14 +5836,18 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(3801088),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(4063232),
             y: Fixed(9306112),
         },
         Vec2 {
@@ -5707,7 +5855,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(5111808),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -5735,6 +5887,10 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
             y: Fixed(10354688),
         },
         Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(10616832),
+        },
+        Vec2 {
             x: Fixed(7733248),
             y: Fixed(10616832),
         },
@@ -5748,11 +5904,15 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8781824),
+            y: Fixed(10878976),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(11141120),
+            x: Fixed(9568256),
+            y: Fixed(11403264),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -5764,11 +5924,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(10878976),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(10354688),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -5783,27 +5943,35 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(8781824),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(7995392),
             y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(7733248),
-            y: Fixed(9043968),
+            y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7471104),
             y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(6946816),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -5816,6 +5984,10 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(5373952),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -5828,11 +6000,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -5840,15 +6012,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(5898240),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(4849664),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -5856,11 +6024,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(4063232),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(3538944),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -5872,15 +6040,19 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(2228224),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(5373952),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(1441792),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(1179648),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -5891,16 +6063,20 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
+            x: Fixed(6422528),
+            y: Fixed(1441792),
+        },
+        Vec2 {
             x: Fixed(6684672),
             y: Fixed(1703936),
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(1966080),
+            y: Fixed(2228224),
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(2490368),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(6684672),
@@ -5908,15 +6084,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(3276800),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(6684672),
@@ -5924,11 +6096,11 @@ pub static TRACK_PIGEON_RAVINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(6684672),
@@ -6165,7 +6337,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(1441792),
+            x: Fixed(1179648),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -6173,7 +6345,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1441792),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -6185,7 +6357,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(1966080),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -6214,10 +6386,10 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(3538944),
+            y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -6231,6 +6403,10 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -6246,11 +6422,15 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(3538944),
             y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -6262,7 +6442,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -6301,10 +6481,6 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(5373952),
-        },
-        Vec2 {
             x: Fixed(5373952),
             y: Fixed(5373952),
         },
@@ -6322,6 +6498,10 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
+            y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(5898240),
             y: Fixed(5636096),
         },
         Vec2 {
@@ -6338,7 +6518,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -6357,8 +6537,12 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(6684672),
+        },
+        Vec2 {
             x: Fixed(6422528),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -6366,7 +6550,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -6385,7 +6569,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -6405,7 +6589,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7995392),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -6425,19 +6609,11 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(7208960),
-        },
-        Vec2 {
             x: Fixed(8781824),
             y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(9043968),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -6449,7 +6625,15 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -6458,10 +6642,10 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -6469,7 +6653,11 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(9830400),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -6481,7 +6669,7 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -6489,7 +6677,11 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10354688),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(10354688),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -6501,7 +6693,11 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(10616832),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(10616832),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -6509,15 +6705,15 @@ pub static TRACK_SALT_SERPENT: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(10878976),
             y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(11403264),
             y: Fixed(9043968),
         },
     ],
@@ -6751,6 +6947,10 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(4325376),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(4325376),
         },
@@ -6764,10 +6964,6 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(1966080),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -6803,10 +6999,6 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4325376),
-        },
-        Vec2 {
             x: Fixed(3276800),
             y: Fixed(4325376),
         },
@@ -6828,10 +7020,6 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(4063232),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -6864,6 +7052,10 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4849664),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(4849664),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -6876,7 +7068,7 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -6884,7 +7076,11 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -6895,8 +7091,8 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(5636096),
+            x: Fixed(5373952),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -6904,7 +7100,15 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(5636096),
+            y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -6912,7 +7116,7 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -6924,7 +7128,7 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(6160384),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -6951,7 +7155,11 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -6959,7 +7167,7 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -6995,10 +7203,6 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(6422528),
-        },
-        Vec2 {
             x: Fixed(8519680),
             y: Fixed(6422528),
         },
@@ -7027,12 +7231,16 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(9568256),
             y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(9568256),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -7044,7 +7252,7 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(6684672),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -7057,6 +7265,10 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10092544),
             y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -7068,7 +7280,7 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -7081,6 +7293,10 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -7092,10 +7308,10 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(7733248),
+            y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -7104,10 +7320,10 @@ pub static TRACK_BREEZE_HILL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(8257536),
         },
     ],
@@ -7350,7 +7566,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(10878976),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -7362,7 +7578,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(10354688),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -7374,7 +7590,11 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(9830400),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -7385,7 +7605,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -7410,14 +7630,14 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(9306112),
         },
         Vec2 {
@@ -7465,6 +7685,10 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(7471104),
+        },
+        Vec2 {
             x: Fixed(4849664),
             y: Fixed(7471104),
         },
@@ -7494,7 +7718,11 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -7502,7 +7730,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -7514,7 +7742,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -7530,7 +7758,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(5898240),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -7542,10 +7770,18 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(6422528),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(6422528),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -7557,15 +7793,11 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(5111808),
-        },
-        Vec2 {
             x: Fixed(7208960),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -7582,15 +7814,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(7995392),
             y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(7995392),
@@ -7602,7 +7826,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(4063232),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(7995392),
@@ -7614,7 +7838,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(3538944),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(7995392),
@@ -7623,6 +7847,18 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(7995392),
             y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(8257536),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(8257536),
@@ -7641,7 +7877,7 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(8781824),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -7653,15 +7889,11 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(9830400),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -7699,6 +7931,10 @@ pub static TRACK_GRID_NINE: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(9830400),
             y: Fixed(1441792),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(1179648),
         },
     ],
     half_width: 160,
@@ -7947,7 +8183,7 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2752512),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -7963,15 +8199,15 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(1179648),
-        },
-        Vec2 {
             x: Fixed(3538944),
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(3538944),
+            y: Fixed(1441792),
+        },
+        Vec2 {
+            x: Fixed(3538944),
             y: Fixed(1441792),
         },
         Vec2 {
@@ -7984,6 +8220,10 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(4063232),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -8008,6 +8248,10 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
+            y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(4325376),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -8019,7 +8263,7 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -8028,10 +8272,6 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(5373952),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -8060,6 +8300,10 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -8083,6 +8327,10 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(4325376),
+        },
+        Vec2 {
             x: Fixed(7208960),
             y: Fixed(4325376),
         },
@@ -8095,7 +8343,11 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7471104),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(7471104),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -8119,10 +8371,6 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(5636096),
-        },
-        Vec2 {
             x: Fixed(8257536),
             y: Fixed(5636096),
         },
@@ -8131,7 +8379,7 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(8519680),
             y: Fixed(5636096),
         },
         Vec2 {
@@ -8172,10 +8420,14 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(10092544),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(10354688),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -8196,11 +8448,15 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -8224,14 +8480,18 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(10616832),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(10616832),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -8243,7 +8503,11 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10354688),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(10354688),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -8251,11 +8515,11 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(9830400),
+            x: Fixed(10092544),
+            y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(10092544),
         },
         Vec2 {
@@ -8271,7 +8535,7 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
             y: Fixed(10878976),
         },
         Vec2 {
@@ -8281,10 +8545,6 @@ pub static TRACK_KNOT_GARDEN: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(9830400),
             y: Fixed(11141120),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(11403264),
         },
     ],
     half_width: 160,
@@ -8522,10 +8782,6 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(1179648),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -8542,7 +8798,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(1179648),
@@ -8550,15 +8806,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(6422528),
-        },
-        Vec2 {
-            x: Fixed(1179648),
             y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(5636096),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(1179648),
@@ -8578,7 +8830,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(1179648),
@@ -8586,15 +8838,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(1179648),
             y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(2490368),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(1179648),
@@ -8605,15 +8853,23 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(1703936),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(1441792),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(1441792),
+            y: Fixed(1179648),
         },
         Vec2 {
             x: Fixed(1966080),
+            y: Fixed(1179648),
+        },
+        Vec2 {
+            x: Fixed(2228224),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -8621,7 +8877,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(1441792),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -8642,15 +8898,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(3276800),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(2752512),
             y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -8666,7 +8918,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -8674,15 +8926,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(6160384),
-        },
-        Vec2 {
-            x: Fixed(2752512),
             y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -8694,7 +8942,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(7733248),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -8706,10 +8954,14 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(3538944),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(3801088),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -8717,15 +8969,15 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(9043968),
-        },
-        Vec2 {
             x: Fixed(4587520),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(5111808),
             y: Fixed(9306112),
         },
         Vec2 {
@@ -8745,15 +8997,19 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
             y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(6684672),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(6946816),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7471104),
             y: Fixed(10092544),
         },
         Vec2 {
@@ -8785,7 +9041,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -8793,8 +9049,12 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(11141120),
+        },
+        Vec2 {
             x: Fixed(10616832),
-            y: Fixed(11403264),
+            y: Fixed(11141120),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -8802,11 +9062,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(11141120),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(11403264),
-            y: Fixed(10878976),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(11403264),
@@ -8817,7 +9077,7 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(11141120),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -8825,11 +9085,15 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10616832),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(10092544),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(9830400),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -8849,11 +9113,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(8519680),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -8861,7 +9125,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -8881,11 +9149,11 @@ pub static TRACK_TWIN_SISTERS: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(7733248),
         },
     ],
@@ -9119,6 +9387,10 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(4587520),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(4587520),
         },
@@ -9132,10 +9404,6 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(1966080),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -9171,10 +9439,6 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4587520),
-        },
-        Vec2 {
             x: Fixed(3276800),
             y: Fixed(4587520),
         },
@@ -9196,7 +9460,7 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -9208,6 +9472,10 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(4063232),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -9216,7 +9484,7 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(4325376),
@@ -9225,6 +9493,14 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(4325376),
             y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -9245,6 +9521,10 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(4849664),
             y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(4849664),
@@ -9291,10 +9571,6 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(6422528),
-        },
-        Vec2 {
             x: Fixed(6422528),
             y: Fixed(6422528),
         },
@@ -9315,16 +9591,20 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(6422528),
+            x: Fixed(7208960),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(7471104),
@@ -9347,7 +9627,11 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
+            y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(7733248),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -9359,7 +9643,7 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(7995392),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -9371,7 +9655,11 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8257536),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(8257536),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -9381,6 +9669,14 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(8519680),
             y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -9388,7 +9684,7 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -9404,18 +9700,18 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(9306112),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -9451,19 +9747,19 @@ pub static TRACK_LONG_MEADOW: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(7733248),
-        },
-        Vec2 {
             x: Fixed(10878976),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(10878976),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -9702,42 +9998,46 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(9830400),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(6946816),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(1441792),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(1966080),
+            x: Fixed(1703936),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2228224),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -9750,11 +10050,11 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(6946816),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -9762,26 +10062,30 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(3276800),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4063232),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(5111808),
             y: Fixed(10354688),
         },
         Vec2 {
@@ -9790,7 +10094,7 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(10616832),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -9801,8 +10105,8 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(11403264),
+            x: Fixed(7208960),
+            y: Fixed(11141120),
         },
         Vec2 {
             x: Fixed(7995392),
@@ -9810,14 +10114,18 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(10616832),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(7995392),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(7733248),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(10092544),
         },
         Vec2 {
@@ -9825,20 +10133,24 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6422528),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(5373952),
             y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(4587520),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(4325376),
@@ -9862,7 +10174,7 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(4325376),
@@ -9870,11 +10182,11 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(3801088),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -9885,39 +10197,43 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(5636096),
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(5636096),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -9925,7 +10241,7 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -9933,7 +10249,11 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(8257536),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -9942,7 +10262,7 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(9043968),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -9950,27 +10270,31 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(10354688),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(8519680),
@@ -9986,7 +10310,7 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(7208960),
@@ -10014,7 +10338,7 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(2490368),
+            y: Fixed(2228224),
         },
         Vec2 {
             x: Fixed(7208960),
@@ -10022,19 +10346,23 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(1441792),
-        },
-        Vec2 {
-            x: Fixed(7995392),
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(1703936),
+            x: Fixed(7733248),
+            y: Fixed(1179648),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(1441792),
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(2228224),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(8257536),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(8257536),
@@ -10042,15 +10370,11 @@ pub static TRACK_CAMEL_BACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(3538944),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(4587520),
+            y: Fixed(4325376),
         },
     ],
     half_width: 160,
@@ -10283,6 +10607,10 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(4325376),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(4325376),
         },
@@ -10296,10 +10624,6 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(1966080),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -10335,10 +10659,6 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4325376),
-        },
-        Vec2 {
             x: Fixed(3276800),
             y: Fixed(4325376),
         },
@@ -10360,10 +10680,6 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(4063232),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -10396,6 +10712,10 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4849664),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(4849664),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -10408,7 +10728,7 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -10416,7 +10736,11 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -10427,8 +10751,8 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(5636096),
+            x: Fixed(5373952),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -10436,7 +10760,15 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(5636096),
+            y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -10444,7 +10776,7 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -10456,7 +10788,7 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(6160384),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -10483,7 +10815,11 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -10491,7 +10827,7 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -10527,10 +10863,6 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(6422528),
-        },
-        Vec2 {
             x: Fixed(8519680),
             y: Fixed(6422528),
         },
@@ -10559,12 +10891,16 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(9568256),
             y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(9568256),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -10576,7 +10912,7 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(6684672),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -10589,6 +10925,10 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10092544),
             y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -10600,7 +10940,7 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -10613,6 +10953,10 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -10624,10 +10968,10 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(7733248),
+            y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -10636,10 +10980,10 @@ pub static TRACK_OASIS_RUN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(8257536),
         },
     ],
@@ -10873,11 +11217,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2228224),
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -10889,11 +11233,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -10921,7 +11265,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(1179648),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(1179648),
         },
         Vec2 {
@@ -10934,7 +11278,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(1703936),
+            y: Fixed(1441792),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -10954,7 +11298,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(2490368),
+            y: Fixed(2228224),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -10962,6 +11306,10 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5373952),
+            y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(5636096),
             y: Fixed(2752512),
         },
         Vec2 {
@@ -10986,7 +11334,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(3801088),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -10997,7 +11345,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -11013,15 +11361,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(4063232),
-        },
-        Vec2 {
             x: Fixed(7208960),
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -11053,7 +11397,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9043968),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -11062,15 +11410,15 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(9043968),
             y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(4587520),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(9043968),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -11082,14 +11430,14 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(9306112),
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
+            y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(5636096),
         },
         Vec2 {
@@ -11110,6 +11458,10 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(9830400),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -11118,7 +11470,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(6684672),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -11141,11 +11493,19 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(10354688),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(10092544),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -11157,7 +11517,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(9830400),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -11169,11 +11533,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11185,7 +11549,11 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -11201,8 +11569,8 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(10092544),
+            x: Fixed(9043968),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -11222,7 +11590,7 @@ pub static TRACK_CEDAR_BEND: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(11141120),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -11504,6 +11872,10 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11515,7 +11887,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11527,7 +11899,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11539,7 +11911,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11551,8 +11923,12 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -11564,7 +11940,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -11607,6 +11983,14 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(6422528),
+        },
+        Vec2 {
             x: Fixed(5373952),
             y: Fixed(6422528),
         },
@@ -11619,7 +12003,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -11655,7 +12039,11 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -11700,7 +12088,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(4063232),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(7471104),
@@ -11713,13 +12101,21 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(7471104),
             y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(7733248),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -11731,7 +12127,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8257536),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -11743,7 +12139,7 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(8781824),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -11755,12 +12151,12 @@ pub static TRACK_OLD_QUARRY: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -12041,6 +12437,10 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(4587520),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(4587520),
         },
@@ -12062,10 +12462,6 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(2228224),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -12101,7 +12497,7 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3538944),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -12114,6 +12510,10 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(3801088),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -12142,7 +12542,11 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(4325376),
@@ -12151,6 +12555,10 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(4325376),
             y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -12189,10 +12597,6 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(5898240),
-        },
-        Vec2 {
             x: Fixed(5898240),
             y: Fixed(5898240),
         },
@@ -12222,7 +12626,7 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(6684672),
@@ -12237,7 +12641,11 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(6946816),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -12249,7 +12657,7 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -12259,6 +12667,14 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(7471104),
             y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(7733248),
@@ -12298,7 +12714,11 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -12333,10 +12753,6 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(6946816),
-        },
-        Vec2 {
             x: Fixed(10092544),
             y: Fixed(6946816),
         },
@@ -12345,7 +12761,11 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(10092544),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -12355,13 +12775,21 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10354688),
             y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10878976),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -12382,10 +12810,10 @@ pub static TRACK_GLACIER_BENDS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(7995392),
         },
     ],
@@ -12620,35 +13048,31 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(1179648),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(1179648),
-            y: Fixed(5111808),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(1179648),
@@ -12659,7 +13083,11 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1179648),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(1441792),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -12672,46 +13100,50 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(4587520),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(3538944),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(3801088),
             y: Fixed(9306112),
         },
         Vec2 {
@@ -12727,7 +13159,7 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -12736,18 +13168,18 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(10354688),
-        },
-        Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -12763,64 +13195,68 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(7733248),
             y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(6946816),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
             y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(5636096),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(4849664),
             y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(4587520),
-            y: Fixed(8257536),
-        },
-        Vec2 {
-            x: Fixed(4325376),
             y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(6946816),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(4849664),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(4063232),
@@ -12840,19 +13276,19 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(5373952),
             y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(1966080),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -12891,7 +13327,7 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(6946816),
         },
         Vec2 {
@@ -12899,15 +13335,19 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(6946816),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(7208960),
-            y: Fixed(7471104),
+            x: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7995392),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -12915,7 +13355,7 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -12931,19 +13371,23 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10354688),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(10878976),
             y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(11403264),
-            y: Fixed(8257536),
+            y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -12951,31 +13395,35 @@ pub static TRACK_HARBOUR_HAIRPINS: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10616832),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(10092544),
             y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(9568256),
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(8781824),
             y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(7995392),
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(6160384),
         },
     ],
@@ -13209,6 +13657,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(3276800),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(3276800),
         },
@@ -13233,15 +13685,15 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(3276800),
-        },
-        Vec2 {
             x: Fixed(2490368),
             y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(2490368),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -13257,7 +13709,11 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -13267,10 +13723,6 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(3014656),
             y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -13281,15 +13733,19 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(4587520),
+        },
+        Vec2 {
             x: Fixed(3276800),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -13321,7 +13777,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -13338,6 +13794,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(5111808),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -13350,7 +13810,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(5636096),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -13359,6 +13819,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(5373952),
             y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -13381,7 +13845,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -13401,15 +13865,15 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(6422528),
-        },
-        Vec2 {
             x: Fixed(6946816),
             y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(6946816),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -13426,7 +13890,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(6946816),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(7208960),
@@ -13435,6 +13899,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(7471104),
             y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(7471104),
@@ -13457,7 +13925,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -13469,7 +13937,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8257536),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -13482,10 +13950,6 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(9043968),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -13497,7 +13961,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -13510,6 +13974,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(10092544),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -13538,6 +14006,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10616832),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(10616832),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -13546,7 +14018,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -13558,10 +14030,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(11403264),
+            x: Fixed(11141120),
             y: Fixed(9306112),
         },
     ],
@@ -13795,6 +14267,10 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(2752512),
         },
         Vec2 {
+            x: Fixed(1179648),
+            y: Fixed(2752512),
+        },
+        Vec2 {
             x: Fixed(1441792),
             y: Fixed(2752512),
         },
@@ -13840,7 +14316,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(3276800),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -13872,10 +14348,14 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(3276800),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -13887,7 +14367,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -13899,7 +14379,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -13951,8 +14431,16 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(6160384),
+        },
+        Vec2 {
             x: Fixed(5373952),
             y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -13967,7 +14455,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(6422528),
         },
         Vec2 {
@@ -14008,7 +14496,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(7471104),
@@ -14020,7 +14508,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(7471104),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(7471104),
@@ -14079,7 +14567,11 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -14096,7 +14588,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -14108,7 +14600,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -14119,7 +14611,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -14131,7 +14623,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -14143,7 +14635,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(10616832),
             y: Fixed(9830400),
         },
         Vec2 {
