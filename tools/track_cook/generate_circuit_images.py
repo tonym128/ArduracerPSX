@@ -304,14 +304,21 @@ def fit_scale(samples, road_cells):
 
 
 def render(samples, road_cells):
-    """Rasterises fitted samples into per-level code maps."""
+    """Rasterises the centreline into per-level code maps.
+
+    Densification happens here, in cell space, *after* the fit. The centreline
+    arrives with anchors spaced in authoring units, but how many cells that is
+    depends on the fit -- and on fillets, which bulge outside the vertex hull and
+    shrink the scale. Sizing the step before the fit let the rasteriser stride
+    further than the road was wide and split the ring in two.
+    """
     scale, dx, dy = fit_scale(samples, road_cells)
-    # Densify in *cell* space before stamping. The centreline arrives with
-    # anchors spaced in authoring units, but how many cells that is depends on
-    # the fit -- and on fillets, which bulge outside the vertex hull and shrink
-    # the scale. Sizing the step before the fit meant the rasteriser stepped
-    # further than the road was wide and split the ring in two.
-    fine = []
+    road = road_cells
+    r = int(math.ceil(road + KERB_CELLS)) + 1
+
+    # `cells` is already in grid coordinates. Everything below works in cells,
+    # so the fit must be applied exactly once -- here.
+    cells = []
     for i in range(len(samples) - 1):
         a, b = samples[i], samples[i + 1]
         ax, ay = a[0] * scale + dx, a[1] * scale + dy
@@ -319,19 +326,15 @@ def render(samples, road_cells):
         steps = max(1, int(math.ceil(math.hypot(bx - ax, by - ay))))
         for k in range(steps):
             t = k / steps
-            fine.append((ax + (bx - ax) * t, ay + (by - ay) * t,
-                         a[2] + (b[2] - a[2]) * t, a[3]))
-    if fine:
-        fine.append(fine[0])
-    samples = fine
+            cells.append((ax + (bx - ax) * t, ay + (by - ay) * t,
+                          a[2] + (b[2] - a[2]) * t, a[3]))
+    if not cells:
+        raise RuntimeError("empty centreline")
+    cells.append(cells[0])
+
     grids = [np.zeros((GRID, GRID), dtype=np.int8) for _ in range(2)]
     marks = [dict() for _ in range(2)]
-    road = road_cells
-
-    r = int(math.ceil(road + KERB_CELLS)) + 1
-    for (fx, fy, lvl, curv) in samples:
-        x = fx * scale + dx
-        y = fy * scale + dy
+    for (x, y, lvl, curv) in cells:
         li = int(lvl)
         buf, g = marks[li], grids[li]
         kerby = abs(curv) > CURB_KNEE
