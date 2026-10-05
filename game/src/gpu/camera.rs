@@ -80,9 +80,21 @@ impl Camera {
     /// This is the single projection for the whole game: cars, particles,
     /// skidmarks and the tile renderer all go through here (or through
     /// [`Camera::world_offset`]), so zoom cannot drift between layers.
-    pub fn world_to_screen(&self, world_pos: Vec2, _draw_offset_y: i16) -> (i16, i16) {
+    ///
+    /// The `draw_y` offset this used to take has been removed. It was threaded
+    /// through fifteen call sites and discarded at every one of them:
+    /// double-buffering is handled by the deferred `FrameBuffer` swap, so there is
+    /// no vertical offset for a renderer to apply. Leaving the parameter in place
+    /// invited a future renderer to honour it and silently double-offset
+    /// everything (TASK-1216).
+    pub fn world_to_screen(&self, world_pos: Vec2) -> (i16, i16) {
         let off = self.world_offset(world_pos);
-        ((SCREEN_W / 2) + off.0, (SCREEN_H / 2) + off.1)
+        // Saturating, not wrapping: `world_offset` clamps each axis to `i16`, so
+        // a point far off-screen would overflow on the addition to screen centre.
+        (
+            add_i16_saturating(SCREEN_W / 2, off.0),
+            add_i16_saturating(SCREEN_H / 2, off.1),
+        )
     }
 
     /// World point -> pixel offset from screen centre, with zoom applied.
@@ -93,8 +105,10 @@ impl Camera {
         // `raw()` is Q20.12 and `z` is Q20.12, so the product needs two shifts to
         // come back to pixels.
         let z = self.zoom.raw();
-        let rel_x = (((world_pos.x - self.pos.x).raw() as i64 * z as i64) >> FP_SHIFT) >> FP_SHIFT;
-        let rel_y = (((world_pos.y - self.pos.y).raw() as i64 * z as i64) >> FP_SHIFT) >> FP_SHIFT;
+        let rel_x =
+            (((world_pos.x - self.pos.x).raw() as i64 * z as i64) >> FP_SHIFT >> FP_SHIFT) as i32;
+        let rel_y =
+            (((world_pos.y - self.pos.y).raw() as i64 * z as i64) >> FP_SHIFT >> FP_SHIFT) as i32;
         (clamp_i16(rel_x), clamp_i16(rel_y))
     }
 
@@ -217,6 +231,15 @@ fn clamp_i32(v: i64, lo: i32, hi: i32) -> i32 {
     }
 }
 
-fn clamp_i16(v: i64) -> i16 {
-    clamp_i32(v, i16::MIN as i32, i16::MAX as i32) as i16
+fn clamp_i16(v: i32) -> i16 {
+    clamp_i32(v as i64, i16::MIN as i32, i16::MAX as i32) as i16
+}
+
+/// Adds to an `i16` without wrapping.
+///
+/// `world_offset` clamps each axis to `i16`, so adding screen centre back on
+/// could overflow for a point far off-screen -- and in release mode a wrapped
+/// coordinate draws a car in the opposite corner instead of culling it.
+fn add_i16_saturating(a: i16, b: i16) -> i16 {
+    clamp_i32(a as i64 + b as i64, i16::MIN as i32, i16::MAX as i32) as i16
 }

@@ -37,7 +37,7 @@ impl PauseMenu {
     }
 
     /// Renders the dimmed pause panel.
-    pub fn render(&self, _draw_y: i16) {
+    pub fn render(&self) {
         // Drop shadow and panel backing
         gpu::draw_rect_flat(68, 54, 184, 132, 8, 10, 14);
         gpu::draw_rect_flat(70, 56, 180, 128, 16, 20, 30);

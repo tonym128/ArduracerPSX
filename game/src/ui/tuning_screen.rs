@@ -98,7 +98,7 @@ impl TuningScreen {
     }
 
     /// Renders the tuning garage interface.
-    pub fn render(&self, _draw_y: i16) {
+    pub fn render(&self) {
         // Background
         gpu::draw_rect_flat(10, 10, 300, 220, 16, 20, 28);
         gpu::draw_rect_flat(12, 12, 296, 216, 25, 30, 38);

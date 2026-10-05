@@ -36,10 +36,10 @@ const STAMP_HALF: i16 = 1;
 
 impl SkidmarkBuffer {
     /// Renders skidmark stamps to screen relative to the camera.
-    pub fn render(&self, camera: &Camera, draw_y: i16) {
+    pub fn render(&self, camera: &Camera) {
         for (m, faded) in self.visible() {
-            let (lx, ly) = camera.world_to_screen(m.left_pos, draw_y);
-            let (rx, ry) = camera.world_to_screen(m.right_pos, draw_y);
+            let (lx, ly) = camera.world_to_screen(m.left_pos);
+            let (rx, ry) = camera.world_to_screen(m.right_pos);
             if (-8..328).contains(&lx) && (-8..248).contains(&ly) {
                 stamp(lx, ly, faded);
             }

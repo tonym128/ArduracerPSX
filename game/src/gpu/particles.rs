@@ -15,9 +15,9 @@ const SMOKE_SMALL: i16 = 1;
 
 impl ParticleSystem {
     /// Renders active particles within the camera viewport.
-    pub fn render(&self, camera: &Camera, draw_y: i16) {
+    pub fn render(&self, camera: &Camera) {
         for (p, age) in self.visible() {
-            let (sx, sy) = camera.world_to_screen(p.pos, draw_y);
+            let (sx, sy) = camera.world_to_screen(p.pos);
             if !(-16..=336).contains(&sx) || !(-16..=256).contains(&sy) {
                 continue;
             }

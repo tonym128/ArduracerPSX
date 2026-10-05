@@ -37,7 +37,7 @@ fn palette_for(track: &TrackDef) -> Palette {
 }
 
 /// Renders all visible track tiles for the active camera frame.
-pub fn render_track(track: &TrackDef, camera: &Camera, _draw_y: i16) {
+pub fn render_track(track: &TrackDef, camera: &Camera) {
     let pal = palette_for(track);
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();

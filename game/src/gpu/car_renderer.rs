@@ -60,11 +60,10 @@ fn draw_quad(verts: [(i16, i16); 4], r: u8, g: u8, b: u8, layer: CarLayer) {
 pub fn render_car(
     car: &VehicleState,
     camera: &Camera,
-    draw_y: i16,
     is_ghost: bool,
     primary_color: (u8, u8, u8),
 ) {
-    let (cx, cy) = camera.world_to_screen(car.position, draw_y);
+    let (cx, cy) = camera.world_to_screen(car.position);
 
     // Skip if offscreen
     if !(-40..=360).contains(&cx) || !(-40..=280).contains(&cy) {

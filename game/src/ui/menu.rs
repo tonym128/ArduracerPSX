@@ -83,7 +83,7 @@ impl MainMenu {
     }
 
     /// Renders the main menu screen.
-    pub fn render(&self, _draw_y: i16) {
+    pub fn render(&self) {
         // Outer border & shadow
         gpu::draw_rect_flat(18, 18, 284, 204, 12, 14, 20);
         gpu::draw_rect_flat(20, 20, 280, 200, 24, 28, 38);

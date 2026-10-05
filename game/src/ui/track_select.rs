@@ -94,7 +94,7 @@ impl TrackSelectScreen {
     }
 
     /// Renders the track selection screen.
-    pub fn render(&self, _draw_y: i16) {
+    pub fn render(&self) {
         let track: &'static TrackDef = ALL_TRACKS[self.selected_track_idx];
 
         // Background panel

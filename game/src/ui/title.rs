@@ -36,7 +36,7 @@ impl TitleScreen {
     }
 
     /// Renders title screen elements.
-    pub fn render(&self, _draw_y: i16) {
+    pub fn render(&self) {
         // 1. Dark synthwave gradient background stripes
         for line in 0..12i16 {
             let offset = ((self.timer * 2 + (line as u32) * 20) % 240) as i16;

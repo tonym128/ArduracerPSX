@@ -196,14 +196,14 @@ impl ArduracerGame {
     /// nearer the camera was painted over by the one behind it (TASK-1206).
     /// Sorting by projected screen `y` gives a painter's order that matches
     /// which car is actually in front.
-    fn render_rivals_sorted(&self, draw_y: i16) {
+    fn render_rivals_sorted(&self) {
         // Insertion sort by depth. Five elements: cheaper in code size than
         // allocating a buffer.
         let mut order = [0usize; 5];
         let mut depth = [0i16; 5];
         for (i, rival) in self.rivals.iter().enumerate() {
             order[i] = i;
-            depth[i] = self.camera.world_to_screen(rival.state.position, draw_y).1;
+            depth[i] = self.camera.world_to_screen(rival.state.position).1;
         }
         for i in 1..order.len() {
             let mut j = i;
@@ -214,34 +214,22 @@ impl ArduracerGame {
         }
         for idx in order {
             let rival = &self.rivals[idx];
-            render_car(
-                &rival.state,
-                &self.camera,
-                draw_y,
-                false,
-                rival.profile.color,
-            );
+            render_car(&rival.state, &self.camera, false, rival.profile.color);
         }
     }
 
     /// Repaints the last simulated race frame (used while paused).
-    fn draw_frozen_race(&mut self, draw_y: i16) {
+    fn draw_frozen_race(&mut self) {
         self.fb.clear(18, 20, 26);
-        render_track(self.current_track, &self.camera, draw_y);
-        self.skidmarks.render(&self.camera, draw_y);
+        render_track(self.current_track, &self.camera);
+        self.skidmarks.render(&self.camera);
         // Same ordering rule as the live frame: smoke belongs on top of the cars
         // it came from (TASK-1206).
-        self.particles.render(&self.camera, draw_y);
+        self.particles.render(&self.camera);
         for rival in &self.rivals {
-            render_car(
-                &rival.state,
-                &self.camera,
-                draw_y,
-                false,
-                rival.profile.color,
-            );
+            render_car(&rival.state, &self.camera, false, rival.profile.color);
         }
-        render_car(&self.player, &self.camera, draw_y, false, (220, 25, 45));
+        render_car(&self.player, &self.camera, false, (220, 25, 45));
     }
 
     pub fn run(&mut self) -> ! {
@@ -256,7 +244,6 @@ impl ArduracerGame {
             psx_rt::interrupts::wait_vblank();
             self.fb.apply_draw_target();
 
-            let draw_y = self.fb.buffer_y(self.fb.drawing) as i16;
             self.frame_counter = self.frame_counter.wrapping_add(1);
 
             let pad = psx_pad::poll_port1();
@@ -268,7 +255,7 @@ impl ArduracerGame {
                         self.state_mgr.current = GameState::MainMenu;
                     }
                     self.fb.clear(12, 14, 20);
-                    self.state_mgr.title.render(draw_y);
+                    self.state_mgr.title.render();
                 }
                 GameState::MainMenu => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -301,7 +288,7 @@ impl ArduracerGame {
                         }
                     }
                     self.fb.clear(15, 18, 25);
-                    self.state_mgr.menu.render(draw_y);
+                    self.state_mgr.menu.render();
                 }
                 GameState::Garage => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -320,7 +307,7 @@ impl ArduracerGame {
                         self.state_mgr.current = GameState::MainMenu;
                     }
                     self.fb.clear(15, 18, 25);
-                    self.state_mgr.garage.render(draw_y);
+                    self.state_mgr.garage.render();
                 }
                 GameState::TrackSelect => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -340,7 +327,7 @@ impl ArduracerGame {
                         self.state_mgr.current = GameState::MainMenu;
                     }
                     self.fb.clear(15, 18, 25);
-                    self.state_mgr.track_select.render(draw_y);
+                    self.state_mgr.track_select.render();
                 }
                 GameState::Racing => {
                     let track = self.current_track;
@@ -412,8 +399,8 @@ impl ArduracerGame {
                             }
                         }
                         // Repaint the frozen world under the pause veil.
-                        self.draw_frozen_race(draw_y);
-                        self.pause.render(draw_y);
+                        self.draw_frozen_race();
+                        self.pause.render();
                         continue;
                     }
 
@@ -579,42 +566,30 @@ impl ArduracerGame {
                     // a. Clear background
                     self.fb.clear(18, 20, 26);
                     // b. Track tilemap
-                    render_track(track, &self.camera, draw_y);
+                    render_track(track, &self.camera);
                     // c. Skidmarks on track
-                    self.skidmarks.render(&self.camera, draw_y);
+                    self.skidmarks.render(&self.camera);
                     // d. Active ghost car playback
-                    render_active_ghost(
-                        &self.ghost,
-                        &self.camera,
-                        self.timer.current_lap_ticks,
-                        draw_y,
-                    );
+                    render_active_ghost(&self.ghost, &self.camera, self.timer.current_lap_ticks);
                     // e. AI Rivals rendering, painter's order: farthest (smallest
                     // screen y) first, so overlapping cars occlude correctly
                     // instead of interpenetrating (TASK-1206).
-                    self.render_rivals_sorted(draw_y);
+                    self.render_rivals_sorted();
                     // f. Player race car (Crimson Red: 220, 25, 45)
-                    render_car(&self.player, &self.camera, draw_y, false, (220, 25, 45));
+                    render_car(&self.player, &self.camera, false, (220, 25, 45));
                     // g. Particle effects, drawn *after* the cars. They used to be
                     // drawn here (step e, before the cars) so the opaque body quad
                     // painted over every puff, which is why smoke was invisible
                     // even though it was being emitted (TASK-1206).
-                    self.particles.render(&self.camera, draw_y);
+                    self.particles.render(&self.camera);
                     // h. Start lights, drawn above the HUD while the grid is
                     // still counting down. Always visible: they are the signal
                     // that the clock has not started yet.
-                    render_start_lights(self.start.phase(), draw_y);
+                    render_start_lights(self.start.phase());
 
                     // i. In-Game HUD overlay (Select hides it for clean screenshots)
                     if self.show_hud {
-                        render_hud(
-                            &self.player,
-                            &self.timer,
-                            track,
-                            player_rank,
-                            &self.rivals,
-                            draw_y,
-                        );
+                        render_hud(&self.player, &self.timer, track, player_rank, &self.rivals);
                     }
                 }
                 GameState::Results => {
@@ -629,7 +604,7 @@ impl ArduracerGame {
                         let (cont, exit) = results.update(&pad);
                         action_cont = cont;
                         action_exit = exit;
-                        results.render(draw_y);
+                        results.render();
                     }
                     if action_cont {
                         let next_track = if let Some(ref mut champ) = self.state_mgr.championship {
@@ -698,7 +673,7 @@ impl ArduracerGame {
 /// Shows the lights coming on one at a time, then all out for GO. The lamp
 /// positions match a real arcade rig so the "wait for all three, then go" read
 /// is unambiguous.
-fn render_start_lights(phase: StartPhase, _draw_y: i16) {
+fn render_start_lights(phase: StartPhase) {
     let lit = match phase {
         StartPhase::Grid => 0,
         StartPhase::Lit(n) => n as u16,

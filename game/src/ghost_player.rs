@@ -9,12 +9,7 @@ use arduracer_core::ghost::GhostPlayer;
 use arduracer_core::VehicleState;
 
 /// Evaluates and renders the ghost vehicle if telemetry is available for the current circuit.
-pub fn render_active_ghost(
-    recorder: &LapGhostRecorder,
-    camera: &Camera,
-    current_lap_ticks: u32,
-    draw_y: i16,
-) {
+pub fn render_active_ghost(recorder: &LapGhostRecorder, camera: &Camera, current_lap_ticks: u32) {
     if !recorder.has_ghost || recorder.best_frame_count == 0 {
         return;
     }
@@ -31,5 +26,5 @@ pub fn render_active_ghost(
     };
 
     // Render as translucent cyan phantom car (is_ghost = true)
-    render_car(&ghost_vehicle, camera, draw_y, true, (100, 160, 230));
+    render_car(&ghost_vehicle, camera, true, (100, 160, 230));
 }

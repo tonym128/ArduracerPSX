@@ -1833,3 +1833,68 @@ mod palette_tests {
         assert_eq!(broken.first_collision(), Some(("road", "road2")));
     }
 }
+
+/// TASK-1216: `world_to_screen` narrowed `i32` to `i16` with no clamp, and culled
+/// *after* truncating.
+///
+/// A point far off-screen wrapped to the opposite side in release mode, so the
+/// caller saw a plausible-looking on-screen coordinate and drew a car in the
+/// wrong corner instead of culling it. The culling ranges are deliberately wider
+/// than the viewport, so a wrapped coordinate lands inside them.
+#[cfg(test)]
+mod projection_clamp_tests {
+    use super::camera::{Camera, SCREEN_H, SCREEN_W};
+    use arduracer_core::{Fixed, Vec2};
+
+    #[test]
+    fn a_point_far_off_screen_does_not_wrap_to_the_opposite_corner() {
+        let camera = Camera::new(Vec2::new(Fixed::from_int(320), Fixed::from_int(240)));
+        // Enormously beyond the 320x240 world, in each quadrant.
+        let far = [
+            (40_000i32, 40_000i32),
+            (-40_000, 40_000),
+            (40_000, -40_000),
+            (-40_000, -40_000),
+        ];
+        for (wx, wy) in far {
+            let (sx, sy) =
+                camera.world_to_screen(Vec2::new(Fixed::from_int(wx), Fixed::from_int(wy)));
+            assert!(
+                !(-64..=SCREEN_W + 64).contains(&sx),
+                "({wx},{wy}) wrapped to sx={sx}, which is on-screen"
+            );
+            assert!(
+                !(-64..=SCREEN_H + 64).contains(&sy),
+                "({wx},{wy}) wrapped to sy={sy}, which is on-screen"
+            );
+        }
+    }
+
+    #[test]
+    fn a_point_on_the_camera_lands_at_screen_centre() {
+        let centre = Vec2::new(Fixed::from_int(320), Fixed::from_int(240));
+        let camera = Camera::new(centre);
+        let (sx, sy) = camera.world_to_screen(centre);
+        assert_eq!((sx, sy), (SCREEN_W / 2, SCREEN_H / 2));
+    }
+
+    #[test]
+    fn every_projected_coordinate_is_a_valid_i16() {
+        // The old code truncated `i32` to `i16` with no clamp; in release that
+        // wraps, and a wrapped coordinate is indistinguishable from a real one.
+        let camera = Camera::new(Vec2::new(Fixed::from_int(320), Fixed::from_int(240)));
+        for step in -200..200 {
+            let pos = Vec2::new(
+                Fixed::from_int(320 + step * 500),
+                Fixed::from_int(240 - step * 400),
+            );
+            let (sx, _sy) = camera.world_to_screen(pos);
+            // Never wraps back to screen centre, which is what a truncation
+            // looked like.
+            assert!(
+                sx != SCREEN_W / 2 || step == 0,
+                "step {step} collapsed to screen centre"
+            );
+        }
+    }
+}

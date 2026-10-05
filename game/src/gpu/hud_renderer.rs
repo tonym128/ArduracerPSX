@@ -78,7 +78,6 @@ pub fn render_hud<const N: usize>(
     track: &TrackDef,
     rank: u8,
     rivals: &[AiRacer],
-    _draw_y: i16,
 ) {
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
     gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);

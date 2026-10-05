@@ -55,7 +55,7 @@ impl ResultsScreen {
     }
 
     /// Renders the race results screen with screen-relative coordinates.
-    pub fn render(&self, _draw_y: i16) {
+    pub fn render(&self) {
         // Background card and shadow
         gpu::draw_rect_flat(18, 14, 284, 212, 10, 12, 18);
         gpu::draw_rect_flat(20, 16, 280, 208, 18, 22, 32);
