@@ -82,6 +82,23 @@ as provenance (see `tools/track_cook/PROVENANCE.md`).
 passes on all of them, all 24 are playable 5 player + 5 AI laps, and the par table
 is recalibrated.
 
+**Status: geometry done, one open defect.** All 24 are authored and validated, the
+host suite is 49/49, and the measured geometry is real: road half-widths are
+2.2-3.0 tiles (140-192 px) against the old derived 1.05 (67 px), grids are 40x40
+to 56x43 before padding against the old 18x18-38x38, and laps are 12,000+ world
+units. Two things remain before this batch can close:
+
+1. **Five circuits strand the rookie AI.** On Willow Bend, Chrome Basin,
+   Longshadow Flats, Harbourmaster and Aurora Vault, `AiRacer` never leaves the
+   grid: 400,000 ticks elapse, `current_lap` stays at 1, exactly one checkpoint is
+   ever cleared, and peak speed never rises above the 3 the car is constructed
+   with. The other 19 circuits finish in 8,800-13,200 ticks. Ruled out so far:
+   the start tile is `StartFinish` on all 24, and `start_heading` is not the
+   discriminator (Harbour Loop and Skyway Nine both start at heading 43 and work;
+   Longshadow Flats also starts at 43 and stalls). Not yet diagnosed.
+2. `make playtest` has not been re-run since the circuits changed, and the par
+   table is stale.
+
 ## Batch B — steps 3 and 4, now that geometry is authored
 
 These are `OVERHAUL.md` steps 3 and 4. They were blocked because the centreline

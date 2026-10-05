@@ -51,6 +51,8 @@ import os
 import subprocess
 import sys
 
+import circuits
+
 # ---------------------------------------------------------------------------
 # Level naming and legacy target times (ArduRacer FX centiseconds)
 # ---------------------------------------------------------------------------
@@ -773,7 +775,12 @@ def dist_to_polyline(px, py, poly):
 
 
 def build_super_stage(stage):
-    w, h = stage["w"], stage["h"]
+    # `circuits.py` authors `grid` as a (w, h) tuple; the older `SUPER_STAGES`
+    # entries used flat `w`/`h` keys. Accept both so the format can migrate.
+    if "grid" in stage:
+        w, h = stage["grid"]
+    else:
+        w, h = stage["w"], stage["h"]
     hw = stage["half_width"]
     poly = catmull_rom(stage["centre"], samples_per_span=16)
     road_radius = hw + 0.65
@@ -837,20 +844,40 @@ def build_super_stage(stage):
     for cx, cy in cps:
         stamp_near(cx, cy, T_CHECKPOINT, 0)
 
-    hazards = 0
-    for frac in stage.get("boost_at", ()):
-        idx = int(n_poly * frac) % n_poly
-        px, py = poly[idx]
-        hazards += stamp_near(
-            min(w - 1, max(0, int(px))), min(h - 1, max(0, int(py))), T_BOOST, 0
-        )
+    def stamp_hazard(frac, tile, half_len):
+        """Stamps a hazard strip at `frac` of the lap, searching along the
+        centreline for bare road if the exact tile is already occupied.
 
+        The exact arc position frequently lands on a gate, a curb already widened
+        by a previous hazard, or a tile the wall pass touched, and `stamp_near`
+        silently stamps nothing there. That is how "only 1 hazard tile(s) placed"
+        kept happening while the circuit data plainly listed two: the request was
+        real and the write was a no-op. Searching a short window forward makes the
+        placement robust to re-tuning a circuit's control points.
+        """
+        start = int(n_poly * frac) % n_poly
+        for step in range(0, 24):
+            px, py = poly[(start + step) % n_poly]
+            cx = min(w - 1, max(0, int(px)))
+            cy = min(h - 1, max(0, int(py)))
+            stamped = 0
+            for j in range(half_len + 1):
+                idx = (start + step + j) % n_poly
+                ax, ay = poly[idx]
+                stamped += stamp_near(
+                    min(w - 1, max(0, int(ax))), min(h - 1, max(0, int(ay))), tile, 0
+                )
+            if stamped:
+                return stamped
+        return 0
+
+    hazards = 0
+    # Boost pads are strips, not dots: a one-tile pad is invisible at gameplay
+    # zoom and gives the player no read on where to commit.
+    for frac in stage.get("boost_at", ()):
+        hazards += stamp_hazard(frac, T_BOOST, 2)
     for frac in stage.get("oil_at", ()):
-        idx = int(n_poly * frac) % n_poly
-        px, py = poly[idx]
-        hazards += stamp_near(
-            min(w - 1, max(0, int(px))), min(h - 1, max(0, int(py))), T_OIL, 0
-        )
+        hazards += stamp_hazard(frac, T_OIL, 1)
 
     if hazards < 2:
         raise RuntimeError(
@@ -885,7 +912,6 @@ def build_super_stage(stage):
         "checkpoints": cps,
         "road_radius": road_radius,
         "walls": stage.get("walls", {}),
-        "par": (stage["bronze_cs"], stage["silver_cs"], stage["gold_cs"], stage["dev_cs"]),
         "poly": poly,
         "route_pts": [(float(cx), float(cy)) for (cx, cy) in stage["centre"]],
         "half_width": stage["half_width"],
@@ -911,9 +937,10 @@ def heading_from_fx(raw_tile):
 
 def validate(idx, name, w, h, tiles, start, checkpoints):
     errors = []
-    # Upper bound tracks MAX_TRACK_DIM in the core crate (40): the margin pushes
-    # the largest art grids from 30x30 to 38x38.
-    if not (10 <= w <= 40 and 10 <= h <= 40):
+    # Upper bound tracks MAX_TRACK_DIM in the core crate (64), mirrored by
+    # `MAX_TRACK_CHECKPOINTS` above. Authored grids are padded by `MARGIN_TILES`
+    # before emission, so `circuits.py` caps its own grids at 56.
+    if not (10 <= w <= MAX_TRACK_DIM and 10 <= h <= MAX_TRACK_DIM):
         errors.append(f"dimensions {w}x{h} out of range")
     if tiles[start[1] * w + start[0]] != T_START:
         errors.append("start tile is not the start/finish line")
@@ -949,6 +976,14 @@ def validate(idx, name, w, h, tiles, start, checkpoints):
 # imported because the cooker runs on the host with plain CPython and has no
 # access to the crate.
 MAX_TRACK_CHECKPOINTS = 24
+
+# Mirrors `arduracer_core::track::MAX_TRACK_DIM`.
+MAX_TRACK_DIM = 64
+
+# (bronze, silver, gold, dev) in centiseconds, used only for a circuit that has
+# never been measured. Deliberately generous: `make playtest` treats a stale or
+# placeholder par table as a failure, so nothing ships on this number.
+PLACEHOLDER_PAR = (6000, 5000, 4000, 3000)
 
 MARGIN_TILES = 4
 
@@ -1136,13 +1171,13 @@ def generate_rust_code():
     code.append("//! Racetrack definitions for Arduracer PSX.")
     code.append("//!")
     code.append("//! Generated by `tools/track_cook/convert_levels.py` - do not edit by hand.")
-    code.append("//! 20 remastered ArduRacer FX circuits + 4 PSX Grand Prix Super Stages.")
+    code.append("//! 24 authored circuits, generated from `tools/track_cook/circuits.py`.")
     code.append("")
     code.append("use crate::math::{Fixed, Vec2};")
     code.append("use crate::timing::{CheckpointGate, ParTimes};")
     code.append("use crate::track::{TrackDef, TrackTile};")
     code.append("")
-    code.append("/// Padding entry for circuits with fewer than 16 checkpoint gates.")
+    code.append("/// Padding entry for circuits with fewer gates than the array capacity.")
     code.append("const EMPTY_GATE: CheckpointGate = CheckpointGate {")
     code.append("    x: 0,")
     code.append("    y: 0,")
@@ -1153,23 +1188,15 @@ def generate_rust_code():
 
     all_tracks = []
     failures = []
+    uncalibrated = []
 
-    for i in range(1, 21):
-        rows = load_level_csv(i)
-        name = TRACK_NAMES[i - 1]
-        before = len(code)
-        # `emit_fx_track` emits nothing at all when validation fails, so an
-        # unchanged buffer is the signal. Previously it called `validate()` and
-        # threw the result away: an off-road gate or a walled-off start on a
-        # legacy circuit printed a warning and the track was emitted anyway,
-        # which is the opposite of what AGENT.md promises about this cooker.
-        emit_fx_track(code, i, name, rows, calibration)
-        if len(code) == before:
-            failures.append(i)
-        all_tracks.append(f"TRACK_{i:02d}")
-
-    for offset, stage in enumerate(SUPER_STAGES):
-        idx = 21 + offset
+    # Every circuit is authored in `circuits.py`. The FX CSVs are no longer read
+    # for geometry: gates in that data exist for gate coverage, not for a driving
+    # line, so fitting a spline through them produced two-tile roads and
+    # whatever straights the gate spacing happened to leave over. They remain in
+    # the repository as provenance (PROVENANCE.md).
+    for offset, stage in enumerate(circuits.CIRCUITS):
+        idx = offset + 1
         built = build_super_stage(stage)
         errors = validate(idx, built["name"], built["w"], built["h"], built["tiles"],
                           built["start"], built["checkpoints"])
@@ -1178,11 +1205,20 @@ def generate_rust_code():
                                  built["checkpoints"], built["road_radius"],
                                  built["walls"])
         if errors:
+            for e in errors:
+                print(f"  track {idx}: {e}", file=sys.stderr)
             failures.append(idx)
         else:
+            # Fall back to a placeholder for a circuit with no measured lap yet,
+            # so adding a circuit does not require hand-editing the calibration
+            # table first. `make calibrate-tracks` replaces it immediately, and
+            # `make playtest` then fails until it has.
+            par = calibration.get(built["name"], PLACEHOLDER_PAR)
+            if built["name"] not in calibration:
+                uncalibrated.append(built["name"])
             emit_track_const(code, idx, built["name"], built["w"], built["h"],
                              built["tiles"], built["start"], built["start_heading"],
-                             built["checkpoints"], calibration[built["name"]],
+                             built["checkpoints"], par,
                              route_pts=built.get("route_pts"),
                              half_width=built.get("half_width"))
         all_tracks.append(f"TRACK_{idx:02d}")
@@ -1196,6 +1232,14 @@ def generate_rust_code():
         code.append("    " + ", ".join(f"&{t}" for t in chunk) + ",")
     code.append("];")
     code.append("")
+
+    if uncalibrated:
+        print(
+            "warning: no measured par times for "
+            + ", ".join(uncalibrated)
+            + " -- run `make calibrate-tracks`",
+            file=sys.stderr,
+        )
 
     if failures:
         raise SystemExit(f"track validation failed for tracks: {failures}")

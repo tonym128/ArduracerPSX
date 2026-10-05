@@ -1430,7 +1430,7 @@ mod tests {
         // Reproduced the bug: 5 s of full throttle plus nitro against the east
         // wall left the car at speed 0.0000, because it was sitting on a Barrier
         // tile with zero traction and zero top speed.
-        let track = ALL_TRACKS[0];
+        let track = track_with_east_wall();
         let mut car = VehicleState {
             position: Vec2::new(Fixed::from_int(630), Fixed::from_int(320)),
             heading: 1024,
@@ -1447,7 +1447,7 @@ mod tests {
         // pass because track 1 had no barriers left in it at all.
         let mut struck_wall = false;
         for _ in 0..300 {
-            car.tick_on_track(gas, track);
+            car.tick_on_track(gas, &track);
             if car.drift.is_spinning() {
                 struck_wall = true;
             }
@@ -1460,7 +1460,7 @@ mod tests {
         // And it is on a drivable tile.
         let tx = TrackDef::tile_x_of(car.position.x);
         assert!(tx < track.width, "clamped onto tile {tx}");
-        assert!(!solid_at(track, tx, TrackDef::tile_y_of(car.position.y)));
+        assert!(!solid_at(&track, tx, TrackDef::tile_y_of(car.position.y)));
     }
 
     #[test]

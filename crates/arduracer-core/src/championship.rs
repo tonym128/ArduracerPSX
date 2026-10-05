@@ -629,7 +629,7 @@ mod tests {
             }
             assert!(session.advance_stage(), "cup {cup} should report done");
         }
-        assert_eq!(ALL_TRACKS[TOTAL_TRACKS - 1].name, "Monaco GP Classic");
+        assert_eq!(ALL_TRACKS[TOTAL_TRACKS - 1].name, "Ivory Straits");
     }
 
     #[test]

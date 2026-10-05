@@ -26,10 +26,18 @@ use crate::math::{Fixed, Vec2, FP_ONE, FP_SHIFT};
 /// so 192 leaves headroom without needing a heap allocation on hardware.
 /// Centreline samples per route. With `DEFAULT_SAMPLES_PER_SPAN` this caps
 /// authored control points at `MAX_ROUTE_SAMPLES / DEFAULT_SAMPLES_PER_SPAN`.
-/// Raised from 192 (24 control points) to 288 (36), because a large authored
-/// circuit with smooth corners needs more anchors than FX gate spacing ever
-/// provided. Costs ~1 KB per `Route`; six are live (player + five rivals).
-pub const MAX_ROUTE_SAMPLES: usize = 288;
+///
+/// Raised 192 -> 288 -> 512 -> 768 as the circuits were authored. Each step was
+/// forced by *design*, not by memory: 288 capped authored centrelines at 36
+/// control points, and the technical circuits want 9-10 distinct corners, so
+/// compressing them to fit visibly degraded them. 512 was then still short for a
+/// 10-corner circuit with three straight anchors per edge.
+///
+/// A `Route` is now ~9 KB (768 x 8 bytes of `Vec2` + 768 x 4 of arc) and six are
+/// live -- player plus five rivals -- so ~55 KB against roughly 320 KB of
+/// remaining RAM. That is a cheaper price than eight worse circuits, and the RAM
+/// budget gate is what proves it rather than this comment.
+pub const MAX_ROUTE_SAMPLES: usize = 768;
 
 /// Default spline resolution: samples generated per span between gates.
 pub const DEFAULT_SAMPLES_PER_SPAN: usize = 8;

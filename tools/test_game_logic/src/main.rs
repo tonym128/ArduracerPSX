@@ -222,6 +222,14 @@ fn main() {
         "Sprint Short synthesised a missing start line",
         test_sprint_short_has_a_start_line
     );
+    run_test!(
+        "Circuits are wide and have long straights",
+        test_circuits_are_wide_and_have_long_straights
+    );
+    run_test!(
+        "The whole corridor is drivable",
+        test_the_whole_corridor_is_drivable
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -835,7 +843,7 @@ fn test_route_arc_follows_the_car() {
     for track in ALL_TRACKS.iter().take(6) {
         let route = Route::from_track(track);
         let mut hint = route.len(); // force the first call to do a full scan
-        let mut previous_arc = 0u16;
+        let mut previous_arc = 0u32;
         let mut wrapped = 0;
         for i in 0..route.len() {
             let (arc, dist, next_hint) = route.nearest(route.point(i), hint);
@@ -921,6 +929,126 @@ fn test_route_crossing_is_direction_aware() {
         ),
         "a half-lap teleport counted as a crossing"
     );
+}
+
+/// Longest run of consecutive centreline samples that keep turning in the same
+/// direction by less than `TOLERANCE_DEG` per sample.
+///
+/// This is the measurable form of "a longer straight between corners". Counting
+/// authored anchors would only measure the data file; what matters is how long
+/// the *evaluated* centreline actually runs straight, which is what the player
+/// experiences.
+fn longest_straight(route: &Route) -> u32 {
+    // 0.75 degrees per sample. Tight on purpose: at ~17 world units between
+    // samples, anything under about a 20-tile radius registers as straight. A
+    // looser tolerance (6 degrees was the first attempt) counts a normal corner
+    // as a straight, which makes the measurement meaningless.
+    const TOLERANCE_DEG: f64 = 0.75;
+    let n = route.len();
+    if n < 4 {
+        return 0;
+    }
+    let mut best = 0u32;
+    let mut run = 1u32;
+    let mut previous_dir: Option<(i32, i32)> = None;
+    for i in 0..=n {
+        let a = route.point(i % n);
+        let b = route.point((i + 1) % n);
+        let dir = (
+            b.x.to_int() - a.x.to_int(),
+            b.y.to_int() - a.y.to_int(),
+        );
+        if let Some(prev) = previous_dir {
+            // Angle between consecutive tangents, in whole degrees.
+            let cross = (prev.0 * dir.1 - prev.1 * dir.0) as f64;
+            let dot = (prev.0 * dir.0 + prev.1 * dir.1) as f64;
+            let turn = cross.atan2(dot).abs().to_degrees();
+            if turn <= TOLERANCE_DEG {
+                run += 1;
+                if run > best {
+                    best = run;
+                }
+            } else {
+                run = 1;
+            }
+        }
+        previous_dir = Some(dir);
+    }
+    best
+}
+
+/// "Wide roads" and "long straights", checked rather than asserted.
+///
+/// Every circuit used to be derived from `ArduRacerFx/Levels/*.csv` gates, which
+/// gave a two-tile road and whatever straight the gate spacing left over. Both
+/// are now authored, and these two bounds are what stop a future re-tune quietly
+/// narrowing the game back to a strip.
+fn test_circuits_are_wide_and_have_long_straights() {
+    /// A road narrower than this reads as a two-tile strip again. The old
+    /// derived geometry was 1.05 tiles (67 px).
+    const MIN_HALF_WIDTH: u16 = 128; // 2.0 tiles
+    /// The longest straight must be a meaningful fraction of the lap. Below this
+    /// the circuit is a technical park with no place to use a wide road.
+    const MIN_STRAIGHT_SAMPLES: u32 = 24;
+    /// And a lap long enough that "slightly longer gameplay between corners"
+    /// is true of the circuit rather than of one stretch of it.
+    const MIN_LAP: u32 = 5_000;
+
+    for track in ALL_TRACKS.iter() {
+        assert!(
+            track.half_width >= MIN_HALF_WIDTH,
+            "{}: road half-width is {} px ({:.2} tiles); the floor is {} px",
+            track.name,
+            track.half_width,
+            track.half_width as f64 / TILE_SIZE as f64,
+            MIN_HALF_WIDTH,
+        );
+        let route = Route::from_track(track);
+        let lap = route.total_len();
+        assert!(
+            lap >= MIN_LAP,
+            "{}: lap is only {lap} units",
+            track.name
+        );
+        let straight = longest_straight(&route);
+        assert!(
+            straight >= MIN_STRAIGHT_SAMPLES,
+            "{}: longest straight is only {straight} centreline samples; \
+             the floor is {MIN_STRAIGHT_SAMPLES}",
+            track.name,
+        );
+    }
+}
+
+/// A wide road has to be drivable wide, not just painted wide: the surface under
+/// the full corridor has to be tarmac or curb, not off-road.
+fn test_the_whole_corridor_is_drivable() {
+    for track in ALL_TRACKS.iter() {
+        let route = Route::from_track(track);
+        for i in 0..route.len() {
+            let p = route.point(i);
+            // Sample the centreline and both shoulders of the corridor.
+            for offset in [-1i32, 0, 1] {
+                let probe = Vec2::new(
+                    Fixed::from_raw(p.x.raw() + offset * (track.half_width as i32 / 3) * 4096),
+                    p.y,
+                );
+                let tx = TrackDef::tile_x_of(probe.x);
+                let ty = TrackDef::tile_y_of(probe.y);
+                if tx >= track.width || ty >= track.height {
+                    continue;
+                }
+                let tile = track.tile_at(tx, ty);
+                assert!(
+                    track.surface_at(tx, ty).traction() > Fixed::ZERO,
+                    "{}: corridor at sample {i}{} sits on {:?}, which is not drivable",
+                    track.name,
+                    if offset == 0 { "" } else { " (shoulder)" },
+                    tile,
+                );
+            }
+        }
+    }
 }
 
 fn test_centreline_stays_on_the_road() {
@@ -1597,15 +1725,16 @@ fn test_all_24_tracks_integrity() {
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
-        // Upper bound tracks MAX_TRACK_DIM (40): the runoff margin pads every
-        // circuit with 4 tiles on each side.
+        // Upper bound tracks MAX_TRACK_DIM (64): the runoff margin pads every
+        // circuit with 4 tiles on each side, and the authored circuits are
+        // written at up to 56 so the padded grid fills the ceiling exactly.
         assert!(
-            track.width >= 10 && track.width <= 40,
+            track.width >= 10 && track.width <= 64,
             "Track {} width invalid",
             idx + 1
         );
         assert!(
-            track.height >= 10 && track.height <= 40,
+            track.height >= 10 && track.height <= 64,
             "Track {} height invalid",
             idx + 1
         );
