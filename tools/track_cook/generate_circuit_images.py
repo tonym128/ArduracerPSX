@@ -81,7 +81,13 @@ RGB = {
 
 # --- Geometry ----------------------------------------------------------------
 
-CELL = 16                      # master image pixels per map cell
+#: Pixels per map cell in the *data* image. Flat palette colours only; the
+#: compiler reads this back out of `<name>.palette.json`.
+DATA_PX = 4
+#: Pixels per map cell in the *visual* image. Painted, so it wants more room.
+VISUAL_PX = 16
+#: Retained for the walker's step size and for callers that assume 16.
+CELL = 16
 ROAD_CELLS = 2.5               # drivable width in cells -- 2 to 3, per spec
 KERB_CELLS = 0.7               # rumble band outside the tarmac
 CURB_KNEE = 0.010              # |curvature| above which a corner gets a kerb
@@ -130,22 +136,30 @@ def walk(steps, start_xy, heading_deg):
     return samples
 
 
-def fit_scale(samples, road_cells, margin_cells=2.0):
-    """Scale and offset that maps `samples` into the grid with a margin.
+def fit_scale(samples, road_cells):
+    """Scale and offset that maps `samples` into the grid with room to spare.
 
-    Returns `(scale, dx, dy)` in cell units.
+    The scale is chosen so the *centreline* fits the **inner box**, not so that
+    the padded bounding box fits the whole grid. Those are different, and getting
+    it wrong is invisible until the validator complains: padding the span and
+    then scaling span to the full width puts the centreline flush to the edge, and
+    the pen radius -- tarmac, kerb and a wall ring -- spills off the map.
+
+    `inner` reserves one cell of wall beyond the kerb on every side.
     """
     xs = [s[0] for s in samples]
     ys = [s[1] for s in samples]
-    pad = road_cells + KERB_CELLS + margin_cells
-    span_x = (max(xs) - min(xs)) + 2 * pad
-    span_y = (max(ys) - min(ys)) + 2 * pad
-    scale = min((GRID - 1) / span_x, (GRID - 1) / span_y)
+    extent_x = max(1e-6, max(xs) - min(xs))
+    extent_y = max(1e-6, max(ys) - min(ys))
+    wall = 1.0
+    inner = (GRID - 1) - 2.0 * (road_cells + KERB_CELLS + wall)
+    if inner <= 2.0:
+        raise ValueError("grid too small for the requested road width")
+    scale = min(inner / extent_x, inner / extent_y)
     cx = (max(xs) + min(xs)) / 2.0
     cy = (max(ys) + min(ys)) / 2.0
-    dx = (GRID - 1) / 2.0 - cx * scale
-    dy = (GRID - 1) / 2.0 - cy * scale
-    return scale, dx, dy
+    mid = (GRID - 1) / 2.0
+    return scale, mid - cx * scale, mid - cy * scale
 
 
 def render(samples, road_cells):
@@ -324,23 +338,133 @@ def to_png(img, path):
     return path
 
 
-def bake_texture(img, path, size=128):
-    """Nearest-neighbour reduction to a PSX-friendly texture, palette-quantised."""
-    im = Image.fromarray(to_rgb(img), "RGB")
-    # Rebuild from the index map so the reduction is exact, not a colour average.
-    small = im.resize((size, size), NEAREST)
-    a = np.array(small)
-    # Vectorised nearest-palette assignment over the 16 known colours.
-    flat = a.reshape(-1, 3).astype(np.int32)
-    best = np.zeros(len(flat), dtype=np.uint8)
-    bestd = np.full(len(flat), 1 << 30, dtype=np.int32)
-    for code, (r, g, b) in RGB.items():
-        d = ((flat[:, 0] - r) ** 2 + (flat[:, 1] - g) ** 2 + (flat[:, 2] - b) ** 2)
-        m = d < bestd
-        bestd[m] = d[m]
-        best[m] = code
-    Image.fromarray(best.reshape(size, size), "L").save(path)
-    return path
+# --- The visual image -------------------------------------------------------
+#
+# The data image and the visual image have *different requirements* and one
+# cannot be a reduction of the other:
+#
+#   data   -- exact flat palette values, no anti-aliasing, machine-parseable.
+#             A single stray anti-aliased pixel makes a road cell unreadable.
+#   visual -- appearance. Painted kerb blocks, worn racing line, textured
+#             runoff, a chequered start line. Every one of those is a gradient
+#             or a detail the data image must not contain.
+#
+# So the visual is *painted from* the data map, not resampled from it.
+
+#: Deterministic hash noise, so a regenerated image is byte-identical.
+def _noise(x, y, salt=0):
+    n = (x * 374761393 + y * 668265263 + salt * 2246822519) & 0xFFFFFFFF
+    n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((n ^ (n >> 16)) & 0xFF) / 255.0 - 0.5
+
+
+def _lerp(c, d, t):
+    return tuple(int(max(0, min(255, c[i] + (d[i] - c[i]) * t))) for i in range(3))
+
+
+def paint_visual(codes, road_codes=(TARMAC, BOOST, OIL, GATE, START_LINE,
+                                   TUNNEL, BRIDGE, KERB_WHITE, KERB_RED,
+                                   TARMAC_WORN)):
+    """Paints an appearance image from the code map.
+
+    Everything here is presentation only. Physics reads the code map, never this.
+    """
+    h, w = codes.shape
+    out = np.zeros((h, w, 3), dtype=np.uint8)
+
+    for y in range(h):
+        for x in range(w):
+            c = codes[y, x]
+            n = _noise(x, y)
+            n2 = _noise(x // 4, y // 4, salt=7)
+
+            if c in (TARMAC, TARMAC_WORN):
+                # Tarmac with a coarse patchiness and a fine grain.
+                base = RGB[TARMAC] if c == TARMAC else RGB[TARMAC_WORN]
+                out[y, x] = _lerp(base, (0, 0, 0), 0.10 + n * 0.10 + n2 * 0.06)
+
+            elif c in (KERB_WHITE, KERB_RED):
+                # Paint kerbs as blocks along the direction of travel, not as the
+                # 1-cell fringe the data map uses. The data map only has to say
+                # "kerb here"; the visual says "red and white, in 2-cell blocks".
+                blk = ((x + y) // 2) % 2
+                base = RGB[KERB_WHITE] if blk == 0 else RGB[KERB_RED]
+                out[y, x] = _lerp(base, (0, 0, 0), n * 0.12)
+
+            elif c == GRASS:
+                out[y, x] = _lerp(RGB[GRASS], (0, 0, 0), 0.14 + n * 0.22 + n2 * 0.10)
+            elif c == GRAVEL:
+                out[y, x] = _lerp(RGB[GRAVEL], (0, 0, 0), 0.16 + n * 0.26)
+            elif c == SAND:
+                out[y, x] = _lerp(RGB[SAND], (0, 0, 0), 0.12 + n * 0.20 + n2 * 0.08)
+
+            elif c == WALL:
+                # Barrier with a lit top edge, so the track boundary reads.
+                edge = any(
+                    0 <= y + dy < h and 0 <= x + dx < w
+                    and codes[y + dy, x + dx] in road_codes
+                    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1))
+                )
+                base = RGB[WALL]
+                out[y, x] = _lerp(base, (255, 255, 255), 0.22 if edge else 0.0 + n * 0.08)
+
+            elif c == START_LINE:
+                # Chequered, 2x2 blocks.
+                blk = ((x // 2) + (y // 2)) % 2
+                out[y, x] = (245, 245, 245) if blk == 0 else (28, 28, 32)
+
+            elif c == BOOST:
+                # Chevron pointing along +x, on an orange field.
+                band = (y + x // 2) % 6
+                out[y, x] = (255, 240, 200) if band < 2 else _lerp(RGB[BOOST], (0, 0, 0), n * 0.10)
+
+            elif c == OIL:
+                # Dark, with an iridescent sheen that shifts across the patch.
+                t = 0.5 + 0.5 * ((x * 0.3 + y * 0.2) % 6) / 6.0
+                out[y, x] = _lerp((18, 14, 26), (60, 30, 80), t)
+
+            elif c == GATE:
+                out[y, x] = _lerp(RGB[GATE], (255, 255, 255), 0.15 + n * 0.15)
+
+            elif c == TUNNEL:
+                # Dark opening: the road is visible but in shadow.
+                out[y, x] = _lerp((22, 20, 24), (0, 0, 0), 0.10 + n * 0.10)
+
+            elif c == BRIDGE:
+                # Concrete deck with a lighter kerb line either side.
+                out[y, x] = _lerp((120, 138, 158), (0, 0, 0), 0.10 + n2 * 0.14 + n * 0.06)
+
+            elif c == SCENERY:
+                out[y, x] = _lerp(RGB[SCENERY], (0, 0, 0), 0.18 + n * 0.2)
+
+            else:  # VOID
+                out[y, x] = (0, 0, 0)
+    return out
+
+
+def write_visual(codes, path, data_path):
+    """Writes the visual PNG and the exact palette the data PNG uses.
+
+    The data image is rewritten in the same pass so the two are guaranteed to be
+    the same size and aligned cell-for-cell, and the palette travels with them as
+    a JSON sidecar -- the compiler needs it to read the data image.
+    """
+    # Visual: painted at VISUAL_PX px/cell so there is room for grain, kerb
+    # blocks and markings. The code map is upscaled nearest-neighbour first, so
+    # every painted feature still lands inside the right cell.
+    vis = np.repeat(np.repeat(codes, VISUAL_PX, axis=0), VISUAL_PX, axis=1)
+    Image.fromarray(paint_visual(vis), "RGB").save(path)
+
+    # Data: exact palette colours at DATA_PX px/cell. Flat by requirement --
+    # one stray anti-aliased pixel makes a cell unreadable.
+    dat = np.repeat(np.repeat(codes, DATA_PX, axis=0), DATA_PX, axis=1)
+    to_png(dat, data_path)
+
+    stem = os.path.basename(data_path).split(".")[0]
+    with open(os.path.join(os.path.dirname(data_path), stem + ".palette.json"), "w") as f:
+        json.dump({"cell_px": DATA_PX, "grid": GRID,
+                   "visual_px_per_cell": VISUAL_PX,
+                   "palette": {str(k): list(v) for k, v in RGB.items()}}, f)
 
 
 # --- The initial circuits ----------------------------------------------------
@@ -457,8 +581,8 @@ def build(circuit, outdir):
     img = wall_the_edge(img)
 
     base = os.path.join(outdir, circuit["name"].replace(" ", "_"))
-    to_png(img, base + ".png")
-    bake_texture(img, base + "_tex.png")
+    # Two images, same size, aligned: the data map and the visual.
+    write_visual(img, base + ".visual.png", base + ".data.png")
 
     # Sidecar: the centreline, so the compiler need not skeletonise it. An
     # AI-authored circuit will not have this and will be skeletonised instead.
@@ -475,8 +599,8 @@ def build(circuit, outdir):
     counts = {RGB[i]: int((img == i).sum()) for i in RGB}
     return {
         "name": circuit["name"],
-        "png": base + ".png",
-        "tex": base + "_tex.png",
+        "data": base + ".data.png",
+        "visual": base + ".visual.png",
         "line": base + ".line.json",
         "samples": len(samples),
         "bridge": counts[RGB[BRIDGE]],
@@ -503,7 +627,8 @@ def main():
         info = build(c, outdir)
         print(f"{info['name']:16} {info['samples']:6} samples  "
               f"kerb {info['kerb']:5}  bridge {info['bridge']:4}  "
-              f"tunnel {info['tunnel']:4}  -> {os.path.basename(info['png'])}")
+              f"tunnel {info['tunnel']:4}  -> "
+              f"{os.path.basename(info['data'])} + .visual.png")
     print(f"\nwrote to {outdir}")
 
 
