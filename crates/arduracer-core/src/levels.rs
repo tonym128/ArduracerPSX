@@ -32,106 +32,106 @@ static TRACK_SUNSET_RIDGEWAY_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint,
-    TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint,
-    TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -159,11 +159,11 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
     name: "Sunset Ridgeway",
     width: 48,
     height: 48,
-    start_pos: Vec2 { x: Fixed(10616832), y: Fixed(6684672) },
+    start_pos: Vec2 { x: Fixed(10354688), y: Fixed(7471104) },
     start_heading: 2048,
     start_gate: CheckpointGate {
-        x: 40,
-        y: 25,
+        x: 39,
+        y: 28,
         width: 1,
         height: 1,
     },
@@ -176,38 +176,38 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 33,
-            y: 35,
+            x: 28,
+            y: 28,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 19,
+            x: 16,
             y: 36,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 8,
-            y: 29,
+            x: 7,
+            y: 27,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 9,
-            y: 17,
+            x: 11,
+            y: 14,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 24,
-            y: 18,
+            x: 25,
+            y: 11,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 34,
-            y: 17,
+            x: 38,
+            y: 16,
             width: 1,
             height: 1,
         },
@@ -233,16 +233,8 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
     tiles: &TRACK_SUNSET_RIDGEWAY_TILES,
     route: &[
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(6946816),
-        },
-        Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -253,83 +245,99 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(7995392),
+            x: Fixed(9306112),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(8257536),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(8519680),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(8781824),
+            y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(8781824),
+            x: Fixed(9043968),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(7733248),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(8257536),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(8257536),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7995392),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(7733248),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(7208960),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(8781824),
+            x: Fixed(7471104),
+            y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(7471104),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(7471104),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -337,7 +345,7 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -345,7 +353,7 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -354,11 +362,11 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -366,162 +374,166 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(2752512),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(2490368),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(2228224),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(1966080),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(7208960),
+            x: Fixed(1966080),
+            y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(1966080),
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(7471104),
-        },
-        Vec2 {
             x: Fixed(1966080),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(1703936),
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(5898240),
-        },
-        Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(1703936),
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(1703936),
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(4849664),
+            x: Fixed(1966080),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(2490368),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(3276800),
             y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(2752512),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(3801088),
         },
         Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(3538944),
+        },
+        Vec2 {
             x: Fixed(3801088),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(3801088),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(4063232),
             y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(4849664),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4325376),
             y: Fixed(4325376),
         },
         Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(5111808),
+        },
+        Vec2 {
             x: Fixed(5111808),
-            y: Fixed(4587520),
+            y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
+            y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(5373952),
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(5898240),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5373952),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5111808),
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(3801088),
+            x: Fixed(5111808),
+            y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5111808),
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5111808),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(5898240),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -534,7 +546,7 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(3014656),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(7733248),
@@ -546,51 +558,35 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(3538944),
+            x: Fixed(9043968),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9306112),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9830400),
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(5373952),
-        },
-        Vec2 {
             x: Fixed(10092544),
-            y: Fixed(5111808),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -598,15 +594,15 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10878976),
             y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(5898240),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -615,6 +611,10 @@ pub static TRACK_SUNSET_RIDGEWAY: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(6946816),
         },
     ],
     half_width: 160,
@@ -871,7 +871,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -899,7 +899,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5111808),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -927,7 +927,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7471104),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -939,7 +939,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(8519680),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -955,7 +955,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -967,7 +967,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(10616832),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -984,7 +984,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -996,11 +996,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -1012,7 +1012,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -1024,11 +1024,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -1036,11 +1036,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -1055,19 +1055,19 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(9830400),
+            x: Fixed(10616832),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(10092544),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1079,15 +1079,19 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(9830400),
+        },
+        Vec2 {
             x: Fixed(8257536),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7471104),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1099,11 +1103,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1111,11 +1115,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5111808),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1127,11 +1131,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4063232),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1139,11 +1143,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1155,7 +1159,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(1966080),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -1168,11 +1172,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -1184,7 +1188,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -1196,11 +1200,11 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -1212,7 +1216,7 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -1221,10 +1225,6 @@ pub static TRACK_RIGHT_ANGLES: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(1703936),
             y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(4325376),
         },
     ],
     half_width: 160,
@@ -1481,7 +1481,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(2752512),
         },
         Vec2 {
@@ -1497,8 +1497,8 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(3801088),
+            x: Fixed(3276800),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -1521,15 +1521,15 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5111808),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -1541,11 +1541,11 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3538944),
             y: Fixed(5898240),
         },
         Vec2 {
@@ -1554,7 +1554,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -1565,7 +1565,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4063232),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -1585,23 +1585,23 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(8257536),
+            x: Fixed(5636096),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(5111808),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(4325376),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -1617,7 +1617,11 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(3801088),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -1625,16 +1629,16 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4587520),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(10878976),
+            x: Fixed(5373952),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -1642,11 +1646,11 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(10092544),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -1654,7 +1658,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(9568256),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -1662,34 +1666,34 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(10354688),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(10878976),
-        },
-        Vec2 {
-            x: Fixed(6422528),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8257536),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(8781824),
+            y: Fixed(11141120),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -1698,7 +1702,7 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(10616832),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -1722,27 +1726,27 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -1781,11 +1785,11 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -1830,10 +1834,6 @@ pub static TRACK_THE_ESSES: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(4587520),
             y: Fixed(1966080),
         },
     ],
@@ -2095,8 +2095,8 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(4587520),
+            x: Fixed(2752512),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(2490368),
@@ -2115,23 +2115,23 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(5111808),
+            x: Fixed(1966080),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(2490368),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
+            y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(3276800),
             y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(3801088),
             y: Fixed(5898240),
         },
         Vec2 {
@@ -2139,7 +2139,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -2152,19 +2152,23 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(5111808),
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(6422528),
+            x: Fixed(4587520),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(4325376),
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(6946816),
+            x: Fixed(3801088),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -2179,7 +2183,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2228224),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -2191,7 +2195,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -2203,15 +2207,15 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(8519680),
+            x: Fixed(3276800),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(3538944),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -2259,7 +2263,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -2279,15 +2283,15 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9043968),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -2300,19 +2304,19 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8257536),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7733248),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -2320,42 +2324,46 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4849664),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4325376),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(11141120),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10354688),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -2371,11 +2379,11 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7471104),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -2395,7 +2403,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -2419,7 +2427,7 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -2436,14 +2444,6 @@ pub static TRACK_HAIRPIN_RIDGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(4325376),
             y: Fixed(3538944),
         },
     ],
@@ -2733,20 +2733,20 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(7471104),
+        },
+        Vec2 {
             x: Fixed(9568256),
             y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(9043968),
             y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -2765,8 +2765,8 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(8781824),
+            x: Fixed(7995392),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(7733248),
@@ -2781,7 +2781,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -2797,12 +2797,16 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(8257536),
+        },
+        Vec2 {
             x: Fixed(5898240),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(8257536),
+            x: Fixed(5373952),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -2819,10 +2823,6 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(5111808),
             y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -2857,8 +2857,8 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(7733248),
+            x: Fixed(3801088),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -2867,14 +2867,18 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(3538944),
             y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(3014656),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(7995392),
+            x: Fixed(2490368),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(2490368),
@@ -2883,10 +2887,6 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(2228224),
             y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -2906,7 +2906,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -2918,10 +2918,14 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(2490368),
+            y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -2930,7 +2934,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -2981,11 +2985,11 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6422528),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -3005,7 +3009,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -3026,10 +3030,6 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7733248),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(7733248),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -3037,7 +3037,11 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(7995392),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(8519680),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -3046,10 +3050,6 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(9043968),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -3340,11 +3340,11 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -3359,8 +3359,8 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(6684672),
+            x: Fixed(3276800),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -3380,11 +3380,11 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(8257536),
+            x: Fixed(5111808),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -3395,7 +3395,7 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -3407,35 +3407,35 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(9306112),
+        },
+        Vec2 {
             x: Fixed(2752512),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2228224),
             y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(1703936),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(1703936),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(1703936),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(2490368),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(10354688),
-        },
-        Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(10354688),
         },
         Vec2 {
@@ -3443,19 +3443,19 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -3463,19 +3463,23 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
+            y: Fixed(10616832),
+        },
+        Vec2 {
+            x: Fixed(8257536),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -3483,20 +3487,20 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9043968),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(10092544),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(10616832),
+            x: Fixed(10616832),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -3508,15 +3512,15 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9830400),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -3532,15 +3536,15 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5898240),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -3556,11 +3560,11 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -3575,11 +3579,11 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(2752512),
         },
         Vec2 {
@@ -3599,7 +3603,7 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(2752512),
         },
         Vec2 {
@@ -3643,7 +3647,7 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(2752512),
         },
         Vec2 {
@@ -3660,10 +3664,6 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(3801088),
             y: Fixed(2752512),
         },
     ],
@@ -3957,12 +3957,12 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(7733248),
+            x: Fixed(9043968),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -4029,8 +4029,8 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(7208960),
+            x: Fixed(5373952),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -4039,14 +4039,14 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(5111808),
             y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(5111808),
             y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -4077,8 +4077,8 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(7733248),
+            x: Fixed(4063232),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -4089,11 +4089,11 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(3276800),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -4103,6 +4103,10 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(2228224),
             y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -4122,10 +4126,6 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6160384),
-        },
-        Vec2 {
-            x: Fixed(1703936),
             y: Fixed(5898240),
         },
         Vec2 {
@@ -4149,6 +4149,10 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(5111808),
+        },
+        Vec2 {
             x: Fixed(3538944),
             y: Fixed(5111808),
         },
@@ -4157,7 +4161,7 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -4189,7 +4193,7 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -4197,15 +4201,11 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(5111808),
-        },
-        Vec2 {
             x: Fixed(5898240),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -4217,7 +4217,11 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -4230,7 +4234,7 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(7471104),
@@ -4266,10 +4270,6 @@ pub static TRACK_NEON_CAUSEWAY: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(8781824),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -4519,7 +4519,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2228224),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4527,7 +4527,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4535,7 +4535,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4543,7 +4543,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4551,7 +4551,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4559,7 +4559,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6160384),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4567,7 +4567,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4575,7 +4575,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4583,7 +4583,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(8519680),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4591,7 +4591,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4599,7 +4599,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -4607,7 +4607,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(10616832),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -4616,7 +4616,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(2490368),
+            y: Fixed(2228224),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4624,7 +4624,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(3276800),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4632,7 +4632,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4640,7 +4640,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4648,7 +4648,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4656,7 +4656,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4664,7 +4664,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4672,7 +4672,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4680,7 +4680,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4688,11 +4688,15 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(11141120),
             y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -4701,10 +4705,6 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(10616832),
-        },
-        Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -4715,7 +4715,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(10092544),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4723,7 +4723,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4731,7 +4731,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(8519680),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4739,7 +4739,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4747,7 +4747,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6946816),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4755,7 +4755,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4763,7 +4763,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4771,7 +4771,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4587520),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4779,7 +4779,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4787,7 +4787,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -4796,14 +4796,14 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(10878976),
+            y: Fixed(11141120),
         },
         Vec2 {
             x: Fixed(1966080),
             y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -4812,7 +4812,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(9830400),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4820,7 +4820,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(9043968),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4828,7 +4828,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(8257536),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4836,7 +4836,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(7471104),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4844,7 +4844,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6684672),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4852,7 +4852,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4860,7 +4860,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5111808),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4868,7 +4868,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(4325376),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4876,7 +4876,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(3538944),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -4884,7 +4884,7 @@ pub static TRACK_OLD_TOWN: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(2752512),
+            y: Fixed(3014656),
         },
     ],
     half_width: 160,
@@ -4909,112 +4909,112 @@ static TRACK_CROSSOVER_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad,
+    TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad,
+    TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -5039,11 +5039,11 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
     name: "Crossover",
     width: 48,
     height: 48,
-    start_pos: Vec2 { x: Fixed(10354688), y: Fixed(7208960) },
-    start_heading: 2048,
+    start_pos: Vec2 { x: Fixed(10354688), y: Fixed(7995392) },
+    start_heading: 0,
     start_gate: CheckpointGate {
         x: 39,
-        y: 27,
+        y: 30,
         width: 1,
         height: 1,
     },
@@ -5056,37 +5056,37 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 31,
-            y: 37,
+            x: 29,
+            y: 29,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 17,
+            x: 15,
             y: 37,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 7,
-            y: 27,
+            y: 26,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 10,
-            y: 15,
+            x: 11,
+            y: 13,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 24,
-            y: 9,
+            x: 25,
+            y: 10,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 37,
+            x: 40,
             y: 16,
             width: 1,
             height: 1,
@@ -5114,102 +5114,110 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
     route: &[
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(7471104),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(7733248),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(8257536),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(8257536),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(8519680),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(9306112),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9830400),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9568256),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(9043968),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(8781824),
             y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(7995392),
             y: Fixed(9830400),
         },
         Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(9043968),
+        },
+        Vec2 {
             x: Fixed(7733248),
-            y: Fixed(10092544),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(7733248),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(10092544),
+            y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7208960),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(7208960),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(7208960),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(6160384),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(7208960),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(6422528),
             y: Fixed(10092544),
         },
         Vec2 {
@@ -5217,60 +5225,52 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(10092544),
+            x: Fixed(5373952),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(5111808),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(9568256),
+            x: Fixed(4325376),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(3801088),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(9306112),
+            x: Fixed(3538944),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2228224),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(8257536),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(7471104),
-        },
-        Vec2 {
             x: Fixed(2228224),
-            y: Fixed(7733248),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -5289,8 +5289,8 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(6160384),
+            x: Fixed(1703936),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -5298,30 +5298,22 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(2490368),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(1703936),
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(1966080),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2490368),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -5329,7 +5321,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(3014656),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -5337,87 +5329,107 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(2490368),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(2752512),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(3276800),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(3014656),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(4587520),
             y: Fixed(2752512),
         },
         Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(3801088),
+        },
+        Vec2 {
             x: Fixed(4849664),
-            y: Fixed(2752512),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(2490368),
+            y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(5373952),
             y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(3276800),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(3801088),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(6422528),
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(2490368),
+            x: Fixed(6160384),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(6684672),
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(2752512),
+            y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7995392),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -5425,52 +5437,44 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(3276800),
-        },
-        Vec2 {
             x: Fixed(8781824),
-            y: Fixed(3276800),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(4325376),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(4325376),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(5111808),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(4849664),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(10616832),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(10878976),
             y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(5111808),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -5482,7 +5486,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -5490,11 +5494,7 @@ pub static TRACK_CROSSOVER: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
     ],
     half_width: 160,
@@ -5755,8 +5755,8 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(3276800),
+            x: Fixed(3801088),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -5847,7 +5847,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -5855,7 +5855,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -5867,8 +5867,8 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(9043968),
+            x: Fixed(4325376),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -5887,16 +5887,16 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(10092544),
+        },
+        Vec2 {
             x: Fixed(4325376),
             y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(4587520),
             y: Fixed(10354688),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -5908,7 +5908,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(10616832),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(5636096),
@@ -5920,14 +5920,14 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(10878976),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(6160384),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -5939,7 +5939,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -5947,12 +5947,12 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(8519680),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(10878976),
+            x: Fixed(9043968),
+            y: Fixed(11141120),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -5960,7 +5960,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(10092544),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -5968,11 +5968,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -5980,7 +5980,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(7995392),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -5988,11 +5988,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(7208960),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(6684672),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -6000,7 +6000,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -6008,11 +6012,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(4587520),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -6020,7 +6020,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(3801088),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(9306112),
@@ -6028,18 +6032,18 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(2490368),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(9306112),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(8781824),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -6047,11 +6051,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(7995392),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7471104),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -6059,7 +6063,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -6067,11 +6071,11 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -6079,7 +6083,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -6087,7 +6091,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -6099,11 +6103,7 @@ pub static TRACK_CHICANE_PARK: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(1966080),
         },
     ],
@@ -6120,130 +6120,130 @@ static TRACK_FOUNDRY_SPIRAL_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Curb,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -6259,11 +6259,11 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
     name: "Foundry Spiral",
     width: 48,
     height: 48,
-    start_pos: Vec2 { x: Fixed(10092544), y: Fixed(6684672) },
+    start_pos: Vec2 { x: Fixed(9568256), y: Fixed(7733248) },
     start_heading: 2048,
     start_gate: CheckpointGate {
-        x: 38,
-        y: 25,
+        x: 36,
+        y: 29,
         width: 1,
         height: 1,
     },
@@ -6276,37 +6276,37 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 34,
+            x: 30,
             y: 38,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 20,
-            y: 37,
+            x: 15,
+            y: 40,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 8,
-            y: 31,
+            x: 7,
+            y: 27,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 10,
-            y: 16,
+            y: 12,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 22,
+            x: 25,
             y: 7,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 36,
+            x: 39,
             y: 13,
             width: 1,
             height: 1,
@@ -6333,79 +6333,79 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
     tiles: &TRACK_FOUNDRY_SPIRAL_TILES,
     route: &[
         Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(9568256),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(9306112),
             y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(9568256),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(10092544),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(10354688),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(7208960),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(10354688),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(10092544),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(9830400),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(8257536),
             y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(7995392),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(7733248),
             y: Fixed(10354688),
         },
         Vec2 {
@@ -6413,36 +6413,28 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(10878976),
+        },
+        Vec2 {
             x: Fixed(7208960),
-            y: Fixed(10616832),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(6684672),
             y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(11141120),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(10616832),
+            x: Fixed(6422528),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(10092544),
+            y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(10354688),
+            x: Fixed(5373952),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -6450,63 +6442,59 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4587520),
-            y: Fixed(10354688),
+            y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(10092544),
+            x: Fixed(4325376),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(9830400),
+            y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(9306112),
+            x: Fixed(3538944),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(3014656),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(8781824),
+            x: Fixed(2490368),
+            y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(2228224),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(7995392),
+            x: Fixed(2228224),
+            y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(2228224),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(2228224),
             y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -6517,27 +6505,19 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(6160384),
-        },
-        Vec2 {
             x: Fixed(1966080),
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(1966080),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(5636096),
+            x: Fixed(1703936),
+            y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(1703936),
             y: Fixed(5111808),
         },
         Vec2 {
@@ -6546,63 +6526,95 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2490368),
-            y: Fixed(4587520),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(2752512),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(3276800),
             y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(3801088),
+            y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(2490368),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(2752512),
             y: Fixed(3014656),
         },
         Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(2228224),
+        },
+        Vec2 {
             x: Fixed(3801088),
-            y: Fixed(2752512),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(3276800),
+            y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(3276800),
+            x: Fixed(4325376),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(4849664),
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(2228224),
+            x: Fixed(5111808),
+            y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(4849664),
             y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(1966080),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -6614,87 +6626,67 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6422528),
-            y: Fixed(1703936),
+            y: Fixed(1966080),
         },
         Vec2 {
             x: Fixed(6684672),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(2752512),
-        },
-        Vec2 {
             x: Fixed(7208960),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(2752512),
+            y: Fixed(1966080),
         },
         Vec2 {
             x: Fixed(7471104),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(1966080),
+            x: Fixed(7995392),
+            y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8519680),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(9568256),
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9830400),
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(10092544),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(4849664),
+            x: Fixed(10092544),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(4587520),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -6706,15 +6698,23 @@ pub static TRACK_FOUNDRY_SPIRAL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10878976),
+            y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(10878976),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(6684672),
+            x: Fixed(10878976),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(7208960),
         },
     ],
     half_width: 160,
@@ -6959,8 +6959,8 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(2752512),
+            x: Fixed(4325376),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -7003,8 +7003,8 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(4849664),
+            x: Fixed(3801088),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(4325376),
@@ -7024,13 +7024,13 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4587520),
+            y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(4063232),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(6160384),
-        },
-        Vec2 {
             x: Fixed(3538944),
             y: Fixed(6160384),
         },
@@ -7043,71 +7043,75 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2752512),
             y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(2228224),
+            y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(1966080),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(7995392),
         },
         Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(8257536),
+        },
+        Vec2 {
             x: Fixed(3801088),
             y: Fixed(8257536),
-        },
-        Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(8257536),
-        },
-        Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(8257536),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(4325376),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(4587520),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(9830400),
+            x: Fixed(3538944),
+            y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(2490368),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(1966080),
             y: Fixed(10354688),
         },
         Vec2 {
@@ -7115,11 +7119,11 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(2490368),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -7135,23 +7139,23 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6422528),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6946816),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -7179,8 +7183,8 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(10616832),
+            x: Fixed(10878976),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -7196,7 +7200,7 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -7232,11 +7236,11 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(3276800),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(2752512),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -7263,23 +7267,23 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(2490368),
         },
         Vec2 {
@@ -7295,23 +7299,7 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(2228224),
+            x: Fixed(3276800),
             y: Fixed(2490368),
         },
         Vec2 {
@@ -7319,11 +7307,23 @@ pub static TRACK_VAPOUR_TRAIL: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(2228224),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(1703936),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(2490368),
         },
     ],
@@ -7606,7 +7606,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -7641,7 +7641,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -7666,6 +7666,10 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7208960),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(7208960),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -7675,10 +7679,6 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(6684672),
             y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -7717,11 +7717,15 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             y: Fixed(8519680),
         },
         Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(8781824),
+        },
+        Vec2 {
             x: Fixed(4587520),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -7745,8 +7749,8 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(7733248),
+            x: Fixed(3276800),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -7759,10 +7763,6 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(2490368),
             y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -7798,7 +7798,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(2490368),
@@ -7806,7 +7806,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(5111808),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(3014656),
@@ -7814,7 +7814,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(4849664),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -7825,7 +7825,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -7833,8 +7833,8 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(4063232),
+            x: Fixed(4325376),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(4587520),
@@ -7855,6 +7855,10 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(5373952),
             y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(5373952),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(5373952),
@@ -7902,7 +7906,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7733248),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(7733248),
@@ -7913,8 +7917,8 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(4063232),
+            x: Fixed(8257536),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(8519680),
@@ -7927,10 +7931,6 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(8781824),
             y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -8195,6 +8195,10 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(3276800),
+        },
+        Vec2 {
             x: Fixed(2752512),
             y: Fixed(3276800),
         },
@@ -8203,16 +8207,12 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2752512),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
             y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -8231,24 +8231,24 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(5111808),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(5373952),
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(5636096),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(5898240),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(4063232),
@@ -8263,28 +8263,32 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(7471104),
-        },
-        Vec2 {
             x: Fixed(3014656),
-            y: Fixed(7733248),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(3538944),
             y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(4325376),
@@ -8295,7 +8299,7 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -8303,11 +8307,11 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(9043968),
+            x: Fixed(5111808),
+            y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -8315,19 +8319,19 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(10092544),
-        },
-        Vec2 {
             x: Fixed(3801088),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3538944),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(10616832),
         },
         Vec2 {
@@ -8351,23 +8355,23 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4587520),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -8440,15 +8444,15 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(4849664),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(4325376),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -8471,19 +8475,19 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -8503,39 +8507,19 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(4325376),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -8543,7 +8527,23 @@ pub static TRACK_RATTLESNAKE_PASS: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(3276800),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(3538944),
             y: Fixed(1966080),
         },
     ],
@@ -8572,106 +8572,106 @@ static TRACK_LONGSHADOW_FLATS_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
     TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
     TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -8716,38 +8716,38 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 30,
+            x: 29,
             y: 36,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 16,
-            y: 30,
+            y: 31,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 6,
+            x: 8,
             y: 26,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 10,
-            y: 14,
+            x: 13,
+            y: 17,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 25,
-            y: 11,
+            x: 26,
+            y: 12,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 39,
-            y: 16,
+            y: 15,
             width: 1,
             height: 1,
         },
@@ -8777,27 +8777,27 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10878976),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10616832),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10616832),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(10354688),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(10092544),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -8809,11 +8809,11 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(8519680),
             y: Fixed(9306112),
         },
         Vec2 {
@@ -8821,11 +8821,15 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
+            x: Fixed(7733248),
+            y: Fixed(9306112),
+        },
+        Vec2 {
             x: Fixed(7471104),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -8837,51 +8841,51 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(5898240),
-            y: Fixed(9830400),
+            x: Fixed(5636096),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(5373952),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(9568256),
+            x: Fixed(4587520),
+            y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(4587520),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(7995392),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(4063232),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(3538944),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -8894,30 +8898,26 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(2752512),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(2752512),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(2228224),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -8937,44 +8937,56 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(2228224),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(2228224),
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(2228224),
             y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(6422528),
-        },
-        Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(2228224),
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(2228224),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(5373952),
+            x: Fixed(2490368),
+            y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(5373952),
+            y: Fixed(5636096),
+        },
+        Vec2 {
+            x: Fixed(1703936),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(1703936),
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(4587520),
+            x: Fixed(2228224),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -8990,19 +9002,15 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(3014656),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(3276800),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -9010,14 +9018,14 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(4063232),
         },
         Vec2 {
@@ -9029,20 +9037,20 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5111808),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(4849664),
@@ -9050,10 +9058,6 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(5373952),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -9061,19 +9065,19 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(3014656),
+        },
+        Vec2 {
             x: Fixed(6160384),
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(3014656),
-        },
-        Vec2 {
             x: Fixed(6684672),
-            y: Fixed(3014656),
+            y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(6946816),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -9081,11 +9085,11 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(7995392),
             y: Fixed(3276800),
         },
         Vec2 {
@@ -9093,11 +9097,11 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(3538944),
+            x: Fixed(8781824),
+            y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9043968),
             y: Fixed(3538944),
         },
         Vec2 {
@@ -9110,10 +9114,14 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(10354688),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(10616832),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -9121,12 +9129,8 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(4849664),
-        },
-        Vec2 {
             x: Fixed(10878976),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -9138,7 +9142,7 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5636096),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -9146,15 +9150,11 @@ pub static TRACK_LONGSHADOW_FLATS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6422528),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(11141120),
             y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(11141120),
-            y: Fixed(7208960),
         },
     ],
     half_width: 160,
@@ -9182,106 +9182,106 @@ static TRACK_OVERPASS_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint,
+    TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint,
+    TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -9309,11 +9309,11 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
     name: "Overpass",
     width: 48,
     height: 48,
-    start_pos: Vec2 { x: Fixed(10878976), y: Fixed(6422528) },
+    start_pos: Vec2 { x: Fixed(10616832), y: Fixed(6946816) },
     start_heading: 2048,
     start_gate: CheckpointGate {
-        x: 41,
-        y: 24,
+        x: 40,
+        y: 26,
         width: 1,
         height: 1,
     },
@@ -9326,37 +9326,37 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 34,
-            y: 34,
+            x: 32,
+            y: 37,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 20,
-            y: 36,
+            x: 17,
+            y: 35,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 7,
-            y: 30,
+            y: 28,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 8,
-            y: 16,
+            x: 10,
+            y: 14,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 21,
+            x: 23,
             y: 11,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 35,
+            x: 37,
             y: 15,
             width: 1,
             height: 1,
@@ -9383,31 +9383,23 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
     tiles: &TRACK_OVERPASS_TILES,
     route: &[
         Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(6422528),
-        },
-        Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(10616832),
             y: Fixed(6946816),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10354688),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -9415,55 +9407,79 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(10092544),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(10092544),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9830400),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9568256),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(9043968),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(8781824),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(8519680),
             y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(8257536),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(7995392),
             y: Fixed(9568256),
         },
         Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(9306112),
+        },
+        Vec2 {
             x: Fixed(7733248),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(7208960),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(7733248),
             y: Fixed(8519680),
         },
         Vec2 {
+            x: Fixed(7733248),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(8257536),
+        },
+        Vec2 {
             x: Fixed(6946816),
+            y: Fixed(8257536),
+        },
+        Vec2 {
+            x: Fixed(6684672),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(6684672),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(6684672),
             y: Fixed(8519680),
         },
         Vec2 {
@@ -9471,31 +9487,23 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6684672),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6684672),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6684672),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(6684672),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(6422528),
             y: Fixed(9830400),
         },
         Vec2 {
@@ -9503,15 +9511,15 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(9568256),
+        },
+        Vec2 {
             x: Fixed(5373952),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(4849664),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -9523,6 +9531,10 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(9306112),
+        },
+        Vec2 {
             x: Fixed(3801088),
             y: Fixed(9043968),
         },
@@ -9531,12 +9543,8 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(9043968),
-        },
-        Vec2 {
             x: Fixed(3014656),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(2752512),
@@ -9544,14 +9552,14 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2490368),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(2228224),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(8257536),
-        },
-        Vec2 {
-            x: Fixed(2490368),
+            x: Fixed(1966080),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -9560,19 +9568,15 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(1966080),
             y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(6946816),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6946816),
+            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -9584,7 +9588,7 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -9599,8 +9603,8 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(4587520),
+            x: Fixed(1966080),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(2228224),
@@ -9611,28 +9615,32 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2490368),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(2752512),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(3801088),
             y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -9655,7 +9663,7 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -9667,7 +9675,7 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6422528),
             y: Fixed(3014656),
         },
         Vec2 {
@@ -9680,51 +9688,35 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(7733248),
-            y: Fixed(2752512),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(7995392),
-            y: Fixed(2752512),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(3538944),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(3538944),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(8781824),
-            y: Fixed(3801088),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(3801088),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(4063232),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(9568256),
@@ -9732,7 +9724,11 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9830400),
-            y: Fixed(3801088),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -9740,15 +9736,15 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10092544),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(10354688),
             y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(10354688),
             y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -9765,6 +9761,10 @@ pub static TRACK_OVERPASS: TrackDef = TrackDef {
         Vec2 {
             x: Fixed(10878976),
             y: Fixed(6160384),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(6684672),
         },
     ],
     half_width: 160,
@@ -10017,12 +10017,12 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(3014656),
+            x: Fixed(4063232),
+            y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(3276800),
+            x: Fixed(3801088),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -10037,31 +10037,31 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(4063232),
+            x: Fixed(2490368),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(2490368),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4849664),
+            x: Fixed(2752512),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(5373952),
+            x: Fixed(3538944),
+            y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(5636096),
         },
         Vec2 {
@@ -10073,7 +10073,7 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(5898240),
         },
         Vec2 {
@@ -10081,32 +10081,32 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(6684672),
+            x: Fixed(5373952),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(4849664),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(7208960),
+            x: Fixed(4587520),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(4063232),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(7733248),
+            x: Fixed(3801088),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(3276800),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(8257536),
+            x: Fixed(3014656),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(2490368),
@@ -10118,6 +10118,10 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -10125,52 +10129,52 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(3276800),
             y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(3801088),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(4849664),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(10878976),
+            x: Fixed(5373952),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(10354688),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(6160384),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(9830400),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(5898240),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -10181,27 +10185,27 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -10222,19 +10226,19 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(10616832),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(10092544),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -10254,15 +10258,15 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(5636096),
+            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -10345,7 +10349,7 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -10372,10 +10376,6 @@ pub static TRACK_OCHRE_CANYON: TrackDef = TrackDef {
             x: Fixed(3538944),
             y: Fixed(1966080),
         },
-        Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(1966080),
-        },
     ],
     half_width: 160,
 };
@@ -10396,118 +10396,118 @@ static TRACK_CINDER_BOWL_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint,
+    TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint,
+    TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -10529,11 +10529,11 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
     name: "Cinder Bowl",
     width: 48,
     height: 48,
-    start_pos: Vec2 { x: Fixed(10354688), y: Fixed(6422528) },
+    start_pos: Vec2 { x: Fixed(9568256), y: Fixed(6946816) },
     start_heading: 2048,
     start_gate: CheckpointGate {
-        x: 39,
-        y: 24,
+        x: 36,
+        y: 26,
         width: 1,
         height: 1,
     },
@@ -10546,38 +10546,38 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 34,
-            y: 37,
+            x: 32,
+            y: 36,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 20,
-            y: 40,
+            x: 18,
+            y: 39,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 8,
-            y: 31,
+            x: 10,
+            y: 29,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 11,
-            y: 19,
+            x: 10,
+            y: 15,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 20,
-            y: 8,
+            x: 21,
+            y: 9,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 35,
-            y: 12,
+            x: 36,
+            y: 14,
             width: 1,
             height: 1,
         },
@@ -10603,52 +10603,60 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
     tiles: &TRACK_CINDER_BOWL_TILES,
     route: &[
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(6422528),
+            x: Fixed(9568256),
+            y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9306112),
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(7471104),
+            x: Fixed(9306112),
+            y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(7471104),
+            x: Fixed(9568256),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(10616832),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(10616832),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(8257536),
+            x: Fixed(10354688),
+            y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(10092544),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(10092544),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9830400),
             y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(9568256),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(8519680),
@@ -10656,42 +10664,30 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(8781824),
+            y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(8519680),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(7208960),
+            x: Fixed(8519680),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(7995392),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(6946816),
             y: Fixed(10354688),
         },
         Vec2 {
@@ -10699,104 +10695,108 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(10092544),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(9830400),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(9043968),
+            x: Fixed(5111808),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(4587520),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(4325376),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(9568256),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(9830400),
+            x: Fixed(4063232),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(9568256),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(3801088),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(3538944),
             y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(9043968),
+            x: Fixed(3538944),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(9043968),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(2752512),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(1966080),
             y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(2228224),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(1966080),
+            x: Fixed(2752512),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(7733248),
+            x: Fixed(2752512),
+            y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(6684672),
+            x: Fixed(2228224),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(6684672),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6684672),
+            y: Fixed(7471104),
+        },
+        Vec2 {
+            x: Fixed(1703936),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -10804,7 +10804,7 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(5898240),
+            y: Fixed(6160384),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -10816,94 +10816,106 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(3538944),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(1966080),
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(4063232),
+            x: Fixed(2228224),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(3801088),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(3014656),
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3014656),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(3276800),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(3276800),
             y: Fixed(3014656),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(3538944),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(3801088),
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(4849664),
             y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(2228224),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(2228224),
+            y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(2752512),
+            x: Fixed(5636096),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(5636096),
             y: Fixed(3014656),
         },
         Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(2490368),
+        },
+        Vec2 {
             x: Fixed(5898240),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(3014656),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(6422528),
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6946816),
             y: Fixed(2490368),
         },
         Vec2 {
@@ -10911,52 +10923,36 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(7733248),
             y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(8257536),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(4063232),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(8519680),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(4587520),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(4849664),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(9306112),
-            y: Fixed(4587520),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(9306112),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(9568256),
-            y: Fixed(4325376),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(9830400),
@@ -10964,11 +10960,15 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10092544),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(4849664),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(10616832),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(10616832),
@@ -10983,8 +10983,8 @@ pub static TRACK_CINDER_BOWL: TrackDef = TrackDef {
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(6160384),
+            x: Fixed(10878976),
+            y: Fixed(6422528),
         },
     ],
     half_width: 160,
@@ -11018,94 +11018,94 @@ static TRACK_GLACIER_SPINE_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb,
     TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -11140,7 +11140,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
     width: 48,
     height: 48,
     start_pos: Vec2 { x: Fixed(10878976), y: Fixed(6160384) },
-    start_heading: 2048,
+    start_heading: 1746,
     start_gate: CheckpointGate {
         x: 41,
         y: 23,
@@ -11168,14 +11168,14 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 10,
+            x: 9,
             y: 29,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 8,
-            y: 17,
+            y: 16,
             width: 1,
             height: 1,
         },
@@ -11186,7 +11186,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 34,
+            x: 35,
             y: 16,
             width: 1,
             height: 1,
@@ -11221,7 +11221,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(10878976),
+            x: Fixed(11141120),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -11233,7 +11233,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(11141120),
+            x: Fixed(10878976),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -11241,16 +11241,16 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(10616832),
+            x: Fixed(10878976),
             y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(10616832),
-            y: Fixed(7995392),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(8257536),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(10092544),
@@ -11261,7 +11261,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -11285,27 +11285,27 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(8781824),
         },
         Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(8781824),
+        },
+        Vec2 {
             x: Fixed(7733248),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(7471104),
-            y: Fixed(8781824),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(8781824),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(7208960),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(6684672),
+            x: Fixed(6946816),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11317,7 +11317,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5898240),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -11337,10 +11337,6 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(8781824),
-        },
-        Vec2 {
             x: Fixed(4587520),
             y: Fixed(8781824),
         },
@@ -11350,7 +11346,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4063232),
-            y: Fixed(8519680),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(3801088),
@@ -11358,34 +11354,38 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3538944),
+            y: Fixed(8519680),
+        },
+        Vec2 {
+            x: Fixed(3276800),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(2752512),
             y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(7208960),
         },
         Vec2 {
             x: Fixed(2752512),
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
+            y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -11402,11 +11402,15 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(6684672),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(1703936),
+            y: Fixed(6422528),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -11429,7 +11433,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(1703936),
+            x: Fixed(1966080),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -11438,11 +11442,11 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(4587520),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(2490368),
@@ -11450,23 +11454,23 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(2752512),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(3014656),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(3538944),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(4063232),
@@ -11477,11 +11481,11 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(3801088),
+        },
+        Vec2 {
             x: Fixed(4849664),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(5111808),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -11489,7 +11493,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -11506,7 +11510,7 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6684672),
-            y: Fixed(3801088),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(6946816),
@@ -11533,16 +11537,8 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
             y: Fixed(3801088),
         },
         Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(4063232),
-        },
-        Vec2 {
             x: Fixed(8257536),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(8781824),
@@ -11550,39 +11546,43 @@ pub static TRACK_GLACIER_SPINE: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(9306112),
             y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(9306112),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(9568256),
             y: Fixed(4587520),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
             y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(5373952),
         },
         Vec2 {
             x: Fixed(9830400),
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(5111808),
-        },
-        Vec2 {
             x: Fixed(10092544),
             y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -11871,11 +11871,11 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(4325376),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(3538944),
             y: Fixed(4587520),
         },
         Vec2 {
@@ -11883,8 +11883,8 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(5111808),
+            x: Fixed(4325376),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(4849664),
@@ -11899,7 +11899,7 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(5636096),
         },
         Vec2 {
@@ -11923,6 +11923,10 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(6946816),
+        },
+        Vec2 {
             x: Fixed(2752512),
             y: Fixed(6946816),
         },
@@ -11931,12 +11935,8 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(7471104),
-        },
-        Vec2 {
             x: Fixed(2752512),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -11947,19 +11947,19 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(8519680),
+            x: Fixed(3801088),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(4325376),
             y: Fixed(8519680),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(8781824),
         },
         Vec2 {
@@ -11967,47 +11967,51 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(4325376),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(10092544),
-        },
-        Vec2 {
             x: Fixed(3801088),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3538944),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(10616832),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(10616832),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(11141120),
-        },
-        Vec2 {
             x: Fixed(3014656),
+            y: Fixed(10616832),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(10616832),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(10878976),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
+            y: Fixed(11141120),
+        },
+        Vec2 {
+            x: Fixed(4325376),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -12015,64 +12019,64 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9306112),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(11141120),
-        },
-        Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(9830400),
             y: Fixed(11141120),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(10616832),
+            y: Fixed(10878976),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(10092544),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(9568256),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(9043968),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(10354688),
@@ -12112,30 +12116,30 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(4063232),
+            y: Fixed(3801088),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(3014656),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(10354688),
-            y: Fixed(2490368),
+            y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(10354688),
+            x: Fixed(10092544),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(9830400),
+            x: Fixed(9568256),
             y: Fixed(1966080),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9043968),
             y: Fixed(1966080),
         },
         Vec2 {
@@ -12200,10 +12204,6 @@ pub static TRACK_SWITCHBACK: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(4325376),
             y: Fixed(1966080),
         },
     ],
@@ -12457,7 +12457,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(2490368),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(4325376),
             y: Fixed(2490368),
         },
         Vec2 {
@@ -12481,7 +12481,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -12493,7 +12493,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(4063232),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(4325376),
         },
         Vec2 {
@@ -12505,7 +12505,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(4849664),
         },
         Vec2 {
@@ -12513,7 +12513,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(5373952),
         },
         Vec2 {
@@ -12521,19 +12521,19 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(5636096),
         },
         Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(5636096),
+        },
+        Vec2 {
             x: Fixed(4849664),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(5373952),
-            y: Fixed(5898240),
-        },
-        Vec2 {
-            x: Fixed(5636096),
             y: Fixed(6160384),
         },
         Vec2 {
@@ -12541,7 +12541,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(6422528),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -12549,7 +12549,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(6946816),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(4325376),
             y: Fixed(7208960),
         },
         Vec2 {
@@ -12561,7 +12561,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(7471104),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3801088),
             y: Fixed(7733248),
         },
         Vec2 {
@@ -12569,7 +12569,11 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(7995392),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(4587520),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(5111808),
             y: Fixed(8257536),
         },
         Vec2 {
@@ -12577,15 +12581,11 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(5373952),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(9043968),
         },
         Vec2 {
@@ -12594,7 +12594,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(4063232),
@@ -12606,15 +12606,19 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(3801088),
-            y: Fixed(10092544),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(4063232),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4325376),
             y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(4849664),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(5111808),
@@ -12626,27 +12630,27 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(10878976),
+            y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(10354688),
+            x: Fixed(5898240),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(5898240),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(5898240),
-            y: Fixed(9568256),
-        },
-        Vec2 {
             x: Fixed(6160384),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(10092544),
+            y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(6160384),
@@ -12654,10 +12658,10 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(6160384),
-            y: Fixed(10878976),
+            y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -12669,11 +12673,11 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(7995392),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(8519680),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -12686,11 +12690,11 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(10354688),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(9830400),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -12702,11 +12706,11 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -12722,7 +12726,7 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(9043968),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(9043968),
@@ -12810,10 +12814,6 @@ pub static TRACK_ALPINE_SERPENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(4325376),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(4849664),
             y: Fixed(1966080),
         },
     ],
@@ -13095,7 +13095,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(6160384),
+            x: Fixed(5898240),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -13123,7 +13123,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(8519680),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -13131,7 +13131,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(1703936),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9306112),
             y: Fixed(1703936),
         },
         Vec2 {
@@ -13176,7 +13176,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4587520),
+            y: Fixed(4325376),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13184,7 +13184,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13192,7 +13192,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13204,7 +13204,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13212,7 +13212,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(7995392),
+            y: Fixed(7733248),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13220,7 +13220,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(8781824),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13228,11 +13228,15 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(9568256),
+            y: Fixed(9306112),
         },
         Vec2 {
             x: Fixed(11141120),
             y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(11141120),
@@ -13247,15 +13251,11 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(11141120),
-        },
-        Vec2 {
             x: Fixed(10092544),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(9568256),
+            x: Fixed(9830400),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13263,7 +13263,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(8781824),
+            x: Fixed(9043968),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13271,7 +13271,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13279,11 +13279,15 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(11141120),
+        },
+        Vec2 {
             x: Fixed(7208960),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(6684672),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13291,15 +13295,11 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(11141120),
-        },
-        Vec2 {
             x: Fixed(5898240),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13307,7 +13307,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13315,11 +13315,15 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(11141120),
+        },
+        Vec2 {
             x: Fixed(3801088),
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3276800),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13327,7 +13331,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
             y: Fixed(11141120),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
             y: Fixed(11141120),
         },
         Vec2 {
@@ -13344,15 +13348,11 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(10354688),
-        },
-        Vec2 {
-            x: Fixed(1703936),
             y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(9568256),
+            y: Fixed(9830400),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13360,11 +13360,15 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(1703936),
             y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(8519680),
+            y: Fixed(8257536),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13372,7 +13376,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13380,7 +13384,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6946816),
+            y: Fixed(6684672),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13388,11 +13392,11 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6160384),
+            y: Fixed(5898240),
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5898240),
+            y: Fixed(5636096),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13400,7 +13404,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(5111808),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13408,7 +13412,7 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(4325376),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(1703936),
@@ -13416,15 +13420,11 @@ pub static TRACK_MARINA_GRID: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(3538944),
+            y: Fixed(3276800),
         },
         Vec2 {
             x: Fixed(1703936),
             y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(2752512),
         },
     ],
     half_width: 160,
@@ -13677,8 +13677,8 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(2752512),
         },
         Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(3014656),
+            x: Fixed(3801088),
+            y: Fixed(2752512),
         },
         Vec2 {
             x: Fixed(3276800),
@@ -13689,11 +13689,11 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(3801088),
+            x: Fixed(2752512),
+            y: Fixed(3538944),
         },
         Vec2 {
-            x: Fixed(1966080),
+            x: Fixed(2228224),
             y: Fixed(3801088),
         },
         Vec2 {
@@ -13709,12 +13709,12 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(4849664),
         },
         Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(5111808),
+            x: Fixed(2752512),
+            y: Fixed(4849664),
         },
         Vec2 {
             x: Fixed(3276800),
-            y: Fixed(5373952),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(3538944),
@@ -13734,10 +13734,10 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(6422528),
+            y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(4587520),
+            x: Fixed(4849664),
             y: Fixed(6684672),
         },
         Vec2 {
@@ -13749,7 +13749,7 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(7208960),
         },
         Vec2 {
-            x: Fixed(3538944),
+            x: Fixed(3801088),
             y: Fixed(7471104),
         },
         Vec2 {
@@ -13757,11 +13757,15 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(7733248),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(3014656),
             y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(2752512),
+            y: Fixed(7995392),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(7995392),
         },
         Vec2 {
@@ -13774,18 +13778,18 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(8519680),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(9043968),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(2490368),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(2752512),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(3276800),
             y: Fixed(9568256),
         },
         Vec2 {
@@ -13793,32 +13797,32 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(3801088),
+            x: Fixed(4063232),
             y: Fixed(10092544),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(4587520),
             y: Fixed(10354688),
         },
         Vec2 {
-            x: Fixed(5111808),
+            x: Fixed(4849664),
             y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(5111808),
-            y: Fixed(10092544),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(5373952),
+            y: Fixed(10092544),
+        },
+        Vec2 {
+            x: Fixed(5636096),
             y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(5636096),
-            y: Fixed(9306112),
+            y: Fixed(9043968),
         },
         Vec2 {
             x: Fixed(5898240),
@@ -13826,22 +13830,22 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(9306112),
+            y: Fixed(9568256),
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(9830400),
+            y: Fixed(10092544),
         },
         Vec2 {
             x: Fixed(5898240),
-            y: Fixed(10354688),
+            y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(10878976),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(10878976),
         },
         Vec2 {
@@ -13922,23 +13926,23 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4849664),
+            y: Fixed(5111808),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(4325376),
+            y: Fixed(4587520),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(3801088),
+            y: Fixed(4063232),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(3276800),
+            y: Fixed(3538944),
         },
         Vec2 {
             x: Fixed(11141120),
-            y: Fixed(2752512),
+            y: Fixed(3014656),
         },
         Vec2 {
             x: Fixed(10878976),
@@ -13961,71 +13965,43 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(8781824),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(7995392),
+            x: Fixed(8257536),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(7471104),
+            x: Fixed(7733248),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(6422528),
+            x: Fixed(6684672),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(5898240),
+            x: Fixed(6160384),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(5373952),
+            x: Fixed(5636096),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(4849664),
+            x: Fixed(5111808),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(4325376),
+            x: Fixed(4587520),
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(1703936),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(2490368),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(3014656),
+            x: Fixed(4063232),
             y: Fixed(2228224),
         },
         Vec2 {
@@ -14033,7 +14009,31 @@ pub static TRACK_SUMMIT_DESCENT: TrackDef = TrackDef {
             y: Fixed(2228224),
         },
         Vec2 {
-            x: Fixed(4063232),
+            x: Fixed(3014656),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(1703936),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(3276800),
             y: Fixed(2228224),
         },
     ],
@@ -14053,125 +14053,125 @@ static TRACK_IVORY_STRAITS_TILES: [TrackTile; 2304] = [
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb,
-    TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
-    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick,
+    TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick,
+    TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::BoostPad, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Checkpoint, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::BoostPad, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::StartFinish, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Curb, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb, TrackTile::Barrier,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Curb,
+    TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Curb, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Checkpoint, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
     TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier,
-    TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
-    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::OilSlick, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier,
+    TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac,
+    TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
+    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier,
     TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Tarmac, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::Barrier, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
-    TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
     TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad, TrackTile::OffRoad,
@@ -14189,11 +14189,11 @@ pub static TRACK_IVORY_STRAITS: TrackDef = TrackDef {
     name: "Ivory Straits",
     width: 48,
     height: 48,
-    start_pos: Vec2 { x: Fixed(8781824), y: Fixed(6946816) },
-    start_heading: 2048,
+    start_pos: Vec2 { x: Fixed(10354688), y: Fixed(8519680) },
+    start_heading: 2560,
     start_gate: CheckpointGate {
-        x: 33,
-        y: 26,
+        x: 39,
+        y: 32,
         width: 1,
         height: 1,
     },
@@ -14206,38 +14206,38 @@ pub static TRACK_IVORY_STRAITS: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 26,
-            y: 34,
+            x: 27,
+            y: 33,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 15,
+            x: 12,
             y: 37,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 6,
-            y: 25,
+            y: 22,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 21,
-            y: 21,
+            x: 15,
+            y: 11,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 26,
-            y: 8,
+            x: 31,
+            y: 7,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 39,
-            y: 18,
+            x: 38,
+            y: 19,
             width: 1,
             height: 1,
         },
@@ -14263,68 +14263,84 @@ pub static TRACK_IVORY_STRAITS: TrackDef = TrackDef {
     tiles: &TRACK_IVORY_STRAITS_TILES,
     route: &[
         Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(9043968),
-            y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(9568256),
-            y: Fixed(7995392),
-        },
-        Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(8257536),
+            x: Fixed(10354688),
+            y: Fixed(8519680),
         },
         Vec2 {
             x: Fixed(9830400),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(9306112),
+            x: Fixed(9568256),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(9043968),
+            x: Fixed(9830400),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(8519680),
+            x: Fixed(10092544),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(9830400),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(8257536),
+            x: Fixed(9306112),
             y: Fixed(10092544),
         },
         Vec2 {
-            x: Fixed(7733248),
+            x: Fixed(9043968),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(8257536),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(7995392),
             y: Fixed(9830400),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(9306112),
+        },
+        Vec2 {
+            x: Fixed(7733248),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(8781824),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(8781824),
         },
         Vec2 {
             x: Fixed(7208960),
             y: Fixed(9306112),
         },
         Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(6684672),
-            y: Fixed(9043968),
-        },
-        Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(6946816),
+            x: Fixed(7208960),
             y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(7208960),
+            y: Fixed(10878976),
+        },
+        Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(10616832),
         },
         Vec2 {
             x: Fixed(6422528),
@@ -14335,88 +14351,64 @@ pub static TRACK_IVORY_STRAITS: TrackDef = TrackDef {
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5636096),
+            x: Fixed(5373952),
             y: Fixed(10616832),
         },
         Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(10092544),
-        },
-        Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(9043968),
-        },
-        Vec2 {
             x: Fixed(5111808),
-            y: Fixed(9306112),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(9830400),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(4587520),
-            y: Fixed(10092544),
+            y: Fixed(10354688),
         },
         Vec2 {
             x: Fixed(4063232),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(10354688),
+        },
+        Vec2 {
+            x: Fixed(3538944),
             y: Fixed(9830400),
         },
         Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(9306112),
+            x: Fixed(3276800),
+            y: Fixed(9568256),
         },
         Vec2 {
-            x: Fixed(3276800),
+            x: Fixed(3014656),
+            y: Fixed(9568256),
+        },
+        Vec2 {
+            x: Fixed(3014656),
             y: Fixed(9043968),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2490368),
+            y: Fixed(9043968),
+        },
+        Vec2 {
+            x: Fixed(2490368),
             y: Fixed(8781824),
         },
         Vec2 {
-            x: Fixed(2752512),
+            x: Fixed(2228224),
             y: Fixed(8257536),
         },
         Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(7733248),
-        },
-        Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(7471104),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(6684672),
-        },
-        Vec2 {
-            x: Fixed(3801088),
-            y: Fixed(6946816),
-        },
-        Vec2 {
-            x: Fixed(3276800),
-            y: Fixed(7208960),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(7471104),
+            x: Fixed(2228224),
+            y: Fixed(7995392),
         },
         Vec2 {
             x: Fixed(2228224),
-            y: Fixed(7733248),
+            y: Fixed(7471104),
         },
         Vec2 {
             x: Fixed(1966080),
-            y: Fixed(7208960),
+            y: Fixed(6946816),
         },
         Vec2 {
             x: Fixed(1966080),
@@ -14424,227 +14416,235 @@ pub static TRACK_IVORY_STRAITS: TrackDef = TrackDef {
         },
         Vec2 {
             x: Fixed(1703936),
-            y: Fixed(6422528),
-        },
-        Vec2 {
-            x: Fixed(2490368),
             y: Fixed(6160384),
         },
         Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(1966080),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(2228224),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(2752512),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(3014656),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(3538944),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(4849664),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(5373952),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(4325376),
-            y: Fixed(3276800),
-        },
-        Vec2 {
-            x: Fixed(4063232),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(4587520),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(5111808),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(5636096),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(1966080),
-        },
-        Vec2 {
-            x: Fixed(6160384),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(6422528),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(6946816),
-            y: Fixed(2228224),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(2490368),
-        },
-        Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(2752512),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(3014656),
-        },
-        Vec2 {
-            x: Fixed(8257536),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(7471104),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(7208960),
-            y: Fixed(5111808),
-        },
-        Vec2 {
-            x: Fixed(7208960),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(7733248),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(7995392),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(8519680),
-            y: Fixed(4325376),
-        },
-        Vec2 {
-            x: Fixed(8781824),
-            y: Fixed(3801088),
-        },
-        Vec2 {
-            x: Fixed(9306112),
-            y: Fixed(3538944),
-        },
-        Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(4063232),
-        },
-        Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(4587520),
-        },
-        Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(4849664),
-        },
-        Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(5373952),
-        },
-        Vec2 {
-            x: Fixed(10616832),
-            y: Fixed(5636096),
-        },
-        Vec2 {
-            x: Fixed(10092544),
+            x: Fixed(1703936),
             y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(6422528),
+            x: Fixed(2228224),
+            y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(10092544),
-            y: Fixed(6684672),
+            x: Fixed(2752512),
+            y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(6684672),
+            x: Fixed(3014656),
+            y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(6946816),
+            x: Fixed(3538944),
+            y: Fixed(5898240),
         },
         Vec2 {
-            x: Fixed(10878976),
-            y: Fixed(7471104),
+            x: Fixed(3801088),
+            y: Fixed(5373952),
         },
         Vec2 {
-            x: Fixed(10354688),
-            y: Fixed(7733248),
+            x: Fixed(3276800),
+            y: Fixed(5111808),
         },
         Vec2 {
-            x: Fixed(9830400),
-            y: Fixed(7471104),
+            x: Fixed(2752512),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(5111808),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(1966080),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(2228224),
+            y: Fixed(4063232),
+        },
+        Vec2 {
+            x: Fixed(2490368),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(2752512),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(3014656),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(3538944),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(4063232),
+            y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(3801088),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(4325376),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(4587520),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(5111808),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(5636096),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(6160384),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(6684672),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(6946816),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(7471104),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(1966080),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(2228224),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(7995392),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(8257536),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(8519680),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(8781824),
+            y: Fixed(2490368),
         },
         Vec2 {
             x: Fixed(9306112),
+            y: Fixed(2490368),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(2752512),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(3014656),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(3276800),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(3538944),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(3801088),
+        },
+        Vec2 {
+            x: Fixed(9830400),
+            y: Fixed(4325376),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(10092544),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(10354688),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(4587520),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(4849664),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(5373952),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(5898240),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(6422528),
+        },
+        Vec2 {
+            x: Fixed(11141120),
+            y: Fixed(6684672),
+        },
+        Vec2 {
+            x: Fixed(11141120),
             y: Fixed(7208960),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(7733248),
+        },
+        Vec2 {
+            x: Fixed(10878976),
+            y: Fixed(8257536),
         },
     ],
     half_width: 160,

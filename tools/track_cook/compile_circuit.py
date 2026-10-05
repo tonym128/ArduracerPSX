@@ -419,7 +419,18 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     # The runtime samples the spline 8 times per span, so at most
     # `MAX_ROUTE_SAMPLES / 8` control points fit. Resampled to equal arc length
     # rather than decimated by index -- see `resample_uniform`.
-    pts = resample_uniform(centre, 96)
+    # The walker closes the polyline by repeating its first point. Carrying that
+    # repeat into the route puts control point 95 exactly on control point 0,
+    # giving a zero-length span -- and Catmull-Rom takes its tangent at a control
+    # point from `(next - prev) / 2`, so one degenerate neighbour throws the
+    # tangent at the seam. That is what put route nodes off-road and made the
+    # hinted and full arc scans disagree. The route is closed by the runtime, so
+    # it wants 96 *distinct* control points.
+    route_src = list(centre)
+    while (len(route_src) > 2
+           and math.dist(route_src[0][:2], route_src[-1][:2]) < 1e-6):
+        route_src.pop()
+    pts = resample_uniform(route_src, 96)
     for (cx, cy) in pts:
         out.append("        Vec2 {")
         out.append(f"            x: Fixed({tile_centre(cx) * 4096}),")
