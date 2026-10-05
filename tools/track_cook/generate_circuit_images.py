@@ -697,7 +697,7 @@ CIRCUITS = [
        GRASS, (0.4,), (0.75,), (0.25, 0.6, 0.9), "Seven alternating esses."),
     C_("Hairpin Ridge", _ring(4, 32, 22, 0.0, 3.6), 4.0,
        GRASS, (0.35,), (0.62,), (0.2, 0.5, 0.8), "Five hairpins."),
-    C_("Longbow", _ring(4, 36, 26, 0.0, 4.2), 9.0,
+    C_("Longbow", _ring(4, 36, 24, 0.0, 4.2), 13.0,
        GRASS, (0.2, 0.66), (), (0.3, 0.7), "Fast sweepers, long straights."),
     C_("Copper Gorge", _ring(6, 24, 22, 0.2, 2.6), 4.2,
        SAND, (0.2,), (0.62, 0.8), (0.25, 0.55, 0.85), "Technical zigzags."),
