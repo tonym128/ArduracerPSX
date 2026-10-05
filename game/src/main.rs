@@ -226,7 +226,7 @@ impl ArduracerGame {
 
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self, draw_y: i16) {
-        psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 18, 20, 26);
+        self.fb.clear(18, 20, 26);
         render_track(self.current_track, &self.camera, draw_y);
         self.skidmarks.render(&self.camera, draw_y);
         // Same ordering rule as the live frame: smoke belongs on top of the cars
@@ -245,10 +245,16 @@ impl ArduracerGame {
     }
 
     pub fn run(&mut self) -> ! {
+        // The queued display flip is applied by the VBlank handler, which
+        // requires this counter (TASK-1201).
+        psx_rt::interrupts::install_vblank_counter();
+
         loop {
-            // 1. Synchronize to 60Hz NTSC VBlank
+            // 1. Synchronize to 60Hz NTSC VBlank. The handler has now applied
+            //    last frame's queued flip, so program the draw target for the
+            //    buffer we are about to fill.
             psx_rt::interrupts::wait_vblank();
-            self.fb.swap();
+            self.fb.apply_draw_target();
 
             let draw_y = self.fb.buffer_y(self.fb.drawing) as i16;
             self.frame_counter = self.frame_counter.wrapping_add(1);
@@ -261,7 +267,7 @@ impl ArduracerGame {
                     if self.state_mgr.title.update(&pad) {
                         self.state_mgr.current = GameState::MainMenu;
                     }
-                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 12, 14, 20);
+                    self.fb.clear(12, 14, 20);
                     self.state_mgr.title.render(draw_y);
                 }
                 GameState::MainMenu => {
@@ -294,7 +300,7 @@ impl ArduracerGame {
                             }
                         }
                     }
-                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
+                    self.fb.clear(15, 18, 25);
                     self.state_mgr.menu.render(draw_y);
                 }
                 GameState::Garage => {
@@ -313,7 +319,7 @@ impl ArduracerGame {
                         }
                         self.state_mgr.current = GameState::MainMenu;
                     }
-                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
+                    self.fb.clear(15, 18, 25);
                     self.state_mgr.garage.render(draw_y);
                 }
                 GameState::TrackSelect => {
@@ -333,7 +339,7 @@ impl ArduracerGame {
                     } else if cancelled {
                         self.state_mgr.current = GameState::MainMenu;
                     }
-                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 15, 18, 25);
+                    self.fb.clear(15, 18, 25);
                     self.state_mgr.track_select.render(draw_y);
                 }
                 GameState::Racing => {
@@ -416,7 +422,10 @@ impl ArduracerGame {
                     let pre_tx = TrackDef::tile_x_of(self.player.position.x);
                     let pre_ty = TrackDef::tile_y_of(self.player.position.y);
                     let pre_surface = track.surface_at(pre_tx, pre_ty);
-                    let mut input = self.input_mgr.update(&self.player, pre_surface);
+                    // Same pad sample the UI saw this frame, so a button press
+                    // cannot open the pause menu and also be missing from the
+                    // car's controls (TASK-1214).
+                    let mut input = self.input_mgr.update(&pad, &self.player, pre_surface);
 
                     // Start sequence: hold the car on the grid, then arm the lap
                     // clock the instant the lights go out.
@@ -568,7 +577,7 @@ impl ArduracerGame {
 
                     // Render Pass:
                     // a. Clear background
-                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 18, 20, 26);
+                    self.fb.clear(18, 20, 26);
                     // b. Track tilemap
                     render_track(track, &self.camera, draw_y);
                     // c. Skidmarks on track
@@ -609,7 +618,7 @@ impl ArduracerGame {
                     }
                 }
                 GameState::Results => {
-                    psx_gpu_mod::draw_rect_flat(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 14, 16, 22);
+                    self.fb.clear(14, 16, 22);
                     // Already silent via the Racing -> Results transition; this
                     // is the belt-and-braces path in case a future transition
                     // reaches Results some other way.
@@ -663,6 +672,23 @@ impl ArduracerGame {
             if let Some(status) = self.memcard.notice() {
                 render_card_notice(status);
             }
+
+            // 5. Close the frame and queue the flip for the next VBlank.
+            //
+            //    The old loop was a bare `wait_vblank(); fb.swap()`, and
+            //    `FrameBuffer::swap` writes its three GP0 words with no
+            //    `wait_cmd_ready()`. If the 256-word command FIFO was full those
+            //    words were dropped and the draw area stayed pointed at the
+            //    previous buffer; nothing also stopped frame N+1 being submitted
+            //    while VBlank flipped to it, collapsing the double buffer to a
+            //    one-deep queue (TASK-1201).
+            //
+            //    GP0(1Fh) closes the command stream, and the VBlank handler
+            //    applies the display-start word only once the GPU has reached
+            //    that flag -- so the flip cannot land on a half-drawn frame.
+            psx_gpu_mod::signal_draw_done();
+            let flip = self.fb.begin_deferred_swap();
+            psx_rt::interrupts::queue_gp1_at_vblank(flip);
         }
     }
 }

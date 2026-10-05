@@ -6,7 +6,7 @@
 
 use crate::input::mapping::InputProfile;
 use arduracer_core::{Fixed, VehicleInput};
-use psx_pad::{button, poll_port1, PadMode, STICK_CENTER};
+use psx_pad::{button, PadMode, PadState, STICK_CENTER};
 
 pub const STEERING_DEADZONE: i16 = 14; // ~11% deadband around stick center
 
@@ -45,9 +45,15 @@ impl ControllerDriver {
         button::L1
     }
 
-    /// Polls controller hardware on port 1 and generates a VehicleInput frame.
-    pub fn poll(&mut self) -> VehicleInput {
-        let pad = poll_port1();
+    /// Generates a [`VehicleInput`] from a pad sample the caller already has.
+    ///
+    /// The frame loop polls the pad once for the UI and needs the *same* sample
+    /// for the vehicle. Polling again inside the driver cost a second full SIO0
+    /// transaction per frame and, worse, meant the UI snapshot and the
+    /// `VehicleInput` came from different instants: a `Start` tap could open the
+    /// pause menu without ever reaching the car (TASK-1214).
+    pub fn poll_from(&mut self, pad: &PadState) -> VehicleInput {
+        let pad = *pad;
         self.is_analog_mode = pad.mode == PadMode::Analog;
 
         let mut throttle = Fixed::ZERO;

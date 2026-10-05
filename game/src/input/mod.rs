@@ -35,9 +35,19 @@ impl InputManager {
         let _ = psx_pad::enable_analog_port1();
     }
 
-    /// Polls the controller, returns vehicle input, and updates rumble motors.
-    pub fn update(&mut self, player: &VehicleState, surface: SurfaceType) -> VehicleInput {
-        let input = self.controller.poll();
+    /// Builds vehicle input from an already-polled pad sample, and updates the
+    /// rumble motors.
+    ///
+    /// Takes the sample rather than polling so the UI and the car react to the
+    /// same instant. Polling here as well cost a second SIO0 transaction every
+    /// racing frame (TASK-1214).
+    pub fn update(
+        &mut self,
+        pad: &psx_pad::PadState,
+        player: &VehicleState,
+        surface: SurfaceType,
+    ) -> VehicleInput {
+        let input = self.controller.poll_from(pad);
 
         self.rumble
             .tick(surface, player.is_drifting, player.engine_rpm);

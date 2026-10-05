@@ -8,7 +8,7 @@
 //! presentation.
 
 use psx_hw::gpu::{gp0, gp1};
-use psx_io::gpu::{write_gp0, write_gp1};
+use psx_io::gpu::{wait_cmd_ready, write_gp0, write_gp1};
 
 /// Tracks display-start between two vertically stacked buffers.
 pub struct FrameBuffer {
@@ -60,20 +60,30 @@ impl FrameBuffer {
 
     /// Push a display-start command for the buffer we're NOT currently
     /// drawing to -- flipping the display at the next VBlank.
+    ///
+    /// Every command is gated on `wait_cmd_ready()`. This method was the one
+    /// GP0 writer in the crate that skipped it: with a full 256-word command
+    /// FIFO the display-start and draw-area words were *dropped*, leaving the
+    /// draw area pointed at the buffer just presented (TASK-1201). The flip
+    /// then wrote into the frame the hardware was scanning out.
     pub fn swap(&mut self) {
         // Show the buffer we were drawing into; drain into the other.
         let show = self.drawing;
         self.drawing ^= 1;
         let show_y = self.buffer_y(show);
+        wait_cmd_ready();
         write_gp1(gp1::display_start(0, show_y as u32));
 
         // Re-set the draw-area / draw-offset to match the new target buffer.
         let target_y = self.buffer_y(self.drawing);
+        wait_cmd_ready();
         write_gp0(gp0::draw_area_top_left(0, target_y as u32));
+        wait_cmd_ready();
         write_gp0(gp0::draw_area_bottom_right(
             (self.width - 1) as u32,
             (target_y + self.height - 1) as u32,
         ));
+        wait_cmd_ready();
         write_gp0(gp0::draw_offset(0, target_y as i32));
     }
 
@@ -117,11 +127,14 @@ impl FrameBuffer {
     /// CPU wait at the start of the next frame.
     pub fn apply_draw_target(&self) {
         let target_y = self.buffer_y(self.drawing);
+        wait_cmd_ready();
         write_gp0(gp0::draw_area_top_left(0, target_y as u32));
+        wait_cmd_ready();
         write_gp0(gp0::draw_area_bottom_right(
             (self.width - 1) as u32,
             (target_y + self.height - 1) as u32,
         ));
+        wait_cmd_ready();
         write_gp0(gp0::draw_offset(0, target_y as i32));
     }
 

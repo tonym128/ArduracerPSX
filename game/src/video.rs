@@ -550,7 +550,10 @@ pub fn play_video(filename: &str) -> VideoResult {
         return VideoResult::Unavailable;
     }
 
-    let mut prev_buttons = psx_pad::poll_port1().buttons;
+    // Seed the edge baseline with nothing held, so the very first frame can
+    // read as a press. Polling to seed it would cost a second SIO0 transaction
+    // on frame one (TASK-1214).
+    let mut prev_buttons = psx_pad::ButtonState::NONE;
     let mut skipped = false;
 
     while !player.is_finished() {
