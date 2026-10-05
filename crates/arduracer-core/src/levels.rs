@@ -1773,10 +1773,10 @@ pub const TRACK_01: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2424,
-        silver_ticks: 2121,
-        gold_ticks: 1894,
-        dev_platinum_ticks: 1471,
+        bronze_ticks: 2451,
+        silver_ticks: 2145,
+        gold_ticks: 1915,
+        dev_platinum_ticks: 1487,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -4055,10 +4055,10 @@ pub const TRACK_02: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2377,
-        silver_ticks: 2080,
-        gold_ticks: 1857,
-        dev_platinum_ticks: 1439,
+        bronze_ticks: 2870,
+        silver_ticks: 2511,
+        gold_ticks: 2242,
+        dev_platinum_ticks: 1717,
     },
     checkpoint_count: 7,
     checkpoints: [
@@ -6216,10 +6216,10 @@ pub const TRACK_03: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2459,
-        silver_ticks: 2152,
-        gold_ticks: 1921,
-        dev_platinum_ticks: 1486,
+        bronze_ticks: 2504,
+        silver_ticks: 2191,
+        gold_ticks: 1956,
+        dev_platinum_ticks: 1517,
     },
     checkpoint_count: 9,
     checkpoints: [
@@ -8306,10 +8306,10 @@ pub const TRACK_04: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2412,
-        silver_ticks: 2110,
-        gold_ticks: 1884,
-        dev_platinum_ticks: 1469,
+        bronze_ticks: 2444,
+        silver_ticks: 2138,
+        gold_ticks: 1909,
+        dev_platinum_ticks: 1479,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -10538,10 +10538,10 @@ pub const TRACK_05: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2788,
-        silver_ticks: 2439,
-        gold_ticks: 2178,
-        dev_platinum_ticks: 1682,
+        bronze_ticks: 2632,
+        silver_ticks: 2303,
+        gold_ticks: 2056,
+        dev_platinum_ticks: 1577,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -12746,10 +12746,10 @@ pub const TRACK_06: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2657,
-        silver_ticks: 2325,
-        gold_ticks: 2076,
-        dev_platinum_ticks: 1607,
+        bronze_ticks: 2644,
+        silver_ticks: 2314,
+        gold_ticks: 2066,
+        dev_platinum_ticks: 1590,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -15307,10 +15307,10 @@ pub const TRACK_07: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2756,
-        silver_ticks: 2411,
-        gold_ticks: 2153,
-        dev_platinum_ticks: 1664,
+        bronze_ticks: 2959,
+        silver_ticks: 2589,
+        gold_ticks: 2312,
+        dev_platinum_ticks: 1794,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -17477,10 +17477,10 @@ pub const TRACK_08: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2798,
-        silver_ticks: 2448,
-        gold_ticks: 2186,
-        dev_platinum_ticks: 1691,
+        bronze_ticks: 2351,
+        silver_ticks: 2057,
+        gold_ticks: 1837,
+        dev_platinum_ticks: 1420,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -19768,10 +19768,10 @@ pub const TRACK_09: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2633,
-        silver_ticks: 2304,
-        gold_ticks: 2057,
-        dev_platinum_ticks: 1594,
+        bronze_ticks: 2798,
+        silver_ticks: 2448,
+        gold_ticks: 2186,
+        dev_platinum_ticks: 1703,
     },
     checkpoint_count: 7,
     checkpoints: [
@@ -21684,10 +21684,10 @@ pub const TRACK_10: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2582,
-        silver_ticks: 2259,
-        gold_ticks: 2017,
-        dev_platinum_ticks: 1593,
+        bronze_ticks: 2222,
+        silver_ticks: 1944,
+        gold_ticks: 1736,
+        dev_platinum_ticks: 1343,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -24082,10 +24082,10 @@ pub const TRACK_11: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2711,
-        silver_ticks: 2372,
-        gold_ticks: 2118,
-        dev_platinum_ticks: 1636,
+        bronze_ticks: 2828,
+        silver_ticks: 2474,
+        gold_ticks: 2209,
+        dev_platinum_ticks: 1698,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -26412,10 +26412,10 @@ pub const TRACK_12: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2647,
-        silver_ticks: 2316,
-        gold_ticks: 2068,
-        dev_platinum_ticks: 1598,
+        bronze_ticks: 2711,
+        silver_ticks: 2372,
+        gold_ticks: 2118,
+        dev_platinum_ticks: 1643,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -29141,10 +29141,10 @@ pub const TRACK_13: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2990,
-        silver_ticks: 2616,
-        gold_ticks: 2336,
-        dev_platinum_ticks: 1806,
+        bronze_ticks: 3154,
+        silver_ticks: 2760,
+        gold_ticks: 2464,
+        dev_platinum_ticks: 1913,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -31398,10 +31398,10 @@ pub const TRACK_14: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2939,
-        silver_ticks: 2572,
-        gold_ticks: 2296,
-        dev_platinum_ticks: 1775,
+        bronze_ticks: 2536,
+        silver_ticks: 2219,
+        gold_ticks: 1981,
+        dev_platinum_ticks: 1529,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -33633,10 +33633,10 @@ pub const TRACK_15: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2582,
-        silver_ticks: 2259,
-        gold_ticks: 2017,
-        dev_platinum_ticks: 1567,
+        bronze_ticks: 2662,
+        silver_ticks: 2330,
+        gold_ticks: 2080,
+        dev_platinum_ticks: 1625,
     },
     checkpoint_count: 7,
     checkpoints: [
@@ -35876,10 +35876,10 @@ pub const TRACK_16: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2579,
-        silver_ticks: 2257,
-        gold_ticks: 2015,
-        dev_platinum_ticks: 1557,
+        bronze_ticks: 2737,
+        silver_ticks: 2395,
+        gold_ticks: 2138,
+        dev_platinum_ticks: 1627,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -38562,10 +38562,10 @@ pub const TRACK_17: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2902,
-        silver_ticks: 2539,
-        gold_ticks: 2267,
-        dev_platinum_ticks: 1751,
+        bronze_ticks: 3212,
+        silver_ticks: 2810,
+        gold_ticks: 2509,
+        dev_platinum_ticks: 1924,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -40647,10 +40647,10 @@ pub const TRACK_18: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2804,
-        silver_ticks: 2454,
-        gold_ticks: 2191,
-        dev_platinum_ticks: 1692,
+        bronze_ticks: 2371,
+        silver_ticks: 2074,
+        gold_ticks: 1852,
+        dev_platinum_ticks: 1432,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -43274,10 +43274,10 @@ pub const TRACK_19: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2865,
-        silver_ticks: 2507,
-        gold_ticks: 2238,
-        dev_platinum_ticks: 1734,
+        bronze_ticks: 3002,
+        silver_ticks: 2626,
+        gold_ticks: 2345,
+        dev_platinum_ticks: 1815,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -45850,10 +45850,10 @@ pub const TRACK_20: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2879,
-        silver_ticks: 2519,
-        gold_ticks: 2249,
-        dev_platinum_ticks: 1738,
+        bronze_ticks: 2950,
+        silver_ticks: 2582,
+        gold_ticks: 2305,
+        dev_platinum_ticks: 1787,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -48286,10 +48286,10 @@ pub const TRACK_21: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2906,
-        silver_ticks: 2542,
-        gold_ticks: 2270,
-        dev_platinum_ticks: 1785,
+        bronze_ticks: 2772,
+        silver_ticks: 2426,
+        gold_ticks: 2166,
+        dev_platinum_ticks: 1678,
     },
     checkpoint_count: 10,
     checkpoints: [
@@ -50801,10 +50801,10 @@ pub const TRACK_22: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2739,
-        silver_ticks: 2397,
-        gold_ticks: 2140,
-        dev_platinum_ticks: 1663,
+        bronze_ticks: 2892,
+        silver_ticks: 2530,
+        gold_ticks: 2259,
+        dev_platinum_ticks: 1754,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -53474,10 +53474,10 @@ pub const TRACK_23: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 3035,
-        silver_ticks: 2656,
-        gold_ticks: 2371,
-        dev_platinum_ticks: 1835,
+        bronze_ticks: 3071,
+        silver_ticks: 2687,
+        gold_ticks: 2399,
+        dev_platinum_ticks: 1863,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -55730,10 +55730,10 @@ pub const TRACK_24: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2664,
-        silver_ticks: 2331,
-        gold_ticks: 2081,
-        dev_platinum_ticks: 1608,
+        bronze_ticks: 2465,
+        silver_ticks: 2157,
+        gold_ticks: 1926,
+        dev_platinum_ticks: 1487,
     },
     checkpoint_count: 10,
     checkpoints: [

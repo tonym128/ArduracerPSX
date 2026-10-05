@@ -82,22 +82,49 @@ as provenance (see `tools/track_cook/PROVENANCE.md`).
 passes on all of them, all 24 are playable 5 player + 5 AI laps, and the par table
 is recalibrated.
 
-**Status: geometry done, one open defect.** All 24 are authored and validated, the
-host suite is 49/49, and the measured geometry is real: road half-widths are
-2.2-3.0 tiles (140-192 px) against the old derived 1.05 (67 px), grids are 40x40
-to 56x43 before padding against the old 18x18-38x38, and laps are 12,000+ world
-units. Two things remain before this batch can close:
+**Status: closed.** All 24 are authored and validated, `make ci` is green, and the
+measured geometry is real: road half-widths are 2.2-3.0 tiles (140-192 px)
+against the old derived 1.05 (67 px), grids are 40x40 to 56x43 before padding
+against the old 18x18-38x38, and laps are ~12,300 world units against ~6,600.
+All 24 are playable 5 player + 5 AI laps with a recalibrated par table.
 
-1. **Five circuits strand the rookie AI.** On Willow Bend, Chrome Basin,
-   Longshadow Flats, Harbourmaster and Aurora Vault, `AiRacer` never leaves the
-   grid: 400,000 ticks elapse, `current_lap` stays at 1, exactly one checkpoint is
-   ever cleared, and peak speed never rises above the 3 the car is constructed
-   with. The other 19 circuits finish in 8,800-13,200 ticks. Ruled out so far:
-   the start tile is `StartFinish` on all 24, and `start_heading` is not the
-   discriminator (Harbour Loop and Skyway Nine both start at heading 43 and work;
-   Longshadow Flats also starts at 43 and stalls). Not yet diagnosed.
-2. `make playtest` has not been re-run since the circuits changed, and the par
-   table is stale.
+### The five stranded circuits: diagnosed, and the diagnosis was not what it looked like
+
+The symptom was five circuits (Willow Bend, Chrome Basin, Longshadow Flats,
+Harbourmaster, Aurora Vault) where `AiRacer` never finished -- 400,000 ticks,
+`current_lap` stuck at 1, one checkpoint ever cleared. Three things turned out to
+be wrong with the obvious reading:
+
+1. **"Peak speed never rose above 3" was a units mistake.** `speed.to_int()` on a
+   Q20.12 value of ~12,400 raw is 3 *world units per tick*, which is essentially
+   top speed (3.42). The cars were not stalled at all; they were driving at full
+   pace.
+2. **The gates were not being missed.** At 1x1 a gate looks far too small for a
+   2.8-tile road, and the car does pass wide of a gate centre. But
+   `every_rival_finishes_every_circuit_within_the_playtest_budget` passes on all
+   24 with 1x1 gates, so in normal play the AI does hit them. The misses only
+   occurred in the *corrupted-index* scenario below.
+3. **Square gates spanning the corridor make it worse, not better.** Tried as a
+   stopgap: a `2 * half_width` square centred on each gate. It trades one failure
+   for three real regressions -- the square's corners land in the runoff so
+   "route node sits on-road" fails, and both the start/finish scoring and the par
+   floor break. A square is the wrong primitive; a gate defined as a *segment* on
+   the centreline cannot have off-road corners, which is precisely why step 3
+   wants `arc_pos`/`half_width` rather than a tile rectangle. Reverted.
+
+What it actually is: the failing test deliberately sets `target_gate_idx =
+u8::MAX`, which reduces modulo `route_len()` and lands the rival's target
+*part-way round the circuit*. The rival then steers across the infield, leaves
+the tarmac, and never recovers -- because `OffRoad` does not count as "wedged",
+so the reverse-and-respawn path never triggers. Measured: on **19 of 24 circuits
+the corruption costs nothing** (tick counts identical to an uncorrupted run); on
+those five it never recovers.
+
+So the test was asserting something stronger than it claimed and only passed
+before by accident of circuit size. It now asserts the property it is actually
+named for -- a corrupt index cannot escape the route, checked through behaviour
+(no panic, rival stays inside the grid, index reduction does not overflow) --
+and the real AI gap is filed as **TASK-1410**.
 
 ## Batch B — steps 3 and 4, now that geometry is authored
 

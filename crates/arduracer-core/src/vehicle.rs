@@ -9,7 +9,7 @@
 use crate::drift::DriftState;
 use crate::math::{self, Fixed, Vec2, FP_ONE};
 use crate::surface::SurfaceType;
-use crate::track::{TrackDef, MAX_TRACK_CHECKPOINTS, TILE_SIZE};
+use crate::track::{TrackDef, TILE_SIZE};
 use crate::tuning::CarTuning;
 
 /// Unladen top speed in world units per tick (~3.42 u/tick == ~205 u/s).
@@ -751,9 +751,12 @@ mod tests {
     }
 
     /// Extends a short gate list to the full `checkpoints` array capacity.
-    fn padded_gates(src: &[CheckpointGate]) -> [CheckpointGate; MAX_TRACK_CHECKPOINTS] {
-        let mut out = [CheckpointGate::default(); MAX_TRACK_CHECKPOINTS];
-        let n = src.len().min(MAX_TRACK_CHECKPOINTS);
+    fn padded_gates(
+        src: &[CheckpointGate],
+    ) -> [CheckpointGate; crate::track::MAX_TRACK_CHECKPOINTS] {
+        const N: usize = crate::track::MAX_TRACK_CHECKPOINTS;
+        let mut out = [CheckpointGate::default(); N];
+        let n = src.len().min(N);
         out[..n].copy_from_slice(&src[..n]);
         out
     }

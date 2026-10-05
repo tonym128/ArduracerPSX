@@ -954,10 +954,7 @@ fn longest_straight(route: &Route) -> u32 {
     for i in 0..=n {
         let a = route.point(i % n);
         let b = route.point((i + 1) % n);
-        let dir = (
-            b.x.to_int() - a.x.to_int(),
-            b.y.to_int() - a.y.to_int(),
-        );
+        let dir = (b.x.to_int() - a.x.to_int(), b.y.to_int() - a.y.to_int());
         if let Some(prev) = previous_dir {
             // Angle between consecutive tangents, in whole degrees.
             let cross = (prev.0 * dir.1 - prev.1 * dir.0) as f64;
@@ -1005,11 +1002,7 @@ fn test_circuits_are_wide_and_have_long_straights() {
         );
         let route = Route::from_track(track);
         let lap = route.total_len();
-        assert!(
-            lap >= MIN_LAP,
-            "{}: lap is only {lap} units",
-            track.name
-        );
+        assert!(lap >= MIN_LAP, "{}: lap is only {lap} units", track.name);
         let straight = longest_straight(&route);
         assert!(
             straight >= MIN_STRAIGHT_SAMPLES,
