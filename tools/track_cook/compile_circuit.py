@@ -257,6 +257,152 @@ def bake_texture(visual_path, out_png, out_bin, target=128):
     return best
 
 
+# --- Rust emission ----------------------------------------------------------
+#
+# The bridge to the existing engine. The compiled surface grid is exactly the
+# tile grid `TrackDef` already wants -- a colour-derived map is not a new
+# runtime type, it is a new *authoring* format for an existing one. So the
+# compiler emits `TrackDef` literals rather than a new format, and the game keeps
+# working while the renderer is replaced. The centreline goes out as
+# `TrackDef::route`, and the level's elevation levels ride along in the
+# manifest for the bridge/tunnel work.
+
+#: Palette code -> `TrackTile` variant.
+#:
+#: The engine's `TrackTile` has eight variants and the palette has sixteen, so
+#: several codes collapse. `TUNNEL` and `BRIDGE` are both tarmac -- the level's
+#: elevation carries them apart, and it rides in the manifest until the renderer
+#: and the collision map learn about layers. `SCENERY` is off-road for now.
+#:
+#: Deliberately *not* adding variants here: the point of the colour image is a
+#: new authoring format, not a new runtime type, and growing the enum is a change
+#: the physics and AI tests would have to be re-derived against.
+CODE_TO_TILE = {
+    0:  "TrackTile::OffRoad",       # VOID
+    1:  "TrackTile::Tarmac",        # TARMAC
+    2:  "TrackTile::Tarmac",        # TARMAC_WORN
+    3:  "TrackTile::Curb",          # KERB_WHITE
+    4:  "TrackTile::Curb",          # KERB_RED
+    5:  "TrackTile::OffRoad",       # GRASS
+    6:  "TrackTile::OffRoad",       # GRAVEL
+    7:  "TrackTile::OffRoad",       # SAND
+    8:  "TrackTile::OilSlick",      # OIL
+    9:  "TrackTile::BoostPad",      # BOOST
+    10: "TrackTile::StartFinish",   # START_LINE
+    11: "TrackTile::Checkpoint",    # GATE
+    12: "TrackTile::Barrier",       # WALL
+    13: "TrackTile::Tarmac",        # TUNNEL (level 0/1 carries it)
+    14: "TrackTile::Tarmac",        # BRIDGE (level 0/1 carries it)
+    15: "TrackTile::OffRoad",       # SCENERY
+}
+
+TILE_SIZE = 64
+MAX_CHECKPOINTS = 24
+
+
+def tile_centre(c):
+    """World coordinate of a cell's centre.
+
+    Not its corner. The old cooker emitted `cx * TILE_SIZE + TILE_SIZE // 2`;
+    emitting the corner put every control point half a tile (32 world units) off
+    the road, which on a 2.5-cell road is enough to land on a barrier, and it
+    left the runtime spline cutting corners.
+    """
+    return int(c) * TILE_SIZE + TILE_SIZE // 2
+
+
+def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
+              half_width_cells=2.5, par=(6000, 5000, 4000, 3000)):
+    """Writes one circuit as a complete `TrackDef` static.
+
+    Complete rather than just tiles-and-route so it drops straight into the
+    existing `ALL_TRACKS` shape. The surface grid is exactly the tile grid
+    `TrackDef` already wants, so nothing in the runtime changes here.
+    """
+    ch, cw = grid.shape
+    out = []
+    tiles = []
+    for y in range(ch):
+        for x in range(cw):
+            tiles.append(CODE_TO_TILE.get(int(grid[y, x]), "OffRoad"))
+    while len(tiles) % 16:
+        tiles.append("T_OFFROAD")
+
+    out.append(f"pub static {ident}: TrackDef = TrackDef {{")
+    out.append(f'    name: "{name.title().replace("_", " ")}",')
+    out.append(f"    width: {cw},")
+    out.append(f"    height: {ch},")
+
+    # Start: the first centreline sample, in world units (tile centre).
+    sx, sy = centre[0]
+    out.append(f"    start_pos: Vec2 {{ x: Fixed({tile_centre(sx) * 4096}), "
+               f"y: Fixed({tile_centre(sy) * 4096}) }},")
+    nx, ny = centre[1]
+    out.append(f"    start_heading: {heading_bams(sx, sy, nx, ny)},")
+
+    out.append("    start_gate: CheckpointGate {")
+    out.append(f"        x: {int(sx)},")
+    out.append(f"        y: {int(sy)},")
+    out.append("        width: 1,")
+    out.append("        height: 1,")
+    out.append("    },")
+
+    b, sv, g, dv = par  # bronze, silver, gold, dev -- dev is fastest
+    out.append("    par_times: ParTimes {")
+    out.append(f"        bronze_ticks: {b},")
+    out.append(f"        silver_ticks: {sv},")
+    out.append(f"        gold_ticks: {g},")
+    out.append(f"        dev_platinum_ticks: {dv},")
+    out.append("    },")
+
+    cps = []
+    for k in range(1, checkpoints + 1):
+        i = int(len(centre) * k / (checkpoints + 1)) % len(centre)
+        cps.append(centre[i])
+    out.append(f"    checkpoint_count: {len(cps)},")
+    out.append("    checkpoints: [")
+    for i, (cx, cy) in enumerate(cps):
+        out.append("        CheckpointGate {")
+        out.append(f"            x: {int(cx)},")
+        out.append(f"            y: {int(cy)},")
+        out.append("            width: 1,")
+        out.append("            height: 1,")
+        out.append("        },")
+    while len(cps) < MAX_CHECKPOINTS:
+        cps.append(None)
+        out.append("        EMPTY_GATE,")
+    out.append("    ],")
+
+    out.append(f"    tiles: &{ident}_TILES,")
+    out.append("    route: &[")
+    # The runtime samples the spline 8 times per span, so the emitted control
+    # points are decimated to what the route reservoir can hold (768 samples =
+    # 96 spans). Aim near the ceiling: at 480 the spline cut straight across the
+    # hairpins, whose radius is 2.6 cells -- barely wider than the road itself --
+    # and put centreline samples on Barrier.
+    span = max(1, (len(centre) * 8) // 700)
+    pts = centre[::span]
+    for (cx, cy) in pts:
+        out.append("        Vec2 {")
+        out.append(f"            x: Fixed({tile_centre(cx) * 4096}),")
+        out.append(f"            y: Fixed({tile_centre(cy) * 4096}),")
+        out.append("        },")
+    out.append("    ],")
+    out.append(f"    half_width: {int(half_width_cells * TILE_SIZE)},")
+    out.append("};")
+    return "\n".join(out)
+
+
+def heading_bams(x0, y0, x1, y1):
+    """Bearing from one centreline sample to the next, as the engine wants it."""
+    dx = int(x1) * TILE_SIZE - int(x0) * TILE_SIZE
+    dy = int(y1) * TILE_SIZE - int(y0) * TILE_SIZE
+    # Compass: 0 = north (-y), clockwise positive.
+    import math as _m
+    deg = _m.degrees(_m.atan2(dx, -dy)) % 360.0
+    return int(round(deg * 4096.0 / 360.0)) % 4096
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)

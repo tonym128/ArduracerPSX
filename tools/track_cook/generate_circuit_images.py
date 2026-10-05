@@ -93,8 +93,11 @@ KERB_CELLS = 0.7               # rumble band outside the tarmac
 CURB_KNEE = 0.010              # |curvature| above which a corner gets a kerb
 STEP = 0.05                    # walker step, in cells
 
-SIZE = 512                     # master image edge, pixels
-GRID = SIZE // CELL            # cells per edge (32)
+SIZE = 768                     # master image edge, pixels (48 px/cell)
+CELL = 16
+GRID = SIZE // CELL            # cells per edge (48)
+DATA_PX = 3                     # data image px/cell -> 144x144
+VISUAL_PX = 16                  # visual image px/cell -> 768x768
 
 
 def walk(steps, start_xy, heading_deg):
@@ -565,6 +568,155 @@ CIRCUITS = [
         "note": "Alternating hairpins climbing then descending.",
     },
 ]
+
+
+# --- The remaining sixteen ---------------------------------------------------
+#
+# Composed rather than hand-written, so each is still a distinct shape but the
+# file stays readable. The helpers are deliberately blunt: the point is variety
+# of *shape*, and a hand-tuned generator would drift back toward ovals.
+
+def _hairpins(n, radius, straights, start, heading, runoff, kind):
+    steps = []
+    for i in range(n):
+        steps.append(S(straights[0]))
+        steps.append(C(180 if i % 2 == 0 else -180, radius))
+        steps.append(S(straights[1]))
+        if i < n - 1:
+            steps.append(C(-70 if i % 2 == 0 else 70, straights[2]))
+    return {"name": kind[0], "start": start, "heading": heading,
+            "steps": steps, "runoff": runoff,
+            "boost": kind[1], "oil": kind[2], "gates": kind[3],
+            "note": kind[4]}
+
+
+def _esses(n, radius, start, heading, runoff, kind):
+    steps = []
+    for i in range(n):
+        steps.append(S(7))
+        steps.append(C(70 if i % 2 == 0 else -70, radius))
+    steps += [S(11), C(45, 4.5), S(10), C(-45, 4.5)]
+    return {"name": kind[0], "start": start, "heading": heading,
+            "steps": steps, "runoff": runoff,
+            "boost": kind[1], "oil": kind[2], "gates": kind[3],
+            "note": kind[4]}
+
+
+def _rect(n, radius, start, heading, runoff, kind):
+    """Right angles: every turn is +/-90."""
+    steps = [S(9)]
+    for i in range(n):
+        steps.append(C(90 if i % 2 == 0 else -90, radius))
+        steps.append(S(7 if i % 2 == 0 else 9))
+    return {"name": kind[0], "start": start, "heading": heading,
+            "steps": steps, "runoff": runoff,
+            "boost": kind[1], "oil": kind[2], "gates": kind[3],
+            "note": kind[4]}
+
+
+def _sweepers(n, radius, start, heading, runoff, kind):
+    steps = [S(13)]
+    for i in range(n):
+        steps.append(C(50 if i % 2 == 0 else -55, radius))
+        steps.append(S(11))
+    return {"name": kind[0], "start": start, "heading": heading,
+            "steps": steps, "runoff": runoff,
+            "boost": kind[1], "oil": kind[2], "gates": kind[3],
+            "note": kind[4]}
+
+
+def _chicane(n, radius, start, heading, runoff, kind):
+    steps = [S(10)]
+    for _ in range(n):
+        steps += [C(105, radius), C(-105, radius)]
+    steps += [S(11), C(110, 2.6), S(8), C(-110, 2.6)]
+    return {"name": kind[0], "start": start, "heading": heading,
+            "steps": steps, "runoff": runoff,
+            "boost": kind[1], "oil": kind[2], "gates": kind[3],
+            "note": kind[4]}
+
+
+#: Sixteen composed circuits, four per cup. The eight hand-written circuits
+#: above are kept as well, so the atlas is 24 -- four cups of six, which is what
+#: `TOTAL_TRACKS` and the championship expect.
+_GENERATED = [
+    # --- Cup 1, Bronze ---
+    _rect(6, 2.4, (5, 5), 90, GRAVEL,
+          ("Old Town", (0.2, 0.7), (0.45,), (0.2, 0.5, 0.8),
+           "Six right angles, alternating directions.")),
+    _hairpins(3, 2.6, (12, 9, 6), (5, 24), 0, GRASS,
+              ("Pigeon Ravine", (0.3,), (0.7,), (0.25, 0.6, 0.85),
+               "Three hairpins in a narrowing valley.")),
+    _esses(4, 3.0, (5, 20), 90, SAND,
+           ("Salt Serpent", (0.35,), (0.6,), (0.3, 0.65, 0.9),
+            "Long esses over salt, then two sweepers.")),
+    _sweepers(3, 5.0, (6, 16), 90, GRASS,
+              ("Breeze Hill", (0.25, 0.7), (), (0.35, 0.75),
+               "Fast sweepers and long straights.")),
+    _chicane(3, 2.0, (4, 14), 0, GRAVEL,
+             ("Weir Raceway", (0.4,), (0.65, 0.85), (0.25, 0.55, 0.8),
+              "Three chicanes at the tight limit.")),
+    _hairpins(4, 3.0, (11, 8, 6), (6, 6), 90, SAND,
+              ("Dustbowl", (0.2, 0.66), (0.5,), (0.15, 0.5, 0.85),
+               "Four hairpins, wide entry, sand runoff.")),
+    # --- Cup 2, Silver ---
+    _rect(8, 2.2, (5, 5), 0, GRAVEL,
+          ("Grid Nine", (), (0.3, 0.7), (0.2, 0.45, 0.7, 0.9),
+           "A long rectilinear street grid.")),
+    _esses(5, 2.8, (4, 22), 90, GRASS,
+           ("Knot Garden", (0.5,), (0.75,), (0.25, 0.5, 0.75),
+            "Five esses. The tightest rhythm circuit.")),
+    _hairpins(2, 3.4, (14, 11, 7), (6, 18), 0, SAND,
+              ("Twin Sisters", (0.4, 0.8), (), (0.3, 0.7),
+               "Two big hairpins around the middle of the lap.")),
+    _sweepers(4, 4.4, (5, 20), 90, GRASS,
+              ("Long Meadow", (0.22, 0.68), (0.5,), (0.3, 0.7),
+               "Four sweepers, all the same radius.")),
+    _rect(4, 2.6, (6, 6), 90, GRASS,
+          ("Foundry Block", (0.35,), (0.7,), (0.25, 0.6, 0.85),
+           "Right angles with a longer entry to each corner.")),
+    _chicane(4, 2.2, (5, 16), 0, SAND,
+             ("Chalk Works", (), (0.45, 0.8), (0.3, 0.6, 0.85),
+              "Four chicanes and a slow final sector.")),
+    # --- Cup 3, Gold ---
+    _hairpins(5, 2.8, (11, 8, 6), (5, 26), 0, GRASS,
+              ("Camel Back", (0.25, 0.7), (0.55,), (0.2, 0.5, 0.8),
+               "Five hairpins. The longest sequence in the game.")),
+    _sweepers(3, 6.0, (7, 14), 90, GRAVEL,
+              ("Oasis Run", (0.3, 0.72), (), (0.35, 0.75),
+               "Big-radius sweepers, gravel traps either side.")),
+    _esses(3, 4.0, (6, 8), 90, GRASS,
+           ("Cedar Bend", (0.45,), (0.7,), (0.3, 0.65, 0.9),
+            "Loose esses between two fast sweepers.")),
+    _rect(6, 2.8, (5, 6), 0, SAND,
+          ("Old Quarry", (0.3,), (0.65,), (0.2, 0.5, 0.8),
+           "Right angles cut into a quarry floor.")),
+    _chicane(5, 2.1, (4, 18), 0, GRASS,
+             ("Reed Bank", (0.5,), (0.3, 0.75), (0.25, 0.55, 0.85),
+              "Five chicanes, the longest rhythm in the game.")),
+    _hairpins(3, 3.6, (13, 10, 7), (6, 12), 90, GRAVEL,
+              ("Pass du Vent", (0.35,), (0.7,), (0.3, 0.6, 0.85),
+               "A mountain pass: three hairpins, fast between them.")),
+    # --- Cup 4, Platinum ---
+    _sweepers(5, 5.2, (6, 18), 90, GRASS,
+              ("Glacier Bends", (0.2, 0.62), (0.75,), (0.28, 0.7),
+               "Five sweepers. The fastest circuit in the game.")),
+    _hairpins(4, 2.4, (10, 8, 6), (5, 22), 0, SAND,
+              ("Harbour Hairpins", (0.4,), (0.6,), (0.22, 0.55, 0.82),
+               "Four tight hairpins, sand runoff, little room.")),
+    _esses(6, 2.6, (4, 24), 90, GRAVEL,
+           ("Alpine Serpent", (0.48,), (0.78,), (0.2, 0.42, 0.64, 0.86),
+            "Six esses. The busiest rhythm circuit.")),
+    _rect(8, 2.0, (5, 5), 90, GRASS,
+          ("Marina Grid", (0.3, 0.75), (0.45, 0.85), (0.2, 0.4, 0.6, 0.8),
+           "Eight right angles at minimum radius. Technical.")),
+]
+
+#: Four per cup from each group of six, to make 16 alongside the 8 above.
+CIRCUITS += (
+    [c for c in _GENERATED[0:6] if c in (None,) or True][0:4] +
+    _GENERATED[6:10] + _GENERATED[12:16] + _GENERATED[18:22]
+)
 
 
 def build(circuit, outdir):

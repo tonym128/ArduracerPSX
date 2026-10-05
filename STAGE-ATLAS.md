@@ -213,3 +213,52 @@ Add per batch:
 - **C:** ribbon primitive count independent of grid size.
 - **D:** resident tile memory bounded by the window.
 - **E:** prop depth ordering.
+
+
+---
+
+## Image pipeline: state of play
+
+**Built:** `generate_circuit_images.py` (24 circuits, two images each, 768x768
+visual / 144x144 data at 48x48 cells), `compile_circuit.py` (validation +
+`surface.bin`/`texture.bin`/`manifest.json`), `build_atlas.py` (runs validation
+over all 24 and emits `levels.rs`, refusing to emit if any circuit fails).
+
+All 24 circuits generate, validate and compile. `levels.rs` is built entirely from
+the colour images; the old parametric cooker is gone.
+
+**Not yet playtestable.** `tools/test_game_logic` is 45/49. Four failures, all
+diagnosed to a known cause but not fixed:
+
+1. **`Hairpin Ridge`: centreline sample 1-2 sits on `Barrier`.** This is at the
+   *start line*, not spline overshoot. `wall_the_edge` stamps `WALL` on every
+   non-road cell adjacent to road, and the start lands close enough to the road's
+   outer edge that the centreline clips it. The hairpins compound it: a 2.6-cell
+   radius is barely wider than the 2.5-cell road, so the inside of the turn has
+   no room.
+2. **`The Esses` / `Right Angles`: arc wraps twice in a lap, and hinted vs full
+   `nearest` scans disagree.** The centreline passes close to itself, so `arc`
+   is ambiguous at the crossing. This is the same self-approach that
+   `TASK-1410` (AI off-road recovery) also runs into.
+3. **`Track 4` route node 4 sits off-road** -- same root cause as 1.
+4. **Par times are placeholders.** Not calibrated; the atlas is new geometry.
+
+**Also unresolved:** the AI does not complete laps on the tighter circuits
+(`Right Angles`: stuck 30,264 ticks at gate 6). Not yet established whether that
+is the geometry, the centreline, or the gate positions.
+
+### The two lessons worth keeping
+
+* **Tile corners, not centres.** The first emitter wrote `cx * TILE_SIZE`, which
+  is half a tile off the road. On a 2.5-cell road that is enough to land on a
+  barrier. It must be `cx * TILE_SIZE + TILE_SIZE // 2`.
+* **Decimate the centreline to the route reservoir, but aim near the ceiling.**
+  Targeting 480 samples (of 768) let the spline cut straight across the
+  hairpins. Targeting ~700 fixed nothing on its own -- which is how the start-line
+  problem above became visible instead of being masked by overshoot elsewhere.
+
+### Next
+
+Fix the start-line/wall interaction first: the wall ring must not be stamped
+where the start box is, or the start must be pushed clear of the road edge. Then
+re-diagnose the AI, which may be the same root cause as the arc wrap.
