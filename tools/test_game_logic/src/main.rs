@@ -655,7 +655,7 @@ fn test_surface_speed_caps() {
     assert!(SurfaceType::OffRoad.traction() < Fixed::ONE);
     assert!(SurfaceType::Tarmac.max_speed_factor() == Fixed::ONE);
     assert!(SurfaceType::Tarmac.traction() == Fixed::ONE);
-    assert!(SurfaceType::OilSlick.lateral_hold(false) < SurfaceType::Tarmac.lateral_hold(false));
+    assert!(SurfaceType::OilSlick.lateral_hold() < SurfaceType::Tarmac.lateral_hold());
     assert!(SurfaceType::OilSlick.max_speed_factor() == Fixed::ONE);
     assert!(SurfaceType::Barrier.is_solid());
     assert!(SurfaceType::BoostPad.is_boost_pad());

@@ -49,8 +49,16 @@ const STEER_MIN_SPEED: Fixed = Fixed::from_raw(200);
 const TOP_SPEED_STEER_AUTHORITY: Fixed = Fixed::from_raw(3072);
 /// Steering authority left while the car is spinning out.
 const SPINOUT_STEER_AUTHORITY: Fixed = Fixed::from_raw(2048);
-/// Steering authority while drifting, i.e. how much the handbrake costs the
-/// driver in the direction they are trying to point the car.
+/// Steering authority while drifting, as a fraction of the authority the same
+/// car has on the same surface at the same speed.
+///
+/// This used to be a flat 3072 (0.75) at *every* speed, while a gripping car's
+/// authority runs from 1.0 at a crawl down to [`TOP_SPEED_STEER_AUTHORITY`] at
+/// the top. So the handbrake charged the driver 25% of their steering in a hairpin
+/// and nothing at all at 200 u/s, and it made drifting a corner-entry tool rather
+/// than a commitment. Scaling it off the gripping authority means the cost of
+/// picking the handbrake up is the same 25% everywhere, which is what a driver
+/// can actually learn.
 const DRIFT_STEER_AUTHORITY: Fixed = Fixed::from_raw(3072);
 /// Side-slip the tyres can hold as a fraction of the forward speed when the car
 /// is barely rolling, and at top speed (the tangent of the maximum slip angle).
@@ -64,6 +72,42 @@ const MAX_SLIP_RATIO_FAST: Fixed = Fixed::from_raw(1024);
 /// Floor on the slip allowance, so a car crawling at 0 speed is not pinned to
 /// zero sideways velocity and cannot be nudged out of a wall contact.
 const LATERAL_CAP_FLOOR: Fixed = Fixed::from_raw(48);
+/// How quickly the tyres answer the wheel while the car is sideways, as a
+/// fraction of the commanded tail-out closed per tick.
+///
+/// A slide is not instantaneous in either direction: the handbrake throws the
+/// tail out over a few frames and a counter-steer catches it over a few more.
+/// Without this the commanded angle would be reached in one tick, and a driver
+/// would see the car teleport between "on line" and "sideways" every time they
+/// touched the wheel.
+const DRIFT_SLIDE_RESPONSE: Fixed = Fixed::from_raw(1434);
+/// Extra forward-speed loss per tick while sliding, at the deepest slide the
+/// mechanic allows ([`DRIFT_SPIN_SLIP`]), scaled linearly with the tail-out.
+///
+/// A drift has to cost something. Removing sideways velocity from the lateral
+/// scrub (see [`SurfaceType::lateral_hold`]) took the *only* thing that made a
+/// slide slow the car down, so without this the handbrake was on net a gain and
+/// the fastest way round every corner was to hold it. Measured against a full-lock
+/// gripped corner, which settles at 1.32 u/tick, a handbrake slide settled at the
+/// car's full 3.42 top speed while sideways.
+///
+/// 140/4096 (3.4%/tick) at the spin-out threshold, and 1.1%/tick at the 30 degree
+/// slide a competent driver actually holds. That settles a 30 degree slide at
+/// 2.4 u/tick: a third of the car's speed for a third of a corner, which is a
+/// price a turbo can pay for. The penalty is proportional to the slide so a
+/// shallow drift is close to free, which is what makes "how far do I dare hang it
+/// out" a decision rather than a switch.
+const DRIFT_SLIDE_DRAG: Fixed = Fixed::from_raw(140);
+/// Tail-out the car is still unwinding after the handbrake is released, in BAM.
+///
+/// The handbrake coming up ends the *drift* immediately -- the turbo is paid out
+/// on that tick and nothing re-arms while the button is held -- but the car is
+/// still sideways and still has to be caught. Zeroing the slide on the release
+/// tick used to teleport the drawn car from ~25 degrees of tail-out back onto its
+/// nose while the real side-slip was still in the car, and then let the friction
+/// circle clip the remaining slide in one more tick. This is the tail-out the
+/// driver is still driving with, and it unwinds on its own.
+const SLIDE_CATCH_PER_TICK: i16 = 6;
 /// Lateral velocity retained per tick during a spin-out. The old value was a
 /// flat `ZERO`, i.e. a spinning car had *no* lateral friction at all: it slid
 /// along the wall for the full second with no way to scrub speed, no way to
@@ -141,6 +185,17 @@ pub struct VehicleState {
     /// (the slide unwound, or the car scrubbed to a stop) immediately started
     /// again and paid out another turbo, forever.
     pub drift_latched: bool,
+    /// Tail-out still unwinding after the handbrake was released, in BAM and
+    /// signed like `heading` (positive = the nose points right of travel).
+    ///
+    /// `DriftState::Drifting { slip_angle }` ends the moment the handbrake comes
+    /// up -- the turbo is banked on that tick and nothing re-arms while the
+    /// button is held -- but the car is still sideways. Without this the release
+    /// tick snapped the drawn car from a 25 degree slide straight back onto its
+    /// nose and then let the friction circle clip what was left of the real
+    /// side-slip in one more tick, so catching a drift read as a teleport. See
+    /// [`VehicleState::slide_bam`], which is what the physics actually reads.
+    pub slide_catch: i16,
     /// Ticks before a wall hit can spin the car out again.
     ///
     /// This is what turns a wall from a life sentence into a penalty: without a
@@ -173,6 +228,7 @@ impl Default for VehicleState {
             gear: 1,
             is_reversing: false,
             drift_latched: false,
+            slide_catch: 0,
             spinout_cooldown: 0,
             oil_slick_latch: false,
             tuning: CarTuning::default(),
@@ -318,6 +374,7 @@ impl VehicleState {
         self.gear = 1;
         self.engine_rpm = 1000;
         self.drift_latched = false;
+        self.slide_catch = 0;
         self.spinout_cooldown = 0;
         self.oil_slick_latch = false;
     }
@@ -326,6 +383,39 @@ impl VehicleState {
     #[inline]
     pub fn right_dir(&self) -> Vec2 {
         Vec2::new(math::cos(self.heading), math::sin(self.heading))
+    }
+
+    /// Whether `input` opens a fresh drift on this very tick.
+    ///
+    /// The single source of truth for "is this tick a handbrake press that will
+    /// break traction", so the steering authority and the drift state machine can
+    /// never disagree about it. Splitting the condition across the two used to let
+    /// the opening tick keep full grip authority.
+    fn opens_drift_this_tick(&self, input: VehicleInput) -> bool {
+        input.handbrake
+            && !self.drift_latched
+            && !self.drift.is_drifting()
+            && !self.drift.is_spinning()
+            && self.speed > HANDBRAKE_MIN_SPEED
+    }
+
+    /// Tail-out the car is currently being driven at, in BAM, signed like
+    /// `heading`: positive means the nose points to the right of the direction of
+    /// travel. Zero unless the handbrake is down or a slide is still being
+    /// caught.
+    ///
+    /// This is the single quantity the vehicle's side-slip model reads. It used
+    /// to reach [`VehicleState::visual_angle`] and nothing else, which is why the
+    /// mechanic was a costume: a handbrake stab drew a 25-40 degree slide while
+    /// the car measured 1.4-7.5 degrees of real side-slip and drove exactly the
+    /// gripping line, and it also means the drawn angle and the driven angle
+    /// cannot now disagree.
+    #[inline]
+    pub fn slide_bam(&self) -> i32 {
+        match self.drift {
+            DriftState::Drifting { slip_angle, .. } => slip_angle as i32,
+            _ => self.slide_catch as i32,
+        }
     }
 
     /// Signed forward component of velocity.
@@ -417,12 +507,25 @@ impl VehicleState {
         // could describe scaled with speed, so at top speed full lock was a
         // 32-unit radius and the car could not hold a racing line.
         let speed_fraction = (self.speed / BASE_TOP_SPEED).clamp(Fixed::ZERO, Fixed::ONE);
+        let grip_authority = Fixed::ONE - (Fixed::ONE - TOP_SPEED_STEER_AUTHORITY) * speed_fraction;
+        // Whether the car will be sideways when this tick is integrated, which is
+        // not quite the same question as `drift.is_drifting()`: the handbrake
+        // press that *opens* a slide happens later in this same tick, so testing
+        // the state alone gave the opening tick full grip authority and charged the
+        // driver for the handbrake one tick late. Asking the same question the
+        // drift state machine asks keeps the two answers identical, which is what
+        // lets `DRIFT_STEER_AUTHORITY` be a fixed fraction of the grip.
+        let sliding = self.drift.is_drifting()
+            || self.slide_catch != 0
+            || (input.handbrake && self.opens_drift_this_tick(input));
         let authority = if self.drift.is_spinning() {
             SPINOUT_STEER_AUTHORITY
-        } else if self.drift.is_drifting() {
-            DRIFT_STEER_AUTHORITY
+        } else if sliding {
+            // A quarter of the same authority the car has on the surface, not a
+            // flat number: see `DRIFT_STEER_AUTHORITY`.
+            grip_authority * DRIFT_STEER_AUTHORITY
         } else {
-            Fixed::ONE - (Fixed::ONE - TOP_SPEED_STEER_AUTHORITY) * speed_fraction
+            grip_authority
         };
 
         // 1. Steering -------------------------------------------------------------
@@ -503,18 +606,24 @@ impl VehicleState {
         if !input.handbrake {
             self.drift_latched = false;
             if self.drift.is_drifting() {
+                // Read before the state machine is told to let go: `release_drift`
+                // clears the angle as it pays out.
+                let released_slide = self.slide_bam() as i16;
                 // Releasing the handbrake releases the mini-turbo boost.
                 let boost_impulse = self.drift.release_drift();
                 if boost_impulse > Fixed::ZERO {
                     self.boost_ticks = 30; // 0.5s of turbo boost
                     self.velocity = self.velocity + forward_dir.scale(boost_impulse);
                 }
+                // The drift is over and paid for, but the car is still sideways
+                // and the driver is still driving it, so the tail-out is handed to
+                // `slide_catch` to unwind. Zeroing it here instead is what made the
+                // release read as a teleport: the drawn car snapped straight onto
+                // its nose and then the friction circle clipped what was left of
+                // the real side-slip in one more tick.
+                self.slide_catch = released_slide;
             }
-        } else if !self.drift_latched
-            && !self.drift.is_drifting()
-            && !self.drift.is_spinning()
-            && self.speed > HANDBRAKE_MIN_SPEED
-        {
+        } else if self.opens_drift_this_tick(input) {
             let drift_dir = if input.steer < Fixed::ZERO { -1 } else { 1 };
             self.drift.initiate_drift(drift_dir);
             self.drift_latched = true;
@@ -555,34 +664,113 @@ impl VehicleState {
             self.is_reversing = false;
         }
 
+        // A caught slide unwinds on its own. `SLIDE_CATCH_PER_TICK` puts the part
+        // of the tail-out the driver can actually see (25 degrees down to a couple
+        // of degrees) into about a quarter of a second: fast enough that the car is
+        // back on the power by the time it reaches the corner exit, slow enough
+        // that catching a drift reads as catching something rather than as the
+        // car snapping straight.
+        if !self.drift.is_drifting() && self.slide_catch != 0 {
+            // `saturating_sub` clamps to `i16::MIN`, *not* to zero, so a tail-out
+            // one step from done would come out the other side and the car would
+            // fish between the two directions for the rest of the corner. The
+            // magnitude has to be walked down to zero explicitly.
+            let magnitude = self.slide_catch.saturating_abs();
+            let magnitude = if magnitude > SLIDE_CATCH_PER_TICK {
+                magnitude - SLIDE_CATCH_PER_TICK
+            } else {
+                0
+            };
+            self.slide_catch = if self.slide_catch < 0 {
+                -magnitude
+            } else {
+                magnitude
+            };
+        }
+
         // 5. Body-frame decomposition, drag and lateral traction ----------------
         let forward_speed = self.velocity.dot(forward_dir);
         let lateral_speed = self.velocity.dot(right_dir);
 
-        let lateral_hold = if self.drift.is_spinning() {
-            // A spin-out scrubs sideways speed at half grip. The old value was a
-            // flat zero, which let a spinning car slide along a wall for a full
-            // second with no lateral friction at all.
-            surface.lateral_hold(false) * SPINOUT_LATERAL_HOLD
+        // Tail-out being driven at right now: the slide the handbrake dialled in,
+        // or the remnant of one the driver has just caught.
+        let slide = self.slide_bam();
+        // A spin-out owns the car's lateral dynamics outright, so any tail-out
+        // left over from a slide is dropped: resuming a slide the moment the spin
+        // expired would be the one way to leave a wall sideways.
+        if self.drift.is_spinning() {
+            self.slide_catch = 0;
+        }
+
+        if slide != 0 && !self.drift.is_spinning() {
+            // Commanded slide. The friction circle below is the *gripping* limit
+            // and does not apply here -- being past it is the whole point of
+            // reaching for the handbrake -- so the car's side-slip is pulled
+            // toward the angle the driver has dialled in, at
+            // `DRIFT_SLIDE_RESPONSE` per tick.
+            //
+            // Letting the rotating heading push sideways velocity into a lateral
+            // scrub cannot do this. That path saturates at about 12 degrees of real
+            // side-slip at full lock however hard the driver winds the wheel in,
+            // because the heading only rotates as fast as the steering rate allows:
+            // measured 1.4 degrees at a 0.2 lock and 7.5 degrees at full lock, all
+            // speeds, while the car was *drawn* at 25-40 degrees. The wheel has to
+            // be able to ask for the angle it is drawn at, or the drift is a
+            // costume.
+            let bam = slide as u16;
+            // Bill the slide for what it costs, in proportion to how far out the
+            // tail is, and dearer off the road than on it: a low-grip surface
+            // gives the same angle back less cheaply. This is the only thing that
+            // makes a slide a decision -- with the cost of sideways motion removed
+            // from the model (see `SurfaceType::lateral_hold`) the handbrake was on
+            // net a *gain*, and measured against a full-lock gripped corner it
+            // settled at the car's 3.42 top speed while sideways where the gripped
+            // corner settled at 1.32.
+            let depth = slide
+                .saturating_abs()
+                .min(crate::drift::DRIFT_SPIN_SLIP as i32);
+            let drag = DRIFT_SLIDE_DRAG
+                * Fixed::from_raw(depth * Fixed::ONE.raw() / crate::drift::DRIFT_SPIN_SLIP as i32)
+                * (Fixed::from_int(2) - surface.grip_factor());
+            // Scrub *before* aiming the car, not after. Steering the scrubbed
+            // components toward a target built from the scrubbed speed keeps the
+            // loss exact; aiming the unscrubbed ones at it lets the blend lag the
+            // bill by most of a tick's worth of it, which is most of the bill.
+            let retain = DRAG_RETAIN - drag;
+            let scrubbed_forward = forward_speed * retain;
+            let scrubbed_lateral = lateral_speed * retain;
+            let scrubbed_speed = self.velocity.length() * retain;
+            let damped_forward = scrubbed_forward
+                + (scrubbed_speed * math::cos(bam) - scrubbed_forward) * DRIFT_SLIDE_RESPONSE;
+            let damped_lateral = scrubbed_lateral
+                + (scrubbed_speed * math::sin(bam) - scrubbed_lateral) * DRIFT_SLIDE_RESPONSE;
+            self.velocity = forward_dir.scale(damped_forward) + right_dir.scale(damped_lateral);
         } else {
-            surface.lateral_hold(self.is_drifting)
-        };
+            let lateral_hold = if self.drift.is_spinning() {
+                // A spin-out scrubs sideways speed at half grip. The old value was a
+                // flat zero, which let a spinning car slide along a wall for a full
+                // second with no lateral friction at all.
+                surface.lateral_hold() * SPINOUT_LATERAL_HOLD
+            } else {
+                surface.lateral_hold()
+            };
 
-        // Tyre friction circle: the tyres can only hold so much side load, and
-        // the faster the car goes the less of it there is per unit of speed.
-        // This is the cornering limit -- without it the rotating heading alone
-        // decides the slide and the car skids permanently off its nose.
-        let damped_forward = forward_speed * DRAG_RETAIN;
-        let slip_cap_ratio = (MAX_SLIP_RATIO_SLOW
-            + (MAX_SLIP_RATIO_FAST - MAX_SLIP_RATIO_SLOW) * speed_fraction)
-            * surface.grip_factor();
-        // Measured against the *damped* forward component, so the realised slip
-        // angle is the cap rather than the cap divided by the drag ratio.
-        let lateral_cap = damped_forward.abs() * slip_cap_ratio + LATERAL_CAP_FLOOR;
+            // Tyre friction circle: the tyres can only hold so much side load, and
+            // the faster the car goes the less of it there is per unit of speed.
+            // This is the cornering limit -- without it the rotating heading alone
+            // decides the slide and the car skids permanently off its nose.
+            let damped_forward = forward_speed * DRAG_RETAIN;
+            let slip_cap_ratio = (MAX_SLIP_RATIO_SLOW
+                + (MAX_SLIP_RATIO_FAST - MAX_SLIP_RATIO_SLOW) * speed_fraction)
+                * surface.grip_factor();
+            // Measured against the *damped* forward component, so the realised slip
+            // angle is the cap rather than the cap divided by the drag ratio.
+            let lateral_cap = damped_forward.abs() * slip_cap_ratio + LATERAL_CAP_FLOOR;
 
-        let damped_lateral = (lateral_speed * lateral_hold).clamp(-lateral_cap, lateral_cap);
+            let damped_lateral = (lateral_speed * lateral_hold).clamp(-lateral_cap, lateral_cap);
 
-        self.velocity = forward_dir.scale(damped_forward) + right_dir.scale(damped_lateral);
+            self.velocity = forward_dir.scale(damped_forward) + right_dir.scale(damped_lateral);
+        }
 
         // 6. Surface speed cap & absolute top-speed clamp -------------------------
         let top_speed = self.tuning.scaled_top_speed(BASE_TOP_SPEED);
@@ -618,16 +806,19 @@ impl VehicleState {
         self.position = self.position + self.velocity;
 
         // 9. Visual angle smoothing (drift slip angle representation) ------------
+        // Driven by the *same* tail-out the physics is driven by, so what the
+        // player sees is what the car is doing. Reading the drift state's own
+        // angle here instead is what let the drawn slide and the driven slide
+        // drift apart, and a caught slide used to snap onto the nose on the tick
+        // the handbrake came up.
+        let slide = self.slide_bam();
         match self.drift {
-            DriftState::Drifting { slip_angle, .. } => {
-                self.visual_angle = ((self.heading as i32 + slip_angle as i32) & 0x0FFF) as u16;
-            }
             DriftState::SpinOut { remaining_ticks } => {
                 let spin_offset = remaining_ticks * 128;
                 self.visual_angle = self.heading.wrapping_add(spin_offset) & 0x0FFF;
             }
-            DriftState::Grip => {
-                self.visual_angle = self.heading;
+            DriftState::Drifting { .. } | DriftState::Grip => {
+                self.visual_angle = ((self.heading as i32 + slide) & 0x0FFF) as u16;
             }
         }
 
@@ -984,10 +1175,17 @@ mod tests {
     }
 
     #[test]
-    fn a_sliding_car_scrubs_sideways_speed_faster_than_a_gripping_one() {
-        // Bug 17: `lateral_hold(true)` returned 3640 against `lateral_hold(false)`
-        // = 3641, so a handbrake drift changed nothing on tarmac and the doc
-        // comment claiming "oil slicks and drifts let it slide" was false.
+    fn the_handbrake_throws_side_slip_out_rather_than_scrubbing_it_away() {
+        // Bug 17 fixed a drift that changed nothing on tarmac by giving the
+        // "drifting" branch of `lateral_hold` a *smaller* retention than the
+        // gripping branch -- which, since retention is how much sideways velocity
+        // survives a tick, made the handbrake scrub a slide away about three times
+        // faster than gripping. A handbrake stab measured 1.4 degrees of real
+        // side-slip at a 0.2 lock and 7.5 at full lock, while the car was drawn at
+        // 25-40: a costume, and strictly worse than gripping.
+        //
+        // The invariant now is the opposite one, and it is the whole point of the
+        // mechanic: what the wheel asks for is what the car carries.
         let initial = Vec2::new(Fixed::from_raw(2048), -Fixed::from_int(3));
         let mk = || VehicleState {
             velocity: initial,
@@ -1010,21 +1208,56 @@ mod tests {
         assert!(slide.is_drifting, "the handbrake must break traction");
         assert_ne!(slide.visual_angle, slide.heading, "the tail must be out");
         assert!(
-            slide.velocity.dot(slide.right_dir()) < grip.velocity.dot(grip.right_dir()),
-            "drifting ({:?}) scrubbed no more sideways speed than gripping ({:?})",
+            slide.velocity.dot(slide.right_dir()) > grip.velocity.dot(grip.right_dir()),
+            "the handbrake scrubbed sideways speed away instead of throwing the tail \
+             out (slide {:?} vs grip {:?})",
             slide.velocity.dot(slide.right_dir()),
             grip.velocity.dot(grip.right_dir())
         );
-        // A drifting car on tarmac must let go more than off-road grip, which is
-        // the ordering the doc comment promises.
+        // And it must reach, not merely exceed, the angle the player can see. The
+        // old model drew a 25-40 degree slide and drove a 7 degree one; the drawn
+        // angle is now the angle the car is being driven at, so they cannot differ
+        // by more than the few ticks the tyres take to answer the wheel.
+        for _ in 0..6 {
+            slide.tick(
+                VehicleInput {
+                    handbrake: true,
+                    ..VehicleInput::default()
+                },
+                SurfaceType::Tarmac,
+            );
+        }
+        let realised = slip_degrees(&slide);
+        let drawn =
+            ((slide.visual_angle as i32 - slide.heading as i32) & 0x0FFF) as f64 / 4096.0 * 360.0;
         assert!(
-            SurfaceType::Tarmac.lateral_hold(true) < SurfaceType::Tarmac.lateral_hold(false),
-            "drifting must change lateral grip on tarmac"
+            (realised - drawn).abs() <= 6.0,
+            "the car is drawn at {drawn:.1} degrees of tail-out and driving {realised:.1}"
         );
-        assert!(
-            SurfaceType::OffRoad.lateral_hold(true) > SurfaceType::Tarmac.lateral_hold(true),
-            "off-road should still be more slidey than tarmac"
-        );
+        // Off-road is still the looser surface, and still more slidey than tarmac:
+        // the ordering the doc comment promises, now expressed through the
+        // coefficient that actually decides how dear a slide is.
+        assert!(SurfaceType::OffRoad.grip_factor() < SurfaceType::Tarmac.grip_factor());
+    }
+
+    /// Realised side-slip of the car in degrees: the angle between where it is
+    /// pointing and where it is going.
+    fn slip_degrees(car: &VehicleState) -> f64 {
+        let forward = car.velocity.dot(car.forward_dir());
+        if forward <= Fixed::ZERO {
+            return 180.0;
+        }
+        (car.velocity.dot(car.right_dir()).raw() as f64 / forward.raw() as f64)
+            .atan()
+            .to_degrees()
+            .abs()
+    }
+
+    /// Tail-out the car is *drawn* at, in degrees, taken from [`visual_angle`].
+    fn drawn_tail_out(car: &VehicleState) -> f64 {
+        let delta = (car.visual_angle as i32 - car.heading as i32) & 0x0FFF;
+        let delta = if delta > 2048 { delta - 4096 } else { delta };
+        (delta as f64 / Fixed::ONE.raw() as f64 * 360.0).abs()
     }
 
     #[test]
@@ -1897,6 +2130,20 @@ mod tests {
             car.tick(VehicleInput::default(), SurfaceType::Tarmac);
         }
         assert!(!car.drift.is_spinning());
+        // Back up to speed before pressing again. That spin-out came out of a
+        // real ~44 degree slide now instead of a drawn one, so it scrubs far more
+        // of the car's speed than it used to -- and the handbrake is gated on
+        // speed for good reason: there is no sense throwing the tail out of a car
+        // doing half of top speed, and letting it spin there is how a hairpin
+        // becomes a hairpin spin.
+        for _ in 0..240 {
+            car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+        }
+        assert!(
+            car.speed > Fixed::from_int(2),
+            "the car must be back up to drifting speed, got {} raw",
+            car.speed.raw()
+        );
         // Release and press again: a fresh drift is allowed.
         car.tick(VehicleInput::default(), SurfaceType::Tarmac);
         assert!(
@@ -1915,6 +2162,7 @@ mod tests {
         let mut car = VehicleState {
             is_drifting: true,
             drift_latched: true,
+            slide_catch: 300,
             spinout_cooldown: 40,
             oil_slick_latch: true,
             boost_ticks: 20,
@@ -1926,12 +2174,404 @@ mod tests {
         car.drift.trigger_spinout();
         car.respawn_at(Vec2::ZERO, 4095);
         assert!(!car.drift_latched);
+        assert_eq!(car.slide_catch, 0);
         assert_eq!(car.spinout_cooldown, 0);
         assert!(!car.oil_slick_latch);
         assert_eq!(car.boost_ticks, 0);
         assert_eq!(car.nitro_charge, NITRO_MAX_TICKS);
         assert_eq!(car.drift, DriftState::Grip);
         assert_eq!(car.heading, 4095 & 0x0FFF);
+    }
+
+    // ========================================================================
+    // drifting must be a decision: openable, holdable, catchable, and paid for
+    // ========================================================================
+
+    /// A car already rolling at `speed` u/tick, pointing north.
+    fn rolling(speed: f64) -> VehicleState {
+        let raw = (speed * Fixed::ONE.raw() as f64) as i32;
+        VehicleState {
+            velocity: Vec2::new(Fixed::ZERO, -Fixed::from_raw(raw)),
+            speed: Fixed::from_raw(raw),
+            ..VehicleState::default()
+        }
+    }
+
+    /// Handbrake down at `steer`, holding the throttle.
+    fn hb(steer: Fixed) -> VehicleInput {
+        VehicleInput {
+            throttle: Fixed::ONE,
+            steer,
+            handbrake: true,
+            ..VehicleInput::default()
+        }
+    }
+
+    /// The tick the car spun out on, or `None` if it survived `limit` ticks.
+    fn spin_tick(speed: f64, steer_raw: i32, limit: u32) -> Option<u32> {
+        let mut car = rolling(speed);
+        let input = hb(Fixed::from_raw(steer_raw));
+        for t in 0..limit {
+            car.tick(input, SurfaceType::Tarmac);
+            if car.drift.is_spinning() {
+                return Some(t);
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn the_handbrake_opens_a_corner_instead_of_spinning_the_car() {
+        // The load-bearing regression. `DriftState::Drifting` deepened by a flat
+        // 24 BAM/tick whatever the driver was doing, so 384 BAM of headroom ran
+        // out in 16 ticks -- and *identically* at every speed and every lock.
+        // Measured across speeds 1.0-3.4 u/tick and locks 0.2-1.0, all 25
+        // combinations spun at tick 15. The one input the handbrake exists for,
+        // "handbrake and turn into the corner", was therefore never available:
+        // the only survivable drift was to stab the button and counter-steer on
+        // the same tick, which is a tap rather than a drift.
+        //
+        // What has to be true now is that *how much* lock is wound in decides
+        // *how long* the slide lasts, at every speed.
+        let gentle = 410i32;
+        for speed in [1.0f64, 2.0, 2.5, 3.0, 3.4] {
+            let light = spin_tick(speed, gentle, 120);
+            assert!(
+                light.is_none(),
+                "a fifth of lock at {speed} u/tick spun the car at tick {:?}: the \
+                 handbrake still punishes the lightest touch",
+                light.unwrap()
+            );
+            let full = spin_tick(speed, Fixed::ONE.raw(), 120);
+            assert!(
+                full.is_some(),
+                "full lock into the slide at {speed} u/tick must eventually spin: \
+                 otherwise over-rotating costs nothing"
+            );
+            assert!(
+                full.unwrap() >= 30,
+                "full lock into the slide spun at tick {} at {speed} u/tick, which \
+                 is no time to notice it and unwind",
+                full.unwrap()
+            );
+            // And the lock has to be the thing that decides, not the speed.
+            let half = spin_tick(speed, Fixed::ONE.raw() / 2, 120);
+            if let Some(half) = half {
+                assert!(
+                    half > full.unwrap(),
+                    "half lock spun at {half} but full lock at {} at {speed} u/tick: \
+                     the response is flat in the steering input",
+                    full.unwrap()
+                );
+            }
+        }
+        // Ordering across the whole sweep, at one representative speed.
+        let deep = spin_tick(2.5, Fixed::ONE.raw(), 200).unwrap();
+        let mid = spin_tick(2.5, Fixed::ONE.raw() * 3 / 4, 200).unwrap();
+        let shallow = spin_tick(2.5, Fixed::ONE.raw() / 2, 200).unwrap();
+        assert!(
+            shallow > mid && mid > deep,
+            "shallow {shallow}, mid {mid}, deep {deep}"
+        );
+    }
+
+    #[test]
+    fn a_drift_can_be_held_for_the_length_of_a_corner_and_pays_for_itself() {
+        // Stab the handbrake, then hold it on a light counter-steer -- what a
+        // player actually does. The slide has to survive long enough to earn a
+        // mini-turbo (`DRIFT_BOOST_LEVEL1_TICKS`) and then pay it out, and the
+        // tail-out it is held at has to be a real angle of real side-slip.
+        //
+        // Against the old model this failed twice over: the realised side-slip of
+        // a "drift" peaked at 7.5 degrees however hard the wheel was wound, and a
+        // light counter-steer unwound the slide at a rate that left a clean stab
+        // paying nothing.
+        let mut car = rolling(2.5);
+        for t in 0..4 {
+            let input = if t < 2 {
+                hb(Fixed::ONE)
+            } else {
+                hb(Fixed::from_raw(-820))
+            };
+            car.tick(input, SurfaceType::Tarmac);
+        }
+        assert!(car.is_drifting, "the stab must open a drift");
+        let mut held = 0u32;
+        let mut peak_phys = 0.0f64;
+        let mut peak_drawn = 0.0f64;
+        while car.is_drifting && held < 300 {
+            car.tick(hb(Fixed::from_raw(-820)), SurfaceType::Tarmac);
+            if car.drift.is_spinning() {
+                panic!("a light counter-steer must be able to hold a slide, not spin");
+            }
+            held += 1;
+            peak_phys = peak_phys.max(slip_degrees(&car));
+            peak_drawn = peak_drawn.max(drawn_tail_out(&car));
+            if held == crate::drift::DRIFT_BOOST_LEVEL1_TICKS as u32 {
+                assert_eq!(
+                    car.drift.boost_tier(),
+                    1,
+                    "a slide held through a whole corner must reach the mini-turbo"
+                );
+            }
+        }
+        // Let go and collect.
+        car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+        assert!(
+            car.boost_ticks > 0,
+            "holding a slide through a corner paid out no turbo"
+        );
+        assert!(
+            held > crate::drift::DRIFT_BOOST_LEVEL1_TICKS as u32,
+            "the slide only lasted {held} ticks: a corner is longer than that"
+        );
+        assert!(
+            peak_phys > 15.0,
+            "the car was drawn sideways but only ever drove {peak_phys:.1} degrees \
+             of real side-slip"
+        );
+        assert!(
+            peak_drawn > 15.0,
+            "a handbrake stab threw the car out to only {peak_drawn:.1} degrees"
+        );
+    }
+
+    #[test]
+    fn the_drawn_tail_out_is_the_tail_out_the_car_is_driven_at() {
+        // `DriftState::Drifting { slip_angle }` used to reach [`visual_angle`] and
+        // nothing else. The car could be drawn at 25-40 degrees of tail-out while
+        // its velocity was 1.4-7.5 degrees off its nose: the mechanic was a
+        // costume, and a player steering by what they saw was steering by a lie.
+        //
+        // Now the same number is what the side-slip model is driven by, so the
+        // drawn angle and the driven angle cannot drift apart by more than the few
+        // ticks the tyres take to answer the wheel.
+        for hold in [256i32, 400, 520] {
+            let mut car = rolling(2.5);
+            // Hold the slide at `hold` BAM by sawing the wheel around it.
+            for _ in 0..200 {
+                let angle = car.slide_bam();
+                let steer = if angle < hold {
+                    Fixed::from_raw(1400)
+                } else if angle > hold + 4 {
+                    Fixed::from_raw(-1400)
+                } else {
+                    Fixed::from_raw(300)
+                };
+                car.tick(hb(steer), SurfaceType::Tarmac);
+                assert!(!car.drift.is_spinning(), "saw control spun at {hold}");
+            }
+            let realised = slip_degrees(&car);
+            let drawn = drawn_tail_out(&car);
+            assert!(
+                (realised - drawn).abs() <= 6.0,
+                "held at {hold} BAM: drawn {drawn:.1} degrees, driven {realised:.1}"
+            );
+            assert!(
+                realised > 10.0,
+                "held at {hold} BAM the car drove only {realised:.1} degrees of slip"
+            );
+        }
+    }
+
+    #[test]
+    fn a_slide_is_paid_for_in_proportion_to_how_far_it_is_hung_out() {
+        // Removing sideways velocity from the lateral scrub (see
+        // `SurfaceType::lateral_hold`) took away the only thing that made a slide
+        // cost speed, so the handbrake became a net *gain*: against a full-lock
+        // gripped corner settling at 1.32 u/tick, a slide settled at the car's full
+        // 3.42 top speed while sideways. Drifting has to be a trade, so the slide
+        // is billed for the speed it holds, in proportion to its angle.
+        let grip_settled = {
+            let mut car = rolling(3.2);
+            for _ in 0..300 {
+                car.tick(flat(Fixed::ONE, Fixed::ONE), SurfaceType::Tarmac);
+            }
+            car.speed
+        };
+        let held_at = |target: i32| -> Fixed {
+            let mut car = rolling(3.2);
+            for _ in 0..300 {
+                let angle = car.slide_bam();
+                let steer = if angle < target {
+                    Fixed::from_raw(1400)
+                } else if angle > target + 4 {
+                    Fixed::from_raw(-1400)
+                } else {
+                    Fixed::from_raw(300)
+                };
+                car.tick(hb(steer), SurfaceType::Tarmac);
+            }
+            assert!(car.is_drifting, "the slide at {target} BAM was lost");
+            car.speed
+        };
+        let shallow = held_at(200);
+        let deep = held_at(500);
+        assert!(
+            shallow > grip_settled,
+            "a shallow slide ({shallow:?}) settled no faster than a full-lock gripped \
+             corner ({grip_settled:?})"
+        );
+        assert!(
+            deep < shallow,
+            "hanging the tail out further cost nothing: {deep:?} at 500 BAM vs \
+             {shallow:?} at 200 BAM"
+        );
+        // And the deepest slide has to be a real bill, not a rounding error, or
+        // "how far do I dare hang it out" is not a decision.
+        assert!(
+            deep * Fixed::from_int(2) < grip_settled * Fixed::from_int(3),
+            "a 500 BAM slide settled at {deep:?}: barely a penalty against {grip_settled:?}"
+        );
+    }
+
+    #[test]
+    fn letting_go_of_the_handbrake_unwinds_the_slide_rather_than_snapping_it() {
+        // The release used to end the drift and zero the slide on the same tick, so
+        // the drawn car teleported from ~25 degrees of tail-out onto its nose while
+        // the real side-slip was still in it, and the friction circle clipped what
+        // was left one tick later. `slide_catch` carries the tail-out over so the
+        // driver can watch it come back.
+        let mut car = rolling(3.0);
+        for t in 0..40u32 {
+            let input = if t < 3 {
+                hb(Fixed::ONE)
+            } else {
+                hb(Fixed::from_raw(-820))
+            };
+            car.tick(input, SurfaceType::Tarmac);
+        }
+        assert!(car.is_drifting, "the stab must open a drift to catch");
+        let released_at = drawn_tail_out(&car);
+        assert!(
+            released_at > 15.0,
+            "nothing to catch: the slide was only {released_at:.1} degrees"
+        );
+
+        let mut previous = released_at;
+        let mut ticks_to_quarter = 0u32;
+        for t in 1..=60u32 {
+            car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+            let now = drawn_tail_out(&car);
+            assert!(
+                !car.is_drifting,
+                "the handbrake was released but the drift re-armed"
+            );
+            assert!(
+                now <= previous,
+                "the tail-out grew after release (tick {t}: {previous:.1} -> {now:.1})"
+            );
+            if now > 0.0 {
+                assert!(
+                    now < previous,
+                    "the tail-out stalled at {now:.1} on tick {t} and never came back"
+                );
+            }
+            if ticks_to_quarter == 0 && now < released_at / 4.0 {
+                ticks_to_quarter = t;
+            }
+            previous = now;
+        }
+        assert!(
+            ticks_to_quarter >= 4,
+            "the tail-out collapsed from {released_at:.1} to a quarter of it in \
+             {ticks_to_quarter} ticks: that is a snap, not a catch"
+        );
+        // And the drawn angle must not outrun the car while it does that.
+        assert!(
+            (slip_degrees(&car) - drawn_tail_out(&car)).abs() <= 8.0,
+            "after the catch the car drives {:.1} degrees but is drawn {:.1}",
+            slip_degrees(&car),
+            drawn_tail_out(&car)
+        );
+    }
+
+    #[test]
+    fn a_drift_that_has_been_over_rotated_can_always_be_caught() {
+        // The counterpart to the spin-out: over-rotating has to be a mistake with a
+        // way back, or the handbrake is a trap. Wind the wheel into the slide for
+        // the better part of a second at every lock, then apply full opposite lock
+        // and require the car to come back to grip without ever spinning.
+        for speed in [
+            2.0f64,
+            3.0,
+            BASE_TOP_SPEED.raw() as f64 / Fixed::ONE.raw() as f64,
+        ] {
+            for wind in [410i32, 2867, Fixed::ONE.raw()] {
+                let mut car = rolling(speed);
+                let mut spun = false;
+                for _ in 0..40 {
+                    car.tick(hb(Fixed::from_raw(wind)), SurfaceType::Tarmac);
+                    if car.drift.is_spinning() {
+                        spun = true;
+                    }
+                }
+                assert!(
+                    !spun,
+                    "winding in at {wind} for 40 ticks already spun the car at \
+                     {speed} u/tick: there is nothing left to catch"
+                );
+                let mut caught = false;
+                for _ in 0..180 {
+                    car.tick(hb(Fixed::from_raw(-Fixed::ONE.raw())), SurfaceType::Tarmac);
+                    if car.drift.is_spinning() {
+                        panic!(
+                            "full opposite lock after winding in at {wind} spun the car \
+                             at {speed} u/tick"
+                        );
+                    }
+                    if !car.is_drifting {
+                        caught = true;
+                        break;
+                    }
+                }
+                assert!(
+                    caught,
+                    "full opposite lock could not catch a slide wound in at {wind} \
+                     at {speed} u/tick: the wheel answers one end and not the other"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_handbrake_costs_the_same_steering_authority_at_every_speed() {
+        // `DRIFT_STEER_AUTHORITY` was a flat 3072 while a gripping car's authority
+        // runs from 1.0 at a crawl to 0.75 at top speed, so picking the handbrake
+        // up charged a quarter of the steering in a hairpin and nothing at all at
+        // 200 u/s. Scaling it off the gripping authority makes the cost the same
+        // everywhere, which is the only version of it a driver can learn.
+        let turn_at = |speed: f64, handbrake: bool| -> i32 {
+            let mut car = rolling(speed);
+            car.tick(
+                VehicleInput {
+                    steer: Fixed::ONE,
+                    handbrake,
+                    ..VehicleInput::default()
+                },
+                SurfaceType::Tarmac,
+            );
+            crate::ai::angle_error(0, car.heading)
+        };
+        for speed in [1.0f64, 2.0, 3.0, 3.4] {
+            let grip = turn_at(speed, false);
+            let slide = turn_at(speed, true);
+            assert!(
+                slide > 0,
+                "a sliding car must still be steerable at {speed}"
+            );
+            // Three quarters of the grip at *every* speed. Compared as a difference
+            // rather than a cross-multiplication because both sides are truncated
+            // whole BAMs per tick, and a cross-product of two truncations carries
+            // twice the rounding error into what is only meant to be a comparison
+            // of one number against another.
+            let quarter = (grip - slide) * 4;
+            assert!(
+                (quarter - grip).abs() <= 3,
+                "at {speed} u/tick a slide kept {slide} BAM/tick against a grip's \
+                 {grip}: expected three quarters of it"
+            );
+        }
     }
 
     #[test]
