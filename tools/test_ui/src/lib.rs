@@ -776,7 +776,10 @@ mod start_tests {
 /// arithmetic and is exactly where TASK-1203's bug lived.
 #[cfg(test)]
 mod car_geometry_tests {
-    use super::car_geometry::{make_quad, make_rect_at, twice_area, Rot};
+    use super::car_geometry::{
+        make_quad, make_rect_at, painted_twice_area, quad_covers_its_interior,
+        quad_tiles_its_interior, Rot,
+    };
 
     /// The eight cardinal headings plus four diagonals, in BAMs (1024 per
     /// quarter turn).
@@ -785,6 +788,26 @@ mod car_geometry_tests {
     /// The cockpit canopy, with the fixed length arguments from
     /// `car_renderer::render_car`.
     const CANOPY: (i32, i32, i32, i32) = (4, 5, 4, 7);
+
+    /// Every quad `render_car` builds, with the arguments it uses.
+    const CAR_PARTS: [(&str, i32, i32, i32, i32); 4] = [
+        ("shadow", 7, 8, 12, 12),
+        ("body", 6, 7, 12, 12),
+        ("stripe", 1, 1, 12, 12),
+        ("canopy", 4, 5, 4, 7),
+    ];
+
+    /// Every rectangle `render_car` builds: the four wheel pods and the wing.
+    const CAR_RECTS: [(&str, i32, i32, i32, i32); 5] = [
+        ("rear-left-wheel", -7, -6, 2, 4),
+        ("rear-right-wheel", 7, -6, 2, 4),
+        ("front-left-wheel", -7, 7, 2, 4),
+        ("front-right-wheel", 7, 7, 2, 4),
+        ("wing", 0, -11, 8, 2),
+    ];
+
+    /// All 64 headings, since the bug this guards is heading-dependent.
+    const ALL_HEADINGS: fn() -> Vec<u16> = || (0..4096).step_by(64).collect();
 
     #[test]
     fn the_cockpit_canopy_has_area_at_every_heading() {
@@ -799,56 +822,134 @@ mod car_geometry_tests {
                 l_rear,
                 Rot::from_bams(h),
             );
-            assert!(twice_area(&pts) > 0, "canopy collapsed at {h} BAM: {pts:?}");
+            assert!(
+                painted_twice_area(&pts) > 0,
+                "canopy collapsed at {h} BAM: {pts:?}"
+            );
         }
     }
 
-    /// The winding order is load-bearing: emitted bowtie-style, every quad was
-    /// a self-intersecting polygon, so the SPU filled a figure-of-eight instead
-    /// of the shape and the shoelace area summed to zero even for valid
-    /// dimensions.
+    /// The vertex order is load-bearing, and it is *Z* order: top-left,
+    /// top-right, bottom-left, bottom-right.
+    ///
+    /// The quad primitives rasterise as `tri(v0,v1,v2)` + `tri(v1,v2,v3)`, so
+    /// `v1` and `v2` have to be diagonally opposite corners. An earlier version
+    /// of this file asserted the opposite -- that the helpers emit a *perimeter*
+    /// traversal -- on the theory that the original ordering was a
+    /// self-intersecting bowtie. It was not, and "fixing" it that way left the
+    /// `v0` corner of every quad unpainted: a wedge of road showing through the
+    /// middle of each car. The shoelace assertions below all still passed,
+    /// because losing one corner triangle barely dents the signed sum.
     #[test]
-    fn vertices_are_emitted_in_perimeter_order_not_bowtie_order() {
-        let pts = make_quad(160, 120, 6, 7, 12, 12, Rot::from_bams(0));
-        // Every consecutive pair, including the closing edge, must share an
-        // edge of the quadrilateral rather than cutting across it: a bowtie
-        // pairs front-right with rear-left.
+    fn quads_are_emitted_in_z_order_so_v1_and_v2_are_diagonal() {
         // At 0 BAM the transform is x = cx + u, y = cy - v, so the nose sits at
         // the smaller y. A 12-wide nose over a 14-wide tail, 24 long.
-        let quad = [
-            (154, 108), // front-left
-            (166, 108), // front-right
-            (167, 132), // rear-right
-            (153, 132), // rear-left
-        ];
-        assert_eq!(pts, quad, "vertex order or positions changed");
+        let pts = make_quad(160, 120, 6, 7, 12, 12, Rot::from_bams(0));
+        assert_eq!(
+            pts,
+            [
+                (154, 108), // front-left  (v0)
+                (166, 108), // front-right (v1)
+                (153, 132), // rear-left   (v2) -- diagonally opposite v1
+                (167, 132), // rear-right  (v3)
+            ],
+            "vertex order or positions changed"
+        );
+        // The diagonal v1-v2 is what the primitive splits along, so it must be
+        // the long axis of the trapezoid, not one of its parallel sides.
+        assert!(
+            quad_tiles_its_interior(&pts) && quad_covers_its_interior(&pts),
+            "the quad primitive would leave part of the trapezoid unpainted"
+        );
         // Trapezoid rule: parallel sides 12 and 14, height 24.
         assert_eq!(
-            twice_area(&pts),
+            painted_twice_area(&pts),
             2 * ((12 + 14) * 24 / 2),
             "the trapezoid must enclose its own area"
         );
     }
 
     #[test]
-    fn rectangles_are_emitted_in_perimeter_order() {
+    fn rectangles_are_emitted_in_z_order() {
         let pts = make_rect_at(160, 120, 0, -11, 8, 2, Rot::from_bams(0));
-        assert_eq!(pts, [(152, 129), (168, 129), (168, 133), (152, 133)]);
-        assert_eq!(twice_area(&pts), 2 * 16 * 4);
+        assert_eq!(pts, [(152, 129), (168, 129), (152, 133), (168, 133)]);
+        assert!(quad_tiles_its_interior(&pts) && quad_covers_its_interior(&pts));
+        assert_eq!(painted_twice_area(&pts), 2 * 16 * 4);
+    }
+
+    /// The regression test for the missing flank: every quad the car draws must
+    /// be *completely* covered by the two triangles the primitive emits, at
+    /// every one of the 64 headings. Area alone does not detect this.
+    #[test]
+    fn no_quad_leaves_part_of_itself_unpainted_at_any_heading() {
+        for (name, w_front, w_rear, l_front, l_rear) in CAR_PARTS {
+            for h in ALL_HEADINGS() {
+                let pts = make_quad(
+                    160,
+                    120,
+                    w_front,
+                    w_rear,
+                    l_front,
+                    l_rear,
+                    Rot::from_bams(h),
+                );
+                assert!(
+                    quad_tiles_its_interior(&pts) && quad_covers_its_interior(&pts),
+                    "{name} at {h} BAM is not fully covered by the quad split: {pts:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_rectangle_leaves_part_of_itself_unpainted_at_any_heading() {
+        for (name, cu, cv, half_w, half_l) in CAR_RECTS {
+            for h in ALL_HEADINGS() {
+                let pts = make_rect_at(160, 120, cu, cv, half_w, half_l, Rot::from_bams(h));
+                assert!(
+                    quad_tiles_its_interior(&pts) && quad_covers_its_interior(&pts),
+                    "{name} at {h} BAM is not fully covered by the quad split: {pts:?}"
+                );
+            }
+        }
+    }
+
+    /// Both checks have to actually reject the bad ordering, or the two tests
+    /// above are vacuous.
+    #[test]
+    fn the_coverage_checks_reject_perimeter_order() {
+        let z = [(154, 108), (166, 108), (153, 132), (167, 132)];
+        assert!(quad_tiles_its_interior(&z));
+        assert!(quad_covers_its_interior(&z));
+        // Same four corners, traversed around the perimeter instead:
+        // TL, TR, BR, BL. This is the ordering that put a hole through the car.
+        let perimeter = [z[0], z[1], z[3], z[2]];
+        assert!(
+            !quad_tiles_its_interior(&perimeter),
+            "the orientation check must reject perimeter order, or it proves nothing"
+        );
+        assert!(
+            !quad_covers_its_interior(&perimeter),
+            "the coverage check must reject perimeter order, or it proves nothing"
+        );
+        // Documented blind spot, and the reason the coverage checks above are
+        // the ones that gate: *every* area measure is identical for the two
+        // orderings. Perimeter order trades an overlap for a gap of the same
+        // size, so the painted total is unchanged and the old `twice_area`
+        // assertions sailed straight over a body with a hole in it.
+        assert_eq!(painted_twice_area(&z), painted_twice_area(&perimeter));
+        // What is pinned instead is the full trapezoid, which the Z ordering
+        // tiles exactly.
+        assert_eq!(
+            painted_twice_area(&z),
+            2 * ((12 + 14) * 24 / 2),
+            "a correct Z-ordered quad paints exactly the trapezoid"
+        );
     }
 
     #[test]
     fn every_rendered_car_part_has_area_at_every_heading() {
-        // The drop shadow, body, left stripe and canopy as `render_car` calls
-        // them. A zero-area part is invisible; the audit found one and nothing
-        // complained.
-        let parts: [(&str, i32, i32, i32, i32); 4] = [
-            ("shadow", 7, 8, 12, 12),
-            ("body", 6, 7, 12, 12),
-            ("stripe", 1, 1, 12, 12),
-            ("canopy", 4, 5, 4, 7),
-        ];
-        for (name, w_front, w_rear, l_front, l_rear) in parts {
+        for (name, w_front, w_rear, l_front, l_rear) in CAR_PARTS {
             for h in HEADINGS {
                 let pts = make_quad(
                     160,
@@ -859,17 +960,19 @@ mod car_geometry_tests {
                     l_rear,
                     Rot::from_bams(h),
                 );
-                assert!(twice_area(&pts) > 0, "{name} collapsed at {h} BAM: {pts:?}");
+                assert!(
+                    painted_twice_area(&pts) > 0,
+                    "{name} collapsed at {h} BAM: {pts:?}"
+                );
             }
         }
     }
 
     #[test]
     fn rectangles_have_area_at_every_heading() {
-        // `make_rect_at` is used for the spoiler wing and the wheel pods.
         for h in HEADINGS {
             let wing = make_rect_at(160, 120, 0, -11, 8, 2, Rot::from_bams(h));
-            assert!(twice_area(&wing) > 0, "wing collapsed at {h} BAM");
+            assert!(painted_twice_area(&wing) > 0, "wing collapsed at {h} BAM");
         }
     }
 
@@ -877,9 +980,9 @@ mod car_geometry_tests {
     fn a_rotated_part_keeps_its_area_across_headings() {
         // Rotation must not change the area: a heading-dependent silhouette
         // would mean the fixed-point transform is scaling rather than rotating.
-        let reference = twice_area(&make_quad(160, 120, 6, 7, 12, 12, Rot::from_bams(0)));
+        let reference = painted_twice_area(&make_quad(160, 120, 6, 7, 12, 12, Rot::from_bams(0)));
         for h in HEADINGS {
-            let area = twice_area(&make_quad(160, 120, 6, 7, 12, 12, Rot::from_bams(h)));
+            let area = painted_twice_area(&make_quad(160, 120, 6, 7, 12, 12, Rot::from_bams(h)));
             // Q20.12 truncation costs a little, and 45-degree headings trade one
             // axis for the other, so allow a few percent.
             let slack: i64 = reference / 20 + 8;
@@ -2209,5 +2312,110 @@ mod texture_pipeline_tests {
     #[test]
     fn the_minimap_inner_area_is_the_documented_size() {
         assert_eq!(MINIMAP_INNER, 48, "the 56x56 panel has a 48px inner area");
+    }
+}
+
+/// TASK-1215: the pause menu never appeared.
+///
+/// The paused arm of the race loop `continue`d before reaching step 5 of the
+/// frame, so the veil was rasterised into the back buffer and no display flip
+/// was ever queued for it. The panel drew correctly; it just was never shown.
+///
+/// This cannot be caught by driving the input state machine, which is exactly
+/// what the pause tests above do and why they all passed. What went wrong is the
+/// *frame* the menu is presented in. So this pins the structural property that
+/// would have caught it: every `continue` in the main loop has to close its own
+/// frame, because nothing after it will.
+#[cfg(test)]
+mod frame_close_tests {
+    /// `game/src/main.rs`, as text.
+    const MAIN_SRC: &str = include_str!("../../../game/src/main.rs");
+
+    /// `continue` statements that skip the rest of the frame body.
+    fn early_exits() -> Vec<usize> {
+        MAIN_SRC
+            .lines()
+            .enumerate()
+            .filter(|(_, l)| {
+                let t = l.trim();
+                t.starts_with("continue;") && !t.starts_with("//") && !t.starts_with("///")
+            })
+            .map(|(i, _)| i + 1)
+            .collect()
+    }
+
+    /// Byte offsets of the loop's own `close_frame()` call: the last one in the
+    /// file, since the method is *defined* after the loop.
+    fn loop_close_offset() -> usize {
+        MAIN_SRC
+            .rfind("self.close_frame();")
+            .expect("close_frame must be called from the loop body")
+    }
+
+    #[test]
+    fn the_loop_closes_its_own_frame_last() {
+        // The premise of the other two tests: the loop's frame close is its
+        // final statement, so an early exit above it bypasses the close.
+        let close = loop_close_offset();
+        assert!(
+            MAIN_SRC[close..].contains("}\n    }\n}\n")
+                || MAIN_SRC[close..].trim_end().ends_with('}'),
+            "expected close_frame() to be the loop's last statement"
+        );
+    }
+
+    #[test]
+    fn every_early_exit_closes_its_own_frame_before_continuing() {
+        // The real invariant, and the one that bites: a `continue` has to have
+        // closed its own frame on the way, because nothing after it will.
+        for line in early_exits() {
+            let byte = MAIN_SRC
+                .lines()
+                .take(line - 1)
+                .map(|l| format!("{l}\n"))
+                .collect::<String>()
+                .len();
+            // Walk back to the start of the racing arm: that is the block this
+            // `continue` exits, and everything above it is a different path.
+            let arm = MAIN_SRC[..byte].rfind("GameState::Racing =>").unwrap_or(0);
+            let on_this_path = &MAIN_SRC[arm..byte];
+            assert!(
+                on_this_path.rfind("self.close_frame()").is_some(),
+                "the `continue` at main.rs:{line} has no close_frame() before it \
+                 in the racing arm, so the frame it drew is never flipped"
+            );
+        }
+    }
+
+    #[test]
+    fn an_early_exit_before_the_loop_close_is_the_pause_veil() {
+        // Both facts together, in the shape the bug had: an early exit above the
+        // loop's close, with its own close_frame() on the way out. If the loop
+        // is restructured so an early exit no longer needs its own close, this
+        // test should be deleted deliberately rather than left to rot.
+        let close = loop_close_offset();
+        for line in early_exits() {
+            let byte = MAIN_SRC
+                .lines()
+                .take(line - 1)
+                .map(|l| format!("{l}\n"))
+                .collect::<String>()
+                .len();
+            assert!(
+                byte < close,
+                "the `continue` at main.rs:{line} is after the loop's frame close"
+            );
+        }
+    }
+
+    #[test]
+    fn there_is_at_least_one_early_exit_to_check() {
+        // If the loop is restructured and `continue` no longer appears, these
+        // tests would all pass vacuously. Fail loudly instead.
+        assert!(
+            !early_exits().is_empty(),
+            "no `continue` found in main.rs -- if the loop was restructured, \
+             revisit this test rather than letting it pass trivially"
+        );
     }
 }
