@@ -1,6 +1,6 @@
 //! Per-cup environment palettes, and the 15-bit quantisation they must survive.
 //!
-//! Hardware-free so `tools/test_ui` can check it; `tile_blitter.rs` draws
+//! Hardware-free so `tools/test_ui` can check it; the track renderer draws
 //! through `psx_gpu` and cannot be linked on the host.
 //!
 //! This split exists because of TASK-1205: VRAM stores colour as 5 bits per

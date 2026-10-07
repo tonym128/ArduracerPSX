@@ -25,6 +25,7 @@ pub mod timing;
 pub mod track;
 pub mod tuning;
 pub mod vehicle;
+pub mod visual_tex;
 
 pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
 pub use ai_profiles::{AiProfile, AI_PROFILES};

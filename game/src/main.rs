@@ -25,8 +25,8 @@ use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
-    bake_minimap, render_car, render_hud, render_track, Camera, ParticleSystem, SkidmarkBuffer,
-    TextureSlot,
+    bake_minimap, init_track_texture, render_car, render_hud, render_track, Camera, ParticleSystem,
+    SkidmarkBuffer, TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -166,6 +166,7 @@ impl ArduracerGame {
         // The boot track never goes through `load_track`, so bake its minimap
         // here or the HUD would blit an empty texture until the first load.
         bake_minimap(&game.minimap_texture, game.current_track);
+        init_track_texture();
         game
     }
 
@@ -179,6 +180,11 @@ impl ArduracerGame {
         // Re-bake the minimap for the new circuit. Once per load: the image is
         // static for the whole race, so this must not be per-frame (TASK-1202).
         bake_minimap(&self.minimap_texture, self.current_track);
+        // Upload the per-pixel circuit visual to VRAM. Same cadence as the
+        // minimap bake and the same reason: the image cannot change while the
+        // circuit does not, and the upload is a FIFO transfer of ~147k words,
+        // so it must be a per-load cost rather than a per-frame one.
+        init_track_texture();
 
         // Play the CD-DA theme corresponding to the active cup:
         // Cup 1 (Tracks 1-6) -> CD-DA Track 3 ("Asphalt Adrenaline" Eurobeat)
