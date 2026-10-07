@@ -442,6 +442,22 @@ impl ArduracerGame {
                         // Repaint the frozen world under the pause veil.
                         self.draw_frozen_race();
                         self.pause.render();
+                        // This arm `continue`s, so it has to close its own frame.
+                        // Step 5 sits at the bottom of the loop, *after* this
+                        // `continue`: without this call the veil was rasterised
+                        // into the back buffer and never presented, so the screen
+                        // kept showing the last racing frame and the pause menu
+                        // was invisible (TASK-1215).
+                        //
+                        // The memory-card notice is redrawn here as well. It is
+                        // normally step 4, which this arm also skips, and a save
+                        // that failed mid-race has to stay on screen while the
+                        // game is paused.
+                        self.memcard.tick_notice();
+                        if let Some(status) = self.memcard.notice() {
+                            render_card_notice(status);
+                        }
+                        self.close_frame();
                         continue;
                     }
 
@@ -699,22 +715,33 @@ impl ArduracerGame {
             }
 
             // 5. Close the frame and queue the flip for the next VBlank.
-            //
-            //    The old loop was a bare `wait_vblank(); fb.swap()`, and
-            //    `FrameBuffer::swap` writes its three GP0 words with no
-            //    `wait_cmd_ready()`. If the 256-word command FIFO was full those
-            //    words were dropped and the draw area stayed pointed at the
-            //    previous buffer; nothing also stopped frame N+1 being submitted
-            //    while VBlank flipped to it, collapsing the double buffer to a
-            //    one-deep queue (TASK-1201).
-            //
-            //    GP0(1Fh) closes the command stream, and the VBlank handler
-            //    applies the display-start word only once the GPU has reached
-            //    that flag -- so the flip cannot land on a half-drawn frame.
-            psx_gpu_mod::signal_draw_done();
-            let flip = self.fb.begin_deferred_swap();
-            psx_rt::interrupts::queue_gp1_at_vblank(flip);
+            self.close_frame();
         }
+    }
+
+    /// Ends the frame: closes the GP0 command stream and queues the display flip
+    /// for the next VBlank.
+    ///
+    /// Split out of the loop body because the pause arm `continue`s before
+    /// reaching it, and a frame that is never flipped is never seen. That was
+    /// the whole of the pause menu's disappearance: `draw_frozen_race` and
+    /// `PauseMenu::render` both ran correctly, into a back buffer nothing ever
+    /// presented.
+    ///
+    /// The old loop was a bare `wait_vblank(); fb.swap()`, and
+    /// `FrameBuffer::swap` writes its three GP0 words with no
+    /// `wait_cmd_ready()`. If the 256-word command FIFO was full those words
+    /// were dropped and the draw area stayed pointed at the previous buffer;
+    /// nothing also stopped frame N+1 being submitted while VBlank flipped to
+    /// it, collapsing the double buffer to a one-deep queue (TASK-1201).
+    ///
+    /// GP0(1Fh) closes the command stream, and the VBlank handler applies the
+    /// display-start word only once the GPU has reached that flag -- so the flip
+    /// cannot land on a half-drawn frame.
+    fn close_frame(&mut self) {
+        psx_gpu_mod::signal_draw_done();
+        let flip = self.fb.begin_deferred_swap();
+        psx_rt::interrupts::queue_gp1_at_vblank(flip);
     }
 }
 

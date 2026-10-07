@@ -181,12 +181,22 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
     // Ensure intro audio voice is stopped
     Voice::key_off(VOICE_INTRO.mask());
 
-    // The engine loop starts *silent* and stays keyed on. It is deliberately
-    // not keyed off here: `EngineAudio::silence` writes a zero volume, and
-    // re-keying it every time a race starts would restart the ADPCM decoder
-    // mid-sample and click. `AudioSystem::tick` is the only writer of a
-    // non-zero engine volume, and it only runs while the policy allows.
+    // The engine loop is a *continuous* voice: it has to be keyed on for the
+    // hardware to decode it at all, and it stays keyed on for the whole run.
+    //
+    // It is keyed on here, silent, rather than on entering a race. Volume, not
+    // key state, is what `EngineAudio` manages -- `silence` writes a zero
+    // volume -- so re-keying per race would restart the ADPCM decoder
+    // mid-sample and click on every restart. Keying on once at boot and
+    // leaving it running means the policy alone decides whether the engine is
+    // audible.
+    //
+    // This line was deleted when the policy gate was introduced, leaving the
+    // comment above it describing a state the code never entered: nothing ever
+    // keyed voice 0 on, so the engine was inaudible for the entire race. Writing
+    // the volume alone does not start a voice (TASK-1215).
     VOICE_ENGINE.set_volume(Volume::SILENCE, Volume::SILENCE);
+    Voice::key_on(VOICE_ENGINE.mask());
 
     SpuSoundbankAddrs {
         engine_addr,

@@ -382,3 +382,80 @@ mod engine_pitch_tests {
         assert!(fits(MAX_ENGINE_PITCH, 0x0FFF));
     }
 }
+
+/// TASK-1215: the engine was inaudible for the whole race.
+///
+/// `init_spu_soundbank` gained a comment saying the engine loop "stays keyed
+/// on" in the same commit that *deleted* the `Voice::key_on` call it was
+/// describing. Key state and volume are independent on the SPU: a voice that
+/// has never been keyed on is never decoded, so writing a volume register to it
+/// produces nothing. Every test in this file still passed, because the policy
+/// decides only *whether the engine should sound*, and it said yes throughout
+/// the race -- into a voice the hardware was not playing.
+///
+/// These are source-level assertions. The bug was not a policy decision, it was
+/// a missing MMIO write that no amount of policy testing can reach, so the only
+/// honest place to pin it is the file that makes the write.
+#[cfg(test)]
+mod engine_key_state_tests {
+    /// `game/src/audio/spu.rs`, as text.
+    const SPU_SRC: &str = include_str!("../../../game/src/audio/spu.rs");
+
+    #[test]
+    fn the_engine_voice_is_keyed_on_at_init() {
+        assert!(
+            SPU_SRC.contains("Voice::key_on(VOICE_ENGINE.mask())"),
+            "the engine loop must be keyed on at init: an ADPCM voice that is \
+             never keyed on is never decoded, so its volume register has no \
+             effect and the engine is silent for the entire race"
+        );
+    }
+
+    #[test]
+    fn the_engine_is_not_keyed_on_or_off_per_frame() {
+        // Arming belongs at init. Re-keying a loop restarts its ADPCM decoder
+        // mid-sample and clicks, so `key_on`/`key_off` for the engine must not
+        // appear in the per-frame path -- only the one call at init.
+        let on = SPU_SRC.matches("Voice::key_on(VOICE_ENGINE.mask())").count();
+        assert_eq!(on, 1, "the engine must be armed exactly once, at init");
+        assert!(
+            !SPU_SRC.contains("Voice::key_off(VOICE_ENGINE.mask())"),
+            "the engine must never be keyed off: silence is expressed as zero \
+             volume so the decoder keeps its phase and restarting is click-free"
+        );
+    }
+
+    /// The SPU init is where a *continuous* voice has to be armed. The skid and
+    /// curb loops are different: they start and stop with the drift state
+    /// machine in `sfx.rs`, which is correct for them and is why arming them
+    /// here would be wrong. This test pins that division of labour, so the next
+    /// looping voice added has to decide which side of it it belongs on instead
+    /// of defaulting to whichever pattern it copied.
+    #[test]
+    fn only_the_engine_is_a_continuously_armed_loop() {
+        let sfx = include_str!("../../../game/src/audio/sfx.rs");
+        // The drift state machine owns these two, both ways.
+        for voice in ["VOICE_SKID", "VOICE_CURB"] {
+            assert!(
+                sfx.contains(&format!("Voice::key_on({voice}.mask())"))
+                    && sfx.contains(&format!("Voice::key_off({voice}.mask())")),
+                "{voice} is keyed on and off by the drift state machine"
+            );
+            assert!(
+                !SPU_SRC.contains(&format!("Voice::key_on({voice}.mask())")),
+                "{voice} must not also be armed at init: it would then run \
+                 silently under the state machine for the whole race"
+            );
+        }
+        // The engine is the opposite case, and the one this bug was about.
+        assert!(
+            SPU_SRC.contains("Voice::key_on(VOICE_ENGINE.mask())"),
+            "the engine is continuous, so init is the only place it can be armed"
+        );
+        assert!(
+            !sfx.contains("VOICE_ENGINE"),
+            "the per-frame SFX path must not touch the engine volume: \
+             AudioSystem::tick owns it, behind the policy gate"
+        );
+    }
+}
