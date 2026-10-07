@@ -24,7 +24,7 @@ graph TD
         AUD[Audio Assets<br/>WAV / MP3] -->|tools/audio_cook| VAG[SPU ADPCM .vag<br/>CD-DA .cdda]
         VID[Cinematics<br/>MP4] -->|tools/encode_mdec| STR[MDEC Stream<br/>.STR]
         
-        COOK[tools/track_cook/convert_levels.py<br/>FX CSV + Super Stage Cookbook<br/>Validates gates & surfaces]
+        COOK[tools/track_cook/build_atlas.py<br/>Authored circuit images in tracks/*.png<br/>Validates gates & surfaces]
         CORE[crates/arduracer-core<br/>Pure #![no_std] Game Engine<br/>Physics, Collision, Timing, AI, Saves]
         TEST[tools/test_game_logic<br/>Host Test Suite<br/>Sweeps, Fuzzers, Bit-flip Verification]
         PLAY[tools/playtest<br/>Circuit Playability Verifier<br/>Simulates real laps on all 24 tracks]
@@ -87,13 +87,17 @@ graph TD
     actually playable" defects; run it with `make playtest`.
   - `--render` dumps every circuit as ASCII for geometry review.
   - `--calibrate` re-measures reference laps and rewrites
-    `tools/track_cook/par_calibration.json` (`make calibrate-tracks`).
+    `tools/track_cook/par_calibration.json` (`make atlas-and-calibrate`, which
+    then folds the table into `levels.rs`).
 - **`tools/`**:
   - Asset cooking scripts and CLI tools (track compiler, VAG audio compiler, MDEC movie encoder, disc masterer).
-  - `tools/track_cook/convert_levels.py` is the **single source of truth** for
-    `crates/arduracer-core/src/levels.rs`. Never hand-edit that file: the cooker
-    fails the build on an unreachable gate, an off-road gate, or a start box
-    outside the racing surface.
+  - `tools/track_cook/build_atlas.py` is the **single source of truth** for
+    `crates/arduracer-core/src/levels.rs` and `visual_tex.rs`, compiled from the
+    authored circuit images in `tracks/`. Never hand-edit those files: run
+    `make atlas`, which validates every circuit first and refuses to emit on an
+    unreachable gate, an off-road gate, or a start box outside the racing
+    surface. `make circuits` redraws the images from
+    `tools/track_cook/generate_svg_circuit.py`.
 
 ---
 

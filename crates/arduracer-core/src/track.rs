@@ -5,7 +5,7 @@
 //! checkpoint array, and the par times used for medal evaluation.
 //!
 //! Tile *surfaces* (rather than raw level-art indices) are baked by
-//! `tools/track_cook/convert_levels.py` so that collision, rendering, audio and
+//! `tools/track_cook/build_atlas.py` so that collision, rendering, audio and
 //! the AI all agree on what a tile means without duplicating lookup tables.
 
 use crate::ai::heading_towards;

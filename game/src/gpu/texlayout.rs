@@ -48,50 +48,53 @@ pub const TRACK_PAGE_TEXELS: u16 = 256;
 /// A page spans 64 rows of VRAM halfwords.
 pub const TRACK_PAGE_COLS: u16 = 64;
 
-/// The world visual is 768x768 texels, or 3 x 3 of 256x256 pages.
-pub const TRACK_TEX_W: u16 = 768;
-pub const TRACK_TEX_H: u16 = 768;
-
-/// VRAM band 1 of the world visual: x 320..512, y 0..512.
+/// The world visual is 320x320 texels, or 2 x 2 of 256x256 pages of which the
+/// far row and column are only 64 texels deep.
 ///
-/// Holds source rows 0..=511, all 192 halfword columns. `768 texels = 192
-/// halfwords`, so one source row is exactly 384 bytes and a band row is the
-/// same 384 bytes: the upload is one contiguous rect.
+/// 320 rather than a multiple of 256 because it is `GRID * VISUAL_PX` for an
+/// 80-cell grid at 4 px/cell, and that is the largest multiple of 4 the RAM
+/// budget affords once there is one texture per circuit: four of them are
+/// `4 * 320 * 320 / 2` = 205 KB in `.rodata`, where four at 768 square would be
+/// 1.15 MB against a ceiling of under a megabyte.
+pub const TRACK_TEX_W: u16 = 320;
+pub const TRACK_TEX_H: u16 = 320;
+
+/// VRAM band for the world visual: x 320..400, y 0..320.
+///
+/// **One** band, not two. The previous 768-row image needed three 256-row page
+/// stripes against VRAM's 512 rows, so the third stripe had to be folded down
+/// beside the first two and `tracktex` had to know the fold. 320 rows fit inside
+/// 512 outright, so the fold is gone: one rect, one `upload_bytes`, one address
+/// calculation.
+///
+/// Width is 80 halfwords (`320 texels / 4 per halfword`), which straddles two
+/// 64-halfword pages: page column 0 at x 320 and page column 1 at x 384. The
+/// band ends at 400, so page column 1 is only 16 halfwords wide -- which is
+/// exactly the 64 texels of the image that live there, and the rest of that
+/// page is left as whatever VRAM held.
 pub const TRACK_BAND1_X: u16 = 320;
 pub const TRACK_BAND1_Y: u16 = 0;
-pub const TRACK_BAND1_W: u16 = 192;
-pub const TRACK_BAND1_H: u16 = 512;
-
-/// VRAM band 2 of the world visual: x 512..704, y 0..256.
-///
-/// The 768-row source needs three 256-row page stripes, but VRAM is only
-/// 512 rows tall, so the third stripe is folded down next to the first two
-/// -- pages (0..2, 2) of the 3x3 page grid live here at page-y 0.
-///
-/// Why not a single 192-wide band running 768 rows? VRAM is 512 rows: a
-/// texture cannot overflow the VRAM frame, and a 4bpp page never wraps its
-/// V coordinate (it is 8-bit and the page is 256 rows tall), so rows past
-/// 512 would be unreachable.
-pub const TRACK_BAND2_X: u16 = 512;
-pub const TRACK_BAND2_Y: u16 = 0;
-pub const TRACK_BAND2_W: u16 = 192;
-pub const TRACK_BAND2_H: u16 = 256;
+pub const TRACK_BAND1_W: u16 = 80;
+pub const TRACK_BAND1_H: u16 = 320;
 
 /// Where the 16-entry level-palette CLUT lives. 16 halfwords at 15 bits.
 pub const TRACK_CLUT_X: u16 = 704;
 pub const TRACK_CLUT_Y: u16 = 64;
 
-/// Bytes the whole world visual costs in VRAM: 768*768 texels at half a
-/// byte each, split between the two bands.
-pub const TRACK_TEX_BYTES: usize = 768 * 768 / 2;
+/// Bytes one circuit's world visual costs in VRAM: 320*320 texels at half a
+/// byte each. Uploaded on track load, so only the active circuit's is resident.
+pub const TRACK_TEX_BYTES: usize = 320 * 320 / 2;
 
-/// World units per visual texel: the 3072-unit world resampled to 768 texels.
+/// World units per visual texel: the 2560-unit world resampled to 320 texels.
 ///
-/// At rest zoom the screen shows the world 1:1 (a world unit is a screen
-/// pixel), so a texel is a 4-by-4 patch of screen -- the track reads as
-/// smooth but slightly soft in up close, and the kerb/racing-line painting
-/// keeps it from looking flat.
-pub const TRACK_WU_PER_TEXEL: u16 = 4;
+/// 8, up from 4, and that is the direct cost of shrinking the world while
+/// shrinking the texture to match. At rest zoom the screen shows the world 1:1
+/// (a world unit is a screen pixel), so a texel is an 8-by-8 patch of screen:
+/// the track still reads as a track, with softer edges up close than before.
+/// The road is 6 cells across, i.e. 24 texels, and the kerb is nearly 3, so
+/// both survive the drop -- what is lost is anti-aliasing, on a palette that
+/// has sixteen flat colours for it to quantise to anyway.
+pub const TRACK_WU_PER_TEXEL: u16 = 8;
 
 /// Quantises an 8-bit RGB triple to the VRAM word `BBBBBGGGGGRRRRR`.
 ///
@@ -157,28 +160,27 @@ const _: () = assert!(
 );
 const _: () = assert!(MAX_DIM as usize * MAX_DIM as usize * 2 == SLOT_BYTES);
 
-// Track texture bands must not touch the framebuffers (x >= SCREEN_W, since
-// the bands start at 320 the horizontal check is sufficient for band 1).
-const _: () = assert!(TRACK_BAND1_X >= SCREEN_W, "band 1 touches a framebuffer");
-const _: () = assert!(TRACK_BAND2_X >= SCREEN_W, "band 2 touches a framebuffer");
+// The track texture band must not touch the framebuffers (x >= SCREEN_W, and it
+// starts at 320 so the horizontal check is sufficient).
+const _: () = assert!(
+    TRACK_BAND1_X >= SCREEN_W,
+    "track band touches a framebuffer"
+);
 const _: () = assert!(
     TRACK_BAND1_X + TRACK_BAND1_W <= 1024 && TRACK_BAND1_Y + TRACK_BAND1_H <= 512,
-    "band 1 overflows VRAM"
+    "track band overflows VRAM"
 );
+// One band is enough only while the image is no taller than VRAM. This is the
+// assertion that failed when the image grew past 512 rows and needed a fold; it
+// is here so the next growth says so at compile time instead of at 30 fps.
 const _: () = assert!(
-    TRACK_BAND2_X + TRACK_BAND2_W <= 1024 && TRACK_BAND2_Y + TRACK_BAND2_H <= 512,
-    "band 2 overflows VRAM"
+    TRACK_TEX_H <= 512,
+    "the track visual is taller than VRAM and needs a band fold again"
 );
-// The bands cannot be one rect: VRAM is 512 rows, the source is 768.
-const _: () = assert!(TRACK_TEX_H > 512, "the two-band split is stale");
-// Band 1 must not run into band 2 or the minimap strip.
+// The band must stay clear of the minimap strip.
 const _: () = assert!(
-    TRACK_BAND1_X + TRACK_BAND1_W <= TRACK_BAND2_X,
-    "band 1 overlaps band 2"
-);
-const _: () = assert!(
-    TRACK_BAND2_X + TRACK_BAND2_W <= TEXTURE_X,
-    "band 2 overlaps the minimap slot"
+    TRACK_BAND1_X + TRACK_BAND1_W <= TEXTURE_X,
+    "the track band overlaps the minimap slot"
 );
 // CLUT below the minimap slot, inside the same 64-column strip.
 const _: () = assert!(TRACK_CLUT_X == TEXTURE_X, "CLUT and minimap diverged");
@@ -186,12 +188,13 @@ const _: () = assert!(
     TRACK_CLUT_Y >= TEXTURE_Y + MAX_DIM,
     "the CLUT row sits inside the minimap slot"
 );
-// Upload sizes: each band row is exactly one source row of 384 bytes, and the
-// byte totals must add up to the whole image.
-const _: () = assert!(TRACK_TEX_W as usize / 2 == TRACK_BAND1_W as usize * 2);
+// Upload sizing: the band must be exactly one source row tall and as wide as the
+// whole image, or `upload_bytes`'s "byte count must be exactly 2 x w x h" assert
+// fires at runtime on the first track load rather than here. The band is in
+// halfword columns and the visual is 4bpp, so four texels per halfword.
+const _: () = assert!(TRACK_BAND1_W as usize * 4 == TRACK_TEX_W as usize);
+const _: () = assert!(TRACK_BAND1_H == TRACK_TEX_H);
 const _: () = assert!(
-    TRACK_BAND1_W as usize * TRACK_BAND1_H as usize * 2
-        + TRACK_BAND2_W as usize * TRACK_BAND2_H as usize * 2
-        == TRACK_TEX_BYTES,
-    "the two bands do not tile the whole visual"
+    TRACK_BAND1_W as usize * TRACK_BAND1_H as usize * 2 == TRACK_TEX_BYTES,
+    "the band does not cover the whole visual"
 );

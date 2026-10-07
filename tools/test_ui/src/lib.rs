@@ -554,6 +554,80 @@ mod camera_tests {
         assert!(sx < 0, "car should sit left of centre, got {sx}");
     }
 
+    /// The camera position must keep sub-unit precision while it is free to
+    /// move.
+    ///
+    /// `clamp_to_bounds` used to round-trip through `to_int()`, quantising the
+    /// camera to whole world units every frame whether or not the clamp was
+    /// active. A world unit is a screen pixel at rest zoom and the camera covers
+    /// several units per frame at speed, so the camera advanced in whole-pixel
+    /// steps while the car moved smoothly -- the car's screen position juddered
+    /// by a pixel every frame. That is the "clunky stage movement" this guards.
+    #[test]
+    fn camera_position_is_not_quantised_to_world_units() {
+        let mut cam = Camera::new(Vec2::new(Fixed::from_int(50_000), Fixed::from_int(50_000)));
+        // A car driving steadily in a world big enough that no clamp can bite.
+        let mut car = cam.pos;
+        let mut off_unit_ticks = 0;
+        for _ in 0..600 {
+            car.x = car.x + Fixed::from_int(4);
+            cam.update(
+                car,
+                Vec2::new(Fixed::from_int(4), Fixed::ZERO),
+                Fixed::from_int(240),
+                BIG.0,
+                BIG.1,
+            );
+            if cam.pos.x.raw() % FP_ONE != 0 {
+                off_unit_ticks += 1;
+            }
+        }
+        assert!(
+            off_unit_ticks > 300,
+            "camera position snapped to whole world units on {} of 600 ticks",
+            600 - off_unit_ticks
+        );
+    }
+
+    /// The look-ahead direction must not follow tyre noise.
+    ///
+    /// Below walking pace the velocity vector points at whatever the tyres last
+    /// did, and the lead is long enough that chasing it swings the camera target
+    /// by the full lead distance. A car idling must hold still instead.
+    #[test]
+    fn low_speed_vehicle_noise_does_not_move_the_camera() {
+        let mut cam = Camera::new(Vec2::new(Fixed::from_int(50_000), Fixed::from_int(50_000)));
+        // Let the lead settle first, then start jittering.
+        for _ in 0..120 {
+            cam.update(
+                cam.pos,
+                Vec2::new(Fixed::from_int(30), Fixed::ZERO),
+                Fixed::from_int(1_000),
+                BIG.0,
+                BIG.1,
+            );
+        }
+        let settled = cam.pos;
+
+        // Alternating steering corrections at crawling speed: nonzero velocity,
+        // so the old code followed it and flipped the lead direction each tick.
+        for tick in 0..120 {
+            let sign = if tick % 2 == 0 { 1 } else { -1 };
+            cam.update(
+                settled,
+                Vec2::new(Fixed::from_int(40 * sign), Fixed::from_int(40 * sign)),
+                Fixed::from_int(600),
+                BIG.0,
+                BIG.1,
+            );
+        }
+        let (dx, _) = cam.world_offset(settled);
+        assert_eq!(
+            dx, 0,
+            "creeping-speed noise moved the camera {dx} px off the car"
+        );
+    }
+
     /// At a standstill there is no velocity to derive a lead from, but the car
     /// must still not sit dead centre.
     #[test]

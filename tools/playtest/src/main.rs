@@ -9,7 +9,7 @@
 //! * checkpoints are reachable and ordered along the racing line.
 //!
 //! It also emits `tools/track_cook/par_calibration.json`, the par-time table
-//! consumed by `convert_levels.py`, so medal targets stay achievable instead of
+//! consumed by `build_atlas.py`, so medal targets stay achievable instead of
 //! being aspirational numbers inherited from the 8-bit original.
 //!
 //! # Par-time drift is a failure
@@ -22,8 +22,8 @@
 //!
 //! The escape hatch is the recalibration workflow itself: `--calibrate`
 //! rewrites `tools/track_cook/par_calibration.json` from the fresh
-//! measurements (and `make calibrate-tracks` then regenerates `levels.rs`), so
-//! a `--calibrate` run never fails on the drift it is about to fix.
+//! measurements (and `make atlas-and-calibrate` then regenerates `levels.rs`),
+//! so a `--calibrate` run never fails on the drift it is about to fix.
 //! `--allow-par-drift` prints the drift without failing, for the window between
 //! landing a physics change and re-committing the recalibrated table. Neither is
 //! used by CI: `make playtest` runs with the strict default.
@@ -263,7 +263,7 @@ fn par_drift(track: &TrackDef, dev: u32, gold: u32, silver: u32, bronze: u32) ->
         return None;
     }
     Some(format!(
-        "{}: par table is stale ({}); run `make calibrate-tracks`",
+        "{}: par table is stale ({}); run `make atlas-and-calibrate`",
         track.name,
         mismatched.join(", ")
     ))
@@ -537,9 +537,11 @@ fn main() {
             println!("       (--allow-par-drift: reported only, not failed)");
         } else if calibrate {
             println!("       (--calibrate: par_calibration.json has been rewritten from these");
-            println!("        measurements. Run `make calibrate-tracks` to regenerate levels.rs.)");
+            println!(
+                "        measurements. Run `make atlas-and-calibrate` to regenerate levels.rs."
+            );
         } else {
-            println!("       Fix with: make calibrate-tracks");
+            println!("       Fix with: make atlas-and-calibrate");
         }
     }
     println!("       (def_s = default tune reference lap, tuned_s = best swept tuning)");
@@ -562,7 +564,7 @@ fn main() {
                 "  \"_generated_by\": \"cargo run --manifest-path tools/playtest/Cargo.toml ",
                 "--release -- --calibrate\",\n",
                 "  \"_note\": \"Lap measurements from the real arduracer-core simulation ",
-                "(60 Hz ticks); consumed by convert_levels.py. ",
+                "(60 Hz ticks); consumed by build_atlas.py. ",
                 "dev = fastest swept tuning, gold = default tuning.\",\n",
                 "  \"factors\": {{ \"silver\": {}, \"bronze\": {} }},\n",
                 "  \"tracks\": [\n{}\n  ]\n",

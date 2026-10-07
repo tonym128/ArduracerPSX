@@ -21,24 +21,30 @@
 //! 15-bit window sized to the visible rect, re-uploaded as the camera
 //! moves. The upload path is GP0 FIFO word writes (the DMA path is
 //! opt-in only because a Clayton-s silicon erratum can wedge channel 2;
-//! see `psx_vram::upload_bytes`), and a 128 KB tile upload is roughly
-//! 13 ms of CPU at release rates -- that *is* the frame budget, and it
-//! would hitch every time the camera re-centred. The 3072-world at 4bpp
-//! is 768x768 texels = 288 KB, which *fits* VRAM: ~300 KB of
-//! framebuffers + 288 KB of track + 8 KB of minimap ≈ 596 KB of 1 MB.
-//! One upload at track load costs the same ~6-13 ms once, and then the
-//! per-frame cost is zero -- a UV window re-selected per quad instead of
-//! a VRAM re-upload. "Streaming" therefore happens in the *addressing*
-//! (a UV rect into the resident world texture), not in DMA.
+//! see `psx_vram::upload_bytes`), and a 51 KB tile upload is a few ms
+//! of CPU at release rates -- it would hitch every time the camera
+//! re-centred. The 2560-world at 4bpp is 320x320 texels = 51 KB, which
+//! *fits* VRAM with room to spare: ~300 KB of framebuffers + 51 KB of
+//! track + 8 KB of minimap ≈ 360 KB of 1 MB. One upload at track load
+//! costs the same few ms once, and then the per-frame cost is zero -- a
+//! UV window re-selected per quad instead of a VRAM re-upload.
+//! "Streaming" therefore happens in the *addressing* (a UV rect into the
+//! resident world texture), not in DMA.
 //!
-//! *Split across two VRAM bands.* A 4bpp page is 256 texels tall, and VRAM
-//! is only 512 rows, so the 768-row world is two page stripes. VRAM's
-//! page grid only has rows y 0..256 and 256..512, so the third stripe of
-//! the 3x3 page grid is laid out *beside* the first two rather than below
-//! them: band 1 at x 320..512, y 0..512 holds source rows 0..=511, and
-//! band 2 at x 512..704, y 0..256 holds rows 512..=767. The per-tile
-//! page lookup (`page_for`) encodes that fold so the renderer can treat
-//! each of the 3x3 source tiles as if VRAM had three page rows.
+//! *One circuit resident at a time.* `visual_tex::PACKED` holds a packed
+//! texture for every authored circuit, but only the active one is ever
+//! uploaded, so VRAM holds 51 KB rather than four times that. The RAM
+//! side is the constraint that dictated the texture size: all four live
+//! in `.rodata` for the whole life of the program, and at the previous
+//! 768x768 they would have been 1.15 MB against a static-RAM ceiling of
+//! under a megabyte.
+//!
+//! *One VRAM band, no fold.* A 4bpp page is 256 texels tall and VRAM is
+//! 512 rows, so the old 768-row image needed three page stripes and the
+//! third had to be laid out beside the first two -- band 1 at x 320..512,
+//! y 0..512, band 2 at x 512..704, y 0..256 -- which `page_for` encoded.
+//! The 320-row image fits inside 512 rows outright, so there is one band
+//! and `page_for` is plain page arithmetic again.
 //!
 //! # Failure modes guarded here
 //!
@@ -63,14 +69,26 @@ use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
 use crate::gpu::camera::Camera;
+use crate::gpu::texlayout::{TRACK_BAND1_H, TRACK_BAND1_W, TRACK_BAND1_X, TRACK_BAND1_Y};
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
 use psx_vram::{upload_bytes, upload_clut, Clut, Color555, TexDepth, Tpage, VramRect};
 
-/// Source texels are 4x4 world units (3072 world units / 768 texels).
-const WU_PER_TEXEL: i32 = 4;
+/// Source texels are 8x8 world units (2560 world units / 320 texels).
+///
+/// Shared with `texlayout::TRACK_WU_PER_TEXEL` rather than restated: this is the
+/// one number that has to agree between the cooker that drew the texture and the
+/// renderer that samples it, and a private copy is how the two drifted last time
+/// -- the cooker dropped a resolution step, the renderer's UV maths did not, and
+/// the result was a track that looked correct and was half the size it claimed.
+const WU_PER_TEXEL: i32 = crate::gpu::texlayout::TRACK_WU_PER_TEXEL as i32;
+
 /// One source tile of the page grid: 256 texels.
 const TILE_TEX: i32 = 256;
+
+/// Source tiles per axis: 320 texels is 256 + 64, so two tiles, the second only
+/// a quarter full.
+const TILES: usize = 2;
 
 /// The palette CLUT slot. 16 halfwords, 32 bytes; sits directly under the
 /// minimap slot at the far right of VRAM.
@@ -78,49 +96,52 @@ const CLUT: Clut = Clut::new(704, 64);
 
 /// Maps a source tile coordinate to its VRAM page.
 ///
-/// The source is a 3x3 grid of 256-texel tiles; the world's VRAM footprint
-/// is folded into band 1 (rows 0..=511 at x 320..512) and band 2 (rows
-/// 512..=767 at x 512..704). Page (px, py) therefore sits at:
-///
-/// * `py < 2` -> VRAM page at `(320 + px*64, py*256)` in halfword columns,
-/// * `py == 2` -> VRAM page at `(512 + px*64, 0)`.
+/// Plain arithmetic: tile (px, py) is the VRAM page at
+/// `(TRACK_BAND1_X + px * 64, py * 256)` in halfword columns. There is no fold --
+/// see the module docs on why the 768-row image needed one and this does not.
 ///
 /// Every returned coordinate is a valid `Tpage` origin: x is a multiple of
-/// 64, and y is 0 or 256 by construction.
+/// 64 (320 and 384 both are), and y is 0 or 256 by construction.
 fn page_for(px: usize, py: usize) -> Tpage {
-    if py < 2 {
-        Tpage::new(320 + (px as u16) * 64, (py as u16) * 256, TexDepth::Bit4)
-    } else {
-        Tpage::new(512 + (px as u16) * 64, 0, TexDepth::Bit4)
-    }
+    Tpage::new(
+        TRACK_BAND1_X + (px as u16) * 64,
+        (py as u16) * 256,
+        TexDepth::Bit4,
+    )
 }
 
-/// Uploads the world visual (and its CLUT) to VRAM.
+/// Uploads one circuit's world visual (and the CLUT) to VRAM.
 ///
-/// Call once per track load -- the image is static for a whole race, like
-/// the minimap bake. Two `upload_bytes` rects: one per band, byte-for-byte
-/// the corresponding slice of the cooker-packed source, because the CC50
-/// upload copies rows of `rect.w` halfwords straight off the source.
+/// Call once per track load -- the image is static for a whole race, like the
+/// minimap bake. `circuit` is the index into `visual_tex::PACKED`, which the
+/// caller gets from `levels::ALL_TRACK_VISUALS` for the slot it loaded.
 ///
-/// This is a FIFO transfer of 147,456 words: the release-profile cost is
-/// roughly 6-13 ms, once per load. Deliberately *not* DMA: the dma
-/// helper refuses rows wider than 16 words (silicon guard), and our rows
-/// are 96 words, so the FIFO path is the only correct one on this target.
-pub fn init_track_texture() {
+/// One `upload_bytes` rect: byte-for-byte the cooker-packed source, because the
+/// CC50 upload copies rows of `rect.w` halfwords straight off the source and the
+/// source rows are exactly `TRACK_TEX_W / 2` bytes.
+///
+/// This is a FIFO transfer of 12,800 words: a few milliseconds at release rates,
+/// once per load. Deliberately *not* DMA: the dma helper refuses rows wider than
+/// 16 words (silicon guard), and our rows are 40 words, so the FIFO path is the
+/// only correct one on this target.
+///
+/// The index is asserted rather than trusted because the failure it guards is
+/// silent: out of range would panic in a `no_std` game with no unwinding, on the
+/// first track load, at whatever point in boot that happens to be.
+pub fn init_track_texture(circuit: usize) {
+    assert!(
+        circuit < visual_tex::COUNT,
+        "init_track_texture: circuit {circuit} out of range ({} authored)",
+        visual_tex::COUNT
+    );
     let mut clut = [Color555::BLACK; 16];
     for (i, &(r, g, b)) in visual_tex::CLUT_RGB.iter().enumerate() {
         clut[i] = Color555::rgb8(r, g, b);
     }
     upload_clut(CLUT, &clut);
-    // Band 1: source rows 0..=511, one 384-byte row per VRAM row.
     upload_bytes(
-        VramRect::new(320, 0, 192, 512),
-        &visual_tex::PACKED[..512 * 384],
-    );
-    // Band 2: source rows 512..=767.
-    upload_bytes(
-        VramRect::new(512, 0, 192, 256),
-        &visual_tex::PACKED[512 * 384..],
+        VramRect::new(TRACK_BAND1_X, TRACK_BAND1_Y, TRACK_BAND1_W, TRACK_BAND1_H),
+        &visual_tex::PACKED[circuit],
     );
 }
 
@@ -146,8 +167,8 @@ pub fn render_track(track: &TrackDef, camera: &Camera) {
     let y0 = (cam_y - half_h).max(0);
     let y1 = (cam_y + half_h).min(track.world_height());
 
-    for py in 0..3 {
-        for px in 0..3 {
+    for py in 0..TILES {
+        for px in 0..TILES {
             // Source tile (px, py) covers world rect
             // [px*1024, px*1024+1024) x [py*1024, py*1024+1024).
             let wx0 = px as i32 * TILE_TEX * WU_PER_TEXEL;

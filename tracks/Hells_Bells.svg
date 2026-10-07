@@ -1,18 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 96 96" shape-rendering="geometricPrecision">
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 80 80" shape-rendering="geometricPrecision">
 <!-- Hells Bells: authored circuit, cell units. -->
-<!-- centreline: stadium, straight_half=20.0, radius=16.0 -->
-<rect x="0" y="0" width="96" height="96" fill="#2E5A34"/>
-<path d="M 28.0000 32.0000 L 68.0000 32.0000 A 16.0000 16.0000 0 0 1 68.0000 64.0000 L 28.0000 64.0000 A 16.0000 16.0000 0 0 1 28.0000 32.0000 Z" fill="none" stroke="#2A2E38" stroke-width="19.8000" stroke-linecap="butt"/>
-<path d="M 28.0000 32.0000 L 68.0000 32.0000 A 16.0000 16.0000 0 0 1 68.0000 64.0000 L 28.0000 64.0000 A 16.0000 16.0000 0 0 1 28.0000 32.0000 Z" fill="none" stroke="#6B5432" stroke-width="17.8000" stroke-linecap="butt"/>
-<path d="M 28.0000 32.0000 L 68.0000 32.0000 A 16.0000 16.0000 0 0 1 68.0000 64.0000 L 28.0000 64.0000 A 16.0000 16.0000 0 0 1 28.0000 32.0000 Z" fill="none" stroke="#E8E8F0" stroke-width="11.4000" stroke-linecap="butt"/>
-<path d="M 28.0000 32.0000 L 68.0000 32.0000 A 16.0000 16.0000 0 0 1 68.0000 64.0000 L 28.0000 64.0000 A 16.0000 16.0000 0 0 1 28.0000 32.0000 Z" fill="none" stroke="#D8283C" stroke-width="11.4000" stroke-linecap="butt" stroke-dasharray="2.00 2.00" stroke-dashoffset="0.00"/>
-<path d="M 28.0000 32.0000 L 68.0000 32.0000 A 16.0000 16.0000 0 0 1 68.0000 64.0000 L 28.0000 64.0000 A 16.0000 16.0000 0 0 1 28.0000 32.0000 Z" fill="none" stroke="#3C3E44" stroke-width="10.0000" stroke-linecap="butt"/>
-<polygon points="26.8000,26.3000 26.8000,37.7000 29.2000,37.7000 29.2000,26.3000" fill="#F2F2F2" stroke="none"/>
-<polygon points="57.8000,26.3000 57.8000,37.7000 59.2000,37.7000 59.2000,26.3000" fill="#00D2FF" stroke="none"/>
-<polygon points="88.9142,42.1566 77.8261,44.8049 78.1513,46.1666 89.2394,43.5183" fill="#00D2FF" stroke="none"/>
-<polygon points="68.7000,69.7000 68.7000,58.3000 67.3000,58.3000 67.3000,69.7000" fill="#00D2FF" stroke="none"/>
-<polygon points="39.9500,69.7000 39.9500,58.3000 38.5500,58.3000 38.5500,69.7000" fill="#00D2FF" stroke="none"/>
-<polygon points="7.8489,56.0921 18.5815,52.2489 18.1096,50.9309 7.3769,54.7740" fill="#00D2FF" stroke="none"/>
-<polygon points="45.0000,27.0000 45.0000,37.0000 47.0000,37.0000 47.0000,27.0000" fill="#FF8A10" stroke="none"/>
-<polygon points="51.0000,69.0000 51.0000,59.0000 49.0000,59.0000 49.0000,69.0000" fill="#FF8A10" stroke="none"/>
+<!-- centreline: stadium, straight_half=10.0, radius=7.0 -->
+<rect x="0" y="0" width="80" height="80" fill="#2E5A34"/>
+<path d="M 30.0000 33.0000 L 50.0000 33.0000 A 7.0000 7.0000 0 0 1 50.0000 47.0000 L 30.0000 47.0000 A 7.0000 7.0000 0 0 1 30.0000 33.0000 Z" fill="none" stroke="#2A2E38" stroke-width="14.2000" stroke-linecap="butt"/>
+<path d="M 30.0000 33.0000 L 50.0000 33.0000 A 7.0000 7.0000 0 0 1 50.0000 47.0000 L 30.0000 47.0000 A 7.0000 7.0000 0 0 1 30.0000 33.0000 Z" fill="none" stroke="#6B5432" stroke-width="12.2000" stroke-linecap="butt"/>
+<path d="M 30.0000 33.0000 L 50.0000 33.0000 A 7.0000 7.0000 0 0 1 50.0000 47.0000 L 30.0000 47.0000 A 7.0000 7.0000 0 0 1 30.0000 33.0000 Z" fill="none" stroke="#E8E8F0" stroke-width="7.4000" stroke-linecap="butt"/>
+<path d="M 30.0000 33.0000 L 50.0000 33.0000 A 7.0000 7.0000 0 0 1 50.0000 47.0000 L 30.0000 47.0000 A 7.0000 7.0000 0 0 1 30.0000 33.0000 Z" fill="none" stroke="#D8283C" stroke-width="7.4000" stroke-linecap="butt" stroke-dasharray="2.00 2.00" stroke-dashoffset="0.00"/>
+<path d="M 30.0000 33.0000 L 50.0000 33.0000 A 7.0000 7.0000 0 0 1 50.0000 47.0000 L 30.0000 47.0000 A 7.0000 7.0000 0 0 1 30.0000 33.0000 Z" fill="none" stroke="#3C3E44" stroke-width="6.0000" stroke-linecap="butt"/>
+<polygon points="28.8000,29.3000 28.8000,36.7000 31.2000,36.7000 31.2000,29.3000" fill="#F2F2F2" stroke="none"/>
+<polygon points="41.3000,29.3000 41.3000,36.7000 42.7000,36.7000 42.7000,29.3000" fill="#00D2FF" stroke="none"/>
+<polygon points="55.2581,30.6459 51.1468,36.7988 52.3109,37.5766 56.4221,31.4237" fill="#00D2FF" stroke="none"/>
+<polygon points="58.5106,46.5358 53.0054,41.5908 52.0699,42.6323 57.5751,47.5773" fill="#00D2FF" stroke="none"/>
+<polygon points="44.7000,50.7000 44.7000,43.3000 43.3000,43.3000 43.3000,50.7000" fill="#00D2FF" stroke="none"/>
+<polygon points="32.9500,50.7000 32.9500,43.3000 31.5500,43.3000 31.5500,50.7000" fill="#00D2FF" stroke="none"/>
+<polygon points="19.4873,42.1519 26.8296,41.2296 26.6552,39.8405 19.3129,40.7628" fill="#00D2FF" stroke="none"/>
+<polygon points="35.0000,30.0000 35.0000,36.0000 37.0000,36.0000 37.0000,30.0000" fill="#FF8A10" stroke="none"/>
+<polygon points="51.0000,50.0000 51.0000,44.0000 49.0000,44.0000 49.0000,50.0000" fill="#FF8A10" stroke="none"/>
 </svg>

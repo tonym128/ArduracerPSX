@@ -982,14 +982,34 @@ fn longest_straight(route: &Route) -> u32 {
 /// narrowing the game back to a strip.
 fn test_circuits_are_wide_and_have_long_straights() {
     /// A road narrower than this reads as a two-tile strip again. The old
-    /// derived geometry was 1.05 tiles (67 px).
-    const MIN_HALF_WIDTH: u16 = 128; // 2.0 tiles
+    /// derived geometry was 1.05 tiles (34 px).
+    ///
+    /// Recalibrated when the road was narrowed from 160 to 96 world units for the
+    /// "drowning in the space" complaint. The floor used to be 128, which was two
+    /// tiles at the time `TILE_SIZE` was 64 -- after the cell halved to 32 the
+    /// same 128 had quietly become *four* cells, and the authored road was 160,
+    /// so the check had stopped saying anything at all: it passed by 32.
+    ///
+    /// 96 is three cells, which is the authored width: wide enough for two cars
+    /// abreast plus a car's margin each side, narrow enough that a sloppy line
+    /// puts a wheel in the gravel. The point of the floor is still the same -- do
+    /// not go back to a corridor -- and the margin above the old derived strip is
+    /// now 2.8x rather than 1.9x.
+    const MIN_HALF_WIDTH: u16 = 96; // 3.0 tiles
     /// The longest straight must be a meaningful fraction of the lap. Below this
     /// the circuit is a technical park with no place to use a wide road.
     const MIN_STRAIGHT_SAMPLES: u32 = 24;
     /// And a lap long enough that "slightly longer gameplay between corners"
     /// is true of the circuit rather than of one stretch of it.
-    const MIN_LAP: u32 = 5_000;
+    ///
+    /// Down from 5,000 for the same reason the road narrowed: at the reference
+    /// pace of roughly 4.5 world units per tick that floor was a 1,110-tick lap,
+    /// or eighteen seconds, which made every circuit at least as long as the
+    /// design's *largest* target. The floor is now one second under the easiest
+    /// authored lap (Hells Bells, 592 ticks / 2,688 units), so it still rejects a
+    /// circuit too short to be a lap -- a hairpin, or a shape whose centreline
+    /// collapses -- while admitting a ten-second easy stage.
+    const MIN_LAP: u32 = 2_500;
 
     for track in ALL_TRACKS.iter() {
         assert!(

@@ -53,12 +53,36 @@ from PIL import Image
 #: physics and authoring: one cell is one `TrackTile` byte and one square of the
 #: data image.
 #:
-#: 96 cells of 32 world units is the same 3,072-unit world the circuit occupied
-#: when it was 48 cells of 64, at twice the resolution. Everything below is
-#: therefore expressed in *cells* and the world size is unchanged -- the road
-#: half-width doubles to 5.0 cells to stay 160 world units wide, which is why
-#: the road looks the same size to the car while its edge is half as blocky.
-GRID = 96
+#: 80 cells of 32 world units is a 2,560-unit world, down from 96 cells / 3,072
+#: units. The grid was shrunk for the reason the player gave: the stages felt
+#: like too much space. Almost all of that space was *grid* rather than circuit.
+#: An oval that fills the grid still leaves the whole grid addressable, and the
+#: camera clamp, the minimap bake and the world texture all scale with it, so a
+#: 96-cell world spends a quarter of a megabyte of RAM and 288 KB of VRAM
+#: rendering grass.
+#:
+#: 80 cells of 32 world units is a 2,560-unit world, down from 96 cells / 3,072
+#: units, and 80 is the smallest grid that still hosts the *largest* circuit this
+#: design wants. Two constraints pull against each other:
+#:
+#: * **The grid is the world, and the world is the space.** A 96-cell grid is a
+#:   3,072-unit world whose only content was grass beyond the circuit. The player
+#:   complained of drowning in space, and most of that space was *grid* rather
+#:   than track: the camera clamp, the minimap bake and the world texture all
+#:   scale with it, so 96 cells spends a quarter of a megabyte of RAM and 288 KB
+#:   of VRAM rendering grass. The density that matters is circuit-over-grid, and
+#:   it goes from 46% (a 20/16 stadium in 96 cells) to 78% (13/18 in 80).
+#: * **The largest lap has to fit.** A lap is `4 * straight_half + 2 * pi *
+#:   radius` cells for a stadium, or `4 * (half_x + half_y) - 8 * radius +
+#:   2 * pi * radius` for a rounded rectangle, and both need room inside
+#:   `GRID/2`. Only the *road* has to clear the border -- that is what
+#:   `compile_circuit.validate` checks -- so the bound is
+#:   `half_x + radius <= GRID/2 - 1 - ROAD_HALF_CELLS`, which at 80 cells is 36,
+#:   and `CIRCUITS` below spends nearly all of it: the largest is 29/17/7.
+#:
+#: One grid step smaller and the biggest lap lands nearer 15 seconds, which is not
+#: a different circuit, it is the same circuit with the ends cut off.
+GRID = 80
 
 #: World units per cell. Mirrors `TILE_SIZE` in `arduracer_core::track`; asserted
 #: against the compiled circuit rather than trusted, because the two drifting
@@ -71,10 +95,26 @@ DATA_PX = 3
 
 #: Raster resolution per cell for the *visual* image. Painted, so it wants room.
 #:
-#: 8 rather than 16 because the grid doubled while the master image stayed
-#: 768x768: 96 cells x 8 px is the same file size as 48 x 16 was, so doubling the
-#: authoring resolution cost nothing on disk or in the pipeline.
-VISUAL_PX = 8
+#: 4, not 8, and the reason is RAM rather than looks. `build_atlas` bakes **one**
+#: 4bpp world texture per circuit, and unlike the tile grids -- a few kilobytes,
+#: with every `ALL_TRACKS` slot pointing at one shared static -- those cannot
+#: share: four circuits are four different pictures, and the PSX static-RAM gate
+#: has under 300 KB of headroom over the rest of the game. At 8 px/cell a
+#: 80-cell world is a 640x640 texture = 205 KB, and four of those is 820 KB,
+#: which does not fit. At 4 px/cell it is 320x320 = 51 KB each, 205 KB for all
+#: four, and the gate stays green with room to spare.
+#:
+#: The visible cost is texel size: `32 / VISUAL_PX` = 8 world units per texel,
+#: so at rest zoom (1 world unit = 1 screen pixel) a texel is an 8x8 block of
+#: screen. The road is still 24 texels across and the kerb is nearly 3, so both
+#: survive the resolution drop; what is lost is edge smoothness, on a PSX
+#: palette that has sixteen flat colours to quantise to anyway.
+#:
+#: 320 also lands the image on a page grid that `gpu::tracktex` can address with
+#: no fold: a 4bpp page is 256 texels, so 320 is one full page plus a 64-texel
+#: strip, and 320 rows fits inside VRAM's 512 rows without splitting the upload
+#: across two bands. See `texlayout::TRACK_BAND1`.
+VISUAL_PX = 4
 
 #: Raster is taken at this multiple of the data resolution, then majority-voted
 #: down. 4x4 = 16 samples per cell is ample to resolve a 0.7-cell fringe; the
@@ -146,12 +186,37 @@ RGB_TUPLE = {
 # cell size changes again. `build_atlas` asserts the compiled `half_width` still
 # matches `ROAD_HALF_WORLD`.
 
-ROAD_HALF_WORLD = 160      # tarmac half-width, world units
+#: Tarmac half-width, world units.
+#:
+#: 96, down from 160. This is the "drowning in the space" complaint's other half:
+#: a 320-unit road is 20 car lengths across, wide enough that the car can lose
+#: the racing line entirely without ever being off the tarmac, so a corner taken
+#: badly is not punished and a corner taken well is not rewarded. 96 is 3 cells
+#: at the current cell size -- wide enough for two cars to race side by side plus
+#: a car's width of margin each side, which is the narrowest road that still
+#: admits a pass, and no wider.
+#:
+#: The 3.0-cell figure is load-bearing in three separate places that all read
+#: `ROAD_HALF_CELLS`: the stadium sizing arithmetic in `CIRCUITS`, the `RUNOFF`
+#: and `WALL` bands stacked outside it, and `build_atlas`'s `half_width`, which
+#: `test_game_logic::test_circuits_are_wide_and_have_long_straights` floors. It
+#: has to stay a whole number of cells -- `build_atlas` asserts that, because a
+#: fractional road half-width compiles to a road a half-cell narrower than the
+#: one that was drawn and nothing else fails.
+ROAD_HALF_WORLD = 96       # tarmac half-width, world units
 KERB_CELLS = 0.7           # rumble band outside the tarmac
-RUNOFF_CELLS = 3.2         # gravel band outside the kerb
+RUNOFF_CELLS = 2.4         # gravel band outside the kerb
 WALL_CELLS = 1.0           # barrier band outside the runoff
 
-ROAD_HALF_CELLS = ROAD_HALF_WORLD / WORLD_PER_CELL   # 5.0 at 32 units per cell
+ROAD_HALF_CELLS = ROAD_HALF_WORLD / WORLD_PER_CELL   # 3.0 at 32 units per cell
+
+#: Everything between the centreline and the outside of the barrier, in cells.
+#: The single number the `CIRCUITS` sizing has to fit inside the grid: a stadium
+#: or rounded rectangle of half-extent `h` and corner radius `r` has its outer
+#: barrier at `h + r + BORDER_CELLS`, and `compile_circuit.validate` rejects road
+#: on the image border. Stated once here so the arithmetic in `CIRCUITS` cannot
+#: silently disagree with the bands that are actually painted.
+BORDER_CELLS = ROAD_HALF_CELLS + KERB_CELLS + RUNOFF_CELLS + WALL_CELLS  # 7.1
 
 #: Infield surface, and the surface beyond the runoff. Both are scenery-adjacent:
 #: `compile_circuit` treats anything not in its ROAD set as surroundings, which is
@@ -192,6 +257,106 @@ def stadium_path(cx: float, cy: float, straight_half: float, radius: float) -> s
         f"A {radius:.4f} {radius:.4f} 0 0 1 {x0:.4f} {top:.4f} "
         f"Z"
     )
+
+
+def rounded_rect_path(cx: float, cy: float, half_x: float, half_y: float,
+                      radius: float) -> str:
+    """A closed **rounded rectangle**: four straights joined by four quarter arcs.
+
+    The second shape, and the reason the circuits are not four concentric ovals.
+    A stadium has exactly two corners and both are 180 degrees, so every circuit
+    built from one has the same four-corner silhouette however it is scaled; a
+    driver learns "turn left, turn right" and never learns a shape. This has four
+    distinct corners, and `half_x != half_y` gives genuinely unequal corners --
+    the long-and-fast layout the largest circuit wants.
+
+    Closed by construction for the same reason the stadium is: the four arcs sum
+    to exactly 360 degrees of turn and the path returns to its start point, with
+    no closure condition left over to get wrong. Perimeter is
+    `4 * (half_x + half_y) - 8 * radius + 2 * pi * radius`.
+
+    Returned as an SVG path, centred on `(cx, cy)`.
+    """
+    # The four straights are inset by `radius` at both ends so the corner arcs
+    # have somewhere to go. This is not cosmetic: written as one arc from (x1, y0)
+    # to (x1, y1) -- the obvious transcription -- SVG *scales the radius up* to
+    # span the gap, because the radii are too small to connect those points. The
+    # result is a semicircle of radius `half_y` bulging out past `x1` by
+    # `half_y`, which runs the road off the side of the grid, and
+    # `compile_circuit.validate` reports it as "road cell on the border" plus a
+    # phantom second piece of road. Both errors, one bug, neither naming it.
+    x0, x1 = cx - half_x, cx + half_x
+    y0, y1 = cy - half_y, cy + half_y
+    r = radius
+    return (
+        f"M {x0 + r:.4f} {y0:.4f} "
+        f"L {x1 - r:.4f} {y0:.4f} "
+        f"A {r:.4f} {r:.4f} 0 0 1 {x1:.4f} {y0 + r:.4f} "
+        f"L {x1:.4f} {y1 - r:.4f} "
+        f"A {r:.4f} {r:.4f} 0 0 1 {x1 - r:.4f} {y1:.4f} "
+        f"L {x0 + r:.4f} {y1:.4f} "
+        f"A {r:.4f} {r:.4f} 0 0 1 {x0:.4f} {y1 - r:.4f} "
+        f"L {x0:.4f} {y0 + r:.4f} "
+        f"A {r:.4f} {r:.4f} 0 0 1 {x0 + r:.4f} {y0:.4f} "
+        f"Z"
+    )
+
+
+def rounded_rect_centreline(cx: float, cy: float, half_x: float, half_y: float,
+                            radius: float,
+                            step: float = 0.25) -> list[tuple[float, float]]:
+    """Exact centreline of a rounded rectangle, sampled at ~`step` cells.
+
+    Same argument as [`stadium_centreline`]: the road is a stroke on a path this
+    module built, so the centreline *is* that path. Walking the same four-straights
+    - four-arcs order the SVG path uses also means the centreline sample index and
+    the arc-length position agree, which is what puts the boost pads and gates on
+    the road instead of near it.
+    """
+    pts: list[tuple[float, float]] = []
+    quarter = math.pi / 2 * radius
+
+    def push(p):
+        if not pts or math.dist(pts[-1], p) > 1e-9:
+            pts.append(p)
+
+    def run_line(ax: float, ay: float, bx: float, by: float):
+        n = max(1, int(round(math.hypot(bx - ax, by - ay) / step)))
+        for k in range(n):
+            push((ax + (bx - ax) * k / n, ay + (by - ay) * k / n))
+
+    def run_arc(ox: float, oy: float, a0: float):
+        n = max(1, int(round(quarter / step)))
+        for k in range(n):
+            t = a0 + (math.pi / 2) * k / n
+            push((ox + radius * math.cos(t), oy + radius * math.sin(t)))
+
+    # Straights are inset by `radius` at both ends, matching `rounded_rect_path`.
+    # They must be: the corner arc's endpoints *are* (x1 - r, y0) and (x1,
+    # y0 + r), so a straight run out to x1 would leave the arc starting 7 cells
+    # back up the same row.
+    #
+    # The failure is invisible in the drawn image -- the SVG road and its
+    # centreline sidecar disagree, and only the sidecar is used for the racing
+    # line -- and it is exactly the kind of disagreement that has no useful
+    # error message. `Route::nearest` on the emitted centreline reports the arc
+    # going *backwards* at that point (9 times per lap on Longbow), so
+    # `test_route_arc_follows_the_car` fails with "arc wrapped 9 times in one
+    # lap", which reads as a physics bug and is a drawing one. The control-point
+    # dump shows the cause immediately: consecutive nodes on the same row
+    # stepping backwards, `(64,29) -> (62,29)`.
+    x0, x1 = cx - half_x, cx + half_x
+    y0, y1 = cy - half_y, cy + half_y
+    r = radius
+    run_line(x0 + r, y0, x1 - r, y0)                  # top, left to right
+    run_arc(x1 - r, y0 + r, -math.pi / 2)             # top-right
+    run_line(x1, y0 + r, x1, y1 - r)                 # right, down
+    run_arc(x1 - r, y1 - r, 0.0)                     # bottom-right
+    run_line(x1 - r, y1, x0 + r, y1)                 # bottom, right to left
+    run_arc(x0 + r, y1 - r, math.pi / 2)             # bottom-left
+    run_line(x0, y1 - r, x0, y0 + r)                 # left, up
+    run_arc(x0 + r, y0 + r, math.pi)                 # top-left
+    return pts
 
 
 def stadium_centreline(cx: float, cy: float, straight_half: float,
@@ -256,6 +421,53 @@ def transverse_band(cx: float, cy: float, at: tuple[float, float],
             f'stroke="none"/>')
 
 
+def shape_path(spec: dict, cx: float, cy: float) -> str:
+    """The centreline of `spec` as an SVG path, for whichever shape it declares.
+
+    Dispatch lives here so `build_svg` never branches on the shape and the
+    comment block explaining the paint order stays readable. A spec with an
+    unknown `shape` raises rather than defaulting: a silent fallback would paint
+    one circuit's image under another circuit's name, and the compiler would
+    happily emit it.
+    """
+    shape = spec.get("shape", "stadium")
+    if shape == "stadium":
+        return stadium_path(cx, cy, spec["straight_half"], spec["radius"])
+    if shape == "rounded_rect":
+        return rounded_rect_path(cx, cy, spec["half_x"], spec["half_y"],
+                                 spec["radius"])
+    raise ValueError(f'{spec["name"]}: unknown shape {shape!r}')
+
+
+def shape_centreline(spec: dict, cx: float, cy: float) -> list[tuple[float, float]]:
+    """The centreline of `spec`, sampled, for whichever shape it declares.
+
+    Kept beside [`shape_path`] because the two must walk the same geometry in the
+    same direction: the marks are placed by *index into this list*, so a
+    centreline that runs the other way round puts the start line halfway round the
+    lap and every boost pad in the runoff.
+    """
+    shape = spec.get("shape", "stadium")
+    if shape == "stadium":
+        return stadium_centreline(cx, cy, spec["straight_half"], spec["radius"])
+    if shape == "rounded_rect":
+        return rounded_rect_centreline(cx, cy, spec["half_x"], spec["half_y"],
+                                       spec["radius"])
+    raise ValueError(f'{spec["name"]}: unknown shape {shape!r}')
+
+
+def shape_note(spec: dict) -> str:
+    """One-line human-readable description of a spec's geometry, for the SVG."""
+    shape = spec.get("shape", "stadium")
+    if shape == "stadium":
+        return (f'centreline: stadium, straight_half={spec["straight_half"]}, '
+                f'radius={spec["radius"]}')
+    if shape == "rounded_rect":
+        return (f'centreline: rounded rect, half_x={spec["half_x"]}, '
+                f'half_y={spec["half_y"]}, radius={spec["radius"]}')
+    raise ValueError(f'{spec["name"]}: unknown shape {shape!r}')
+
+
 def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
     """Renders one circuit spec to an SVG document, and returns its centreline.
 
@@ -264,10 +476,8 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
     kerb painted before the road is simply painted over.
     """
     cx = cy = GRID / 2.0
-    straight_half = spec["straight_half"]
-    radius = spec["radius"]
-    centre = stadium_centreline(cx, cy, straight_half, radius)
-    path = stadium_path(cx, cy, straight_half, radius)
+    centre = shape_centreline(spec, cx, cy)
+    path = shape_path(spec, cx, cy)
 
     road_hw = ROAD_HALF_CELLS
     kerb_hw = road_hw + KERB_CELLS
@@ -276,8 +486,7 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
 
     out = svg_header(GRID * VISUAL_PX)
     out.append(f'<!-- {spec["name"]}: authored circuit, cell units. -->')
-    out.append(f'<!-- centreline: stadium, straight_half={straight_half}, '
-               f'radius={radius} -->')
+    out.append(f'<!-- {shape_note(spec)} -->')
 
     # Ground. Everything outside the circuit is grass; the infield is grass too,
     # which is what gives the ring its surroundings.
@@ -437,12 +646,13 @@ def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
                 # data map carries: the map says "kerb here", the visual says
                 # "red and white in 2-cell blocks".
                 #
-                # The block size is one *cell*, not two pixels. The previous 2-px
+                # The block size is one *cell*, not two pixels. The original 2-px
                 # checker averaged out at display scale into a flat pink, because
                 # a 2-px alternating pair has a mean colour and the eye sees the
-                # mean. At `VISUAL_PX` per cell a 1-cell block is 16 px -- four
-                # times the display resolution of the whole 320x240 frame, so the
-                # alternation survives to the screen.
+                # mean. A cell is `VISUAL_PX` px wide, and it is also 32 world
+                # units, which is 32 screen px at rest zoom -- an order of
+                # magnitude above the display's own resolution, so the alternation
+                # survives all the way to the screen however coarse the texture is.
                 blk = ((x // px) + (y // px)) % 2
                 b = base(KERB_WHITE if blk == 0 else KERB_RED)
                 out[y, x] = np.clip(b * (1.0 - n * 0.12), 0, 255)
@@ -461,10 +671,16 @@ def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
                 lit = 0.22 if edge else n * 0.08
                 out[y, x] = np.clip(b + (255 - b) * lit, 0, 255)
             elif c == START_LINE:
-                out[y, x] = (245, 245, 245) if ((x // 6) + (y // 6)) % 2 else (28, 28, 32)
+                # Chequer in *cells*, not in pixels. The periods here used to be
+                # 6 px, which was 0.75 cells at the old 8 px/cell and silently
+                # became 1.5 cells when `VISUAL_PX` dropped -- the start line came
+                # out with twice as many chequer rows and nobody could say why.
+                out[y, x] = ((245, 245, 245)
+                             if ((x // px) + (y // px)) % 2 else (28, 28, 32))
             elif c == BOOST:
-                band = (y + x // 3) % 6
-                out[y, x] = (255, 240, 200) if band < 2 else np.clip(b * (1 - n * 0.1), 0, 255)
+                # Chevron bands a cell apart, again measured in cells.
+                band = (y // px + x // px) % 2
+                out[y, x] = (255, 240, 200) if band else np.clip(b * (1 - n * 0.1), 0, 255)
             elif c == OIL:
                 t = 0.5 + 0.5 * ((x * 0.3 + y * 0.2) % 6) / 6.0
                 out[y, x] = (18 + 42 * t, 14 + 16 * t, 26 + 54 * t)
@@ -536,57 +752,168 @@ def write_outputs(spec: dict, outdir: str) -> dict:
 
 # --- The circuits -------------------------------------------------------------
 
-#: One oval to start with. `straight_half` and `radius` are in cells; the outer
-#: radius including kerb, runoff and wall is what has to clear the grid border,
-#: because `compile_circuit.validate` rejects road on the border.
-#
-#: Sizing a stadium so the whole cross-section fits inside the grid.
+#: Four circuits, spanning about 10 to 20 seconds a lap.
 #:
-#: The widest point of the ring is `straight_half + radius + wall_hw`: the arc
-#: segments bow out by their full radius *beyond* the straight's endpoints, so
-#: the horizontal extent is driven by the sum of all three, not by the straight
-#: length. From a centre at `GRID / 2`, that must leave the outermost cell inside
-#: the grid:
+#: # How the sizes were chosen
 #:
-#:     straight_half + radius + wall_hw <= GRID / 2 - 1
+#: The target is a lap the player finishes in 10-20 seconds. Everything below
+#: follows from two measured constants:
 #:
-#: with `wall_hw = ROAD_HALF_CELLS + KERB_CELLS + RUNOFF_CELLS + WALL_CELLS` =
-#: 5.0 + 0.7 + 3.2 + 1.0 = 9.9 cells. `straight_half` 20, `radius` 16 gives 45.9,
-#: so the ring spans columns 2.1..93.9 and rows 29.1..66.9 on a 96-cell grid --
-#: tight against the border, which is the constraint that actually limits this
-#: shape. The *road* stops at `straight_half + radius + road_hw` = 41, i.e.
-#: columns 7..89, and `compile_circuit.validate` checks the road, not the wall.
+#: * **Pace.** The reference driver laps the previous 96-cell oval (a
+#:   `straight_half` 20 / `radius` 16 stadium, so a 180.5-cell centreline, 5,776
+#:   world units) in 1,261 ticks. That is 4.58 world units per tick, and it is the
+#:   number every perimeter here is divided by.
+#: * **Room.** From a centre at `GRID / 2`, the widest point of the ring is
+#:   `straight_half + radius` for a stadium, or `half_x + radius` for a rounded
+#:   rectangle, plus the whole cross-section out to the barrier:
 #:
-#: 20/16 rather than the 18/14 that exactly preserved the previous footprint,
-#: because the lap floor in `test_game_logic` is 5,000 world units and 18/14
-#: drives a 4,853-unit lap -- just under it. The floor was calibrated against
-#: circuits roughly a third larger than this one. Enlarging the circuit is the
-#: right response: lowering a quality gate to admit the thing it was written to
-#: catch is the wrong one.
+#:       straight_half + radius + BORDER_CELLS <= GRID / 2 - 1
 #:
-#: Two much earlier attempts (15/8, then 12/7, at the original 48-cell grid) both
-#: failed validation with the *same* pair of errors: a road cell on the border,
-#: plus a phantom "second piece of road". Both were one bug -- the ring ran off
-#: the edge of the grid, so `find_regions` clipped it into two fragments at the
-#: wrap. Neither error named the cause, which is why it read as two problems.
+#:   which at `GRID` 80 and `BORDER_CELLS` 7.1 is `<= 31.9`. The *road* only has
+#:   to stay off the image border -- that is what `compile_circuit.validate`
+#:   checks -- so the real bound is `+ ROAD_HALF_CELLS` and is a full 4 cells
+#:   looser; the barrier of the largest circuit does reach the outermost column.
+#:   Conflating the two is what made the previous 96-cell sizing arithmetic look
+#:   tighter than it was.
+#:
+#: Perimeter in cells, then:
+#:
+#: | circuit | shape | geometry | centreline | world units | ticks | seconds |
+#: | :--- | :--- | :--- | ---: | ---: | ---: | ---: |
+#: | Hells Bells | stadium | 10 / 7 | 84 | 2,687 | 592 | 9.9 |
+#: | Copper Gorge | stadium | 14 / 9 | 112 | 3,602 | 798 | 13.3 |
+#: | Longbow | rounded rect | 25 x 11 / 7 | 132 | 4,223 | 907 | 15.1 |
+#: | Amber Mesa | rounded rect | 28 x 14 / 7 | 156 | 4,991 | 1,185 | 19.8 |
+#:
+#: Measured, not extrapolated. These are the `dev` figures from
+#: `playtest --calibrate` on exactly these geometries -- the fastest lap the
+#: reference driver manages across the Garage's six tuning presets, which is the
+#: "reference pace" the 20-second target is stated in. Two reasons the numbers do
+#: not follow from the perimeter arithmetic above:
+#:
+#: * **Lap time is not proportional to distance.** Corner speed depends on radius,
+#:   not on arc length, so a rounded rectangle has to be *bigger* than a stadium of
+#:   the same lap time. Longbow's 132-cell centreline laps 50% slower than
+#:   Copper Gorge's 112 despite being only 17% longer.
+#: * **Tuning matters.** The default-tune lap is 25-35% slower again (Hells Bells:
+#:   592 swept, 743 on defaults, which is the `gold` medal target). The table is
+#:   the swept figure because that is what the design target refers to;
+#:   `par_calibration.json` carries all four tiers.
+#:
+#: The four are not evenly spaced, deliberately: an easy stage at ten seconds
+#: and a showcase at twenty is the range the design asks for, and the two in
+#: between are placed where the shapes change character rather than where the
+#: arithmetic is neat. Copper Gorge is the same oval as Hells Bells and only
+# exists to be a slightly longer oval; Longbow is where the circuit stops being
+# two corners and starts being four.
+#:
+#: The rounded rectangles exist because a stadium at a fixed perimeter is mostly
+#: empty: its bounding box is `2 * (straight_half + radius)` on a side and it
+#: only fills that box at the four arc extremes, so the easy stage would sit in a
+#: small ring adrift in the middle of a lot of grass -- the "drowning in the
+#: space" complaint again, in a different costume. A rounded rectangle spends the
+#: same lap length on four straights and four corners spread across the grid, so
+#: the two large circuits use the space they have.
+#:
+#: # Why these four and not more
+#:
+#: Four is what the budget buys. `build_atlas` bakes one 4bpp world texture per
+#: circuit, 320x320 texels = 51 KB each, and the PSX static-RAM gate leaves under
+#: 300 KB of headroom over the rest of the game; five circuits would not fit. A
+#: tenth of a second per circuit is not worth failing the gate over.
+#:
+#: # Two earlier failures, for whoever moves these numbers next
+#:
+#: Attempts at 15/8 and then 12/7 (at the original 48-cell grid) both failed
+#: validation with the *same* pair of errors: a road cell on the border, plus a
+#: phantom "second piece of road". Both were one bug -- the ring ran off the edge
+#: of the grid, so `find_regions` clipped it into two fragments at the wrap.
+#: Neither error named the cause, which is why it read as two problems. The
+#: `BORDER_CELLS` constant exists so the next person does the arithmetic once.
+#: Gates per lap. Six because `test_super_stages_are_real_circuits` wants at
+#: least six checkpoints, and `LapTimer` needs enough of them that a single lap
+#: cannot pass through every one in one frame -- the plausibility guard in
+#: `timing.rs` is what stops a teleport being read as a lap, and its threshold is
+#: a fraction of the lap, so the gate *count* is what sets that margin.
+GATES = 6
+
+
+def standard_marks(boost_at: tuple[int, ...] = (1, 4)) -> list[tuple]:
+    """Gates evenly spaced round the lap, plus a boost pad in chosen intervals.
+
+    Gates sit at fractions `i / (GATES + 1)` for `i` in `1..=GATES`, and
+    `compile_circuit.emit_rust` places the runtime checkpoints at exactly the
+    same fractions of exactly the same centreline sample list. Those two must
+    agree, or the car drives through a gate that is not where the lap timer
+    thinks the gate is.
+
+    `boost_at` therefore selects *intervals between gates*, not raw fractions,
+    and the pad goes in the midpoint of each: `(i - 0.5) / (GATES + 1)`. That
+    is the furthest point on the lap from every gate, by construction.
+
+    Hand-picked fractions do not have that property, and the failure is silent
+    and specific. A pad at 0.72 sat 0.006 of the lap from the gate at 5/7 =
+    0.714 -- about three centreline samples -- so the two drew over each other,
+    the pad won, and the cell the checkpoint lives in became a `BoostPad`. Then
+    `check_geometry` in playtest reported "checkpoint 4 at (28,56) is off the
+    racing surface", which reads as a geometry bug and is not one:
+    `TrackTile::is_road` deliberately excludes boost pads, because they are
+    hazards rather than surface, and the pad had eaten the gate underneath it.
+
+    Every mark spans the road plus its kerb, and sits at `half_thick` along the
+    direction of travel, so it crosses the whole drivable width at a right angle
+    wherever it lands.
+    """
+    step = 1.0 / (GATES + 1)
+    across = ROAD_HALF_CELLS + KERB_CELLS
+    marks: list[tuple] = [(0.0, START_LINE, across, 1.2)]
+    for i in range(1, GATES + 1):
+        marks.append((i * step, GATE, across, 0.7))
+    for i in boost_at:
+        assert 1 <= i <= GATES, f"boost interval {i} is not between two gates"
+        marks.append(((i - 0.5) * step, BOOST, ROAD_HALF_CELLS, 1.0))
+    return marks
+
+
 CIRCUITS = [
     {
         "name": "Hells Bells",
-        "straight_half": 20.0,
-        "radius": 16.0,
+        "shape": "stadium",
+        "straight_half": 10.0,
+        "radius": 7.0,
         "runoff": GRAVEL,
-        # (fraction of lap, code, half-length across road, half-thickness along)
-        "marks": [
-            (0.00, START_LINE, ROAD_HALF_CELLS + KERB_CELLS, 1.2),
-            (0.17, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
-            (0.34, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
-            (0.50, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
-            (0.66, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
-            (0.83, GATE, ROAD_HALF_CELLS + KERB_CELLS, 0.7),
-            (0.10, BOOST, ROAD_HALF_CELLS, 1.0),
-            (0.60, BOOST, ROAD_HALF_CELLS, 1.0),
-        ],
-        "note": "Hand-authored SVG oval. Baseline for the image pipeline.",
+        "marks": standard_marks(),
+        "note": "The easy stage: a short tight oval, ten seconds a lap.",
+    },
+    {
+        "name": "Copper Gorge",
+        "shape": "stadium",
+        "straight_half": 14.0,
+        "radius": 9.0,
+        "runoff": SAND,
+        "marks": standard_marks((2, 5)),
+        "note": "Same shape, wider and looser. About thirteen seconds.",
+    },
+    {
+        "name": "Longbow",
+        "shape": "rounded_rect",
+        "half_x": 25.0,
+        "half_y": 11.0,
+        "radius": 7.0,
+        "runoff": GRASS,
+        "marks": standard_marks((1, 3, 5)),
+        "note": "Long and thin: two 50-cell straights and two short ones. Sixteen seconds.",
+    },
+    {
+        "name": "Amber Mesa",
+        "shape": "rounded_rect",
+        "half_x": 28.0,
+        "half_y": 14.0,
+        "radius": 7,
+        "runoff": SAND,
+        "marks": standard_marks((1, 4, 6)),
+        "note": "The largest: four real corners and the longest lap in the "
+                "set. Twenty seconds.",
     },
 ]
 

@@ -19,7 +19,7 @@ pub mod video;
 
 use arduracer_core::{
     compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, StartPhase, StartSequence,
-    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS,
+    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -166,7 +166,7 @@ impl ArduracerGame {
         // The boot track never goes through `load_track`, so bake its minimap
         // here or the HUD would blit an empty texture until the first load.
         bake_minimap(&game.minimap_texture, game.current_track);
-        init_track_texture();
+        init_track_texture(ALL_TRACK_VISUALS[0]);
         game
     }
 
@@ -182,9 +182,12 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         // Upload the per-pixel circuit visual to VRAM. Same cadence as the
         // minimap bake and the same reason: the image cannot change while the
-        // circuit does not, and the upload is a FIFO transfer of ~147k words,
-        // so it must be a per-load cost rather than a per-frame one.
-        init_track_texture();
+        // circuit does not, and the upload is a FIFO transfer of ~13k words,
+        // so it must be a per-load cost rather than a per-frame one. The index
+        // comes from the generated table rather than `idx % 4` because
+        // `ALL_TRACKS` and `visual_tex::PACKED` are two lists this call has to
+        // agree about, and the table is the one place that already knows.
+        init_track_texture(ALL_TRACK_VISUALS[idx]);
 
         // Play the CD-DA theme corresponding to the active cup:
         // Cup 1 (Tracks 1-6) -> CD-DA Track 3 ("Asphalt Adrenaline" Eurobeat)

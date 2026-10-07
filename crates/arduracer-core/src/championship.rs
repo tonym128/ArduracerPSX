@@ -309,7 +309,7 @@ pub fn finishing_lap(lap: u8, finished: bool) -> u8 {
 mod tests {
     use super::*;
     use crate::ai_profiles::AI_PROFILES;
-    use crate::levels::{ALL_TRACKS, AUTHORED_TRACKS};
+    use crate::levels::{ALL_TRACKS, ALL_TRACK_VISUALS, AUTHORED_TRACKS};
     use crate::math::Fixed;
 
     fn rivals_on(
@@ -629,17 +629,37 @@ mod tests {
             }
             assert!(session.advance_stage(), "cup {cup} should report done");
         }
-        // The last slot holds the last authored circuit.
+        // Every slot resolves to the authored circuit `ALL_TRACK_VISUALS` says it
+        // does.
         //
-        // Was a hardcoded `"Ivory Straits"`. That is only true while there are
-        // 24 *distinct* circuits; with one authored circuit replicated across
-        // every slot (see `levels.rs`), the last slot is the same oval as the
-        // first, and the literal names a circuit that no longer exists. The
-        // assertion worth keeping is the structural one -- the final stage of the
-        // final cup lands on the final slot -- which the index assertion above
-        // already covers. What is checked here is only that the slot is the
-        // authored one, so this keeps testing the *table*, not the schedule.
-        assert_eq!(ALL_TRACKS[TOTAL_TRACKS - 1].name, AUTHORED_TRACKS[0].name);
+        // Was `assert_eq!(ALL_TRACKS[23].name, AUTHORED_TRACKS[0].name)`, which was
+        // true only while one geometry filled every slot, and before that a
+        // hardcoded `"Ivory Straits"` naming a circuit that no longer exists. The
+        // index assertion above already covers "the final stage lands on the final
+        // slot", so what is worth checking here is the *table*: the slot-to-circuit
+        // mapping the renderer uploads its world texture from, against the
+        // slot-to-`TrackDef` mapping everything else drives.
+        //
+        // These are two generated arrays filled by two loops in `build_atlas.py`,
+        // and the only thing that keeps them agreeing is that they are generated
+        // from the same round-robin. Checking every slot rather than just the last
+        // is what catches the mapping being wrong in the middle, where a player
+        // would race one circuit while looking at another circuit's road -- with
+        // no error anywhere, because both lookups are individually in range.
+        for (slot, track) in ALL_TRACKS.iter().enumerate() {
+            let authored = ALL_TRACK_VISUALS[slot];
+            assert!(
+                authored < AUTHORED_TRACKS.len(),
+                "slot {slot} names authored circuit {authored}, but there are only {}",
+                AUTHORED_TRACKS.len()
+            );
+            assert_eq!(
+                track.name, AUTHORED_TRACKS[authored].name,
+                "slot {slot} is {} but ALL_TRACK_VISUALS says it is circuit \
+                 {authored} ({})",
+                track.name, AUTHORED_TRACKS[authored].name,
+            );
+        }
     }
 
     #[test]

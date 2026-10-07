@@ -7,6 +7,12 @@
 //! - Clamping to the circuit bounds, so the view never leaves the track
 //! - Smooth exponential tracking (lerp) eliminating harsh jitter
 //!
+//! Two things feed the follow, and both are filtered rather than sampled: the
+//! camera *position* eases toward the car, and the look-ahead *direction* eases
+//! toward the direction of travel. Filtering only the position is not enough --
+//! the lead is long enough that a flickering direction puts a jittered target in
+//! front of the lerp, which then tracks the jitter faithfully.
+//!
 //! Hardware-free: depends only on `arduracer-core`, so `tools/test_ui` exercises
 //! it on the host.
 
@@ -33,6 +39,23 @@ const LOOKAHEAD_FAST: i32 = 72;
 /// How fast the position eases toward its target (1/8th per 60 Hz tick).
 const POSITION_EASE: i32 = 512;
 
+/// How fast the look-ahead *direction* eases toward the direction of travel,
+/// 1/4th of the gap per 60 Hz tick.
+///
+/// Faster than [`POSITION_EASE`] would leave the lead swinging the full
+/// `LOOKAHEAD_FAST` units on a hard corner entry, which is the wobble this
+/// filter exists to stop; slower would add a visible lag into the corner, which
+/// is the one thing the lead is for.
+const LEAD_DIR_EASE: i32 = 1_024;
+
+/// Speed below which the direction of travel is noise rather than intent, in raw
+/// fixed-point units. ~18 world units/second, which is walking pace.
+///
+/// Under it the velocity vector points at whatever the tyres last did -- a wall
+/// scrape, a steering correction, the creep of a wheel off line -- not at where
+/// the car is going. Below this the lead direction is held instead of chased.
+const LEAD_DIR_HOLD_SPEED: i32 = 1_200;
+
 /// Camera state in world coordinates.
 #[derive(Copy, Clone, Debug)]
 pub struct Camera {
@@ -40,13 +63,27 @@ pub struct Camera {
     pub pos: Vec2,
     /// Zoom factor (1.0 = standard, < 1.0 = zoomed out).
     pub zoom: Fixed,
+    /// Smoothed unit direction the look-ahead lead is applied along.
+    ///
+    /// Filter state rather than an input: it is only meaningful relative to the
+    /// previous tick's velocity, so it is not public. Starts pointing up the
+    /// screen, which is the standstill default -- a stationary car sits low.
+    lead_dir: Vec2,
 }
+
+/// The direction the look-ahead starts at: up the screen, so the car renders
+/// below centre rather than dead on it.
+const LEAD_DIR_INITIAL: Vec2 = Vec2 {
+    x: Fixed::ZERO,
+    y: Fixed(-FP_ONE),
+};
 
 impl Default for Camera {
     fn default() -> Self {
         Camera {
             pos: Vec2::ZERO,
             zoom: Fixed::from_raw(ZOOM_REST),
+            lead_dir: LEAD_DIR_INITIAL,
         }
     }
 }
@@ -56,6 +93,7 @@ impl Camera {
         Camera {
             pos: initial_pos,
             zoom: Fixed::from_raw(ZOOM_REST),
+            lead_dir: LEAD_DIR_INITIAL,
         }
     }
 
@@ -134,10 +172,10 @@ impl Camera {
             FP_ONE,
         );
         let lead = LOOKAHEAD_REST + ((LOOKAHEAD_FAST - LOOKAHEAD_REST) * speed_ratio) / FP_ONE;
-        let dir = forward_dir(target_pos, self.pos, target_velocity, speed_ratio);
+        let dir = self.lead_direction(target_velocity, speed);
         let desired_pos = Vec2 {
-            x: target_pos.x + Fixed::from_int(dir.0 * lead / 1000),
-            y: target_pos.y + Fixed::from_int(dir.1 * lead / 1000),
+            x: target_pos.x + dir.x * Fixed::from_int(lead),
+            y: target_pos.y + dir.y * Fixed::from_int(lead),
         };
 
         // Smooth exponential tracking.
@@ -154,14 +192,40 @@ impl Camera {
         self.clamp_to_bounds(world_w, world_h);
     }
 
+    /// Smoothed direction the look-ahead is applied along, and updates it.
+    ///
+    /// The lead is `LOOKAHEAD_FAST` units long at speed, so a direction that
+    /// flickers frame to frame does not average out -- it swings the target
+    /// position by its whole length, and the position lerp then faithfully
+    /// chases a target that keeps jumping. Filtering the direction is what makes
+    /// the follow smooth; filtering only the position cannot be, because the
+    /// jitter is already inside the target by the time the lerp sees it.
+    fn lead_direction(&mut self, velocity: Vec2, speed: Fixed) -> Vec2 {
+        // Below walking pace the velocity vector points at tyre noise rather than
+        // at where the car is going, so hold the last good heading. Holding is
+        // what keeps a car sitting still from wandering, and what keeps a car
+        // pinned against a barrier from having its lead slosh about.
+        if speed.raw() >= LEAD_DIR_HOLD_SPEED {
+            let len = velocity.length();
+            if len.raw() != 0 {
+                let want = velocity.scale(Fixed::ONE / len);
+                self.lead_dir.x =
+                    self.lead_dir.x + (want.x - self.lead_dir.x) * Fixed::from_raw(LEAD_DIR_EASE);
+                self.lead_dir.y =
+                    self.lead_dir.y + (want.y - self.lead_dir.y) * Fixed::from_raw(LEAD_DIR_EASE);
+            }
+        }
+        self.lead_dir
+    }
+
     /// Keeps the visible rectangle inside the circuit.
     ///
     /// Where the circuit is narrower than the view, the camera centres on that
     /// axis instead of clamping to an edge, so it never sits off-world.
     pub fn clamp_to_bounds(&mut self, world_w: i32, world_h: i32) {
         let (half_w, half_h) = self.visible_half_extents();
-        self.pos.x = clamp_axis(self.pos.x.to_int(), half_w, world_w);
-        self.pos.y = clamp_axis(self.pos.y.to_int(), half_h, world_h);
+        self.pos.x = clamp_axis(self.pos.x, half_w, world_w);
+        self.pos.y = clamp_axis(self.pos.y, half_h, world_h);
     }
 }
 
@@ -170,47 +234,21 @@ impl Camera {
 /// If the world is smaller than the view on this axis the camera centres on the
 /// world rather than clamping, otherwise it would sit at a corner and show more
 /// out-of-bounds on the other side.
-fn clamp_axis(cam: i32, half: i32, world: i32) -> Fixed {
+///
+/// The clamp is on the Q20.12 value, deliberately. This used to round-trip
+/// through `to_int()` -- `Fixed::from_int(cam.to_int().clamp(lo, hi))` -- which
+/// quantised the camera to whole world units *every* frame, whether or not the
+/// clamp had anything to do. A world unit is a screen pixel at rest zoom and the
+/// camera covers several units per frame at speed, so the camera advanced in
+/// whole-pixel steps while the car moved smoothly: the car's screen position
+/// juddered by a pixel every frame, which is what made the stage feel clunky
+/// rather than the follow feeling soft. The arithmetic shift also floors, so the
+/// snap was asymmetric about the origin.
+fn clamp_axis(cam: Fixed, half: i32, world: i32) -> Fixed {
     if world <= 2 * half {
         return Fixed::from_int(world / 2);
     }
-    let lo = half;
-    let hi = world - half;
-    Fixed::from_int(cam.clamp(lo, hi))
-}
-
-/// Unit forward direction for the camera lead, in whole-number world units.
-///
-/// Uses velocity when the car is actually moving, because that reflects where
-/// the car is *going* mid-drift; falls back to the camera's existing offset for
-/// the heading when stationary. The result is scaled by 1000 to stay integral.
-fn forward_dir(target: Vec2, cam: Vec2, velocity: Vec2, _speed_ratio: i32) -> (i32, i32) {
-    const SCALE: i32 = 1000;
-    if velocity.length_squared().raw() > 0 {
-        let len = velocity.length().raw();
-        if len != 0 {
-            return (
-                (velocity.x.raw() * SCALE) / len,
-                (velocity.y.raw() * SCALE) / len,
-            );
-        }
-    }
-    // Stationary: keep the last heading by leaning away from where the camera
-    // already sits, so the car settles slightly low on screen at the grid.
-    let dx = target.x.raw() - cam.x.raw();
-    let dy = target.y.raw() - cam.y.raw();
-    if dx == 0 && dy == 0 {
-        return (0, -SCALE);
-    }
-    // Approximate normalisation on the dominant axis: exact trig is wasted here
-    // because the magnitude is immediately scaled by `lead` again.
-    let ax = dx.abs();
-    let ay = dy.abs();
-    if ax >= ay {
-        (if dx < 0 { -SCALE } else { SCALE }, 0)
-    } else {
-        (0, if dy < 0 { -SCALE } else { SCALE })
-    }
+    cam.clamp(Fixed::from_int(half), Fixed::from_int(world - half))
 }
 
 /// Integer division rounding away from zero for positive inputs.

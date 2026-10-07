@@ -44,7 +44,7 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test playtest calibrate-tracks tracks clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets deps require-sdk require-fx-levels require-version
+.PHONY: all help test playtest atlas circuits atlas-and-calibrate require-track-images clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets deps require-sdk require-version
 
 all: test exe
 
@@ -55,8 +55,9 @@ help:
 	@echo "                  and that the stored par times still match the physics."
 	@echo "                  Par drift is a FAILURE. Escape hatch for the recalibration"
 	@echo "                  window only: make playtest PLAYTEST_FLAGS=--allow-par-drift"
-	@echo "  make tracks    - Regenerate levels.rs from FX CSVs + par calibration"
-	@echo "  make calibrate-tracks - Re-measure par times, then regenerate levels.rs"
+	@echo "  make circuits  - Draw authored circuits into tracks/*.png"
+	@echo "  make atlas     - Compile tracks/*.png into levels.rs + visual_tex.rs"
+	@echo "  make atlas-and-calibrate - Re-measure par times, then make atlas"
 	@echo "  make exe       - Build bare-metal MIPS PSX executable (dist/arduracer.exe)"
 	@echo "  make assets    - Cook FMV intro video and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
@@ -348,7 +349,7 @@ test: require-sdk
 # `crates/arduracer-core/src/levels.rs` is a failure, because every medal
 # boundary in the game just moved. Escape hatches, in order of preference:
 #
-#   make calibrate-tracks                    re-measure and regenerate (correct fix)
+#   make atlas-and-calibrate             re-measure and regenerate (correct fix)
 #   make playtest PLAYTEST_FLAGS=--allow-par-drift
 #                                           report the drift without failing, for
 #                                           the window between landing a physics
@@ -361,40 +362,52 @@ playtest: require-sdk
 		cargo run --manifest-path tools/playtest/Cargo.toml --release -- $(PLAYTEST_FLAGS) || exit 1; \
 	fi
 
-# Regenerates crates/arduracer-core/src/levels.rs. Fails if any circuit has an
-# unreachable gate, an off-road gate, or a start box outside the racing surface.
-tracks:
-	@$(MAKE) --no-print-directory require-fx-levels
-	@python3 tools/track_cook/convert_levels.py
+# --- Authored circuit atlas (image -> in-game format) -----------------------
+#
+# Two stages, deliberately separate:
+#
+#   make circuits   draws tracks/*.svg          -> .data.png/.visual.png/...
+#   make atlas      compiles tracks/*.png       -> levels.rs + visual_tex.rs
+#
+# `atlas` turns the authored images into the format the game links against. It
+# validates every circuit first and refuses to emit if any fails, so a broken map
+# never reaches `levels.rs`, and it also packs `visual_tex.rs` -- the 4bpp
+# texture the per-pixel track renderer samples -- so a stage whose visual changed
+# does not take effect in game until this runs.
+#
+# `atlas` is the only writer of `levels.rs` and `visual_tex.rs`. The FX-CSV
+# cooker that used to sit here is gone; nothing reads `ArduRacerFx/Levels/*.csv`
+# any more, and re-adding it would replace the authored circuits rather than
+# build them.
+atlas:
+	@$(MAKE) --no-print-directory require-track-images
+	@python3 tools/track_cook/build_atlas.py
 
-# Measures real reference laps and rewrites the par-time table before
-# regenerating the level data.
-calibrate-tracks:
+# Draws the authored circuits as SVGs and rasterises them into `tracks/`. Run
+# this first, or after editing `generate_svg_circuit.py`; `make atlas` only
+# compiles images that already exist on disk.
+circuits:
+	@python3 tools/track_cook/generate_svg_circuit.py
+	@$(MAKE) --no-print-directory atlas
+
+# Re-measures reference laps and folds the result into the next `make atlas`, so
+# a par-table change is one command rather than two in the right order.
+.PHONY: atlas circuits atlas-and-calibrate
+atlas-and-calibrate:
 	@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
-	@$(MAKE) --no-print-directory require-fx-levels
-	@python3 tools/track_cook/convert_levels.py
+	@$(MAKE) --no-print-directory atlas
 
-# `tools/track_cook/convert_levels.py` compiles the 20 legacy ArduRacer FX level
-# CSVs, which live in `ArduRacerFx/` -- a *reference* directory that .gitignore
-# excludes, so it is absent from a clean checkout. Without this the script dies
-# with a bare `FileNotFoundError` traceback after the calibration has already
-# rewritten par_calibration.json, which reads as "calibration failed" rather than
-# "you are missing the reference tree".
-FX_LEVEL_CSV := ArduRacerFx/Levels/Level1.csv
-.PHONY: require-fx-levels
-require-fx-levels:
-	@if [ -f "$(FX_LEVEL_CSV)" ]; then exit 0; fi; \
-	echo "ERROR: $(FX_LEVEL_CSV) is missing."; \
+# The atlas pipeline compiles images, it does not draw them. Without this the
+# script exits on the first missing `.data.png` with a stack trace that reads as
+# a broken build rather than a missing input.
+.PHONY: require-track-images
+require-track-images:
+	@if ls tracks/*.data.png >/dev/null 2>&1; then exit 0; fi; \
+	echo "ERROR: no tracks/*.data.png."; \
 	echo ""; \
-	echo "  tools/track_cook/convert_levels.py compiles the 20 legacy ArduRacer"; \
-	echo "  FX level CSVs from ArduRacerFx/, a reference tree that .gitignore"; \
-	echo "  excludes, so it is not in a fresh clone. Regenerating"; \
-	echo "  crates/arduracer-core/src/levels.rs needs it."; \
-	echo ""; \
-	echo "  Restore ArduRacerFx/ next to this checkout (or from your own copy of"; \
-	echo "  the FX source) and re-run. Par calibration itself does not need it:"; \
-	echo "  'cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate'"; \
-	echo "  only writes tools/track_cook/par_calibration.json."; \
+	echo "  make atlas compiles the authored circuit images; it does not draw"; \
+	echo "  them. Run 'make circuits' to generate tracks/*.svg and their"; \
+	echo "  .data.png/.visual.png/.line.json/.palette.json first."; \
 	exit 1
 
 # Emits the rust-lld link map alongside the PSX-EXE. The `.exe` is a raw
