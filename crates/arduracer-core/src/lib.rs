@@ -14,17 +14,20 @@
 pub mod ai;
 pub mod ai_profiles;
 pub mod championship;
+pub mod city;
 pub mod drift;
 pub mod ghost;
 pub mod levels;
 pub mod math;
 pub mod route;
 pub mod save;
+pub mod streaming;
 pub mod surface;
 pub mod timing;
 pub mod track;
 pub mod tuning;
 pub mod vehicle;
+pub mod visual_converter;
 pub mod visual_tex;
 
 pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
@@ -48,3 +51,19 @@ pub use timing::{
 pub use track::{TrackDef, TrackTile, MAX_TRACK_CHECKPOINTS, MAX_TRACK_DIM, TILE_SIZE};
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
 pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};
+
+pub use city::{
+    CityChunkData, CityDef, CityRace, CHUNK_CELLS, CHUNK_TEXELS, DEFAULT_CHUNK_DIM,
+    DEFAULT_TEXELS_PER_CELL,
+};
+#[cfg(test)]
+pub use streaming::MemoryCdStreamSource;
+pub use streaming::{
+    CdStreamSource, CityStreamer, StreamError, CD_SECTOR_BYTES, MAX_RESIDENT_SLOTS,
+};
+#[cfg(test)]
+pub use visual_converter::{convert_to_8bit_colour, ConvertedVisual8};
+pub use visual_converter::{
+    convert_to_8bit_colour_slice, nearest_palette_index, SourceBitDepth, CORE_PALETTE_16,
+    PALETTE_SIZE_8BIT,
+};

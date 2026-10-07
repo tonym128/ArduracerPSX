@@ -230,6 +230,22 @@ fn main() {
         "The whole corridor is drivable",
         test_the_whole_corridor_is_drivable
     );
+    run_test!(
+        "Visual converter: arbitrary bit-depths to 8-bit",
+        test_visual_image_bit_depth_conversions
+    );
+    run_test!(
+        "Full-sized city: real-time collision data streaming",
+        test_full_sized_city_realtime_data_streaming
+    );
+    run_test!(
+        "Full-sized city: real-time 8-bit visual streaming",
+        test_full_sized_city_realtime_visual_streaming
+    );
+    run_test!(
+        "Full-sized city: multi-race urban championship",
+        test_city_multi_race_championship
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -1965,4 +1981,590 @@ fn test_race_standings_and_leaderboard() {
     let leaderboard = session.sorted_leaderboard();
     assert_eq!(leaderboard[0].name, "PLAYER");
     assert_eq!(leaderboard[0].total_points, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Full-Sized City & Real-Time CD Streaming Test Suite
+// ---------------------------------------------------------------------------
+
+struct TestCdDrive {
+    chunks: Vec<(u32, CityChunkData)>,
+    sectors_read: u64,
+    bytes_transferred: u64,
+}
+
+impl TestCdDrive {
+    fn new() -> Self {
+        Self {
+            chunks: Vec::new(),
+            sectors_read: 0,
+            bytes_transferred: 0,
+        }
+    }
+
+    fn insert_chunk(&mut self, chunk_id: u32, chunk: CityChunkData) {
+        if let Some(pos) = self.chunks.iter().position(|(id, _)| *id == chunk_id) {
+            self.chunks[pos] = (chunk_id, chunk);
+        } else {
+            self.chunks.push((chunk_id, chunk));
+        }
+    }
+}
+
+impl CdStreamSource for TestCdDrive {
+    fn read_chunk(&mut self, chunk_id: u32) -> Result<CityChunkData, StreamError> {
+        if let Some((_, c)) = self.chunks.iter().find(|(id, _)| *id == chunk_id) {
+            let data_bytes = c.tiles.len() + c.visual_8bpp.len();
+            let sec = data_bytes.div_ceil(CD_SECTOR_BYTES);
+            self.sectors_read += sec as u64;
+            self.bytes_transferred += data_bytes as u64;
+            Ok(*c)
+        } else {
+            Err(StreamError::ChunkNotFound)
+        }
+    }
+
+    fn has_chunk(&self, chunk_id: u32) -> bool {
+        self.chunks.iter().any(|(id, _)| *id == chunk_id)
+    }
+
+    fn sectors_read(&self) -> u64 {
+        self.sectors_read
+    }
+
+    fn bytes_transferred(&self) -> u64 {
+        self.bytes_transferred
+    }
+}
+
+fn test_visual_image_bit_depth_conversions() {
+    let mut clut = [(0u8, 0u8, 0u8); PALETTE_SIZE_8BIT];
+
+    // 1. 1-bit monochrome (bilevel) -> 8-bit colour
+    let raw_1bit = [0b1011_0001u8]; // 8 pixels
+    let mut pixels_1bit = [0u8; 8];
+    let written = convert_to_8bit_colour_slice(
+        8,
+        1,
+        SourceBitDepth::Bit1,
+        &raw_1bit,
+        None,
+        &mut pixels_1bit,
+        &mut clut,
+    );
+    assert_eq!(written, 8);
+    assert_eq!(pixels_1bit, [1, 0, 1, 1, 0, 0, 0, 1]);
+
+    // 2. 2-bit paletted -> 8-bit colour
+    let raw_2bit = [0b11_10_01_00u8]; // 4 pixels: 3, 2, 1, 0
+    let mut pixels_2bit = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit2,
+        &raw_2bit,
+        None,
+        &mut pixels_2bit,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_2bit, [3, 2, 1, 0]);
+
+    // 3. 4-bit paletted -> 8-bit colour
+    let raw_4bit = [0x41u8, 0x82u8]; // 4 pixels: low nibble 1, high 4, low 2, high 8
+    let mut pixels_4bit = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit4,
+        &raw_4bit,
+        None,
+        &mut pixels_4bit,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_4bit, [1, 4, 2, 8]);
+
+    // 4. 8-bit grayscale -> 8-bit colour
+    let raw_8gray = [0u8, 50, 100, 200];
+    let mut pixels_8gray = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit8Gray,
+        &raw_8gray,
+        None,
+        &mut pixels_8gray,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_8gray, [0, 50, 100, 200]);
+
+    // 5. 16-bit grayscale -> 8-bit colour
+    let raw_16gray = [0x80u8, 0x00, 0xFF, 0x00]; // 2 pixels
+    let mut pixels_16gray = [0u8; 2];
+    let written = convert_to_8bit_colour_slice(
+        2,
+        1,
+        SourceBitDepth::Bit16Gray,
+        &raw_16gray,
+        None,
+        &mut pixels_16gray,
+        &mut clut,
+    );
+    assert_eq!(written, 2);
+    assert_eq!(pixels_16gray, [0x80, 0xFF]);
+
+    // 6. 24-bit direct RGB -> 8-bit colour
+    let raw_24rgb = [
+        0x3C, 0x3E, 0x44, // Tarmac (core code 1)
+        0xE8, 0xE8, 0xF0, // Kerb White (core code 3)
+        0xD8, 0x28, 0x3C, // Kerb Red (core code 4)
+        0x00, 0x80, 0xFF, // Custom blue colour (populates slot >= 16)
+    ];
+    let mut pixels_24rgb = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit24Rgb,
+        &raw_24rgb,
+        None,
+        &mut pixels_24rgb,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_24rgb[0], 1, "Tarmac RGB must map to core code 1");
+    assert_eq!(pixels_24rgb[1], 3, "Kerb White must map to core code 3");
+    assert_eq!(pixels_24rgb[2], 4, "Kerb Red must map to core code 4");
+    assert!(
+        pixels_24rgb[3] >= 16,
+        "Custom colour mapped to dynamic palette slot"
+    );
+
+    // 7. 32-bit direct RGBA -> 8-bit colour
+    let raw_32rgba = [
+        0x3C, 0x3E, 0x44, 0xFF, // Tarmac with full alpha
+        0x00, 0x00, 0x00, 0x00, // Fully transparent -> black VOID (core code 0)
+    ];
+    let mut pixels_32rgba = [0u8; 2];
+    let written = convert_to_8bit_colour_slice(
+        2,
+        1,
+        SourceBitDepth::Bit32Rgba,
+        &raw_32rgba,
+        None,
+        &mut pixels_32rgba,
+        &mut clut,
+    );
+    assert_eq!(written, 2);
+    assert_eq!(pixels_32rgba[0], 1);
+    assert_eq!(pixels_32rgba[1], 0);
+}
+
+fn test_full_sized_city_realtime_data_streaming() {
+    // Construct a full-sized city: 1024 x 1024 cells (32,768 x 32,768 world units!)
+    // 32 x 32 chunks = 1024 total chunks.
+    let city = CityDef::new(
+        "Grand Metropolis",
+        1024,
+        1024,
+        DEFAULT_CHUNK_DIM,
+        DEFAULT_TEXELS_PER_CELL,
+        &[],
+        [(0, 0, 0); 256],
+    );
+
+    assert_eq!(city.chunks_x(), 32);
+    assert_eq!(city.chunks_y(), 32);
+    assert_eq!(city.total_chunks(), 1024);
+
+    let mut cd = TestCdDrive::new();
+
+    // Populate chunks along an expressway running West -> East through row cy = 4
+    for cx in 0..16 {
+        let chunk_id = city.chunk_id(cx, 4);
+        let mut chunk = CityChunkData::empty(cx as u16, 4);
+
+        // Draw a multi-lane expressway: cells 14..=18 in chunk are Tarmac, with Kerb at 13 and 19
+        for x in 0..32 {
+            chunk.set_tile(x, 13, 32, TrackTile::Curb);
+            for y in 14..=18 {
+                chunk.set_tile(x, y, 32, TrackTile::Tarmac);
+            }
+            chunk.set_tile(x, 19, 32, TrackTile::Curb);
+            // Outer wall
+            chunk.set_tile(x, 12, 32, TrackTile::Barrier);
+            chunk.set_tile(x, 20, 32, TrackTile::Barrier);
+        }
+
+        cd.insert_chunk(chunk_id, chunk);
+    }
+
+    // Also populate chunks in north/south neighbours (cy = 3 and cy = 5)
+    for cx in 0..16 {
+        for cy in [3, 5] {
+            let chunk_id = city.chunk_id(cx, cy);
+            let mut chunk = CityChunkData::empty(cx as u16, cy as u16);
+            for x in 0..32 {
+                for y in 0..32 {
+                    chunk.set_tile(x, y, 32, TrackTile::OffRoad);
+                }
+            }
+            cd.insert_chunk(chunk_id, chunk);
+        }
+    }
+
+    // Streamer with strictly bounded resident capacity (12 chunks = ~12 KB RAM)
+    let capacity = 12;
+    let mut streamer = CityStreamer::new(city.clone(), cd, capacity);
+
+    // Initial vehicle setup on expressway
+    let y_world = Fixed::from_int((4 * 32 + 16) * TILE_SIZE); // cy=4, ly=16 centre of expressway
+    let mut car = VehicleState::new(
+        Vec2::new(Fixed::from_int(100), y_world),
+        1024,
+        Default::default(),
+    );
+
+    // Simulate high-speed vehicle driving across 10 chunk boundaries (10,000 world units)
+    let speed = Fixed::from_raw(12000); // Near top speed (~3 units/tick)
+    car.speed = speed;
+
+    let mut boundary_crossings = 0;
+    let mut last_chunk_x = 0;
+
+    for tick in 0..1000 {
+        car.position.x = car.position.x + Fixed::from_int(10); // Move east by 10 world units per tick
+        let (cx, _cy) = city.world_to_chunk(car.position.x, car.position.y);
+        if cx != last_chunk_x {
+            boundary_crossings += 1;
+            last_chunk_x = cx;
+        }
+
+        // Real-time update with predictive prefetching
+        streamer.update(car.position, car.heading, car.speed);
+
+        // Real-time physics query on the road
+        assert!(
+            streamer.is_road(car.position.x, car.position.y),
+            "Vehicle must remain on drivable expressway at tick {tick}, pos ({:?}, {:?})",
+            car.position.x.to_int(),
+            car.position.y.to_int()
+        );
+        assert_eq!(
+            streamer.surface_at(car.position.x, car.position.y),
+            SurfaceType::Tarmac
+        );
+
+        // Check barrier collision query on expressway walls
+        let north_wall_y = Fixed::from_int((4 * 32 + 12) * TILE_SIZE + 16);
+        assert!(streamer.is_solid(car.position.x, north_wall_y));
+
+        // CRITICAL INVARIANT: Resident chunk count must never exceed capacity!
+        assert!(
+            streamer.resident_count() <= capacity,
+            "Resident chunk count ({}) exceeded capacity bound ({}) at tick {tick}",
+            streamer.resident_count(),
+            capacity
+        );
+    }
+
+    assert!(
+        boundary_crossings >= 8,
+        "Must have crossed at least 8 chunk boundaries"
+    );
+    assert!(
+        streamer.sectors_streamed() > 0,
+        "Sectors must have been streamed from CD"
+    );
+    assert!(
+        streamer.bytes_streamed() > 0,
+        "Bytes must have been streamed"
+    );
+    assert!(
+        streamer.cache_hits() > streamer.cache_misses(),
+        "Cache hits should exceed misses during steady-state driving"
+    );
+}
+
+fn test_full_sized_city_realtime_visual_streaming() {
+    // Full-sized city layout: 512 x 512 cells
+    let city = CityDef::new(
+        "Coast City",
+        512,
+        512,
+        DEFAULT_CHUNK_DIM,
+        DEFAULT_TEXELS_PER_CELL,
+        &[],
+        [(0, 0, 0); 256],
+    );
+
+    let mut cd = TestCdDrive::new();
+
+    // Author distinctive 8-bit visual buffers for 6 chunks
+    static VISUAL_CHUNKS: [[u8; CHUNK_TEXELS]; 6] = [
+        [0x01; CHUNK_TEXELS], // Chunk 0: Tarmac code 1
+        [0x02; CHUNK_TEXELS], // Chunk 1: Tarmac worn code 2
+        [0x05; CHUNK_TEXELS], // Chunk 2: Grass code 5
+        [0x06; CHUNK_TEXELS], // Chunk 3: Gravel code 6
+        [0x07; CHUNK_TEXELS], // Chunk 4: Sand code 7
+        [0x0F; CHUNK_TEXELS], // Chunk 5: Scenery code 15
+    ];
+
+    for (idx, visual) in VISUAL_CHUNKS.iter().enumerate() {
+        let chunk_id = city.chunk_id(idx, 0);
+        let mut chunk = CityChunkData::empty(idx as u16, 0);
+        chunk.visual_8bpp = visual;
+        cd.insert_chunk(chunk_id, chunk);
+    }
+
+    let capacity = 4; // Tight resident capacity of 4 chunks
+    let mut streamer = CityStreamer::new(city.clone(), cd, capacity);
+
+    // Pan camera across chunks 0, 1, 2, 3, 4, 5
+    for (cx, expected_chunk) in VISUAL_CHUNKS.iter().enumerate() {
+        let world_x = Fixed::from_int((cx as i32 * 32 + 16) * TILE_SIZE);
+        let world_y = Fixed::from_int(16 * TILE_SIZE);
+
+        streamer.update(Vec2::new(world_x, world_y), 1024, Fixed::from_int(2));
+
+        // Visual chunk query
+        let visual_data = streamer.visual_chunk_at(cx, 0);
+        assert!(
+            visual_data.is_some(),
+            "Visual chunk ({cx}, 0) must be resident and streamable"
+        );
+        let bytes = visual_data.unwrap();
+        assert_eq!(bytes.len(), CHUNK_TEXELS);
+        assert_eq!(bytes[0], expected_chunk[0]);
+
+        assert!(
+            streamer.resident_count() <= capacity,
+            "Resident capacity bounded during visual streaming"
+        );
+    }
+}
+
+fn test_city_multi_race_championship() {
+    // Three distinct circuits authored within the same large city
+    static DOWNTOWN_GATES: [CheckpointGate; 4] = [
+        CheckpointGate {
+            x: 10,
+            y: 10,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 30,
+            y: 10,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 30,
+            y: 30,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 10,
+            y: 30,
+            width: 2,
+            height: 2,
+        },
+    ];
+    static DOWNTOWN_ROUTE: [Vec2; 4] = [
+        Vec2 {
+            x: Fixed::from_raw(500 << 12),
+            y: Fixed::from_raw(500 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(1500 << 12),
+            y: Fixed::from_raw(500 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(1500 << 12),
+            y: Fixed::from_raw(1500 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(500 << 12),
+            y: Fixed::from_raw(1500 << 12),
+        },
+    ];
+
+    static HARBOUR_GATES: [CheckpointGate; 4] = [
+        CheckpointGate {
+            x: 50,
+            y: 20,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 80,
+            y: 20,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 80,
+            y: 50,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 50,
+            y: 50,
+            width: 2,
+            height: 2,
+        },
+    ];
+    static HARBOUR_ROUTE: [Vec2; 4] = [
+        Vec2 {
+            x: Fixed::from_raw(5000 << 12),
+            y: Fixed::from_raw(2000 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(6500 << 12),
+            y: Fixed::from_raw(2000 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(6500 << 12),
+            y: Fixed::from_raw(3500 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(5000 << 12),
+            y: Fixed::from_raw(3500 << 12),
+        },
+    ];
+
+    static UPTOWN_GATES: [CheckpointGate; 4] = [
+        CheckpointGate {
+            x: 100,
+            y: 100,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 140,
+            y: 100,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 140,
+            y: 140,
+            width: 2,
+            height: 2,
+        },
+        CheckpointGate {
+            x: 100,
+            y: 140,
+            width: 2,
+            height: 2,
+        },
+    ];
+    static UPTOWN_ROUTE: [Vec2; 4] = [
+        Vec2 {
+            x: Fixed::from_raw(8000 << 12),
+            y: Fixed::from_raw(8000 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(8000 << 12),
+            y: Fixed::from_raw(7000 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(9000 << 12),
+            y: Fixed::from_raw(7000 << 12),
+        },
+        Vec2 {
+            x: Fixed::from_raw(9000 << 12),
+            y: Fixed::from_raw(8000 << 12),
+        },
+    ];
+
+    static CITY_RACES: [CityRace; 3] = [
+        CityRace {
+            name: "Downtown Ring",
+            district: "Financial Center",
+            start_pos: Vec2 {
+                x: Fixed::from_raw(500 << 12),
+                y: Fixed::from_raw(500 << 12),
+            },
+            start_heading: 1024,
+            start_gate: DOWNTOWN_GATES[0],
+            par_times: ParTimes {
+                dev_platinum_ticks: 900,
+                gold_ticks: 1100,
+                silver_ticks: 1300,
+                bronze_ticks: 1500,
+            },
+            checkpoints: &DOWNTOWN_GATES,
+            route: &DOWNTOWN_ROUTE,
+            half_width: 160,
+        },
+        CityRace {
+            name: "Harbour Expressway",
+            district: "Waterfront Docks",
+            start_pos: Vec2 {
+                x: Fixed::from_raw(5000 << 12),
+                y: Fixed::from_raw(2000 << 12),
+            },
+            start_heading: 1024,
+            start_gate: HARBOUR_GATES[0],
+            par_times: ParTimes {
+                dev_platinum_ticks: 1200,
+                gold_ticks: 1400,
+                silver_ticks: 1700,
+                bronze_ticks: 2000,
+            },
+            checkpoints: &HARBOUR_GATES,
+            route: &HARBOUR_ROUTE,
+            half_width: 160,
+        },
+        CityRace {
+            name: "Uptown Ring",
+            district: "Heights Quarter",
+            start_pos: Vec2 {
+                x: Fixed::from_raw(8000 << 12),
+                y: Fixed::from_raw(8000 << 12),
+            },
+            start_heading: 0,
+            start_gate: UPTOWN_GATES[0],
+            par_times: ParTimes {
+                dev_platinum_ticks: 750,
+                gold_ticks: 950,
+                silver_ticks: 1150,
+                bronze_ticks: 1350,
+            },
+            checkpoints: &UPTOWN_GATES,
+            route: &UPTOWN_ROUTE,
+            half_width: 160,
+        },
+    ];
+
+    let city = CityDef::new(
+        "Capital City",
+        512,
+        512,
+        DEFAULT_CHUNK_DIM,
+        DEFAULT_TEXELS_PER_CELL,
+        &CITY_RACES,
+        [(0, 0, 0); 256],
+    );
+
+    assert_eq!(city.races.len(), 3);
+
+    // Verify each city race has valid gate count and monotonically ordered par times
+    for race in city.races {
+        assert!(race.checkpoints.len() >= 3);
+        assert!(race.route.len() >= 3);
+        assert!(race.par_times.dev_platinum_ticks < race.par_times.gold_ticks);
+        assert!(race.par_times.gold_ticks < race.par_times.silver_ticks);
+        assert!(race.par_times.silver_ticks < race.par_times.bronze_ticks);
+
+        // Verify lap timer starts and advances on the city race gates
+        let mut timer: LapTimer<16> = LapTimer::new(race.checkpoints, race.start_gate);
+        timer.start();
+        assert_eq!(timer.current_lap, 1);
+    }
 }
