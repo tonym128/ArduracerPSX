@@ -112,17 +112,15 @@ DATA_PX = 3
 #:
 #: 320 also lands the image on a page grid that `gpu::tracktex` can address with
 #: no fold: a 4bpp page is 256 texels, so 320 is one full page plus a 64-texel
-#: strip, and 320 rows fits inside VRAM's 512 rows without splitting the upload
-#: across two bands. See `texlayout::TRACK_BAND1`.
-VISUAL_PX = 4
+#: Visual image pixel resolution: 16 px/cell, yielding 1280x1280 master visual images.
+VISUAL_PX = 16
 
 #: Raster is taken at this multiple of the data resolution, then majority-voted
 #: down. 4x4 = 16 samples per cell is ample to resolve a 0.7-cell fringe; the
 #: default 3 px/cell with no supersampling leaves edges ambiguous.
 SUPERSAMPLE = 3
 
-#: Side of the authored master image, in pixels. Fixed so the visual PNG does not
-#: grow with the grid: 96 cells x 8 px = 768, unchanged from 48 x 16.
+#: Side of the authored master image, in pixels: 80 cells x 16 px = 1280x1280.
 SIZE = GRID * VISUAL_PX
 
 # --- Palette, mirroring tools/track_cook/palette.json exactly ------------------
@@ -630,7 +628,10 @@ def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
         return np.array(RGB_TUPLE[code], dtype=np.float32)
 
     def grain(y, x, salt=0):
-        v = ((x * 73856093) ^ (y * 19349663) ^ (salt * 83492791)) & 0xFF
+        scale = max(1, px // 2)
+        gx = x // scale
+        gy = y // scale
+        v = ((gx * 73856093) ^ (gy * 19349663) ^ (salt * 83492791)) & 0xFF
         return (v & 0x3F) / 255.0
 
     for y in range(h):

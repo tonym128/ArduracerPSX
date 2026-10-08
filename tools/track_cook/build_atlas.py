@@ -75,6 +75,10 @@ _gen_spec.loader.exec_module(gen_svg)
 
 #: Visual image size in texels: `GRID * VISUAL_PX`, square.
 VISUAL_SIZE = (gen_svg.SIZE, gen_svg.SIZE)
+TILE_DIM = 256
+TILES_X = VISUAL_SIZE[0] // TILE_DIM
+TILES_Y = VISUAL_SIZE[1] // TILE_DIM
+TILE_COUNT = TILES_X * TILES_Y
 
 #: The level palette, in code order. Written once into `visual_tex.rs` and
 #: shared by every circuit: the palette is part of the level format
@@ -225,7 +229,7 @@ def git(args: list[str]) -> None:
         pass
 
 
-def lz_stream_compress(src: bytes, window: int = 8192) -> bytes:
+def lz_stream_compress(src: bytes, window: int = 8192, max_chain: int = 48) -> bytes:
     """Compresses raw 15-bit BGR555 halfwords using a fast streaming LZ codec."""
     dst = bytearray()
     i = 0
@@ -245,7 +249,8 @@ def lz_stream_compress(src: bytes, window: int = 8192) -> bytes:
             target_len = len(target)
             if target_len >= MIN_MATCH:
                 p = src.rfind(target[:MIN_MATCH], win_start, i)
-                while p != -1 and p >= win_start:
+                chain = 0
+                while p != -1 and p >= win_start and chain < max_chain:
                     mlen = 0
                     while mlen < target_len and src[p + mlen] == target[mlen]:
                         mlen += 1
@@ -255,6 +260,7 @@ def lz_stream_compress(src: bytes, window: int = 8192) -> bytes:
                         if best_len == MAX_MATCH:
                             break
                     p = src.rfind(target[:MIN_MATCH], win_start, p)
+                    chain += 1
             if best_len >= MIN_MATCH:
                 dst.append((best_dist >> 8) & 0xFF)
                 dst.append(best_dist & 0xFF)
@@ -269,19 +275,18 @@ def lz_stream_compress(src: bytes, window: int = 8192) -> bytes:
     return bytes(dst)
 
 
-def pack_visual(name: str) -> bytes:
-    """Packs one circuit's visual PNG into 15-bit direct colour (BGR555) stream.
+def pack_visual(name: str) -> list[bytes]:
+    """Packs one circuit's visual PNG into 25 independent 15-bit direct colour (BGR555) 256x256 tile streams.
 
-    The game's per-pixel track renderer samples a VRAM-resident 15-bit direct
-    colour texture of the world. At 320x320 texels, each uncompressed image is
-    204,800 bytes. To stay well under the strict 50% PSX static RAM ceiling,
-    the 15-bit stream is compressed with an 8192-byte sliding window, shrinking
-    each track from 204.8 KB to ~12 KB (~50 KB total for all 4 tracks). The
-    renderer streams this directly into VRAM on track load with an 8 KB ring
-    buffer and zero heap allocation.
+    The track image is 1280x1280 texels (5x5 tiles of 256x256). Each tile is compressed
+    individually with LZSS to ~1.7 KB - ~3 KB so that the runtime GPU renderer can stream any
+    newly visible tile directly into one of the 4 active VRAM cache slots with < 1 ms latency.
     """
     stem = os.path.join(ROOT, "tracks", name.replace(" ", "_"))
-    im = Image.open(stem + ".visual.png").convert("RGB")
+    gen_path = stem + ".visual.gen.png"
+    vis_path = stem + ".visual.png"
+    target_path = gen_path if os.path.exists(gen_path) else vis_path
+    im = Image.open(target_path).convert("RGB")
     h, w = im.size[1], im.size[0]
     assert (w, h) == VISUAL_SIZE, (
         f"{name}: visual is {w}x{h}, expected {VISUAL_SIZE[0]}x{VISUAL_SIZE[1]}. "
@@ -289,33 +294,62 @@ def pack_visual(name: str) -> bytes:
         f"grid changed, change it in the same commit."
     )
 
-    raw = bytearray(w * h * 2)
-    idx = 0
-    for y in range(h):
-        for x in range(w):
-            r, g, b = im.getpixel((x, y))
-            # 15-bit direct BGR555: 5 bits per channel (0..=31)
+    arr = np.array(im)
+    tiles: list[bytes] = []
+
+    for ty in range(TILES_Y):
+        for tx in range(TILES_X):
+            tile_arr = arr[ty * TILE_DIM : (ty + 1) * TILE_DIM, tx * TILE_DIM : (tx + 1) * TILE_DIM]
+            r = tile_arr[:, :, 0].astype(np.uint16)
+            g = tile_arr[:, :, 1].astype(np.uint16)
+            b = tile_arr[:, :, 2].astype(np.uint16)
             bgr555 = ((r >> 3) & 0x1F) | (((g >> 3) & 0x1F) << 5) | (((b >> 3) & 0x1F) << 10)
-            raw[idx] = bgr555 & 0xFF
-            raw[idx + 1] = (bgr555 >> 8) & 0xFF
-            idx += 2
-
-    return lz_stream_compress(bytes(raw), window=8192)
+            raw = bgr555.tobytes()
+            tiles.append(lz_stream_compress(raw, window=8192))
+    return tiles
 
 
-def emit_visual_tex(packed_per_circuit: list[bytes]) -> None:
-    """Writes `crates/arduracer-core/src/visual_tex.rs` from the compressed 15-bit visual streams.
+def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
+    """Writes `assets/TRACKS.BIN` and `crates/arduracer-core/src/visual_tex.rs`.
 
-    One compressed 15-bit texture per authored circuit. Delivers full 32,768-colour
-    fidelity without palette quantization, while keeping static RAM footprint
-    at ~50 KB total across all circuits.
+    All compressed 15-bit visual tile streams are written sector-aligned into `assets/TRACKS.BIN`
+    on the CD-ROM disc image. `visual_tex.rs` receives only the sector index table (offset and length),
+    keeping the PSX-EXE static RAM footprint (< 1 KB) completely decoupled from high-detail textures.
     """
     assert packed_per_circuit, "no circuits to pack a visual for"
-    out = os.path.join(ROOT, "crates", "arduracer-core", "src", "visual_tex.rs")
+    out_rs = os.path.join(ROOT, "crates", "arduracer-core", "src", "visual_tex.rs")
+    assets_dir = os.path.join(ROOT, "assets")
+    os.makedirs(assets_dir, exist_ok=True)
+    out_bin = os.path.join(assets_dir, "TRACKS.BIN")
+
     n = len(packed_per_circuit)
-    with open(out, "w") as f:
+    SECTOR_SIZE = 2048
+
+    # Build TRACKS.BIN with sector-aligned tiles
+    current_sector = 0
+    tile_entries: list[list[tuple[int, int, int]]] = []
+
+    with open(out_bin, "wb") as f_bin:
+        for c, tiles in enumerate(packed_per_circuit):
+            circuit_entries = []
+            for t, packed in enumerate(tiles):
+                byte_len = len(packed)
+                sector_count = (byte_len + SECTOR_SIZE - 1) // SECTOR_SIZE
+                circuit_entries.append((current_sector, sector_count, byte_len))
+                f_bin.write(packed)
+                pad_len = (sector_count * SECTOR_SIZE) - byte_len
+                if pad_len > 0:
+                    f_bin.write(b"\x00" * pad_len)
+                current_sector += sector_count
+            tile_entries.append(circuit_entries)
+
+    total_sectors = current_sector
+    total_bin_bytes = total_sectors * SECTOR_SIZE
+
+    # Emit visual_tex.rs with tile sector index
+    with open(out_rs, "w") as f:
         f.write(
-            "//! Per-circuit visual texture data: 15-bit direct colour stream.\n"
+            "//! Per-circuit visual texture metadata and decompression stream codec.\n"
             "//!\n"
             "//! Generated by `tools/track_cook/build_atlas.py`. Do not edit by hand.\n"
             "\n"
@@ -323,28 +357,52 @@ def emit_visual_tex(packed_per_circuit: list[bytes]) -> None:
             f"pub const WIDTH: usize = {VISUAL_SIZE[0]};\n"
             "/// Visual image height in texels.\n"
             f"pub const HEIGHT: usize = {VISUAL_SIZE[1]};\n"
-            "/// Number of authored circuits, one texture each.\n"
+            "/// Tile dimension in texels (256x256 per page).\n"
+            f"pub const TILE_DIM: usize = {TILE_DIM};\n"
+            "/// Number of tiles along X axis.\n"
+            f"pub const TILES_X: usize = {TILES_X};\n"
+            "/// Number of tiles along Y axis.\n"
+            f"pub const TILES_Y: usize = {TILES_Y};\n"
+            "/// Total number of tiles per circuit.\n"
+            f"pub const TILE_COUNT: usize = {TILE_COUNT};\n"
+            "/// Number of authored circuits, one texture set each.\n"
             f"pub const COUNT: usize = {n};\n"
-            "/// Raw uncompressed 16-bit BGR555 halfword count per track image.\n"
+            "/// Raw uncompressed 16-bit BGR555 halfword count per 256x256 tile (65,536).\n"
+            "pub const RAW_TILE_HALFWORDS: usize = TILE_DIM * TILE_DIM;\n"
+            "/// Raw uncompressed byte count per tile (131,072 bytes).\n"
+            "pub const RAW_TILE_BYTES: usize = RAW_TILE_HALFWORDS * 2;\n"
+            "/// Raw uncompressed 16-bit BGR555 halfword count per full track image.\n"
             "pub const RAW_HALFWORDS: usize = WIDTH * HEIGHT;\n"
-            "/// Raw uncompressed byte count per track image (204,800 bytes).\n"
+            "/// Raw uncompressed byte count per full track image.\n"
             "pub const RAW_BYTES: usize = RAW_HALFWORDS * 2;\n"
             "/// Streaming ring buffer window size in bytes.\n"
             "pub const STREAM_WINDOW: usize = 8192;\n"
+            "/// Name of the track visual asset file on the CD-ROM disc.\n"
+            "pub const TRACKS_BIN_NAME: &[u8] = b\"TRACKS.BIN\";\n"
             "\n"
-            "/// Streaming compressed 15-bit colour visual texture streams.\n"
-            f"pub static STREAM_PACKED: [&[u8]; COUNT] = [\n"
+            "/// CD-ROM sector index entry for a compressed tile stream in TRACKS.BIN.\n"
+            "#[derive(Copy, Clone, Debug, PartialEq, Eq)]\n"
+            "pub struct TileSectorEntry {\n"
+            "    /// 2048-byte sector offset from the start of TRACKS.BIN.\n"
+            "    pub sector_offset: u32,\n"
+            "    /// Number of 2048-byte CD sectors allocated for this tile.\n"
+            "    pub sector_count: u32,\n"
+            "    /// Exact payload length of the compressed stream in bytes.\n"
+            "    pub byte_len: u32,\n"
+            "}\n"
+            "\n"
+            "/// Streaming compressed 15-bit visual tile sector index [circuit][tile_idx].\n"
+            f"pub static CIRCUIT_TILE_SECTORS: [[TileSectorEntry; TILE_COUNT]; COUNT] = [\n"
         )
-        for i in range(n):
-            f.write(f"    &TRACK_{i}_15BPP,\n")
+        for c, entries in enumerate(tile_entries):
+            f.write("    [\n")
+            for t, (sec_off, sec_cnt, b_len) in enumerate(entries):
+                f.write(
+                    f"        TileSectorEntry {{ sector_offset: {sec_off}, "
+                    f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
+                )
+            f.write("    ],\n")
         f.write("];\n\n")
-
-        for idx, packed in enumerate(packed_per_circuit):
-            f.write(f"static TRACK_{idx}_15BPP: [u8; {len(packed)}] = [\n")
-            for i in range(0, len(packed), 32):
-                chunk = ", ".join(f"0x{b:02X}" for b in packed[i : i + 32])
-                f.write(f"    {chunk},\n")
-            f.write("];\n\n")
 
         f.write(
             "/// The 16 level-palette core reference colours in code order 0..=15.\n"
@@ -429,8 +487,10 @@ def emit_visual_tex(packed_per_circuit: list[bytes]) -> None:
             "    });\n"
             "}\n"
         )
-    print(f"wrote {out} ({len(packed_per_circuit)} 15bpp streaming textures, "
-          f"{sum(len(p) for p in packed_per_circuit)} compressed stream bytes)")
+    print(
+        f"wrote {out_bin} ({total_sectors} sectors = {total_bin_bytes} bytes) and "
+        f"{out_rs} ({n} circuits x {TILE_COUNT} tile entries)"
+    )
 
 
 def main() -> int:
@@ -481,8 +541,8 @@ def main() -> int:
     # than by hand.
     keep = {n.replace(" ", "_") for n, _, _ in results}
     stale = [f for f in sorted(os.listdir(os.path.join(ROOT, "tracks")))
-             if f.endswith((".data.png", ".visual.png", ".line.json",
-                            ".palette.json"))
+             if f.endswith((".data.png", ".visual.png", ".visual.gen.png", ".visual.detailed.png",
+                            ".line.json", ".palette.json"))
              and not any(f.startswith(k) for k in keep)]
     if stale:
         print(f"\nremoving {len(stale)} superseded image file(s) for the "

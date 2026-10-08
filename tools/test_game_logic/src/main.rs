@@ -2805,24 +2805,51 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::visual_tex;
 
     assert_eq!(visual_tex::COUNT, 4);
-    assert_eq!(visual_tex::STREAM_PACKED.len(), 4);
+    assert_eq!(visual_tex::WIDTH, 1280);
+    assert_eq!(visual_tex::HEIGHT, 1280);
+    assert_eq!(visual_tex::TILE_COUNT, 25);
+    assert_eq!(visual_tex::CIRCUIT_TILE_SECTORS.len(), 4);
 
-    let mut ring = [0u8; visual_tex::STREAM_WINDOW];
-    for circuit_idx in 0..visual_tex::COUNT {
-        let stream = visual_tex::STREAM_PACKED[circuit_idx];
-        assert!(!stream.is_empty());
+    let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("assets")
+        .join("TRACKS.BIN");
 
-        let mut emitted_count = 0usize;
-        visual_tex::decompress_stream(stream, visual_tex::RAW_HALFWORDS, &mut ring, |_halfword| {
-            emitted_count += 1;
-        });
+    if tracks_bin_path.exists() {
+        let tracks_bin = std::fs::read(&tracks_bin_path).expect("Failed to read TRACKS.BIN");
+        let mut ring = [0u8; visual_tex::STREAM_WINDOW];
+        for circuit_idx in 0..visual_tex::COUNT {
+            for tile_idx in 0..visual_tex::TILE_COUNT {
+                let entry = visual_tex::CIRCUIT_TILE_SECTORS[circuit_idx][tile_idx];
+                assert!(entry.sector_count > 0);
+                assert!(entry.byte_len > 0);
 
-        assert_eq!(
-            emitted_count,
-            visual_tex::RAW_HALFWORDS,
-            "Circuit {} streaming decompress must produce exactly {} halfwords",
-            circuit_idx,
-            visual_tex::RAW_HALFWORDS
-        );
+                let byte_offset = (entry.sector_offset as usize) * 2048;
+                let byte_len = entry.byte_len as usize;
+                let stream = &tracks_bin[byte_offset..byte_offset + byte_len];
+
+                let mut emitted_count = 0usize;
+                visual_tex::decompress_stream(
+                    stream,
+                    visual_tex::RAW_TILE_HALFWORDS,
+                    &mut ring,
+                    |_halfword| {
+                        emitted_count += 1;
+                    },
+                );
+
+                assert_eq!(
+                    emitted_count,
+                    visual_tex::RAW_TILE_HALFWORDS,
+                    "Circuit {} tile {} streaming decompress must produce exactly {} halfwords",
+                    circuit_idx,
+                    tile_idx,
+                    visual_tex::RAW_TILE_HALFWORDS
+                );
+            }
+        }
     }
 }

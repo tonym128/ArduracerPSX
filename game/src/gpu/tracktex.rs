@@ -68,145 +68,324 @@
 use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
+use crate::cd_fs::DiscReader;
 use crate::gpu::camera::Camera;
-use crate::gpu::texlayout::{TRACK_BAND1_H, TRACK_BAND1_W, TRACK_BAND1_X, TRACK_BAND1_Y};
+use crate::gpu::texlayout::{
+    TRACK_SLOT_COUNT, TRACK_TILE_DIM, TRACK_VRAM_SLOTS, TRACK_WU_PER_TEXEL,
+};
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
 use psx_vram::{upload_16bpp_stream, TexDepth, Tpage, VramRect};
 
-/// Source texels are 8x8 world units (2560 world units / 320 texels).
-///
-/// Shared with `texlayout::TRACK_WU_PER_TEXEL` rather than restated: this is the
-/// one number that has to agree between the cooker that drew the texture and the
-/// renderer that samples it, and a private copy is how the two drifted last time
-/// -- the cooker dropped a resolution step, the renderer's UV maths did not, and
-/// the result was a track that looked correct and was half the size it claimed.
-const WU_PER_TEXEL: i32 = crate::gpu::texlayout::TRACK_WU_PER_TEXEL as i32;
+/// Source texels are 2x2 world units (2560 world units / 1280 texels).
+const WU_PER_TEXEL: i32 = TRACK_WU_PER_TEXEL as i32;
 
 /// One source tile of the page grid: 256 texels.
-const TILE_TEX: i32 = 256;
+const TILE_TEX: i32 = TRACK_TILE_DIM as i32;
 
-/// Source tiles per axis: 320 texels is 256 + 64, so two tiles, the second only
-/// a quarter full.
-const TILES: usize = 2;
+/// Tile world size: 256 texels * 2 world units/texel = 512 world units.
+const TILE_WU: i32 = TILE_TEX * WU_PER_TEXEL;
+
+/// Maximum sectors per compressed tile bounce buffer (64 sectors = 128 KB).
+const MAX_TILE_SECTORS: usize = 64;
+const TILE_BUFFER_BYTES: usize = MAX_TILE_SECTORS * 2048;
+
+/// Precomputed Tpage descriptors for each of the 4 working VRAM slots.
+const SLOT_TPAGES: [Tpage; TRACK_SLOT_COUNT] = [
+    Tpage::new(
+        TRACK_VRAM_SLOTS[0].0,
+        TRACK_VRAM_SLOTS[0].1,
+        TexDepth::Bit15,
+    ),
+    Tpage::new(
+        TRACK_VRAM_SLOTS[1].0,
+        TRACK_VRAM_SLOTS[1].1,
+        TexDepth::Bit15,
+    ),
+    Tpage::new(
+        TRACK_VRAM_SLOTS[2].0,
+        TRACK_VRAM_SLOTS[2].1,
+        TexDepth::Bit15,
+    ),
+    Tpage::new(
+        TRACK_VRAM_SLOTS[3].0,
+        TRACK_VRAM_SLOTS[3].1,
+        TexDepth::Bit15,
+    ),
+];
+
+#[derive(Copy, Clone)]
+struct VramSlot {
+    resident_circuit: usize,
+    resident_tile: Option<usize>,
+    last_used: u32,
+}
+
+/// Dynamic 4-slot VRAM LRU tile cache.
+static mut SLOTS: [VramSlot; TRACK_SLOT_COUNT] = [
+    VramSlot {
+        resident_circuit: usize::MAX,
+        resident_tile: None,
+        last_used: 0,
+    },
+    VramSlot {
+        resident_circuit: usize::MAX,
+        resident_tile: None,
+        last_used: 0,
+    },
+    VramSlot {
+        resident_circuit: usize::MAX,
+        resident_tile: None,
+        last_used: 0,
+    },
+    VramSlot {
+        resident_circuit: usize::MAX,
+        resident_tile: None,
+        last_used: 0,
+    },
+];
+
+static mut ACTIVE_CIRCUIT: usize = 0;
+static mut FRAME_COUNTER: u32 = 0;
 
 /// Static zero-allocation streaming ring buffer in .bss for decompressing
 /// 15-bit direct colour circuit textures directly into VRAM.
 static mut STREAM_RING: [u8; visual_tex::STREAM_WINDOW] = [0u8; visual_tex::STREAM_WINDOW];
 
-/// Maps a source tile coordinate to its VRAM page.
-///
-/// Plain arithmetic: tile (px, py) is the 15bpp VRAM page at
-/// `(TRACK_BAND1_X + px * 256, py * 256)` in halfword columns.
-///
-/// Every returned coordinate is a valid `Tpage` origin: x is a multiple of
-/// 64 (384 and 640 both are), and y is 0 or 256 by construction.
-fn page_for(px: usize, py: usize) -> Tpage {
-    Tpage::new(
-        TRACK_BAND1_X + (px as u16) * 256,
-        (py as u16) * 256,
-        TexDepth::Bit15,
-    )
-}
+/// Scratch bounce buffer for streaming sectors off the CD disc into VRAM.
+static mut TILE_BOUNCE_BUFFER: [u8; TILE_BUFFER_BYTES] = [0u8; TILE_BUFFER_BYTES];
+static mut DISC_READER: DiscReader = DiscReader::new();
+static mut TRACKS_BIN_LBA: Option<u32> = None;
+static mut TRACKS_PROBED: bool = false;
 
-/// Decompresses and streams one circuit's 15-bit world visual directly into VRAM.
-///
-/// Delivers full 15-bit direct colour (32,768 colours) at runtime without requiring
-/// a 204.8 KB full-image allocation in RAM. Decompression proceeds through an
-/// 8192-byte ring buffer in .bss and streams halfwords straight into the GPU FIFO.
+/// Prepares the track texture streaming cache for a new circuit.
+#[allow(clippy::needless_range_loop)]
 pub fn init_track_texture(circuit: usize) {
-    assert!(
-        circuit < visual_tex::COUNT,
-        "init_track_texture: circuit {circuit} out of range ({} authored)",
-        visual_tex::COUNT
-    );
-    let rect = VramRect::new(TRACK_BAND1_X, TRACK_BAND1_Y, TRACK_BAND1_W, TRACK_BAND1_H);
-    let stream = visual_tex::STREAM_PACKED[circuit];
-    let ring = unsafe { &mut *core::ptr::addr_of_mut!(STREAM_RING) };
-    upload_16bpp_stream(rect, |emit| {
-        visual_tex::decompress_stream(stream, visual_tex::RAW_HALFWORDS, ring, |halfword| {
-            emit(halfword);
-        });
-    });
+    let c = circuit % visual_tex::COUNT;
+    unsafe {
+        ACTIVE_CIRCUIT = c;
+        for i in 0..TRACK_SLOT_COUNT {
+            let slot = &mut *core::ptr::addr_of_mut!(SLOTS[i]);
+            slot.resident_circuit = usize::MAX;
+            slot.resident_tile = None;
+            slot.last_used = 0;
+        }
+        FRAME_COUNTER = 0;
+        if !TRACKS_PROBED {
+            let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
+            TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
+            TRACKS_PROBED = true;
+        }
+    }
 }
 
-/// Draws the visible world window as textured quads, one per source tile.
-///
-/// Signature kept from `tile_blitter::render_track` so the call sites in
-/// the race loop and the pause veil do not change; `track` is only used
-/// for the world extents.
-///
-/// The PSX textured quad maps a quad in affine fashion; over an
-/// axis-aligned screen rect that is exactly what a uniform zoom needs, so
-/// one quad per tile is enough -- no subdivision, no perspective divide.
+/// Draws the visible world window as textured quads, streaming tiles dynamically.
 pub fn render_track(track: &TrackDef, camera: &Camera) {
     render_track_extents(track.world_width(), track.world_height(), camera);
 }
 
 /// Renders the world texture clamped to arbitrary world extents (e.g. tracks or cities).
+#[allow(clippy::needless_range_loop)]
 pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     let (half_w, half_h) = camera.visible_half_extents();
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
 
-    // The screen shows 1:1 at rest zoom, so the visible window in world
-    // units maps directly to texels divided by 4. Clamped to the world so
-    // a zoomed-out camera at the world edge never samples past the visual.
     let x0 = (cam_x - half_w).max(0);
     let x1 = (cam_x + half_w).min(world_w);
     let y0 = (cam_y - half_h).max(0);
     let y1 = (cam_y + half_h).min(world_h);
 
-    for py in 0..TILES {
-        for px in 0..TILES {
-            // Source tile (px, py) covers world rect
-            // [px*1024, px*1024+1024) x [py*1024, py*1024+1024).
-            let wx0 = px as i32 * TILE_TEX * WU_PER_TEXEL;
-            let wy0 = py as i32 * TILE_TEX * WU_PER_TEXEL;
+    if x0 >= x1 || y0 >= y1 {
+        return;
+    }
+
+    unsafe {
+        FRAME_COUNTER = FRAME_COUNTER.wrapping_add(1);
+    }
+    let current_frame = unsafe { FRAME_COUNTER };
+    let active_circuit = unsafe { ACTIVE_CIRCUIT };
+
+    let tile_wu = TILE_WU;
+    let max_grid_x = (visual_tex::TILES_X - 1) as i32;
+    let max_grid_y = (visual_tex::TILES_Y - 1) as i32;
+
+    let min_tx = (x0 / tile_wu).clamp(0, max_grid_x) as usize;
+    let max_tx = ((x1 - 1).max(0) / tile_wu).clamp(0, max_grid_x) as usize;
+    let min_ty = (y0 / tile_wu).clamp(0, max_grid_y) as usize;
+    let max_ty = ((y1 - 1).max(0) / tile_wu).clamp(0, max_grid_y) as usize;
+
+    let mut visible_tiles: [(usize, usize, usize); 4] = [(0, 0, 0); 4];
+    let mut vis_count = 0;
+    for ty in min_ty..=max_ty {
+        for tx in min_tx..=max_tx {
+            let wx0 = tx as i32 * tile_wu;
+            let wy0 = ty as i32 * tile_wu;
             let tx0 = x0.max(wx0);
-            let tx1 = x1.min(wx0 + TILE_TEX * WU_PER_TEXEL);
+            let tx1 = x1.min(wx0 + tile_wu);
             let ty0 = y0.max(wy0);
-            let ty1 = y1.min(wy0 + TILE_TEX * WU_PER_TEXEL);
-            if tx0 >= tx1 || ty0 >= ty1 {
-                continue;
+            let ty1 = y1.min(wy0 + tile_wu);
+            if tx0 < tx1 && ty0 < ty1 && vis_count < 4 {
+                visible_tiles[vis_count] = (tx, ty, ty * visual_tex::TILES_X + tx);
+                vis_count += 1;
             }
-
-            let tl = camera.world_to_screen(Vec2 {
-                x: Fixed::from_int(tx0),
-                y: Fixed::from_int(ty0),
-            });
-            let tr = camera.world_to_screen(Vec2 {
-                x: Fixed::from_int(tx1),
-                y: Fixed::from_int(ty0),
-            });
-            let bl = camera.world_to_screen(Vec2 {
-                x: Fixed::from_int(tx0),
-                y: Fixed::from_int(ty1),
-            });
-            let br = camera.world_to_screen(Vec2 {
-                x: Fixed::from_int(tx1),
-                y: Fixed::from_int(ty1),
-            });
-
-            // Tile-local texel coordinates. u/v are 8 bits, so a whole-tile
-            // quad needs u1 = 256 -> 0, which the `min(255)` caps; one texel
-            // of stretch at the seam is invisible, a wrap is not.
-            let u0 = ((tx0 - wx0) / WU_PER_TEXEL).clamp(0, 255) as u8;
-            let u1 = ((tx1 - wx0) / WU_PER_TEXEL).min(255) as u8;
-            let v0 = ((ty0 - wy0) / WU_PER_TEXEL).clamp(0, 255) as u8;
-            let v1 = ((ty1 - wy0) / WU_PER_TEXEL).min(255) as u8;
-
-            let tpage = page_for(px, py);
-            let material = TextureMaterial::opaque(
-                0, // 15-bit direct colour does not use CLUT
-                tpage.uv_tpage_word(0),
-                (0x80, 0x80, 0x80),
-            );
-            gpu::draw_quad_textured_material(
-                [tl, tr, bl, br],
-                [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
-                material,
-            );
         }
+    }
+
+    let mut slot_for_tile = [0usize; 4];
+    let mut used_slots = [false; 4];
+
+    // Phase 1: Match already-resident tiles in VRAM cache
+    for i in 0..vis_count {
+        let (_, _, tile_idx) = visible_tiles[i];
+        let mut found = None;
+        unsafe {
+            for s_idx in 0..TRACK_SLOT_COUNT {
+                let slot = &*core::ptr::addr_of!(SLOTS[s_idx]);
+                if slot.resident_circuit == active_circuit && slot.resident_tile == Some(tile_idx) {
+                    found = Some(s_idx);
+                    break;
+                }
+            }
+        }
+        if let Some(s_idx) = found {
+            slot_for_tile[i] = s_idx;
+            used_slots[s_idx] = true;
+            unsafe {
+                let slot = &mut *core::ptr::addr_of_mut!(SLOTS[s_idx]);
+                slot.last_used = current_frame;
+            }
+        }
+    }
+
+    // Phase 2: Allocate slots for missing tiles and stream them directly into VRAM
+    let ring = unsafe { &mut *core::ptr::addr_of_mut!(STREAM_RING) };
+    for i in 0..vis_count {
+        let (_, _, tile_idx) = visible_tiles[i];
+        let is_hit = unsafe {
+            let s = slot_for_tile[i];
+            let slot = &*core::ptr::addr_of!(SLOTS[s]);
+            slot.resident_circuit == active_circuit && slot.resident_tile == Some(tile_idx)
+        };
+        if is_hit {
+            continue;
+        }
+
+        let mut best_slot = 0;
+        let mut oldest_age = u32::MAX;
+        unsafe {
+            for s_idx in 0..TRACK_SLOT_COUNT {
+                if !used_slots[s_idx] {
+                    let slot = &*core::ptr::addr_of!(SLOTS[s_idx]);
+                    if slot.resident_tile.is_none() {
+                        best_slot = s_idx;
+                        break;
+                    }
+                    if slot.last_used < oldest_age {
+                        oldest_age = slot.last_used;
+                        best_slot = s_idx;
+                    }
+                }
+            }
+        }
+
+        slot_for_tile[i] = best_slot;
+        used_slots[best_slot] = true;
+
+        let (slot_x, slot_y) = TRACK_VRAM_SLOTS[best_slot];
+        let rect = VramRect::new(slot_x, slot_y, TILE_TEX as u16, TILE_TEX as u16);
+        let entry = visual_tex::CIRCUIT_TILE_SECTORS[active_circuit][tile_idx];
+        let bin_lba = unsafe { TRACKS_BIN_LBA };
+        let mut loaded = false;
+
+        if let Some(lba) = bin_lba {
+            let tile_lba = lba + entry.sector_offset;
+            let sector_count = entry.sector_count as usize;
+            let byte_len = entry.byte_len as usize;
+            let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+            let buf = unsafe { &mut *core::ptr::addr_of_mut!(TILE_BOUNCE_BUFFER) };
+
+            if sector_count <= MAX_TILE_SECTORS && reader.read_sectors(tile_lba, sector_count, buf)
+            {
+                let stream = &buf[..byte_len];
+                upload_16bpp_stream(rect, |emit| {
+                    visual_tex::decompress_stream(
+                        stream,
+                        visual_tex::RAW_TILE_HALFWORDS,
+                        ring,
+                        |hw| {
+                            emit(hw);
+                        },
+                    );
+                });
+                loaded = true;
+            }
+        }
+
+        if !loaded {
+            // Graceful fallback pattern when CD-ROM / TRACKS.BIN is not present
+            upload_16bpp_stream(rect, |emit| {
+                for y in 0..TILE_TEX {
+                    for x in 0..TILE_TEX {
+                        let c = if ((x >> 4) ^ (y >> 4)) & 1 == 0 {
+                            0x1CE7
+                        } else {
+                            0x2108
+                        };
+                        emit(c);
+                    }
+                }
+            });
+        }
+
+        unsafe {
+            SLOTS[best_slot].resident_circuit = active_circuit;
+            SLOTS[best_slot].resident_tile = Some(tile_idx);
+            SLOTS[best_slot].last_used = current_frame;
+        }
+    }
+
+    // Phase 3: Render visible textured quads using assigned VRAM slot Tpages
+    for i in 0..vis_count {
+        let (tx, ty, _) = visible_tiles[i];
+        let s_idx = slot_for_tile[i];
+
+        let wx0 = tx as i32 * tile_wu;
+        let wy0 = ty as i32 * tile_wu;
+        let tx0 = x0.max(wx0);
+        let tx1 = x1.min(wx0 + tile_wu);
+        let ty0 = y0.max(wy0);
+        let ty1 = y1.min(wy0 + tile_wu);
+
+        let tl = camera.world_to_screen(Vec2 {
+            x: Fixed::from_int(tx0),
+            y: Fixed::from_int(ty0),
+        });
+        let tr = camera.world_to_screen(Vec2 {
+            x: Fixed::from_int(tx1),
+            y: Fixed::from_int(ty0),
+        });
+        let bl = camera.world_to_screen(Vec2 {
+            x: Fixed::from_int(tx0),
+            y: Fixed::from_int(ty1),
+        });
+        let br = camera.world_to_screen(Vec2 {
+            x: Fixed::from_int(tx1),
+            y: Fixed::from_int(ty1),
+        });
+
+        // Tile-local UV coordinates: 0..255
+        let u0 = ((tx0 - wx0) / WU_PER_TEXEL).clamp(0, 255) as u8;
+        let u1 = ((tx1 - wx0) / WU_PER_TEXEL).min(255) as u8;
+        let v0 = ((ty0 - wy0) / WU_PER_TEXEL).clamp(0, 255) as u8;
+        let v1 = ((ty1 - wy0) / WU_PER_TEXEL).min(255) as u8;
+
+        let tpage = SLOT_TPAGES[s_idx];
+        let material = TextureMaterial::opaque(0, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
+        gpu::draw_quad_textured_material(
+            [tl, tr, bl, br],
+            [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
+            material,
+        );
     }
 }

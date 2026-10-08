@@ -8,6 +8,7 @@
 extern crate psx_rt;
 
 pub mod audio;
+pub mod cd_fs;
 pub mod ghost_player;
 pub mod ghost_recorder;
 pub mod gpu;
@@ -118,6 +119,10 @@ impl ArduracerGame {
         let intro_res = video::play_video("INTRO.STR");
         audio::stop_intro_audio();
 
+        // Initialize the disc track texture streaming and locate TRACKS.BIN NOW,
+        // while the drive is stopped and before CD-DA audio playback is started.
+        init_track_texture(ALL_TRACK_VISUALS[0]);
+
         let fb = FrameBuffer::new(SCREEN_WIDTH, SCREEN_HEIGHT);
         psx_gpu_mod::set_draw_area(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
         psx_gpu_mod::set_draw_offset(0, 0);
@@ -169,7 +174,6 @@ impl ArduracerGame {
         // The boot track never goes through `load_track`, so bake its minimap
         // here or the HUD would blit an empty texture until the first load.
         bake_minimap(&game.minimap_texture, game.current_track);
-        init_track_texture(ALL_TRACK_VISUALS[0]);
         game
     }
 
@@ -184,13 +188,7 @@ impl ArduracerGame {
         // Re-bake the minimap for the new circuit. Once per load: the image is
         // static for the whole race, so this must not be per-frame (TASK-1202).
         bake_minimap(&self.minimap_texture, self.current_track);
-        // Upload the per-pixel circuit visual to VRAM. Same cadence as the
-        // minimap bake and the same reason: the image cannot change while the
-        // circuit does not, and the upload is a FIFO transfer of ~13k words,
-        // so it must be a per-load cost rather than a per-frame one. The index
-        // comes from the generated table rather than `idx % 4` because
-        // `ALL_TRACKS` and `visual_tex::PACKED` are two lists this call has to
-        // agree about, and the table is the one place that already knows.
+        self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
 
         // Play the CD-DA theme corresponding to the active cup:
@@ -226,6 +224,7 @@ impl ArduracerGame {
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         bake_city_minimap(&self.minimap_texture, city);
+        self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx % ALL_TRACK_VISUALS.len()]);
         self.paused = false;
         self.show_hud = true;

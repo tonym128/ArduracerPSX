@@ -216,6 +216,7 @@ ci-disc: disc
 	if [ ! -f "$$bin" ]; then echo "ERROR: $$bin missing"; exit 1; fi; \
 	if [ ! -f "$$cue" ]; then echo "ERROR: $$cue missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/INTRO.STR" ]; then echo "ERROR: assets/INTRO.STR missing"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then echo "ERROR: assets/TRACKS.BIN missing"; exit 1; fi; \
 	cuefile=$$(sed -n 's/^[[:space:]]*FILE[[:space:]]*"\(.*\)".*/\1/p' "$$cue" | head -1); \
 	echo "CUE FILE entry: '$$cuefile'"; \
 	if [ "$$cuefile" != "arduracer.bin" ]; then \
@@ -429,11 +430,13 @@ iso: exe
 		--exe $(DIST)/arduracer.exe \
 		--out $(DIST)/arduracer.iso \
 		--volume ARDURACER \
+		--file $(ROOT)/assets/TRACKS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
 assets:
 	@mkdir -p $(ROOT)/assets/cdda
+	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
@@ -444,6 +447,7 @@ disc: assets exe
 		--out $(DIST)/arduracer.bin \
 		--volume ARDURACER \
 		--file $(ROOT)/assets/INTRO.STR \
+		--file $(ROOT)/assets/TRACKS.BIN \
 		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
 		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \
 		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \
