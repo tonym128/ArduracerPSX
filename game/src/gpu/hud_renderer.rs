@@ -15,7 +15,7 @@
 use crate::gpu::texlayout::{minimap_colour, minimap_step, MINIMAP_SIZE};
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
-use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
+use arduracer_core::{AiRacer, CityDef, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
 use psx_gpu as gpu;
 use psx_gpu::material::BlendMode;
 
@@ -288,4 +288,137 @@ pub fn render_hud<const N: usize>(
         230,
         0,
     );
+}
+
+/// Renders the specialized Urban Exploration HUD for driving in real-world cities.
+/// Displays City Name, District, live OpenStreetMap GPS coordinates, speed, gauges,
+/// and satellite minimap.
+pub fn render_city_hud(player: &VehicleState, city: &CityDef, minimap_texture: &TextureSlot) {
+    // 1. Top-Left City & District Panel
+    gpu::draw_rect_flat(8, 6, 120, 44, 14, 16, 24);
+    gpu::draw_rect_flat(9, 7, 118, 42, 22, 26, 36);
+
+    draw_text(13, 10, city.name, (255, 220, 0), 1);
+    if let Some(race) = city.races.first() {
+        draw_text(13, 22, race.district, (0, 220, 255), 1);
+    } else {
+        draw_text(13, 22, "DOWNTOWN", (0, 220, 255), 1);
+    }
+
+    // Live OpenStreetMap GPS Coordinates
+    let (lat_e7, lon_e7) = city.world_to_gps(player.position.x, player.position.y);
+    let mut gps_buf = [b' '; 24];
+    let gps_len = CityDef::format_gps_into(lat_e7, lon_e7, &mut gps_buf);
+    let mut gx = 13u16;
+    for &b in &gps_buf[..gps_len] {
+        draw_char(gx, 34, b, (120, 255, 140), 1);
+        gx += 5;
+    }
+
+    // 2. Mode banner center
+    gpu::draw_rect_flat(134, 6, 76, 22, 14, 16, 24);
+    gpu::draw_rect_flat(135, 7, 74, 20, 22, 26, 36);
+    draw_text(142, 12, "CRUISE", (255, 235, 40), 1);
+
+    // 3. Gauges & Telemetry Cluster
+    gpu::draw_rect_flat(216, 6, 96, 44, 14, 16, 24);
+    gpu::draw_rect_flat(217, 7, 94, 42, 22, 26, 36);
+
+    gpu::draw_rect_flat(220, 10, 88, 8, 14, 16, 24);
+    let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 86) / 7000;
+    let fill_w = rpm_ratio.clamp(0, 86) as u16;
+    let bar = if player.boost_ticks > 0 {
+        (0, 220, 255)
+    } else if player.engine_rpm > 6500 {
+        (255, 50, 40)
+    } else if player.engine_rpm > 5000 {
+        (255, 200, 30)
+    } else {
+        (40, 220, 70)
+    };
+    if fill_w > 0 {
+        gpu::draw_rect_flat(221, 11, fill_w, 6, bar.0, bar.1, bar.2);
+    }
+
+    gpu::draw_rect_flat(220, 20, 88, 4, 14, 16, 24);
+    let nitro_w = ((player.nitro_charge as i32 * 86) / NITRO_MAX_TICKS as i32).clamp(0, 86) as u16;
+    if nitro_w > 0 {
+        let (nr, ng, nb) = if player.nitro_charge > NITRO_MAX_TICKS / 3 {
+            (255, 150, 40)
+        } else {
+            (80, 110, 140)
+        };
+        gpu::draw_rect_flat(221, 21, nitro_w, 2, nr, ng, nb);
+    }
+
+    let speed_mph = ((player.speed.raw() * 145) / 14000).clamp(0, 199) as u16;
+    let mut speed_buf = [b' '; 7];
+    format_speed(&mut speed_buf, speed_mph);
+    blit(&speed_buf, 220, 28, (240, 240, 250), 1);
+
+    let gear_char = if player.is_reversing {
+        b'R'
+    } else {
+        b'0' + player.gear.clamp(1, 5)
+    };
+    let gear_col = if player.is_reversing {
+        (255, 160, 40)
+    } else {
+        (255, 225, 40)
+    };
+    let mut gear_buf = [b' '; 1];
+    gear_buf[0] = gear_char;
+    draw_text(278, 30, "G", (150, 150, 165), 1);
+    blit(&gear_buf, 288, 26, gear_col, 2);
+
+    // 4. Satellite Minimap panel
+    let map_x = 10i16;
+    let map_y = 174i16;
+    gpu::draw_rect_flat(map_x, map_y, MINIMAP_SIZE, MINIMAP_SIZE, 14, 16, 24);
+    gpu::draw_rect_flat(
+        map_x + 1,
+        map_y + 1,
+        MINIMAP_SIZE - 2,
+        MINIMAP_SIZE - 2,
+        22,
+        26,
+        36,
+    );
+
+    minimap_texture.blit(map_x + 4, map_y + 4, BlendMode::Opaque);
+
+    // Player position blip on satellite map
+    let p_u = (player.position.x.to_int().max(0) as i64 * (MINIMAP_SIZE as i64 - 8))
+        / city.world_width().max(1) as i64;
+    let p_v = (player.position.y.to_int().max(0) as i64 * (MINIMAP_SIZE as i64 - 8))
+        / city.world_height().max(1) as i64;
+    gpu::draw_rect_flat(
+        map_x + 4 + (p_u.clamp(0, MINIMAP_SIZE as i64 - 8) as i16),
+        map_y + 4 + (p_v.clamp(0, MINIMAP_SIZE as i64 - 8) as i16),
+        3,
+        3,
+        255,
+        230,
+        0,
+    );
+}
+
+/// Bakes the satellite overview for a city into the minimap texture slot.
+pub fn bake_city_minimap(slot: &TextureSlot, city: &CityDef) {
+    slot.begin_compose();
+    for my in 0..64i32 {
+        for mx in 0..64i32 {
+            let cx = (mx * city.chunks_x() as i32) / 64;
+            let cy = (my * city.chunks_y() as i32) / 64;
+            let (r, g, b) = match (cx * 3 + cy * 7) % 5 {
+                0 => (22, 48, 85), // Deep water
+                1 => (35, 75, 45), // Satellite park canopy
+                2 => (45, 52, 65), // Urban grid asphalt
+                3 => (60, 65, 78), // Commercial rooftops
+                _ => (38, 44, 54), // Residential blocks
+            };
+            slot.fill_rect(mx, my, 1, 1, (r, g, b));
+        }
+    }
+    slot.upload();
 }

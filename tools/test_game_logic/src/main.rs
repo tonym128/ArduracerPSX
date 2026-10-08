@@ -246,6 +246,18 @@ fn main() {
         "Full-sized city: multi-race urban championship",
         test_city_multi_race_championship
     );
+    run_test!(
+        "OpenMap: 7 real-world cities (Cape Town..Singapore)",
+        test_all_seven_real_world_cities
+    );
+    run_test!(
+        "OpenMap: real-world city real-time CD streaming",
+        test_real_world_cities_cd_streaming
+    );
+    run_test!(
+        "OpenMap: disk file assets and chunk validation",
+        test_openmap_city_file_assets
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -2170,6 +2182,10 @@ fn test_full_sized_city_realtime_data_streaming() {
         1024,
         DEFAULT_CHUNK_DIM,
         DEFAULT_TEXELS_PER_CELL,
+        -378600000,
+        1449300000,
+        -378050000,
+        1449950000,
         &[],
         [(0, 0, 0); 256],
     );
@@ -2295,6 +2311,10 @@ fn test_full_sized_city_realtime_visual_streaming() {
         512,
         DEFAULT_CHUNK_DIM,
         DEFAULT_TEXELS_PER_CELL,
+        -378600000,
+        1449300000,
+        -378050000,
+        1449950000,
         &[],
         [(0, 0, 0); 256],
     );
@@ -2548,6 +2568,10 @@ fn test_city_multi_race_championship() {
         512,
         DEFAULT_CHUNK_DIM,
         DEFAULT_TEXELS_PER_CELL,
+        -378600000,
+        1449300000,
+        -378050000,
+        1449950000,
         &CITY_RACES,
         [(0, 0, 0); 256],
     );
@@ -2566,5 +2590,169 @@ fn test_city_multi_race_championship() {
         let mut timer: LapTimer<16> = LapTimer::new(race.checkpoints, race.start_gate);
         timer.start();
         assert_eq!(timer.current_lap, 1);
+    }
+}
+
+fn test_all_seven_real_world_cities() {
+    assert_eq!(
+        ALL_CITIES.len(),
+        7,
+        "Must contain all 7 target real-world cities"
+    );
+
+    let expected_names = [
+        "Cape Town",
+        "Melbourne",
+        "London",
+        "Sydney",
+        "New York",
+        "Tokyo",
+        "Singapore",
+    ];
+
+    for (idx, expected_name) in expected_names.iter().enumerate() {
+        let city = ALL_CITIES[idx];
+        assert_eq!(city.name, *expected_name);
+        assert_eq!(city.width_cells, 128);
+        assert_eq!(city.height_cells, 128);
+        assert_eq!(city.chunk_dim, DEFAULT_CHUNK_DIM);
+        assert_eq!(city.texels_per_cell, DEFAULT_TEXELS_PER_CELL);
+        assert_eq!(city.chunks_x(), 4);
+        assert_eq!(city.chunks_y(), 4);
+        assert_eq!(city.total_chunks(), 16);
+        assert_eq!(city.world_width(), 128 * TILE_SIZE);
+        assert_eq!(city.world_height(), 128 * TILE_SIZE);
+
+        // Every city must feature at least one authored urban circuit
+        assert!(
+            !city.races.is_empty(),
+            "City {} must contain authored races",
+            city.name
+        );
+
+        for race in city.races {
+            assert!(!race.name.is_empty());
+            assert!(!race.district.is_empty());
+            assert!(
+                race.checkpoints.len() >= 4,
+                "Race {} in {} must have at least 4 checkpoints",
+                race.name,
+                city.name
+            );
+            assert!(
+                race.route.len() >= 4,
+                "Race {} in {} must have at least 4 route nodes",
+                race.name,
+                city.name
+            );
+            assert!(
+                race.start_gate.is_active(),
+                "Start gate for {} in {} must be active",
+                race.name,
+                city.name
+            );
+            assert!(race.half_width > 0);
+
+            // Verify par times
+            assert!(race.par_times.dev_platinum_ticks < race.par_times.gold_ticks);
+            assert!(race.par_times.gold_ticks < race.par_times.silver_ticks);
+            assert!(race.par_times.silver_ticks < race.par_times.bronze_ticks);
+        }
+    }
+}
+
+fn test_real_world_cities_cd_streaming() {
+    for city in ALL_CITIES {
+        let mut cd = TestCdDrive::new();
+
+        // Populate chunks for the city with simulated street network
+        for cy in 0..city.chunks_y() {
+            for cx in 0..city.chunks_x() {
+                let chunk_id = city.chunk_id(cx, cy);
+                let mut chunk_data = CityChunkData::empty(cx as u16, cy as u16);
+                for local_y in 14..=18 {
+                    for local_x in 0..city.chunk_dim {
+                        chunk_data.set_tile(local_x, local_y, city.chunk_dim, TrackTile::Tarmac);
+                    }
+                }
+                cd.insert_chunk(chunk_id, chunk_data);
+            }
+        }
+
+        let mut streamer = CityStreamer::new((*city).clone(), cd, 8);
+
+        // Simulate driving across chunk boundaries
+        for step in 0..10 {
+            let world_x = Fixed::from_int(step * 350 + 200);
+            let world_y = Fixed::from_int(16 * TILE_SIZE);
+
+            streamer.update(Vec2::new(world_x, world_y), 1024, Fixed::from_int(3));
+
+            let surface = streamer.surface_at(world_x, world_y);
+            assert_eq!(surface, SurfaceType::Tarmac);
+            assert!(streamer.is_road(world_x, world_y));
+            assert!(!streamer.is_solid(world_x, world_y));
+            assert!(streamer.resident_count() <= 8);
+        }
+
+        assert!(
+            streamer.cache_hits() > 0,
+            "Cache hits must accumulate during driving in {}",
+            city.name
+        );
+    }
+}
+
+fn test_openmap_city_file_assets() {
+    use std::path::Path;
+
+    let city_ids = [
+        "cape_town",
+        "melbourne",
+        "london",
+        "sydney",
+        "new_york",
+        "tokyo",
+        "singapore",
+    ];
+
+    for city_id in &city_ids {
+        let city_dir = Path::new("cities").join(city_id);
+        assert!(city_dir.exists(), "Directory cities/{} must exist", city_id);
+
+        let data_png = city_dir.join(format!("{}.data.png", city_id));
+        let visual_png = city_dir.join(format!("{}.visual.png", city_id));
+        let city_json = city_dir.join(format!("{}.city.json", city_id));
+        let chunks_dir = city_dir.join("chunks");
+
+        assert!(data_png.exists(), "{:?} must exist", data_png);
+        assert!(visual_png.exists(), "{:?} must exist", visual_png);
+        assert!(city_json.exists(), "{:?} must exist", city_json);
+        assert!(chunks_dir.exists(), "{:?} must exist", chunks_dir);
+
+        // Verify chunk files: 4x4 = 16 chunks
+        for cy in 0..4 {
+            for cx in 0..4 {
+                let tile_chunk = chunks_dir.join(format!("chunk_{:02}_{:02}.tiles.bin", cx, cy));
+                let visual_chunk = chunks_dir.join(format!("chunk_{:02}_{:02}.visual.bin", cx, cy));
+
+                assert!(tile_chunk.exists(), "{:?} must exist", tile_chunk);
+                assert!(visual_chunk.exists(), "{:?} must exist", visual_chunk);
+
+                let tile_bytes = std::fs::read(&tile_chunk).expect("read tile chunk");
+                assert_eq!(
+                    tile_bytes.len(),
+                    1024,
+                    "Tile chunk must be exactly 1024 bytes"
+                );
+
+                let visual_bytes = std::fs::read(&visual_chunk).expect("read visual chunk");
+                assert_eq!(
+                    visual_bytes.len(),
+                    65536,
+                    "Visual chunk must be exactly 65536 bytes"
+                );
+            }
+        }
     }
 }

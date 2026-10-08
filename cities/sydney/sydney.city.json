@@ -1,0 +1,165 @@
+{
+  "id": "sydney",
+  "name": "Sydney",
+  "country": "Australia",
+  "bbox": [
+    -33.885,
+    151.195,
+    -33.84,
+    151.24
+  ],
+  "width_cells": 128,
+  "height_cells": 128,
+  "chunk_dim": 32,
+  "chunks_x": 4,
+  "chunks_y": 4,
+  "total_chunks": 16,
+  "texels_per_cell": 8,
+  "districts": [
+    "Circular Quay",
+    "The Rocks",
+    "CBD",
+    "Darling Harbour",
+    "Botanic Gardens"
+  ],
+  "races": [
+    {
+      "name": "Harbour Bridge GP",
+      "district": "The Rocks",
+      "start_cell": [
+        48,
+        26
+      ],
+      "heading": 2048,
+      "half_width": 36,
+      "par_times": [
+        1520,
+        1780,
+        2120
+      ],
+      "checkpoints": [
+        {
+          "x": 48,
+          "y": 26,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 46,
+          "y": 48,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 58,
+          "y": 55,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 62,
+          "y": 38,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 52,
+          "y": 20,
+          "w": 2,
+          "h": 4
+        }
+      ],
+      "route": [
+        [
+          48,
+          26
+        ],
+        [
+          46,
+          48
+        ],
+        [
+          58,
+          55
+        ],
+        [
+          62,
+          38
+        ],
+        [
+          52,
+          20
+        ]
+      ]
+    },
+    {
+      "name": "Botanic Bay Ring",
+      "district": "Botanic Gardens",
+      "start_cell": [
+        72,
+        60
+      ],
+      "heading": 0,
+      "half_width": 32,
+      "par_times": [
+        1450,
+        1700,
+        2040
+      ],
+      "checkpoints": [
+        {
+          "x": 72,
+          "y": 60,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 74,
+          "y": 42,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 88,
+          "y": 45,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 86,
+          "y": 68,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 75,
+          "y": 72,
+          "w": 4,
+          "h": 2
+        }
+      ],
+      "route": [
+        [
+          72,
+          60
+        ],
+        [
+          74,
+          42
+        ],
+        [
+          88,
+          45
+        ],
+        [
+          86,
+          68
+        ],
+        [
+          75,
+          72
+        ]
+      ]
+    }
+  ]
+}

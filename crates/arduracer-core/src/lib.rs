@@ -15,6 +15,7 @@ pub mod ai;
 pub mod ai_profiles;
 pub mod championship;
 pub mod city;
+pub mod city_data;
 pub mod drift;
 pub mod ghost;
 pub mod levels;
@@ -55,6 +56,10 @@ pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NI
 pub use city::{
     CityChunkData, CityDef, CityRace, CHUNK_CELLS, CHUNK_TEXELS, DEFAULT_CHUNK_DIM,
     DEFAULT_TEXELS_PER_CELL,
+};
+pub use city_data::{
+    ALL_CITIES, CITY_CAPE_TOWN, CITY_LONDON, CITY_MELBOURNE, CITY_NEW_YORK, CITY_SINGAPORE,
+    CITY_SYDNEY, CITY_TOKYO,
 };
 #[cfg(test)]
 pub use streaming::MemoryCdStreamSource;

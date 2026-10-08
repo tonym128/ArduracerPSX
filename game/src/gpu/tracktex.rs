@@ -155,6 +155,11 @@ pub fn init_track_texture(circuit: usize) {
 /// axis-aligned screen rect that is exactly what a uniform zoom needs, so
 /// one quad per tile is enough -- no subdivision, no perspective divide.
 pub fn render_track(track: &TrackDef, camera: &Camera) {
+    render_track_extents(track.world_width(), track.world_height(), camera);
+}
+
+/// Renders the world texture clamped to arbitrary world extents (e.g. tracks or cities).
+pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     let (half_w, half_h) = camera.visible_half_extents();
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
@@ -163,9 +168,9 @@ pub fn render_track(track: &TrackDef, camera: &Camera) {
     // units maps directly to texels divided by 4. Clamped to the world so
     // a zoomed-out camera at the world edge never samples past the visual.
     let x0 = (cam_x - half_w).max(0);
-    let x1 = (cam_x + half_w).min(track.world_width());
+    let x1 = (cam_x + half_w).min(world_w);
     let y0 = (cam_y - half_h).max(0);
-    let y1 = (cam_y + half_h).min(track.world_height());
+    let y1 = (cam_y + half_h).min(world_h);
 
     for py in 0..TILES {
         for px in 0..TILES {

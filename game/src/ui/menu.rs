@@ -11,8 +11,9 @@ use psx_pad::{button, PadState};
 pub enum MenuItem {
     TimeTrial = 0,
     GrandPrix = 1,
-    TuningGarage = 2,
-    Records = 3,
+    CityDrive = 2,
+    TuningGarage = 3,
+    Records = 4,
 }
 
 pub struct MainMenu {
@@ -52,10 +53,10 @@ impl MainMenu {
             if self.selected_idx > 0 {
                 self.selected_idx -= 1;
             } else {
-                self.selected_idx = 3;
+                self.selected_idx = 4;
             }
         } else if down && !self.prev_down {
-            if self.selected_idx < 3 {
+            if self.selected_idx < 4 {
                 self.selected_idx += 1;
             } else {
                 self.selected_idx = 0;
@@ -73,8 +74,9 @@ impl MainMenu {
             match self.selected_idx {
                 0 => Some(MenuItem::TimeTrial),
                 1 => Some(MenuItem::GrandPrix),
-                2 => Some(MenuItem::TuningGarage),
-                3 => Some(MenuItem::Records),
+                2 => Some(MenuItem::CityDrive),
+                3 => Some(MenuItem::TuningGarage),
+                4 => Some(MenuItem::Records),
                 _ => None,
             }
         } else {
@@ -90,18 +92,19 @@ impl MainMenu {
         gpu::draw_rect_flat(22, 22, 276, 196, 32, 36, 48);
 
         // Header Title
-        draw_text(110, 36, "MAIN MENU", (255, 225, 30), 2);
-        gpu::draw_rect_flat(40, 58, 240, 2, 220, 40, 60);
+        draw_text(110, 32, "MAIN MENU", (255, 225, 30), 2);
+        gpu::draw_rect_flat(40, 52, 240, 2, 220, 40, 60);
 
         let items = [
             "1. TIME TRIAL",
             "2. GRAND PRIX",
-            "3. TUNING GARAGE",
-            "4. RECORDS & MEDALS",
+            "3. DRIVE CITIES",
+            "4. TUNING GARAGE",
+            "5. RECORDS & MEDALS",
         ];
 
         for (idx, label) in items.iter().enumerate() {
-            let y = 78 + (idx as i16) * 30;
+            let y = 68 + (idx as i16) * 24;
             let is_sel = (idx as u8) == self.selected_idx;
 
             if is_sel {
@@ -112,12 +115,12 @@ impl MainMenu {
                 } else {
                     (180, 25, 45) // Deep crimson
                 };
-                gpu::draw_rect_flat(50, y - 4, 220, 22, bg_color.0, bg_color.1, bg_color.2);
+                gpu::draw_rect_flat(50, y - 3, 220, 20, bg_color.0, bg_color.1, bg_color.2);
                 draw_text(60, y as u16, label, (255, 255, 255), 1);
                 // Pulsing cursor arrows
                 draw_text(240, y as u16, "<<", (255, 235, 40), 1);
             } else {
-                gpu::draw_rect_flat(50, y - 4, 220, 22, 40, 45, 58);
+                gpu::draw_rect_flat(50, y - 3, 220, 20, 40, 45, 58);
                 draw_text(60, y as u16, label, (180, 190, 205), 1);
             }
         }

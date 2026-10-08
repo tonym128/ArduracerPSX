@@ -36,17 +36,12 @@ const ZOOM_EASE: i32 = 256;
 const LOOKAHEAD_REST: i32 = 10;
 /// Look-ahead at top speed, in world units (~4.5 car lengths).
 const LOOKAHEAD_FAST: i32 = 72;
-/// How fast the position eases toward its target (1/8th per 60 Hz tick).
-const POSITION_EASE: i32 = 512;
+/// How fast the position eases toward its target (~1/10th per 60 Hz tick) for silky smooth tracking.
+const POSITION_EASE: i32 = 420;
 
-/// How fast the look-ahead *direction* eases toward the direction of travel,
-/// 1/4th of the gap per 60 Hz tick.
-///
-/// Faster than [`POSITION_EASE`] would leave the lead swinging the full
-/// `LOOKAHEAD_FAST` units on a hard corner entry, which is the wobble this
-/// filter exists to stop; slower would add a visible lag into the corner, which
-/// is the one thing the lead is for.
-const LEAD_DIR_EASE: i32 = 1_024;
+/// How fast the look-ahead *direction* eases toward the direction of travel (~1/8th per 60 Hz tick).
+/// Silky smooth damping prevents jarring 18-pixel swings on corner entry.
+const LEAD_DIR_EASE: i32 = 512;
 
 /// Speed below which the direction of travel is noise rather than intent, in raw
 /// fixed-point units. ~18 world units/second, which is walking pace.
@@ -140,13 +135,14 @@ impl Camera {
     /// Returned in whole pixels; the fractional part is dropped, which at these
     /// zoom levels is at most one pixel of jitter.
     pub fn world_offset(&self, world_pos: Vec2) -> (i16, i16) {
-        // `raw()` is Q20.12 and `z` is Q20.12, so the product needs two shifts to
-        // come back to pixels.
-        let z = self.zoom.raw();
-        let rel_x =
-            (((world_pos.x - self.pos.x).raw() as i64 * z as i64) >> FP_SHIFT >> FP_SHIFT) as i32;
-        let rel_y =
-            (((world_pos.y - self.pos.y).raw() as i64 * z as i64) >> FP_SHIFT >> FP_SHIFT) as i32;
+        let z = self.zoom.raw() as i64;
+        let dx = (world_pos.x - self.pos.x).raw() as i64 * z;
+        let dy = (world_pos.y - self.pos.y).raw() as i64 * z;
+        // Symmetric half-pixel rounding before the 24-bit shift eliminates
+        // directional subpixel jitter and truncation asymmetry.
+        const HALF_PX: i64 = 1 << (FP_SHIFT + FP_SHIFT - 1);
+        let rel_x = ((dx + HALF_PX) >> (FP_SHIFT + FP_SHIFT)) as i32;
+        let rel_y = ((dy + HALF_PX) >> (FP_SHIFT + FP_SHIFT)) as i32;
         (clamp_i16(rel_x), clamp_i16(rel_y))
     }
 

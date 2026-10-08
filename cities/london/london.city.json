@@ -1,0 +1,175 @@
+{
+  "id": "london",
+  "name": "London",
+  "country": "United Kingdom",
+  "bbox": [
+    51.49,
+    -0.15,
+    51.53,
+    -0.07
+  ],
+  "width_cells": 128,
+  "height_cells": 128,
+  "chunk_dim": 32,
+  "chunks_x": 4,
+  "chunks_y": 4,
+  "total_chunks": 16,
+  "texels_per_cell": 8,
+  "districts": [
+    "Westminster",
+    "The City",
+    "Southwark",
+    "Waterloo",
+    "Victoria Embankment"
+  ],
+  "races": [
+    {
+      "name": "Thames Embankment GP",
+      "district": "Westminster",
+      "start_cell": [
+        45,
+        62
+      ],
+      "heading": 1024,
+      "half_width": 32,
+      "par_times": [
+        1500,
+        1750,
+        2100
+      ],
+      "checkpoints": [
+        {
+          "x": 45,
+          "y": 62,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 60,
+          "y": 55,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 75,
+          "y": 52,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 78,
+          "y": 68,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 62,
+          "y": 72,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 46,
+          "y": 70,
+          "w": 2,
+          "h": 4
+        }
+      ],
+      "route": [
+        [
+          45,
+          62
+        ],
+        [
+          60,
+          55
+        ],
+        [
+          75,
+          52
+        ],
+        [
+          78,
+          68
+        ],
+        [
+          62,
+          72
+        ],
+        [
+          46,
+          70
+        ]
+      ]
+    },
+    {
+      "name": "City of London Sprint",
+      "district": "The City",
+      "start_cell": [
+        88,
+        48
+      ],
+      "heading": 2048,
+      "half_width": 28,
+      "par_times": [
+        1380,
+        1620,
+        1950
+      ],
+      "checkpoints": [
+        {
+          "x": 88,
+          "y": 48,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 92,
+          "y": 64,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 108,
+          "y": 65,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 110,
+          "y": 46,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 98,
+          "y": 42,
+          "w": 2,
+          "h": 4
+        }
+      ],
+      "route": [
+        [
+          88,
+          48
+        ],
+        [
+          92,
+          64
+        ],
+        [
+          108,
+          65
+        ],
+        [
+          110,
+          46
+        ],
+        [
+          98,
+          42
+        ]
+      ]
+    }
+  ]
+}

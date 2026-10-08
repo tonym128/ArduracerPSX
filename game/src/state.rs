@@ -3,7 +3,9 @@
 //! Manages flow between Title Screen, Main Menu, Track Select Carousel,
 //! Tuning Garage, Active Racing, and Race Results Ceremonies.
 
-use crate::ui::{MainMenu, ResultsScreen, TitleScreen, TrackSelectScreen, TuningScreen};
+use crate::ui::{
+    CitySelectScreen, MainMenu, ResultsScreen, TitleScreen, TrackSelectScreen, TuningScreen,
+};
 use arduracer_core::championship::ChampionshipSession;
 use arduracer_core::tuning::CarTuning;
 
@@ -13,6 +15,7 @@ pub enum GameState {
     Title,
     MainMenu,
     TrackSelect,
+    CitySelect,
     Garage,
     Racing,
     Results,
@@ -23,6 +26,7 @@ pub struct StateManager {
     pub title: TitleScreen,
     pub menu: MainMenu,
     pub track_select: TrackSelectScreen,
+    pub city_select: CitySelectScreen,
     pub garage: TuningScreen,
     pub results: Option<ResultsScreen>,
     pub championship: Option<ChampionshipSession>,
@@ -41,6 +45,7 @@ impl StateManager {
             title: TitleScreen::new(),
             menu: MainMenu::new(),
             track_select: TrackSelectScreen::new(),
+            city_select: CitySelectScreen::new(),
             garage: TuningScreen::new(CarTuning::default()),
             results: None,
             championship: None,

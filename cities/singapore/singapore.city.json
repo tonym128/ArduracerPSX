@@ -1,0 +1,165 @@
+{
+  "id": "singapore",
+  "name": "Singapore",
+  "country": "Singapore",
+  "bbox": [
+    1.275,
+    103.84,
+    1.305,
+    103.875
+  ],
+  "width_cells": 128,
+  "height_cells": 128,
+  "chunk_dim": 32,
+  "chunks_x": 4,
+  "chunks_y": 4,
+  "total_chunks": 16,
+  "texels_per_cell": 8,
+  "districts": [
+    "Marina Bay",
+    "Downtown Core",
+    "Civic District",
+    "Bayfront",
+    "Esplanade"
+  ],
+  "races": [
+    {
+      "name": "Marina Bay Street Circuit",
+      "district": "Marina Bay",
+      "start_cell": [
+        62,
+        42
+      ],
+      "heading": 1024,
+      "half_width": 36,
+      "par_times": [
+        1560,
+        1810,
+        2160
+      ],
+      "checkpoints": [
+        {
+          "x": 62,
+          "y": 42,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 84,
+          "y": 40,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 86,
+          "y": 58,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 70,
+          "y": 62,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 54,
+          "y": 55,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 52,
+          "y": 44,
+          "w": 2,
+          "h": 4
+        }
+      ],
+      "route": [
+        [
+          62,
+          42
+        ],
+        [
+          84,
+          40
+        ],
+        [
+          86,
+          58
+        ],
+        [
+          70,
+          62
+        ],
+        [
+          54,
+          55
+        ],
+        [
+          52,
+          44
+        ]
+      ]
+    },
+    {
+      "name": "Downtown Core Sprint",
+      "district": "Downtown Core",
+      "start_cell": [
+        42,
+        70
+      ],
+      "heading": 0,
+      "half_width": 30,
+      "par_times": [
+        1420,
+        1660,
+        2010
+      ],
+      "checkpoints": [
+        {
+          "x": 42,
+          "y": 70,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 44,
+          "y": 48,
+          "w": 2,
+          "h": 4
+        },
+        {
+          "x": 58,
+          "y": 52,
+          "w": 4,
+          "h": 2
+        },
+        {
+          "x": 56,
+          "y": 74,
+          "w": 2,
+          "h": 4
+        }
+      ],
+      "route": [
+        [
+          42,
+          70
+        ],
+        [
+          44,
+          48
+        ],
+        [
+          58,
+          52
+        ],
+        [
+          56,
+          74
+        ]
+      ]
+    }
+  ]
+}

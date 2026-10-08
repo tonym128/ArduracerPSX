@@ -381,7 +381,19 @@ mod tests {
 
     #[test]
     fn city_streaming_maintains_bounded_residency() {
-        let city = CityDef::new("MegaCity", 1024, 1024, 32, 8, &[], [(0, 0, 0); 256]);
+        let city = CityDef::new(
+            "MegaCity",
+            1024,
+            1024,
+            32,
+            8,
+            -378600000,
+            1449300000,
+            -378050000,
+            1449950000,
+            &[],
+            [(0, 0, 0); 256],
+        );
 
         let mut cd = MemoryCdStreamSource::new();
 

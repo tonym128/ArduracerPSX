@@ -68,18 +68,31 @@ pub struct CityDef {
     pub texels_per_cell: usize,
     /// Races and circuits authored inside this city.
     pub races: &'static [CityRace],
+    /// Southernmost latitude in 1e-7 degrees (e.g. -378600000 for -37.860°).
+    pub min_lat_e7: i32,
+    /// Westernmost longitude in 1e-7 degrees (e.g. 1449300000 for 144.930°).
+    pub min_lon_e7: i32,
+    /// Northernmost latitude in 1e-7 degrees (e.g. -378050000 for -37.805°).
+    pub max_lat_e7: i32,
+    /// Easternmost longitude in 1e-7 degrees (e.g. 1449950000 for 144.995°).
+    pub max_lon_e7: i32,
     /// 256-entry 8-bit colour palette (CLUT) for the city's visual textures.
     pub clut: [(u8, u8, u8); 256],
 }
 
 impl CityDef {
     /// Creates a new city definition.
+    #[allow(clippy::too_many_arguments)]
     pub const fn new(
         name: &'static str,
         width_cells: u32,
         height_cells: u32,
         chunk_dim: usize,
         texels_per_cell: usize,
+        min_lat_e7: i32,
+        min_lon_e7: i32,
+        max_lat_e7: i32,
+        max_lon_e7: i32,
         races: &'static [CityRace],
         clut: [(u8, u8, u8); 256],
     ) -> Self {
@@ -90,8 +103,122 @@ impl CityDef {
             chunk_dim,
             texels_per_cell,
             races,
+            min_lat_e7,
+            min_lon_e7,
+            max_lat_e7,
+            max_lon_e7,
             clut,
         }
+    }
+
+    /// Converts world coordinates `(x, y)` to real-world OpenStreetMap GPS coordinates `(lat_e7, lon_e7)`.
+    #[inline]
+    pub fn world_to_gps(&self, x: Fixed, y: Fixed) -> (i32, i32) {
+        let ww = self.world_width().max(1) as i64;
+        let wh = self.world_height().max(1) as i64;
+
+        let px = (x.to_int() as i64).clamp(0, ww);
+        let py = (y.to_int() as i64).clamp(0, wh);
+
+        let lon_span = (self.max_lon_e7 - self.min_lon_e7) as i64;
+        let lon_e7 = self.min_lon_e7 + ((px * lon_span) / ww) as i32;
+
+        let lat_span = (self.max_lat_e7 - self.min_lat_e7) as i64;
+        let lat_e7 = self.max_lat_e7 - ((py * lat_span) / wh) as i32;
+
+        (lat_e7, lon_e7)
+    }
+
+    /// Converts OpenStreetMap GPS coordinates `(lat_e7, lon_e7)` to world coordinates `(x, y)`.
+    #[inline]
+    pub fn gps_to_world(&self, lat_e7: i32, lon_e7: i32) -> (Fixed, Fixed) {
+        let lon_span = (self.max_lon_e7 - self.min_lon_e7).max(1) as i64;
+        let lat_span = (self.max_lat_e7 - self.min_lat_e7).max(1) as i64;
+
+        let u = ((lon_e7 - self.min_lon_e7) as i64).clamp(0, lon_span);
+        let v = ((self.max_lat_e7 - lat_e7) as i64).clamp(0, lat_span);
+
+        let wx = (u * self.world_width() as i64) / lon_span;
+        let wy = (v * self.world_height() as i64) / lat_span;
+
+        (Fixed::from_int(wx as i32), Fixed::from_int(wy as i32))
+    }
+
+    /// Formats GPS coordinates as a readable string into a fixed buffer without allocating,
+    /// e.g. "37.8492S, 144.9681E". Returns number of bytes written.
+    pub fn format_gps_into(lat_e7: i32, lon_e7: i32, buf: &mut [u8]) -> usize {
+        let lat_hemi = if lat_e7 < 0 { b'S' } else { b'N' };
+        let lon_hemi = if lon_e7 < 0 { b'W' } else { b'E' };
+
+        let lat_abs = lat_e7.unsigned_abs();
+        let lon_abs = lon_e7.unsigned_abs();
+
+        let lat_deg = lat_abs / 10_000_000;
+        let lat_frac = (lat_abs % 10_000_000) / 1_000;
+
+        let lon_deg = lon_abs / 10_000_000;
+        let lon_frac = (lon_abs % 10_000_000) / 1_000;
+
+        let mut idx = 0;
+        if lat_deg >= 10 && idx < buf.len() {
+            buf[idx] = b'0' + ((lat_deg / 10) % 10) as u8;
+            idx += 1;
+        }
+        if idx < buf.len() {
+            buf[idx] = b'0' + (lat_deg % 10) as u8;
+            idx += 1;
+        }
+        if idx < buf.len() {
+            buf[idx] = b'.';
+            idx += 1;
+        }
+        for div in [1000, 100, 10, 1] {
+            if idx < buf.len() {
+                buf[idx] = b'0' + ((lat_frac / div) % 10) as u8;
+                idx += 1;
+            }
+        }
+        if idx < buf.len() {
+            buf[idx] = lat_hemi;
+            idx += 1;
+        }
+        if idx < buf.len() {
+            buf[idx] = b',';
+            idx += 1;
+        }
+        if idx < buf.len() {
+            buf[idx] = b' ';
+            idx += 1;
+        }
+
+        if lon_deg >= 100 && idx < buf.len() {
+            buf[idx] = b'0' + ((lon_deg / 100) % 10) as u8;
+            idx += 1;
+        }
+        if lon_deg >= 10 && idx < buf.len() {
+            buf[idx] = b'0' + ((lon_deg / 10) % 10) as u8;
+            idx += 1;
+        }
+        if idx < buf.len() {
+            buf[idx] = b'0' + (lon_deg % 10) as u8;
+            idx += 1;
+        }
+        if idx < buf.len() {
+            buf[idx] = b'.';
+            idx += 1;
+        }
+        for div in [1000, 100, 10, 1] {
+            if idx < buf.len() {
+                buf[idx] = b'0' + ((lon_frac / div) % 10) as u8;
+                idx += 1;
+            }
+        }
+        if idx < buf.len() {
+            buf[idx] = lon_hemi;
+            idx += 1;
+        }
+
+        idx
     }
 
     /// Number of chunk columns across the city.
@@ -251,6 +378,10 @@ mod tests {
             1024,
             DEFAULT_CHUNK_DIM,
             DEFAULT_TEXELS_PER_CELL,
+            -378600000,
+            1449300000,
+            -378050000,
+            1449950000,
             &[],
             [(0, 0, 0); 256],
         );
@@ -271,5 +402,15 @@ mod tests {
         let id = city.chunk_id(1, 2);
         assert_eq!(id, 2 * 32 + 1);
         assert_eq!(city.chunk_coords(id), (1, 2));
+
+        // Test GPS coordinate conversion and formatting
+        let (lat, lon) = city.world_to_gps(Fixed::ZERO, Fixed::ZERO);
+        assert_eq!(lat, -378050000); // Top-left = max_lat
+        assert_eq!(lon, 1449300000); // Top-left = min_lon
+
+        let mut buf = [0u8; 32];
+        let len = CityDef::format_gps_into(lat, lon, &mut buf);
+        let s = core::str::from_utf8(&buf[..len]).unwrap();
+        assert_eq!(s, "37.8050S, 144.9300E");
     }
 }

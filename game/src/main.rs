@@ -18,15 +18,16 @@ pub mod ui;
 pub mod video;
 
 use arduracer_core::{
-    compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, StartPhase, StartSequence,
-    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS,
+    compute_standings, AiRacer, ChampionshipSession, CityDef, Fixed, LapTimer, StartPhase,
+    StartSequence, TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_CITIES, ALL_TRACKS,
+    ALL_TRACK_VISUALS,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
-    bake_minimap, init_track_texture, render_car, render_hud, render_track, Camera, ParticleSystem,
-    SkidmarkBuffer, TextureSlot,
+    bake_city_minimap, bake_minimap, init_track_texture, render_car, render_city_hud, render_hud,
+    render_track, render_track_extents, Camera, ParticleSystem, SkidmarkBuffer, TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -90,6 +91,7 @@ pub struct ArduracerGame {
     pub minimap_texture: TextureSlot,
     pub current_track: &'static TrackDef,
     pub current_track_idx: usize,
+    pub active_city: Option<&'static CityDef>,
     pub fb: FrameBuffer,
     pub audio: AudioSystem,
     pub input_mgr: InputManager,
@@ -155,6 +157,7 @@ impl ArduracerGame {
             show_hud: true,
             current_track: track,
             current_track_idx: 0,
+            active_city: None,
             fb,
             audio,
             input_mgr,
@@ -173,6 +176,7 @@ impl ArduracerGame {
     /// Loads and resets the active circuit.
     pub fn load_track(&mut self, track_idx: usize) {
         let idx = track_idx % ALL_TRACKS.len();
+        self.active_city = None;
         self.current_track_idx = idx;
         self.current_track = ALL_TRACKS[idx];
         self.ghost.reset(idx as u8);
@@ -204,6 +208,30 @@ impl ArduracerGame {
         // A stage loaded: the engine synth may sound again. Still gated on
         // `!paused`, and `reset_race` below clears the veil, so this cannot arm
         // the engine while the pause menu is up.
+        self.audio.enter_race();
+    }
+
+    /// Loads and resets the active city for free urban driving.
+    pub fn load_city(&mut self, city_idx: usize) {
+        let idx = city_idx % ALL_CITIES.len();
+        let city = ALL_CITIES[idx];
+        self.active_city = Some(city);
+        let (start_pos, start_heading) = if let Some(race) = city.races.first() {
+            (race.start_pos, race.start_heading)
+        } else {
+            (Vec2::new(Fixed::from_int(128), Fixed::from_int(128)), 0)
+        };
+        self.player = VehicleState::new(start_pos, start_heading, self.state_mgr.garage.tuning());
+        self.camera = Camera::new(start_pos);
+        self.particles = ParticleSystem::new();
+        self.skidmarks = SkidmarkBuffer::new();
+        bake_city_minimap(&self.minimap_texture, city);
+        init_track_texture(ALL_TRACK_VISUALS[idx % ALL_TRACK_VISUALS.len()]);
+        self.paused = false;
+        self.show_hud = true;
+        self.start = StartSequence::new();
+        self.audio.cdda.play_track(4);
+        self.pause.arm_for_race_start();
         self.audio.enter_race();
     }
 
@@ -263,13 +291,19 @@ impl ArduracerGame {
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self) {
         self.fb.clear(18, 20, 26);
-        render_track(self.current_track, &self.camera);
+        if let Some(city) = self.active_city {
+            render_track_extents(city.world_width(), city.world_height(), &self.camera);
+        } else {
+            render_track(self.current_track, &self.camera);
+        }
         self.skidmarks.render(&self.camera);
         // Same ordering rule as the live frame: smoke belongs on top of the cars
         // it came from (TASK-1206).
         self.particles.render(&self.camera);
-        for rival in &self.rivals {
-            render_car(&rival.state, &self.camera, false, rival.profile.color);
+        if self.active_city.is_none() {
+            for rival in &self.rivals {
+                render_car(&rival.state, &self.camera, false, rival.profile.color);
+            }
         }
         render_car(&self.player, &self.camera, false, (220, 25, 45));
     }
@@ -313,6 +347,10 @@ impl ArduracerGame {
                                 self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
+                            MenuItem::CityDrive => {
+                                self.state_mgr.city_select.arm_for_entry();
+                                self.state_mgr.current = GameState::CitySelect;
+                            }
                             MenuItem::TuningGarage => {
                                 // Load the active preset from the memory card.
                                 let slot = self.memcard.save_data.active_tuning_slot as usize;
@@ -334,6 +372,18 @@ impl ArduracerGame {
                     }
                     self.fb.clear(15, 18, 25);
                     self.state_mgr.menu.render();
+                }
+                GameState::CitySelect => {
+                    self.audio.ui_frame(pad.buttons.bits());
+                    let (confirmed, cancelled) = self.state_mgr.city_select.update(&pad);
+                    if let Some(city_idx) = confirmed {
+                        self.load_city(city_idx);
+                        self.state_mgr.current = GameState::Racing;
+                    } else if cancelled {
+                        self.state_mgr.current = GameState::MainMenu;
+                    }
+                    self.fb.clear(15, 18, 25);
+                    self.state_mgr.city_select.render();
                 }
                 GameState::Garage => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -421,21 +471,50 @@ impl ArduracerGame {
                                     self.audio.cdda.resume();
                                 }
                                 PauseChoice::RestartRace => {
-                                    self.reset_race();
-                                    self.audio.enter_race();
-                                    // Same held-`Start` hazard as `load_track`:
-                                    // the restart happens from inside the veil,
-                                    // where the button is necessarily held.
-                                    self.pause.arm_for_race_start();
-                                    // Restarting skips frames; adopt the buttons
-                                    // held right now so the same press is not
-                                    // re-read against the fresh race.
-                                    self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
-                                    let cdda_track =
-                                        3 + ((self.current_track_idx / 6) as u8).min(3);
-                                    self.audio.cdda.play_track(cdda_track);
+                                    if let Some(city) = self.active_city {
+                                        let (start_pos, start_heading) =
+                                            if let Some(race) = city.races.first() {
+                                                (race.start_pos, race.start_heading)
+                                            } else {
+                                                (
+                                                    Vec2::new(
+                                                        Fixed::from_int(128),
+                                                        Fixed::from_int(128),
+                                                    ),
+                                                    0,
+                                                )
+                                            };
+                                        self.player = VehicleState::new(
+                                            start_pos,
+                                            start_heading,
+                                            self.state_mgr.garage.tuning(),
+                                        );
+                                        self.camera = Camera::new(start_pos);
+                                        self.particles = ParticleSystem::new();
+                                        self.skidmarks = SkidmarkBuffer::new();
+                                        self.start = StartSequence::new();
+                                        self.audio.enter_race();
+                                        self.pause.arm_for_race_start();
+                                        self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
+                                        self.audio.cdda.play_track(4);
+                                    } else {
+                                        self.reset_race();
+                                        self.audio.enter_race();
+                                        // Same held-`Start` hazard as `load_track`:
+                                        // the restart happens from inside the veil,
+                                        // where the button is necessarily held.
+                                        self.pause.arm_for_race_start();
+                                        // Restarting skips frames; adopt the buttons
+                                        // held right now so the same press is not
+                                        // re-read against the fresh race.
+                                        self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
+                                        let cdda_track =
+                                            3 + ((self.current_track_idx / 6) as u8).min(3);
+                                        self.audio.cdda.play_track(cdda_track);
+                                    }
                                 }
                                 PauseChoice::QuitToMenu => {
+                                    self.active_city = None;
                                     self.state_mgr.championship = None;
                                     self.state_mgr.current = GameState::MainMenu;
                                     // `self.paused` stays true across this
@@ -472,9 +551,13 @@ impl ArduracerGame {
 
                     // Controller input poll (surface known from the previous tick
                     // so the rumble motors can react to curbs and impacts).
-                    let pre_tx = TrackDef::tile_x_of(self.player.position.x);
-                    let pre_ty = TrackDef::tile_y_of(self.player.position.y);
-                    let pre_surface = track.surface_at(pre_tx, pre_ty);
+                    let pre_surface = if self.active_city.is_some() {
+                        arduracer_core::SurfaceType::Tarmac
+                    } else {
+                        let pre_tx = TrackDef::tile_x_of(self.player.position.x);
+                        let pre_ty = TrackDef::tile_y_of(self.player.position.y);
+                        track.surface_at(pre_tx, pre_ty)
+                    };
                     // Same pad sample the UI saw this frame, so a button press
                     // cannot open the pause menu and also be missing from the
                     // car's controls (TASK-1214).
@@ -483,124 +566,171 @@ impl ArduracerGame {
                     // Start sequence: hold the car on the grid, then arm the lap
                     // clock the instant the lights go out.
                     self.start.tick();
-                    if self.start.just_started() {
-                        self.timer.start();
-                    }
-                    if !self.start.accepts_input() {
-                        input.throttle = Fixed::ZERO;
-                        input.brake = Fixed::ZERO;
-                        input.steer = Fixed::ZERO;
-                        input.handbrake = false;
-                        input.nitro = false;
+                    if self.active_city.is_none() {
+                        if self.start.just_started() {
+                            self.timer.start();
+                        }
+                        if !self.start.accepts_input() {
+                            input.throttle = Fixed::ZERO;
+                            input.brake = Fixed::ZERO;
+                            input.steer = Fixed::ZERO;
+                            input.handbrake = false;
+                            input.nitro = false;
+                        }
                     }
 
                     // Recovery: stuck, spun, or wedged with no way out. Drops the
                     // car on the nearest route node facing down the racing line
                     // and clears every state that could be pinning it.
                     if self.input_mgr.controller.respawn_pressed {
-                        let (pos, heading) = track.respawn_point(self.player.position);
-                        self.player.respawn_at(pos, heading);
+                        if let Some(city) = self.active_city {
+                            let (pos, heading) = if let Some(race) = city.races.first() {
+                                (race.start_pos, race.start_heading)
+                            } else {
+                                (Vec2::new(Fixed::from_int(128), Fixed::from_int(128)), 0)
+                            };
+                            self.player.respawn_at(pos, heading);
+                        } else {
+                            let (pos, heading) = track.respawn_point(self.player.position);
+                            self.player.respawn_at(pos, heading);
+                        }
                     }
 
                     // Simulate: physics tick, then resolve track + bounds.
                     self.player.tick(input, pre_surface);
-                    let hit_wall = self.player.collide_with_track(track);
-                    let tx = TrackDef::tile_x_of(self.player.position.x);
-                    let ty = TrackDef::tile_y_of(self.player.position.y);
-                    let surface = track.surface_at(tx, ty);
-                    self.timer.tick();
-                    if self.timer.update_player_tile(tx, ty) {
-                        // A lap was just scored. Promote this lap's telemetry to
-                        // the ghost if it is the fastest so far, then start a
-                        // fresh recording: without this the "ghost" was only ever
-                        // the opening seconds of lap 1.
-                        let lap_ticks = self.timer.last_completed_lap_ticks;
-                        let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
-                        self.ghost.finish_lap(lap_ticks, is_record);
-                        self.ghost.start_lap();
-                    }
-
-                    // AI rivals tick with dynamic obstacle avoidance
-                    let mut other_positions = [Vec2::ZERO; 6];
-                    other_positions[0] = self.player.position;
-                    for i in 0..5 {
-                        other_positions[i + 1] = self.rivals[i].state.position;
-                    }
-                    if RIVALS_ENABLED
-                        && (self.start.phase() == StartPhase::Racing || self.start.just_started())
-                    {
-                        // Rivals launch with the player: held on the grid until
-                        // the lights go out, like a standing start.
-                        for i in 0..5 {
-                            self.rivals[i].tick(track, &other_positions);
+                    let (hit_wall, surface) = if let Some(city) = self.active_city {
+                        let ww = city.world_width();
+                        let wh = city.world_height();
+                        let mut hit = false;
+                        let min_b = Fixed::from_int(32);
+                        let max_bx = Fixed::from_int((ww - 32).max(64));
+                        let max_by = Fixed::from_int((wh - 32).max(64));
+                        if self.player.position.x < min_b {
+                            self.player.position.x = min_b;
+                            self.player.velocity.x = Fixed::ZERO;
+                            hit = true;
+                        } else if self.player.position.x > max_bx {
+                            self.player.position.x = max_bx;
+                            self.player.velocity.x = Fixed::ZERO;
+                            hit = true;
                         }
-                    }
+                        if self.player.position.y < min_b {
+                            self.player.position.y = min_b;
+                            self.player.velocity.y = Fixed::ZERO;
+                            hit = true;
+                        } else if self.player.position.y > max_by {
+                            self.player.position.y = max_by;
+                            self.player.velocity.y = Fixed::ZERO;
+                            hit = true;
+                        }
+                        (hit, arduracer_core::SurfaceType::Tarmac)
+                    } else {
+                        let hit = self.player.collide_with_track(track);
+                        let tx = TrackDef::tile_x_of(self.player.position.x);
+                        let ty = TrackDef::tile_y_of(self.player.position.y);
+                        (hit, track.surface_at(tx, ty))
+                    };
 
-                    // Race standings: player checkpoint progress is compared on
-                    // the same route index the rivals use.
-                    let player_route_node = self.timer.route_node_index(track.route_len()) as u8;
-                    let standings = compute_standings(
-                        self.player.position,
-                        self.timer.current_lap,
-                        player_route_node,
-                        self.timer.is_finished,
-                        &self.rivals,
-                        track,
-                    );
                     let mut player_rank = 1u8;
-                    for (place, &competitor_idx) in standings.iter().enumerate() {
-                        if competitor_idx == 0 {
-                            player_rank = (place + 1) as u8;
-                            break;
-                        }
-                    }
-
-                    // Ghost telemetry sample
-                    self.ghost.record_tick(&self.player);
-
-                    // Check race completion (5 laps)
-                    if self.timer.is_finished {
-                        let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
-                        self.memcard.record_lap(
-                            self.current_track_idx,
-                            self.timer.best_lap_ticks,
-                            medal as u8,
-                        );
-                        // Every scored lap already promoted itself; this only
-                        // closes out the in-progress final lap.
-                        self.ghost.finish_lap(self.timer.best_lap_ticks, false);
-                        // Persist the record before leaving the race screen.
-                        if self.memcard.is_dirty {
-                            self.memcard.flush();
+                    if self.active_city.is_none() {
+                        let tx = TrackDef::tile_x_of(self.player.position.x);
+                        let ty = TrackDef::tile_y_of(self.player.position.y);
+                        self.timer.tick();
+                        if self.timer.update_player_tile(tx, ty) {
+                            // A lap was just scored. Promote this lap's telemetry to
+                            // the ghost if it is the fastest so far, then start a
+                            // fresh recording: without this the "ghost" was only ever
+                            // the opening seconds of lap 1.
+                            let lap_ticks = self.timer.last_completed_lap_ticks;
+                            let is_record =
+                                lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
+                            self.ghost.finish_lap(lap_ticks, is_record);
+                            self.ghost.start_lap();
                         }
 
-                        if let Some(ref mut champ) = self.state_mgr.championship {
-                            champ.award_stage_points(standings);
+                        // AI rivals tick with dynamic obstacle avoidance
+                        let mut other_positions = [Vec2::ZERO; 6];
+                        other_positions[0] = self.player.position;
+                        for i in 0..5 {
+                            other_positions[i + 1] = self.rivals[i].state.position;
+                        }
+                        if RIVALS_ENABLED
+                            && (self.start.phase() == StartPhase::Racing
+                                || self.start.just_started())
+                        {
+                            // Rivals launch with the player: held on the grid until
+                            // the lights go out, like a standing start.
+                            for i in 0..5 {
+                                self.rivals[i].tick(track, &other_positions);
+                            }
                         }
 
-                        self.state_mgr.results = Some(ResultsScreen::new(
-                            self.timer.best_lap_ticks,
-                            self.timer.current_lap_ticks,
+                        // Race standings: player checkpoint progress is compared on
+                        // the same route index the rivals use.
+                        let player_route_node =
+                            self.timer.route_node_index(track.route_len()) as u8;
+                        let standings = compute_standings(
+                            self.player.position,
+                            self.timer.current_lap,
+                            player_route_node,
+                            self.timer.is_finished,
+                            &self.rivals,
                             track,
-                            player_rank,
-                        ));
-                        self.state_mgr.current = GameState::Results;
-                        // Cut before the tick below, which would otherwise run
-                        // once more this frame and re-latch a live engine volume
-                        // over the victory fanfare.
-                        self.audio.leave_race();
-                        self.audio.sync_ui_edges(pad.buttons.bits());
-                        self.audio.cdda.play_track(7);
+                        );
+                        for (place, &competitor_idx) in standings.iter().enumerate() {
+                            if competitor_idx == 0 {
+                                player_rank = (place + 1) as u8;
+                                break;
+                            }
+                        }
+
+                        // Ghost telemetry sample
+                        self.ghost.record_tick(&self.player);
+
+                        // Check race completion (5 laps)
+                        if self.timer.is_finished {
+                            let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                            self.memcard.record_lap(
+                                self.current_track_idx,
+                                self.timer.best_lap_ticks,
+                                medal as u8,
+                            );
+                            // Every scored lap already promoted itself; this only
+                            // closes out the in-progress final lap.
+                            self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+                            // Persist the record before leaving the race screen.
+                            if self.memcard.is_dirty {
+                                self.memcard.flush();
+                            }
+
+                            if let Some(ref mut champ) = self.state_mgr.championship {
+                                champ.award_stage_points(standings);
+                            }
+
+                            self.state_mgr.results = Some(ResultsScreen::new(
+                                self.timer.best_lap_ticks,
+                                self.timer.current_lap_ticks,
+                                track,
+                                player_rank,
+                            ));
+                            self.state_mgr.current = GameState::Results;
+                            // Cut before the tick below, which would otherwise run
+                            // once more this frame and re-latch a live engine volume
+                            // over the victory fanfare.
+                            self.audio.leave_race();
+                            self.audio.sync_ui_edges(pad.buttons.bits());
+                            self.audio.cdda.play_track(7);
+                        }
                     }
 
+                    let cleared = if self.active_city.is_some() {
+                        0
+                    } else {
+                        self.timer.checkpoints_cleared() as u8
+                    };
                     // Audio engine tick (engine RPM synth, tire screech, SFX)
-                    self.audio.tick(
-                        &self.player,
-                        input.throttle,
-                        surface,
-                        hit_wall,
-                        self.timer.checkpoints_cleared() as u8,
-                    );
+                    self.audio
+                        .tick(&self.player, input.throttle, surface, hit_wall, cleared);
 
                     // Emit smoke particles and skidmarks during hard turns or drifts
                     if self.player.is_drifting {
@@ -620,51 +750,65 @@ impl ArduracerGame {
                     self.particles.tick();
                     self.skidmarks.tick();
 
-                    // Camera update, clamped to the circuit so the view never
-                    // leaves the track.
+                    // Camera update, clamped to the circuit or city so the view never
+                    // leaves the world.
+                    let (clamp_w, clamp_h) = if let Some(city) = self.active_city {
+                        (city.world_width(), city.world_height())
+                    } else {
+                        (track.world_width(), track.world_height())
+                    };
                     self.camera.update(
                         self.player.position,
                         self.player.velocity,
                         self.player.speed,
-                        track.world_width(),
-                        track.world_height(),
+                        clamp_w,
+                        clamp_h,
                     );
 
                     // Render Pass:
                     // a. Clear background
                     self.fb.clear(18, 20, 26);
-                    // b. Track tilemap
-                    render_track(track, &self.camera);
+                    // b. Track / city visual map
+                    if let Some(city) = self.active_city {
+                        render_track_extents(city.world_width(), city.world_height(), &self.camera);
+                    } else {
+                        render_track(track, &self.camera);
+                    }
                     // c. Skidmarks on track
                     self.skidmarks.render(&self.camera);
-                    // d. Active ghost car playback
-                    render_active_ghost(&self.ghost, &self.camera, self.timer.current_lap_ticks);
-                    // e. AI Rivals rendering, painter's order: farthest (smallest
-                    // screen y) first, so overlapping cars occlude correctly
-                    // instead of interpenetrating (TASK-1206).
-                    self.render_rivals_sorted();
+                    if self.active_city.is_none() {
+                        // d. Active ghost car playback
+                        render_active_ghost(
+                            &self.ghost,
+                            &self.camera,
+                            self.timer.current_lap_ticks,
+                        );
+                        // e. AI Rivals rendering
+                        self.render_rivals_sorted();
+                    }
                     // f. Player race car (Crimson Red: 220, 25, 45)
                     render_car(&self.player, &self.camera, false, (220, 25, 45));
-                    // g. Particle effects, drawn *after* the cars. They used to be
-                    // drawn here (step e, before the cars) so the opaque body quad
-                    // painted over every puff, which is why smoke was invisible
-                    // even though it was being emitted (TASK-1206).
+                    // g. Particle effects
                     self.particles.render(&self.camera);
-                    // h. Start lights, drawn above the HUD while the grid is
-                    // still counting down. Always visible: they are the signal
-                    // that the clock has not started yet.
-                    render_start_lights(self.start.phase());
+                    // h. Start lights (racing circuit only)
+                    if self.active_city.is_none() {
+                        render_start_lights(self.start.phase());
+                    }
 
                     // i. In-Game HUD overlay (Select hides it for clean screenshots)
                     if self.show_hud {
-                        render_hud(
-                            &self.player,
-                            &self.timer,
-                            track,
-                            player_rank,
-                            &self.rivals,
-                            &self.minimap_texture,
-                        );
+                        if let Some(city) = self.active_city {
+                            render_city_hud(&self.player, city, &self.minimap_texture);
+                        } else {
+                            render_hud(
+                                &self.player,
+                                &self.timer,
+                                track,
+                                player_rank,
+                                &self.rivals,
+                                &self.minimap_texture,
+                            );
+                        }
                     }
                 }
                 GameState::Results => {
@@ -706,6 +850,7 @@ impl ArduracerGame {
                             self.state_mgr.current = GameState::Racing;
                         }
                     } else if action_exit {
+                        self.active_city = None;
                         self.state_mgr.championship = None;
                         self.state_mgr.current = GameState::MainMenu;
                         self.audio.leave_race();
