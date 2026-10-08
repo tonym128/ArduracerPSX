@@ -1212,7 +1212,7 @@ pub fn upload_words_with<F: FnMut()>(rect: VramRect, words: &[u32], mut service:
 /// top-left and halfword extent. Pixel payload words follow, pushed
 /// either by the FIFO or by block DMA.
 #[inline]
-fn copy_to_vram_header(rect: VramRect) {
+pub fn copy_to_vram_header(rect: VramRect) {
     // An asynchronously kicked ordering-table walk may still be feeding
     // GP0 over this same channel when streaming code uploads from a
     // fixed update. Interleaving header words (or reprogramming the
@@ -1226,6 +1226,38 @@ fn copy_to_vram_header(rect: VramRect) {
     write_gp0(gp0::COPY_CPU_TO_VRAM);
     write_gp0(pack_xy(rect.x, rect.y));
     write_gp0(pack_xy(rect.w, rect.h));
+}
+
+/// Write a 32-bit word directly to the GP0 FIFO (for zero-alloc streaming uploads).
+#[inline]
+pub fn write_gp0_word(word: u32) {
+    write_gp0(word);
+}
+
+/// Streams 16-bit halfwords directly to VRAM via GP0 FIFO without requiring
+/// a full-image buffer in RAM.
+pub fn upload_16bpp_stream<F: FnMut(&mut dyn FnMut(u16))>(rect: VramRect, mut producer: F) {
+    let expected = rect.pixel_count();
+    assert!(
+        expected.is_multiple_of(2),
+        "upload_16bpp_stream: odd pixel count not supported",
+    );
+    copy_to_vram_header(rect);
+    let mut lo = 0u32;
+    let mut has_lo = false;
+    producer(&mut |pixel: u16| {
+        if !has_lo {
+            lo = pixel as u32;
+            has_lo = true;
+        } else {
+            let hi = pixel as u32;
+            write_gp0(lo | (hi << 16));
+            has_lo = false;
+        }
+    });
+    if has_lo {
+        write_gp0(lo);
+    }
 }
 
 /// Fast path: stream the pixel payload to the GPU over block-mode DMA

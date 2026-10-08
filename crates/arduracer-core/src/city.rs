@@ -326,6 +326,8 @@ pub struct CityChunkData {
     pub tiles: [TrackTile; CHUNK_CELLS],
     /// Visual 8bpp data slice (points to resident sector or buffer).
     pub visual_8bpp: &'static [u8],
+    /// Visual 15bpp direct colour data slice (points to resident sector or buffer).
+    pub visual_15bpp: &'static [u8],
 }
 
 impl CityChunkData {
@@ -336,6 +338,7 @@ impl CityChunkData {
             cy,
             tiles: [TrackTile::Barrier; CHUNK_CELLS],
             visual_8bpp: &[],
+            visual_15bpp: &[],
         }
     }
 

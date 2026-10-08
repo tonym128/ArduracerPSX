@@ -376,6 +376,215 @@ pub fn convert_to_8bit_colour(
     }
 }
 
+/// Quantises an 8-bit RGB triple to a 15-bit PSX VRAM BGR555 halfword.
+#[inline]
+pub const fn pack_bgr555(r: u8, g: u8, b: u8) -> u16 {
+    (((b as u16) >> 3) << 10) | (((g as u16) >> 3) << 5) | ((r as u16) >> 3)
+}
+
+/// Unpacks a 15-bit PSX VRAM BGR555 halfword to an 8-bit RGB triple.
+#[inline]
+pub const fn unpack_bgr555(val: u16) -> (u8, u8, u8) {
+    let r5 = (val & 0x1F) as u8;
+    let g5 = ((val >> 5) & 0x1F) as u8;
+    let b5 = ((val >> 10) & 0x1F) as u8;
+    (
+        (r5 << 3) | (r5 >> 2),
+        (g5 << 3) | (g5 >> 2),
+        (b5 << 3) | (b5 >> 2),
+    )
+}
+
+/// Converts raw image bytes of any supported bit depth directly into a 15-bit
+/// colour (BGR555) halfword slice (pure `core`, `#![no_std]`-safe).
+///
+/// Returns the number of halfwords written into `out_halfwords`.
+pub fn convert_to_15bit_colour_slice(
+    width: usize,
+    height: usize,
+    depth: SourceBitDepth,
+    raw_data: &[u8],
+    source_palette: Option<&[(u8, u8, u8)]>,
+    out_halfwords: &mut [u16],
+) -> usize {
+    let total_pixels = width * height;
+    assert!(
+        out_halfwords.len() >= total_pixels,
+        "output buffer too small"
+    );
+
+    let mut written = 0usize;
+
+    match depth {
+        SourceBitDepth::Bit1 => {
+            let pal = match source_palette {
+                Some(p) if p.len() >= 2 => [
+                    pack_bgr555(p[0].0, p[0].1, p[0].2),
+                    pack_bgr555(p[1].0, p[1].1, p[1].2),
+                ],
+                _ => [pack_bgr555(0, 0, 0), pack_bgr555(255, 255, 255)],
+            };
+            let row_bytes = width.div_ceil(8);
+            for y in 0..height {
+                for x in 0..width {
+                    let byte_idx = y * row_bytes + (x / 8);
+                    let bit_offset = 7 - (x % 8);
+                    let bit = if byte_idx < raw_data.len() {
+                        ((raw_data[byte_idx] >> bit_offset) & 1) as usize
+                    } else {
+                        0
+                    };
+                    out_halfwords[written] = pal[bit];
+                    written += 1;
+                }
+            }
+        }
+
+        SourceBitDepth::Bit2 => {
+            let mut pal = [0u16; 4];
+            if let Some(p) = source_palette {
+                for (i, c) in pal.iter_mut().enumerate().take(p.len().min(4)) {
+                    *c = pack_bgr555(p[i].0, p[i].1, p[i].2);
+                }
+            } else {
+                for (i, c) in pal.iter_mut().enumerate() {
+                    let v = (i * 85) as u8;
+                    *c = pack_bgr555(v, v, v);
+                }
+            }
+            let row_bytes = width.div_ceil(4);
+            for y in 0..height {
+                for x in 0..width {
+                    let byte_idx = y * row_bytes + (x / 4);
+                    let shift = (3 - (x % 4)) * 2;
+                    let val = if byte_idx < raw_data.len() {
+                        ((raw_data[byte_idx] >> shift) & 0x03) as usize
+                    } else {
+                        0
+                    };
+                    out_halfwords[written] = pal[val];
+                    written += 1;
+                }
+            }
+        }
+
+        SourceBitDepth::Bit4 => {
+            let mut pal = [0u16; 16];
+            if let Some(p) = source_palette {
+                for (i, c) in pal.iter_mut().enumerate().take(p.len().min(16)) {
+                    *c = pack_bgr555(p[i].0, p[i].1, p[i].2);
+                }
+            } else {
+                for (i, c) in pal.iter_mut().enumerate() {
+                    *c = pack_bgr555(
+                        CORE_PALETTE_16[i].0,
+                        CORE_PALETTE_16[i].1,
+                        CORE_PALETTE_16[i].2,
+                    );
+                }
+            }
+            let row_bytes = width.div_ceil(2);
+            for y in 0..height {
+                for x in 0..width {
+                    let byte_idx = y * row_bytes + (x / 2);
+                    let val = if byte_idx < raw_data.len() {
+                        let b = raw_data[byte_idx];
+                        if x % 2 == 0 {
+                            (b & 0x0F) as usize
+                        } else {
+                            ((b >> 4) & 0x0F) as usize
+                        }
+                    } else {
+                        0
+                    };
+                    out_halfwords[written] = pal[val];
+                    written += 1;
+                }
+            }
+        }
+
+        SourceBitDepth::Bit8Gray => {
+            for i in 0..total_pixels {
+                let v = if i < raw_data.len() { raw_data[i] } else { 0 };
+                out_halfwords[written] = pack_bgr555(v, v, v);
+                written += 1;
+            }
+        }
+
+        SourceBitDepth::Bit8Paletted => {
+            let pal = source_palette.unwrap_or(&CORE_PALETTE_16);
+            for i in 0..total_pixels {
+                let idx = if i < raw_data.len() {
+                    raw_data[i] as usize
+                } else {
+                    0
+                };
+                let (r, g, b) = if idx < pal.len() { pal[idx] } else { (0, 0, 0) };
+                out_halfwords[written] = pack_bgr555(r, g, b);
+                written += 1;
+            }
+        }
+
+        SourceBitDepth::Bit16Gray => {
+            for i in 0..total_pixels {
+                let offset = i * 2;
+                let v = if offset + 1 < raw_data.len() {
+                    raw_data[offset]
+                } else {
+                    0
+                };
+                out_halfwords[written] = pack_bgr555(v, v, v);
+                written += 1;
+            }
+        }
+
+        SourceBitDepth::Bit24Rgb => {
+            for i in 0..total_pixels {
+                let offset = i * 3;
+                if offset + 2 < raw_data.len() {
+                    out_halfwords[written] =
+                        pack_bgr555(raw_data[offset], raw_data[offset + 1], raw_data[offset + 2]);
+                } else {
+                    out_halfwords[written] = 0;
+                }
+                written += 1;
+            }
+        }
+
+        SourceBitDepth::Bit32Rgba => {
+            for i in 0..total_pixels {
+                let offset = i * 4;
+                if offset + 3 < raw_data.len() {
+                    let a = raw_data[offset + 3] as u32;
+                    let r = ((raw_data[offset] as u32 * a) / 255) as u8;
+                    let g = ((raw_data[offset + 1] as u32 * a) / 255) as u8;
+                    let b = ((raw_data[offset + 2] as u32 * a) / 255) as u8;
+                    out_halfwords[written] = pack_bgr555(r, g, b);
+                } else {
+                    out_halfwords[written] = 0;
+                }
+                written += 1;
+            }
+        }
+    }
+
+    written
+}
+
+/// Converts raw image bytes into a 15-bit colour halfword vector (available in tests/std).
+#[cfg(test)]
+pub fn convert_to_15bit_colour(
+    width: usize,
+    height: usize,
+    depth: SourceBitDepth,
+    raw_data: &[u8],
+    source_palette: Option<&[(u8, u8, u8)]>,
+) -> Vec<u16> {
+    let mut pixels = vec![0u16; width * height];
+    convert_to_15bit_colour_slice(width, height, depth, raw_data, source_palette, &mut pixels);
+    pixels
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,5 +672,47 @@ mod tests {
 
         assert_eq!(converted.byte_len(), 2);
         assert_eq!(converted.pixel_at(1, 0), 0);
+    }
+
+    #[test]
+    fn bgr555_packing_roundtrip() {
+        let r = 248u8;
+        let g = 120u8;
+        let b = 64u8;
+        let packed = pack_bgr555(r, g, b);
+        let (ur, ug, ub) = unpack_bgr555(packed);
+        assert_eq!(r >> 3, ur >> 3);
+        assert_eq!(g >> 3, ug >> 3);
+        assert_eq!(b >> 3, ub >> 3);
+    }
+
+    #[test]
+    fn convert_24bit_rgb_to_15bit_colour() {
+        let raw = [
+            0xFF, 0x00, 0x00, // Red
+            0x00, 0xFF, 0x00, // Green
+            0x00, 0x00, 0xFF, // Blue
+            0xFF, 0xFF, 0xFF, // White
+        ];
+        let halfwords = convert_to_15bit_colour(4, 1, SourceBitDepth::Bit24Rgb, &raw, None);
+        assert_eq!(halfwords.len(), 4);
+        assert_eq!(halfwords[0], 0x001F); // Red: 0x1F
+        assert_eq!(halfwords[1], 0x03E0); // Green: 0x1F << 5
+        assert_eq!(halfwords[2], 0x7C00); // Blue: 0x1F << 10
+        assert_eq!(halfwords[3], 0x7FFF); // White: 15 ones
+    }
+
+    #[test]
+    fn convert_8bit_grayscale_to_15bit_colour() {
+        let raw = [0u8, 128, 255];
+        let halfwords = convert_to_15bit_colour(3, 1, SourceBitDepth::Bit8Gray, &raw, None);
+        assert_eq!(halfwords.len(), 3);
+        assert_eq!(halfwords[0], 0x0000);
+        let mid = halfwords[1];
+        let (r, g, b) = unpack_bgr555(mid);
+        assert_eq!(r >> 3, 16);
+        assert_eq!(g >> 3, 16);
+        assert_eq!(b >> 3, 16);
+        assert_eq!(halfwords[2], 0x7FFF);
     }
 }

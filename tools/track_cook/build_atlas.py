@@ -225,76 +225,97 @@ def git(args: list[str]) -> None:
         pass
 
 
+def lz_stream_compress(src: bytes, window: int = 8192) -> bytes:
+    """Compresses raw 15-bit BGR555 halfwords using a fast streaming LZ codec."""
+    dst = bytearray()
+    i = 0
+    n = len(src)
+    MAX_MATCH = 258
+    MIN_MATCH = 3
+    while i < n:
+        flag_pos = len(dst)
+        dst.append(0)
+        flag = 0
+        bit = 0
+        while bit < 8 and i < n:
+            win_start = max(0, i - window)
+            best_len = 0
+            best_dist = 0
+            target = src[i : i + MAX_MATCH]
+            target_len = len(target)
+            if target_len >= MIN_MATCH:
+                p = src.rfind(target[:MIN_MATCH], win_start, i)
+                while p != -1 and p >= win_start:
+                    mlen = 0
+                    while mlen < target_len and src[p + mlen] == target[mlen]:
+                        mlen += 1
+                    if mlen > best_len:
+                        best_len = mlen
+                        best_dist = i - p
+                        if best_len == MAX_MATCH:
+                            break
+                    p = src.rfind(target[:MIN_MATCH], win_start, p)
+            if best_len >= MIN_MATCH:
+                dst.append((best_dist >> 8) & 0xFF)
+                dst.append(best_dist & 0xFF)
+                dst.append((best_len - 3) & 0xFF)
+                i += best_len
+            else:
+                flag |= 1 << bit
+                dst.append(src[i])
+                i += 1
+            bit += 1
+        dst[flag_pos] = flag
+    return bytes(dst)
+
+
 def pack_visual(name: str) -> bytes:
-    """Packs one circuit's visual PNG into 4bpp nibble order, plus its palette.
+    """Packs one circuit's visual PNG into 15-bit direct colour (BGR555) stream.
 
-    The game's per-pixel track renderer samples a VRAM-resident 4-bit
-    direct-palette texture of the whole world, so the cooker has to ship the
-    visual in PAL/TIM nibble order rather than as RGB bytes: two texels per
-    byte, the left one in the low nibble, row stride `WIDTH/2` bytes. That is
-    exactly the byte layout the GPU unwraps when a 4bpp primitive fetches a
-    texel, so a plain `upload_bytes` of this data at the right VRAM rect is a
-    valid texture -- no conversion on device.
-
-    The visual PNG is painted with small shading variations around the sixteen
-    level-palette colours (103 distinct RGBs against a 16-entry palette), so
-    every pixel is snapped to its *nearest* palette entry by squared RGB
-    distance before packing. Averaging or blurring would have smeared the
-    kerb blocks and the racing line; nearest-match is the only mapping that
-    keeps the painted shapes sharp against a 16-entry CLUT.
+    The game's per-pixel track renderer samples a VRAM-resident 15-bit direct
+    colour texture of the world. At 320x320 texels, each uncompressed image is
+    204,800 bytes. To stay well under the strict 50% PSX static RAM ceiling,
+    the 15-bit stream is compressed with an 8192-byte sliding window, shrinking
+    each track from 204.8 KB to ~12 KB (~50 KB total for all 4 tracks). The
+    renderer streams this directly into VRAM on track load with an 8 KB ring
+    buffer and zero heap allocation.
     """
     stem = os.path.join(ROOT, "tracks", name.replace(" ", "_"))
-    rgb = np.asarray(
-        Image.open(stem + ".visual.png").convert("RGB"), dtype=np.int32
-    )
-    h, w = rgb.shape[:2]
+    im = Image.open(stem + ".visual.png").convert("RGB")
+    h, w = im.size[1], im.size[0]
     assert (w, h) == VISUAL_SIZE, (
         f"{name}: visual is {w}x{h}, expected {VISUAL_SIZE[0]}x{VISUAL_SIZE[1]}. "
         f"`gpu::tracktex` hardcodes the page arithmetic for that size; if the "
         f"grid changed, change it in the same commit."
     )
 
-    pal_arr = np.asarray(CLUT_RGB, dtype=np.int32)
-    # (h, w, 16) squared distances, then argmin over the palette axis.
-    dist = (
-        (rgb[:, :, None, 0] - pal_arr[None, None, :, 0]) ** 2
-        + (rgb[:, :, None, 1] - pal_arr[None, None, :, 1]) ** 2
-        + (rgb[:, :, None, 2] - pal_arr[None, None, :, 2]) ** 2
-    )
-    codes = dist.argmin(axis=2).astype(np.uint8)
-
-    packed = bytearray(w * h // 2)
+    raw = bytearray(w * h * 2)
+    idx = 0
     for y in range(h):
-        row = codes[y]
-        packed[y * (w // 2) : (y + 1) * (w // 2)] = bytes(
-            row[2 * i] | (int(row[2 * i + 1]) << 4) for i in range(w // 2)
-        )
-    return bytes(packed)
+        for x in range(w):
+            r, g, b = im.getpixel((x, y))
+            # 15-bit direct BGR555: 5 bits per channel (0..=31)
+            bgr555 = ((r >> 3) & 0x1F) | (((g >> 3) & 0x1F) << 5) | (((b >> 3) & 0x1F) << 10)
+            raw[idx] = bgr555 & 0xFF
+            raw[idx + 1] = (bgr555 >> 8) & 0xFF
+            idx += 2
+
+    return lz_stream_compress(bytes(raw), window=8192)
 
 
 def emit_visual_tex(packed_per_circuit: list[bytes]) -> None:
-    """Writes `crates/arduracer-core/src/visual_tex.rs` from the packed visuals.
+    """Writes `crates/arduracer-core/src/visual_tex.rs` from the compressed 15-bit visual streams.
 
-    **One texture per circuit**, indexed by `AUTHORED_TRACK_COUNT` order, and the
-    renderer uploads the one the active track wants. This is the change that makes
-    a multi-circuit atlas affordable, and it is why the visual is 320x320 rather
-    than 768x768: a 4bpp world texture is `WIDTH * HEIGHT / 2` bytes and lives in
-    `.rodata` for the whole life of the program whether or not it is on screen, so
-    four of them at 768 square would be 1.15 MB against a static-RAM ceiling of
-    under a megabyte. Four at 320 square is 205 KB.
-
-    A single shared texture -- which is what the one-circuit pipeline emitted --
-    cannot be kept, because each circuit has a different *image*: two circuits
-    sharing a texture would show each other's road.
+    One compressed 15-bit texture per authored circuit. Delivers full 32,768-colour
+    fidelity without palette quantization, while keeping static RAM footprint
+    at ~50 KB total across all circuits.
     """
     assert packed_per_circuit, "no circuits to pack a visual for"
-    palette = CLUT_RGB
     out = os.path.join(ROOT, "crates", "arduracer-core", "src", "visual_tex.rs")
     n = len(packed_per_circuit)
     with open(out, "w") as f:
         f.write(
-            "//! Per-circuit visual texture data: the baked appearance of each\n"
-            "//! circuit, packed the way a 4bpp texture lives in VRAM.\n"
+            "//! Per-circuit visual texture data: 15-bit direct colour stream.\n"
             "//!\n"
             "//! Generated by `tools/track_cook/build_atlas.py`. Do not edit by hand.\n"
             "\n"
@@ -304,40 +325,112 @@ def emit_visual_tex(packed_per_circuit: list[bytes]) -> None:
             f"pub const HEIGHT: usize = {VISUAL_SIZE[1]};\n"
             "/// Number of authored circuits, one texture each.\n"
             f"pub const COUNT: usize = {n};\n"
+            "/// Raw uncompressed 16-bit BGR555 halfword count per track image.\n"
+            "pub const RAW_HALFWORDS: usize = WIDTH * HEIGHT;\n"
+            "/// Raw uncompressed byte count per track image (204,800 bytes).\n"
+            "pub const RAW_BYTES: usize = RAW_HALFWORDS * 2;\n"
+            "/// Streaming ring buffer window size in bytes.\n"
+            "pub const STREAM_WINDOW: usize = 8192;\n"
             "\n"
-            "/// Packed 4-bit palette indices, one image per circuit in\n"
-            "/// `CIRCUITS` order: two texels per byte, the texel at (x, y) is\n"
-            "/// code `PACKED[i][y * (WIDTH / 2) + x / 2]`, low nibble when `x`\n"
-            "/// is even, high nibble when odd. This is the exact byte stream a\n"
-            "/// 4bpp TIM upload consumes, so `gpu::tracktex` can `upload_bytes`\n"
-            "/// one of them with no conversion on device.\n"
-            "///\n"
-            "/// Nearest-palette quantisation: the painted visual carries small\n"
-            "/// shading deltas around the sixteen level-palette colours, and\n"
-            "/// snapping to the nearest entry by squared RGB distance keeps\n"
-            "/// kerb blocks and racing lines sharp rather than smeared.\n"
-            f"pub static PACKED: [[u8; WIDTH * HEIGHT / 2]; COUNT] = [\n"
+            "/// Streaming compressed 15-bit colour visual texture streams.\n"
+            f"pub static STREAM_PACKED: [&[u8]; COUNT] = [\n"
         )
-        for packed in packed_per_circuit:
-            f.write("    [\n")
+        for i in range(n):
+            f.write(f"    &TRACK_{i}_15BPP,\n")
+        f.write("];\n\n")
+
+        for idx, packed in enumerate(packed_per_circuit):
+            f.write(f"static TRACK_{idx}_15BPP: [u8; {len(packed)}] = [\n")
             for i in range(0, len(packed), 32):
                 chunk = ", ".join(f"0x{b:02X}" for b in packed[i : i + 32])
-                f.write(f"        {chunk},\n")
-            f.write("    ],\n")
-        f.write("];\n\n")
+                f.write(f"    {chunk},\n")
+            f.write("];\n\n")
+
         f.write(
-            "/// The level palette in code order 0..=15, as 8-bit RGB triples.\n"
-            "///\n"
-            "/// Shared by every circuit: the palette is part of the level format\n"
-            "/// (`tools/track_cook/palette.json`), not of any one drawing.\n"
+            "/// The 16 level-palette core reference colours in code order 0..=15.\n"
             "pub static CLUT_RGB: [(u8, u8, u8); 16] = [\n"
         )
-        palette = CLUT_RGB
-        for r, g, b in palette:
+        for r, g, b in CLUT_RGB:
             f.write(f"    ({r}, {g}, {b}),\n")
-        f.write("];\n")
-    print(f"wrote {out} ({len(packed_per_circuit)} textures, "
-          f"{sum(len(p) for p in packed_per_circuit)} packed bytes)")
+        f.write("];\n\n")
+
+        f.write(
+            "/// Streams and decompresses 16-bit BGR555 pixels on-the-fly using an 8192-byte ring buffer.\n"
+            "/// Emits each 16-bit halfword directly to the consumer callback with zero heap allocations.\n"
+            "pub fn decompress_stream<F: FnMut(u16)>(\n"
+            "    src: &[u8],\n"
+            "    total_halfwords: usize,\n"
+            "    ring: &mut [u8; STREAM_WINDOW],\n"
+            "    mut emit: F,\n"
+            ") {\n"
+            "    let total_bytes = total_halfwords * 2;\n"
+            "    let mut in_pos = 0;\n"
+            "    let mut out_pos = 0;\n"
+            "    let mut lo_byte: u8 = 0;\n"
+            "    let mut has_lo = false;\n"
+            "\n"
+            "    while out_pos < total_bytes && in_pos < src.len() {\n"
+            "        let flag = src[in_pos];\n"
+            "        in_pos += 1;\n"
+            "        for bit in 0..8 {\n"
+            "            if out_pos >= total_bytes || in_pos >= src.len() {\n"
+            "                break;\n"
+            "            }\n"
+            "            if (flag & (1 << bit)) != 0 {\n"
+            "                let b = src[in_pos];\n"
+            "                in_pos += 1;\n"
+            "                ring[out_pos % STREAM_WINDOW] = b;\n"
+            "                out_pos += 1;\n"
+            "                if !has_lo {\n"
+            "                    lo_byte = b;\n"
+            "                    has_lo = true;\n"
+            "                } else {\n"
+            "                    emit((lo_byte as u16) | ((b as u16) << 8));\n"
+            "                    has_lo = false;\n"
+            "                }\n"
+            "            } else {\n"
+            "                if in_pos + 3 > src.len() {\n"
+            "                    return;\n"
+            "                }\n"
+            "                let b0 = src[in_pos] as usize;\n"
+            "                let b1 = src[in_pos + 1] as usize;\n"
+            "                let mlen = (src[in_pos + 2] as usize) + 3;\n"
+            "                in_pos += 3;\n"
+            "                let dist = (b0 << 8) | b1;\n"
+            "                for _ in 0..mlen {\n"
+            "                    if out_pos >= total_bytes {\n"
+            "                        break;\n"
+            "                    }\n"
+            "                    let b = ring[(out_pos.wrapping_sub(dist)) % STREAM_WINDOW];\n"
+            "                    ring[out_pos % STREAM_WINDOW] = b;\n"
+            "                    out_pos += 1;\n"
+            "                    if !has_lo {\n"
+            "                        lo_byte = b;\n"
+            "                        has_lo = true;\n"
+            "                    } else {\n"
+            "                        emit((lo_byte as u16) | ((b as u16) << 8));\n"
+            "                        has_lo = false;\n"
+            "                    }\n"
+            "                }\n"
+            "            }\n"
+            "        }\n"
+            "    }\n"
+            "}\n\n"
+            "/// Decompresses a 15-bit texture stream into a destination slice of halfwords.\n"
+            "pub fn decompress_to_slice(src: &[u8], dst: &mut [u16]) {\n"
+            "    let mut ring = [0u8; STREAM_WINDOW];\n"
+            "    let mut idx = 0;\n"
+            "    let max_len = dst.len();\n"
+            "    decompress_stream(src, max_len, &mut ring, |halfword| {\n"
+            "        if idx < max_len {\n"
+            "            dst[idx] = halfword;\n"
+            "            idx += 1;\n"
+            "        }\n"
+            "    });\n"
+            "}\n"
+        )
+    print(f"wrote {out} ({len(packed_per_circuit)} 15bpp streaming textures, "
+          f"{sum(len(p) for p in packed_per_circuit)} compressed stream bytes)")
 
 
 def main() -> int:

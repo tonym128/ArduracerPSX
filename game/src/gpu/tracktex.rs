@@ -72,7 +72,7 @@ use crate::gpu::camera::Camera;
 use crate::gpu::texlayout::{TRACK_BAND1_H, TRACK_BAND1_W, TRACK_BAND1_X, TRACK_BAND1_Y};
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
-use psx_vram::{upload_bytes, upload_clut, Clut, Color555, TexDepth, Tpage, VramRect};
+use psx_vram::{upload_16bpp_stream, TexDepth, Tpage, VramRect};
 
 /// Source texels are 8x8 world units (2560 world units / 320 texels).
 ///
@@ -90,59 +90,44 @@ const TILE_TEX: i32 = 256;
 /// a quarter full.
 const TILES: usize = 2;
 
-/// The palette CLUT slot. 16 halfwords, 32 bytes; sits directly under the
-/// minimap slot at the far right of VRAM.
-const CLUT: Clut = Clut::new(704, 64);
+/// Static zero-allocation streaming ring buffer in .bss for decompressing
+/// 15-bit direct colour circuit textures directly into VRAM.
+static mut STREAM_RING: [u8; visual_tex::STREAM_WINDOW] = [0u8; visual_tex::STREAM_WINDOW];
 
 /// Maps a source tile coordinate to its VRAM page.
 ///
-/// Plain arithmetic: tile (px, py) is the VRAM page at
-/// `(TRACK_BAND1_X + px * 64, py * 256)` in halfword columns. There is no fold --
-/// see the module docs on why the 768-row image needed one and this does not.
+/// Plain arithmetic: tile (px, py) is the 15bpp VRAM page at
+/// `(TRACK_BAND1_X + px * 256, py * 256)` in halfword columns.
 ///
 /// Every returned coordinate is a valid `Tpage` origin: x is a multiple of
-/// 64 (320 and 384 both are), and y is 0 or 256 by construction.
+/// 64 (384 and 640 both are), and y is 0 or 256 by construction.
 fn page_for(px: usize, py: usize) -> Tpage {
     Tpage::new(
-        TRACK_BAND1_X + (px as u16) * 64,
+        TRACK_BAND1_X + (px as u16) * 256,
         (py as u16) * 256,
-        TexDepth::Bit4,
+        TexDepth::Bit15,
     )
 }
 
-/// Uploads one circuit's world visual (and the CLUT) to VRAM.
+/// Decompresses and streams one circuit's 15-bit world visual directly into VRAM.
 ///
-/// Call once per track load -- the image is static for a whole race, like the
-/// minimap bake. `circuit` is the index into `visual_tex::PACKED`, which the
-/// caller gets from `levels::ALL_TRACK_VISUALS` for the slot it loaded.
-///
-/// One `upload_bytes` rect: byte-for-byte the cooker-packed source, because the
-/// CC50 upload copies rows of `rect.w` halfwords straight off the source and the
-/// source rows are exactly `TRACK_TEX_W / 2` bytes.
-///
-/// This is a FIFO transfer of 12,800 words: a few milliseconds at release rates,
-/// once per load. Deliberately *not* DMA: the dma helper refuses rows wider than
-/// 16 words (silicon guard), and our rows are 40 words, so the FIFO path is the
-/// only correct one on this target.
-///
-/// The index is asserted rather than trusted because the failure it guards is
-/// silent: out of range would panic in a `no_std` game with no unwinding, on the
-/// first track load, at whatever point in boot that happens to be.
+/// Delivers full 15-bit direct colour (32,768 colours) at runtime without requiring
+/// a 204.8 KB full-image allocation in RAM. Decompression proceeds through an
+/// 8192-byte ring buffer in .bss and streams halfwords straight into the GPU FIFO.
 pub fn init_track_texture(circuit: usize) {
     assert!(
         circuit < visual_tex::COUNT,
         "init_track_texture: circuit {circuit} out of range ({} authored)",
         visual_tex::COUNT
     );
-    let mut clut = [Color555::BLACK; 16];
-    for (i, &(r, g, b)) in visual_tex::CLUT_RGB.iter().enumerate() {
-        clut[i] = Color555::rgb8(r, g, b);
-    }
-    upload_clut(CLUT, &clut);
-    upload_bytes(
-        VramRect::new(TRACK_BAND1_X, TRACK_BAND1_Y, TRACK_BAND1_W, TRACK_BAND1_H),
-        &visual_tex::PACKED[circuit],
-    );
+    let rect = VramRect::new(TRACK_BAND1_X, TRACK_BAND1_Y, TRACK_BAND1_W, TRACK_BAND1_H);
+    let stream = visual_tex::STREAM_PACKED[circuit];
+    let ring = unsafe { &mut *core::ptr::addr_of_mut!(STREAM_RING) };
+    upload_16bpp_stream(rect, |emit| {
+        visual_tex::decompress_stream(stream, visual_tex::RAW_HALFWORDS, ring, |halfword| {
+            emit(halfword);
+        });
+    });
 }
 
 /// Draws the visible world window as textured quads, one per source tile.
@@ -213,7 +198,7 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
 
             let tpage = page_for(px, py);
             let material = TextureMaterial::opaque(
-                CLUT.uv_clut_word(),
+                0, // 15-bit direct colour does not use CLUT
                 tpage.uv_tpage_word(0),
                 (0x80, 0x80, 0x80),
             );

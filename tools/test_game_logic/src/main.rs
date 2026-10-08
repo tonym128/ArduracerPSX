@@ -258,6 +258,14 @@ fn main() {
         "OpenMap: disk file assets and chunk validation",
         test_openmap_city_file_assets
     );
+    run_test!(
+        "Visual converter: arbitrary bit-depths to 15-bit",
+        test_visual_image_bit_depth_to_15bit_conversions
+    );
+    run_test!(
+        "15-bit colour circuit texture streaming LZSS roundtrip",
+        test_visual_circuit_15bit_streaming_lzss_roundtrip
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -2754,5 +2762,67 @@ fn test_openmap_city_file_assets() {
                 );
             }
         }
+    }
+}
+
+fn test_visual_image_bit_depth_to_15bit_conversions() {
+    use arduracer_core::visual_converter::{
+        convert_to_15bit_colour_slice, pack_bgr555, unpack_bgr555, SourceBitDepth,
+    };
+
+    // 1. Bit1 monochrome
+    let raw1 = [0b1010_0000u8];
+    let mut hw1 = [0u16; 4];
+    let written = convert_to_15bit_colour_slice(4, 1, SourceBitDepth::Bit1, &raw1, None, &mut hw1);
+    assert_eq!(written, 4);
+    assert_eq!(hw1[0], pack_bgr555(255, 255, 255));
+    assert_eq!(hw1[1], pack_bgr555(0, 0, 0));
+
+    // 2. Bit4 indexed
+    let raw4 = [0x53u8];
+    let mut hw4 = [0u16; 2];
+    let written = convert_to_15bit_colour_slice(2, 1, SourceBitDepth::Bit4, &raw4, None, &mut hw4);
+    assert_eq!(written, 2);
+
+    // 3. Bit24 RGB
+    let raw24 = [255, 0, 0, 0, 255, 0, 0, 0, 255];
+    let mut hw24 = [0u16; 3];
+    let written =
+        convert_to_15bit_colour_slice(3, 1, SourceBitDepth::Bit24Rgb, &raw24, None, &mut hw24);
+    assert_eq!(written, 3);
+    assert_eq!(hw24[0], 0x001F); // Red
+    assert_eq!(hw24[1], 0x03E0); // Green
+    assert_eq!(hw24[2], 0x7C00); // Blue
+
+    // 4. Roundtrip BGR555
+    let (r, g, b) = unpack_bgr555(hw24[0]);
+    assert_eq!(r >> 3, 31);
+    assert_eq!(g >> 3, 0);
+    assert_eq!(b >> 3, 0);
+}
+
+fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
+    use arduracer_core::visual_tex;
+
+    assert_eq!(visual_tex::COUNT, 4);
+    assert_eq!(visual_tex::STREAM_PACKED.len(), 4);
+
+    let mut ring = [0u8; visual_tex::STREAM_WINDOW];
+    for circuit_idx in 0..visual_tex::COUNT {
+        let stream = visual_tex::STREAM_PACKED[circuit_idx];
+        assert!(!stream.is_empty());
+
+        let mut emitted_count = 0usize;
+        visual_tex::decompress_stream(stream, visual_tex::RAW_HALFWORDS, &mut ring, |_halfword| {
+            emitted_count += 1;
+        });
+
+        assert_eq!(
+            emitted_count,
+            visual_tex::RAW_HALFWORDS,
+            "Circuit {} streaming decompress must produce exactly {} halfwords",
+            circuit_idx,
+            visual_tex::RAW_HALFWORDS
+        );
     }
 }

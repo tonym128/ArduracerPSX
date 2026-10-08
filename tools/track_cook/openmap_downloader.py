@@ -1072,6 +1072,16 @@ def export_city(
             with open(visual_bin_path, "wb") as f:
                 f.write(visual_bytes)
 
+            # Visual 15bpp direct colour texels (256x256 halfwords = 131,072 bytes)
+            bgr555_lut = np.array([
+                ((r >> 3) & 0x1F) | (((g >> 3) & 0x1F) << 5) | (((b >> 3) & 0x1F) << 10)
+                for r, g, b in clut
+            ], dtype=np.uint16)
+            chunk_visual15 = bgr555_lut[chunk_visual]
+            visual15_bin_path = os.path.join(chunks_dir, f"chunk_{cx:02d}_{cy:02d}.visual15.bin")
+            with open(visual15_bin_path, "wb") as f:
+                f.write(chunk_visual15.tobytes())
+
     # 5. Save City Metadata Manifest
     manifest = {
         "id": model.city_id,
