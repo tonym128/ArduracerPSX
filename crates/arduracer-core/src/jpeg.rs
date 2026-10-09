@@ -67,55 +67,46 @@ const fn build_bayer16() -> [[i32; 16]; 16] {
     table
 }
 
-/// Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
-/// (sample_0, sample_1, weight_0, weight_1)
-const INTERP_16: [(usize, usize, i32, i32); 16] = [
-    (0, 0, 4, 0),
-    (0, 1, 3, 1),
-    (0, 1, 1, 3),
-    (1, 2, 3, 1),
-    (1, 2, 1, 3),
-    (2, 3, 3, 1),
-    (2, 3, 1, 3),
-    (3, 4, 3, 1),
-    (3, 4, 1, 3),
-    (4, 5, 3, 1),
-    (4, 5, 1, 3),
-    (5, 6, 3, 1),
-    (5, 6, 1, 3),
-    (6, 7, 3, 1),
-    (6, 7, 1, 3),
-    (7, 7, 4, 0),
-];
+/// Luma sample index within an 8x8 block, for each of the 16 columns of a
+/// 16-pixel-wide MCU half.
+const PX_LUT: [usize; 16] = build_px_lut();
 
-/// (y_sub_x, chroma_col_0, chroma_col_1, weight_0, weight_1)
-const PX_LUT: [(usize, usize, usize, i32, i32); 16] = build_px_lut();
-
-const fn build_px_lut() -> [(usize, usize, usize, i32, i32); 16] {
-    let mut lut = [(0, 0, 0, 0, 0); 16];
+const fn build_px_lut() -> [usize; 16] {
+    let mut lut = [0usize; 16];
     let mut px = 0;
     while px < 16 {
-        let y_sub_x = if px < 8 { px } else { px - 8 };
-        let (cx0, cx1, wx0, wx1) = INTERP_16[px];
-        lut[px] = (y_sub_x, cx0, cx1, wx0, wx1);
+        lut[px] = if px < 8 { px } else { px - 8 };
         px += 1;
     }
     lut
 }
 
-/// (y_sub_y, chroma_row_0, chroma_row_1, weight_0, weight_1)
-const PY_LUT: [(usize, usize, usize, i32, i32); 16] = build_py_lut();
+/// Luma sample index within an 8x8 block, for each of the 16 rows of a
+/// 16-pixel-tall MCU strip.
+const PY_LUT: [usize; 16] = build_py_lut();
 
-const fn build_py_lut() -> [(usize, usize, usize, i32, i32); 16] {
-    let mut lut = [(0, 0, 0, 0, 0); 16];
+const fn build_py_lut() -> [usize; 16] {
+    let mut lut = [0usize; 16];
     let mut py = 0;
     while py < 16 {
-        let y_sub_y = if py < 8 { py } else { py - 8 };
-        let (cy0, cy1, wy0, wy1) = INTERP_16[py];
-        lut[py] = (y_sub_y, cy0, cy1, wy0, wy1);
+        lut[py] = if py < 8 { py } else { py - 8 };
         py += 1;
     }
     lut
+}
+
+/// Chroma sample index for a 16-sample axis of an MCU.
+///
+/// JPEG stores chroma at half resolution, so 8 chroma samples span the 16
+/// luma samples of one axis. Nearest-neighbour upsampling picks `i >> 1`: each
+/// pair of luma samples shares one chroma sample.
+#[inline(always)]
+const fn chroma_index(i: usize) -> usize {
+    if i < 8 {
+        i >> 1
+    } else {
+        (i - 8) >> 1
+    }
 }
 
 /// A compact canonical Huffman lookup table with 9-bit fast O(1) prefix table.
@@ -858,7 +849,10 @@ pub fn decode_tile_reference(
                 } else {
                     ((&y2, &y3), py - 8)
                 };
-                let (cy0, cy1, wy0, wy1) = INTERP_16[py];
+                // Nearest-neighbour chroma: one sample per pair of luma
+                // columns, instead of the four-tap bilinear blend this replaced.
+                let cb_row = chroma_index(py) * 8;
+                let cr_row = cb_row;
 
                 for px in 0..16 {
                     let out_x = base_px + px;
@@ -867,27 +861,11 @@ pub fn decode_tile_reference(
                     } else {
                         (y_block.1, px - 8)
                     };
-                    let (cx0, cx1, wx0, wx1) = INTERP_16[px];
+                    let cx = chroma_index(px);
 
                     let y_val = y_arr[y_sub_y * 8 + y_sub_x] as i32;
-
-                    let cb_00 = cb[cy0 * 8 + cx0] as i32;
-                    let cb_01 = cb[cy0 * 8 + cx1] as i32;
-                    let cb_10 = cb[cy1 * 8 + cx0] as i32;
-                    let cb_11 = cb[cy1 * 8 + cx1] as i32;
-                    let cb_val = (((cb_00 * wx0 + cb_01 * wx1) * wy0
-                        + (cb_10 * wx0 + cb_11 * wx1) * wy1)
-                        >> 4)
-                        - 128;
-
-                    let cr_00 = cr[cy0 * 8 + cx0] as i32;
-                    let cr_01 = cr[cy0 * 8 + cx1] as i32;
-                    let cr_10 = cr[cy1 * 8 + cx0] as i32;
-                    let cr_11 = cr[cy1 * 8 + cx1] as i32;
-                    let cr_val = (((cr_00 * wx0 + cr_01 * wx1) * wy0
-                        + (cr_10 * wx0 + cr_11 * wx1) * wy1)
-                        >> 4)
-                        - 128;
+                    let cb_val = cb[cb_row + cx] as i32 - 128;
+                    let cr_val = cr[cr_row + cx] as i32 - 128;
 
                     let r_raw = y_val + ((359 * cr_val) >> 8);
                     let g_raw = y_val - ((88 * cb_val + 183 * cr_val) >> 8);
@@ -1004,8 +982,9 @@ pub fn decode_tile_row_64x16(
             &mut cr,
         );
 
-        // Convert 16x16 MCU pixels to BGR555 using smooth bilinear chroma upsampling
-        // and precomputed 16x16 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
+        // Convert 16x16 MCU pixels to BGR555 using nearest-neighbour chroma
+        // upsampling and precomputed 16x16 Bayer ordered dithering for maximum
+        // visual fidelity in 15bpp direct colour.
         let base_px = mcu_x * 16;
         let base_py = row * 16;
 
@@ -1013,40 +992,25 @@ pub fn decode_tile_row_64x16(
         for py in 0..16 {
             let out_y = base_py + py;
             let y_block = if py < 8 { (&y0, &y1) } else { (&y2, &y3) };
-            let (y_sub_y, cy0, cy1, wy0, wy1) = PY_LUT[py];
-            let y_row_off = y_sub_y * 8;
+            let y_row_off = PY_LUT[py] * 8;
 
-            // Hoist chroma row slices (8 bytes each) to avoid per-pixel multiplications
-            let cb_r0: &[u8; 8] = cb[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
-            let cb_r1: &[u8; 8] = cb[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
-            let cr_r0: &[u8; 8] = cr[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
-            let cr_r1: &[u8; 8] = cr[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
+            // Nearest-neighbour chroma: one 8-byte row per luma row pair,
+            // instead of the two interpolated rows bilinear needed.
+            let cb_row: &[u8; 8] = cb[chroma_index(py) * 8..][..8].try_into().unwrap();
+            let cr_row: &[u8; 8] = cr[chroma_index(py) * 8..][..8].try_into().unwrap();
 
             let bayer_row = &BAYER16[py];
 
             for px in 0..16 {
                 let out_x = base_px + px;
-                let (y_sub_x, cx0, cx1, wx0, wx1) = PX_LUT[px];
+                let y_sub_x = PX_LUT[px];
 
                 let y_arr = if px < 8 { y_block.0 } else { y_block.1 };
                 let y_val = y_arr[y_row_off + y_sub_x] as i32;
 
-                // Bilinear interpolation for Cb and Cr using slice indexing
-                let cb_00 = cb_r0[cx0] as i32;
-                let cb_01 = cb_r0[cx1] as i32;
-                let cb_10 = cb_r1[cx0] as i32;
-                let cb_11 = cb_r1[cx1] as i32;
-                let cb_val =
-                    (((cb_00 * wx0 + cb_01 * wx1) * wy0 + (cb_10 * wx0 + cb_11 * wx1) * wy1) >> 4)
-                        - 128;
-
-                let cr_00 = cr_r0[cx0] as i32;
-                let cr_01 = cr_r0[cx1] as i32;
-                let cr_10 = cr_r1[cx0] as i32;
-                let cr_11 = cr_r1[cx1] as i32;
-                let cr_val =
-                    (((cr_00 * wx0 + cr_01 * wx1) * wy0 + (cr_10 * wx0 + cr_11 * wx1) * wy1) >> 4)
-                        - 128;
+                let cx = chroma_index(px);
+                let cb_val = cb_row[cx] as i32 - 128;
+                let cr_val = cr_row[cx] as i32 - 128;
 
                 // ITU-R BT.601 integer fixed-point YCbCr to RGB conversion
                 let r_raw = y_val + ((359 * cr_val) >> 8);
