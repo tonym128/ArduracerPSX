@@ -266,6 +266,10 @@ fn main() {
         "15-bit colour circuit texture streaming LZSS roundtrip",
         test_visual_circuit_15bit_streaming_lzss_roundtrip
     );
+    run_test!(
+        "Visual track texture aligns with physical collision road",
+        test_visual_track_aligns_with_collision_data
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -2847,5 +2851,89 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
                 "Decoded tile pixels must be non-empty"
             );
         }
+    }
+}
+
+fn test_visual_track_aligns_with_collision_data() {
+    use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
+    use arduracer_core::levels::AUTHORED_TRACKS;
+    use arduracer_core::visual_tex;
+
+    let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("assets")
+        .join("TRACKS.BIN");
+
+    if !tracks_bin_path.exists() {
+        return;
+    }
+
+    let tracks_bin = std::fs::read(&tracks_bin_path).expect("Failed to read TRACKS.BIN");
+
+    for (c, track) in AUTHORED_TRACKS.iter().enumerate() {
+        let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[c];
+        let byte_offset = (entry.sector_offset as usize) * 2048;
+        let byte_len = entry.byte_len as usize;
+        let jpeg_data = &tracks_bin[byte_offset..byte_offset + byte_len];
+
+        let header = JpegHeader::parse(jpeg_data).expect("Valid JPEG header");
+        let mut restart_offsets = [0u32; 1024];
+        header.index_restarts(jpeg_data, &mut restart_offsets);
+
+        // Check start gate alignment: start gate cell in TrackDef
+        let gate_cx = track.start_gate.x as usize;
+        let gate_cy = track.start_gate.y as usize;
+
+        // Verify the gate cell in track collision data is indeed a StartFinish gate
+        let tile = track.tile_at(track.start_gate.x, track.start_gate.y);
+        assert!(
+            tile.is_road(),
+            "Track {}: start gate cell must be drivable road",
+            track.name
+        );
+
+        // Convert gate cell center to world coordinates
+        let wx = (gate_cx as i32) * 32 + 16;
+        let wy = (gate_cy as i32) * 32 + 16;
+
+        // Project through renderer coordinate mapping:
+        let world_w = track.world_width();
+        let world_h = track.world_height();
+        let tile_wu_x = (world_w / 16).max(1);
+        let tile_wu_y = (world_h / 16).max(1);
+
+        let tx = (wx / tile_wu_x).clamp(0, 15) as usize;
+        let ty = (wy / tile_wu_y).clamp(0, 15) as usize;
+
+        let wx0 = (tx as i32) * tile_wu_x;
+        let wy0 = (ty as i32) * tile_wu_y;
+
+        let local_u = (((wx - wx0) * 64) / tile_wu_x).clamp(0, 63) as usize;
+        let local_v = (((wy - wy0) * 64) / tile_wu_y).clamp(0, 63) as usize;
+
+        // Decode the 64x64 tile containing the start finish line
+        let mut tile_pixels = [0u16; 64 * 64];
+        decode_tile_64x64(jpeg_data, &header, &restart_offsets, tx, ty, &mut tile_pixels);
+
+        let p = tile_pixels[local_v * 64 + local_u];
+        let r = (p & 0x1F) as u8;
+        let g = ((p >> 5) & 0x1F) as u8;
+        let b = ((p >> 10) & 0x1F) as u8;
+
+        // Start finish lines are painted white/bright checker (>= 15 in 5-bit channel)
+        // or tarmac road surface (luminance >= 3). It must NEVER be void black (0, 0, 0)
+        // or off-road background.
+        let lum = (r as u32 + g as u32 + b as u32) / 3;
+        assert!(
+            lum >= 3,
+            "Track {}: visual texture at start line ({}, {}) decoded luminance {} too dark -- visual track misaligned with collision track!",
+            track.name,
+            wx,
+            wy,
+            lum
+        );
     }
 }

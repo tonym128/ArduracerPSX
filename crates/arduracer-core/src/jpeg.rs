@@ -665,9 +665,38 @@ pub fn decode_tile_64x64(
                 &mut cr,
             );
 
-            // Convert 16x16 MCU pixels to BGR555 and write to output buffer
+            // Convert 16x16 MCU pixels to BGR555 using smooth bilinear chroma upsampling
+            // and 4x4 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
             let base_px = mcu_x * 16;
             let base_py = row * 16;
+
+            const BAYER4X4: [[i32; 4]; 4] = [
+                [0, 8, 2, 10],
+                [12, 4, 14, 6],
+                [3, 11, 1, 9],
+                [15, 7, 13, 5],
+            ];
+
+            // Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
+            // (sample_0, sample_1, weight_0, weight_1)
+            const INTERP_16: [(usize, usize, i32, i32); 16] = [
+                (0, 0, 4, 0),
+                (0, 1, 3, 1),
+                (0, 1, 1, 3),
+                (1, 2, 3, 1),
+                (1, 2, 1, 3),
+                (2, 3, 3, 1),
+                (2, 3, 1, 3),
+                (3, 4, 3, 1),
+                (3, 4, 1, 3),
+                (4, 5, 3, 1),
+                (4, 5, 1, 3),
+                (5, 6, 3, 1),
+                (5, 6, 1, 3),
+                (6, 7, 3, 1),
+                (6, 7, 1, 3),
+                (7, 7, 4, 0),
+            ];
 
             for py in 0..16 {
                 let out_y = base_py + py;
@@ -676,7 +705,7 @@ pub fn decode_tile_64x64(
                 } else {
                     ((&y2, &y3), py - 8)
                 };
-                let chroma_y = py / 2;
+                let (cy0, cy1, wy0, wy1) = INTERP_16[py];
 
                 for px in 0..16 {
                     let out_x = base_px + px;
@@ -685,17 +714,42 @@ pub fn decode_tile_64x64(
                     } else {
                         (y_block.1, px - 8)
                     };
-                    let chroma_x = px / 2;
+                    let (cx0, cx1, wx0, wx1) = INTERP_16[px];
 
                     let y_val = y_arr[y_sub_y * 8 + y_sub_x] as i32;
-                    let cb_val = cb[chroma_y * 8 + chroma_x] as i32 - 128;
-                    let cr_val = cr[chroma_y * 8 + chroma_x] as i32 - 128;
 
-                    let r = (y_val + ((359 * cr_val) >> 8)).clamp(0, 255) as u16;
-                    let g = (y_val - ((88 * cb_val + 183 * cr_val) >> 8)).clamp(0, 255) as u16;
-                    let b = (y_val + ((454 * cb_val) >> 8)).clamp(0, 255) as u16;
+                    // Bilinear interpolation for Cb and Cr
+                    let cb_00 = cb[cy0 * 8 + cx0] as i32;
+                    let cb_01 = cb[cy0 * 8 + cx1] as i32;
+                    let cb_10 = cb[cy1 * 8 + cx0] as i32;
+                    let cb_11 = cb[cy1 * 8 + cx1] as i32;
+                    let cb_val = ((cb_00 * wx0 + cb_01 * wx1) * wy0
+                        + (cb_10 * wx0 + cb_11 * wx1) * wy1)
+                        / 16
+                        - 128;
 
-                    let bgr555 = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
+                    let cr_00 = cr[cy0 * 8 + cx0] as i32;
+                    let cr_01 = cr[cy0 * 8 + cx1] as i32;
+                    let cr_10 = cr[cy1 * 8 + cx0] as i32;
+                    let cr_11 = cr[cy1 * 8 + cx1] as i32;
+                    let cr_val = ((cr_00 * wx0 + cr_01 * wx1) * wy0
+                        + (cr_10 * wx0 + cr_11 * wx1) * wy1)
+                        / 16
+                        - 128;
+
+                    // ITU-R BT.601 integer fixed-point YCbCr to RGB conversion
+                    let r_raw = y_val + ((359 * cr_val) >> 8);
+                    let g_raw = y_val - ((88 * cb_val + 183 * cr_val) >> 8);
+                    let b_raw = y_val + ((454 * cb_val) >> 8);
+
+                    // 4x4 Bayer ordered dither for smooth 15-bit color gradients
+                    let dither = BAYER4X4[out_y % 4][out_x % 4] >> 1; // 0..7
+
+                    let r = ((r_raw + dither).clamp(0, 255) >> 3) as u16;
+                    let g = ((g_raw + dither).clamp(0, 255) >> 3) as u16;
+                    let b = ((b_raw + dither).clamp(0, 255) >> 3) as u16;
+
+                    let bgr555 = (b << 10) | (g << 5) | r;
                     out_bgr555[out_y * TILE_TEXELS + out_x] = bgr555;
                 }
             }

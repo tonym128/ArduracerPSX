@@ -32,23 +32,14 @@ use arduracer_core::{Fixed, TrackDef, Vec2};
 use crate::cd_fs::DiscReader;
 use crate::gpu::camera::Camera;
 use crate::gpu::texlayout::{
-    self, BLOCK_DIM, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, TRACK_WU_PER_TEXEL,
-    VRAM_SLOT_COUNT, VRAM_TILE_DIM,
+    self, BLOCK_DIM, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
+    VRAM_TILE_DIM,
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
 use psx_vram::{upload_16bpp, TexDepth, Tpage, VramRect};
 
-/// World units per visual texel (2 world units per texel).
-const WU_PER_TEXEL: i32 = TRACK_WU_PER_TEXEL as i32;
-
-/// World size of one 64x64 tile: 64 * 2 = 128 world units.
-const TILE_WU: i32 = (VRAM_TILE_DIM as i32) * WU_PER_TEXEL;
-
-/// World size of one 1024x1024 block: 1024 * 2 = 2048 world units.
-const BLOCK_WU: i32 = (BLOCK_DIM as i32) * WU_PER_TEXEL;
-
-/// Capacity of the in-RAM JPEG block LRU cache (3 blocks of 1024x1024 @ 100 KB each).
+/// Capacity of the in-RAM JPEG block LRU cache (3 blocks of 1024x1024 @ 200 KB each).
 pub const RAM_CACHE_BLOCKS: usize = 3;
 
 /// Precomputed Tpage descriptors for each of the 4 allocated 256x256 VRAM regions.
@@ -352,13 +343,27 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
 
-    let tile_wu = TILE_WU;
-    let block_wu = BLOCK_WU;
+    // Compute exact world units per 64x64 tile along X and Y axes.
+    // For single tracks: 1 block (1024x1024) covers the entire track (world_w x world_h).
+    // For large cities (> 2560 world units): partitioned into blocks of 2560 world units.
+    let block_wu_x = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
+        world_w.max(1)
+    } else {
+        BLOCK_DIM as i32 * 5 / 2
+    };
+    let block_wu_y = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
+        world_h.max(1)
+    } else {
+        BLOCK_DIM as i32 * 5 / 2
+    };
 
-    let min_tx = (x0 / tile_wu).max(0);
-    let max_tx = (x1 - 1).max(0) / tile_wu;
-    let min_ty = (y0 / tile_wu).max(0);
-    let max_ty = (y1 - 1).max(0) / tile_wu;
+    let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
+    let tile_wu_y = (block_wu_y / (TILES_PER_BLOCK_AXIS as i32)).max(1);
+
+    let min_tx = (x0 / tile_wu_x).max(0);
+    let max_tx = (x1 - 1).max(0) / tile_wu_x;
+    let min_ty = (y0 / tile_wu_y).max(0);
+    let max_ty = (y1 - 1).max(0) / tile_wu_y;
 
     // Maximum 48 visible tiles per frame on standard screen resolution (320x240)
     let mut visible_tiles: [(i32, i32, usize, usize, usize, usize); 48] = [(0, 0, 0, 0, 0, 0); 48];
@@ -366,20 +371,20 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
 
     for ty in min_ty..=max_ty {
         for tx in min_tx..=max_tx {
-            let wx0 = tx * tile_wu;
-            let wy0 = ty * tile_wu;
+            let wx0 = tx * tile_wu_x;
+            let wy0 = ty * tile_wu_y;
             let tx0 = x0.max(wx0);
-            let tx1 = x1.min(wx0 + tile_wu);
+            let tx1 = x1.min(wx0 + tile_wu_x);
             let ty0 = y0.max(wy0);
-            let ty1 = y1.min(wy0 + tile_wu);
+            let ty1 = y1.min(wy0 + tile_wu_y);
 
             if tx0 < tx1 && ty0 < ty1 && vis_count < 48 {
-                let bx = (wx0 / block_wu) as usize;
-                let by = (wy0 / block_wu) as usize;
-                let sub_tx = ((wx0 % block_wu) / tile_wu)
+                let bx = (wx0 / block_wu_x) as usize;
+                let by = (wy0 / block_wu_y) as usize;
+                let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
                     .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
                     as usize;
-                let sub_ty = ((wy0 % block_wu) / tile_wu)
+                let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
                     .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
                     as usize;
 
@@ -468,12 +473,12 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
         let (tx, ty, _, _, _, _) = visible_tiles[i];
         let s_idx = slot_for_tile[i];
 
-        let wx0 = tx * tile_wu;
-        let wy0 = ty * tile_wu;
+        let wx0 = tx * tile_wu_x;
+        let wy0 = ty * tile_wu_y;
         let tx0 = x0.max(wx0);
-        let tx1 = x1.min(wx0 + tile_wu);
+        let tx1 = x1.min(wx0 + tile_wu_x);
         let ty0 = y0.max(wy0);
-        let ty1 = y1.min(wy0 + tile_wu);
+        let ty1 = y1.min(wy0 + tile_wu_y);
 
         let tl = camera.world_to_screen(Vec2 {
             x: Fixed::from_int(tx0),
@@ -494,10 +499,11 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
 
         let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
 
-        let local_u0 = ((tx0 - wx0) / WU_PER_TEXEL) as u16;
-        let local_u1 = ((tx1 - wx0) / WU_PER_TEXEL) as u16;
-        let local_v0 = ((ty0 - wy0) / WU_PER_TEXEL) as u16;
-        let local_v1 = ((ty1 - wy0) / WU_PER_TEXEL) as u16;
+        // Map fractional position inside the tile to 0..64 UV texels
+        let local_u0 = (((tx0 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
+        let local_u1 = (((tx1 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
+        let local_v0 = (((ty0 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
+        let local_v1 = (((ty1 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
 
         let u0 = ((u_base as u16) + local_u0).min(255) as u8;
         let u1 = ((u_base as u16) + local_u1).min(255) as u8;
