@@ -150,6 +150,22 @@ pub const fn minimap_colour(tile: TrackTile) -> (u8, u8, u8) {
     }
 }
 
+/// Returns a default placeholder RGB colour for a region in world space.
+/// Uses a subtle checker on road vs terrain for instant visual recognition.
+pub const fn placeholder_tile_colour(is_road: bool, checker: bool) -> (u8, u8, u8) {
+    if is_road {
+        if checker {
+            (108, 118, 132)
+        } else {
+            (96, 105, 118)
+        }
+    } else if checker {
+        (30, 52, 34)
+    } else {
+        (24, 42, 28)
+    }
+}
+
 // --- Compile-time layout invariants -----------------------------------------
 
 const _: () = assert!(TEXTURE_Y + MAX_DIM <= 512, "slot overflows VRAM height");

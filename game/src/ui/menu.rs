@@ -11,9 +11,8 @@ use psx_pad::{button, PadState};
 pub enum MenuItem {
     TimeTrial = 0,
     GrandPrix = 1,
-    CityDrive = 2,
-    TuningGarage = 3,
-    Records = 4,
+    TuningGarage = 2,
+    Records = 3,
 }
 
 pub struct MainMenu {
@@ -53,10 +52,10 @@ impl MainMenu {
             if self.selected_idx > 0 {
                 self.selected_idx -= 1;
             } else {
-                self.selected_idx = 4;
+                self.selected_idx = 3;
             }
         } else if down && !self.prev_down {
-            if self.selected_idx < 4 {
+            if self.selected_idx < 3 {
                 self.selected_idx += 1;
             } else {
                 self.selected_idx = 0;
@@ -74,9 +73,8 @@ impl MainMenu {
             match self.selected_idx {
                 0 => Some(MenuItem::TimeTrial),
                 1 => Some(MenuItem::GrandPrix),
-                2 => Some(MenuItem::CityDrive),
-                3 => Some(MenuItem::TuningGarage),
-                4 => Some(MenuItem::Records),
+                2 => Some(MenuItem::TuningGarage),
+                3 => Some(MenuItem::Records),
                 _ => None,
             }
         } else {
@@ -98,9 +96,8 @@ impl MainMenu {
         let items = [
             "1. TIME TRIAL",
             "2. GRAND PRIX",
-            "3. DRIVE CITIES",
-            "4. TUNING GARAGE",
-            "5. RECORDS & MEDALS",
+            "3. TUNING GARAGE",
+            "4. RECORDS & MEDALS",
         ];
 
         for (idx, label) in items.iter().enumerate() {

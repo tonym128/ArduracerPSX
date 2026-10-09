@@ -14,8 +14,6 @@
 pub mod ai;
 pub mod ai_profiles;
 pub mod championship;
-pub mod city;
-pub mod city_data;
 pub mod drift;
 pub mod ghost;
 pub mod jpeg;
@@ -23,7 +21,6 @@ pub mod levels;
 pub mod math;
 pub mod route;
 pub mod save;
-pub mod streaming;
 pub mod surface;
 pub mod timing;
 pub mod track;
@@ -54,19 +51,6 @@ pub use track::{TrackDef, TrackTile, MAX_TRACK_CHECKPOINTS, MAX_TRACK_DIM, TILE_
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
 pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};
 
-pub use city::{
-    CityChunkData, CityDef, CityRace, CHUNK_CELLS, CHUNK_TEXELS, DEFAULT_CHUNK_DIM,
-    DEFAULT_TEXELS_PER_CELL,
-};
-pub use city_data::{
-    ALL_CITIES, CITY_CAPE_TOWN, CITY_LONDON, CITY_MELBOURNE, CITY_NEW_YORK, CITY_SINGAPORE,
-    CITY_SYDNEY, CITY_TOKYO,
-};
-#[cfg(test)]
-pub use streaming::MemoryCdStreamSource;
-pub use streaming::{
-    CdStreamSource, CityStreamer, StreamError, CD_SECTOR_BYTES, MAX_RESIDENT_SLOTS,
-};
 #[cfg(test)]
 pub use visual_converter::{convert_to_8bit_colour, ConvertedVisual8};
 pub use visual_converter::{

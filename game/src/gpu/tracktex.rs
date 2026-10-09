@@ -42,6 +42,9 @@ use psx_vram::{upload_16bpp, TexDepth, Tpage, VramRect};
 /// Capacity of the in-RAM JPEG block LRU cache (3 blocks of 1024x1024 @ 200 KB each).
 pub const RAM_CACHE_BLOCKS: usize = 3;
 
+/// Maximum number of 64x64 tiles decompressed per frame (staggers decoding to eliminate frame drops).
+pub const MAX_DECODES_PER_FRAME: usize = 2;
+
 /// Precomputed Tpage descriptors for each of the 4 allocated 256x256 VRAM regions.
 const TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
     Tpage::new(
@@ -394,7 +397,7 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
-    let mut slot_for_tile = [0usize; 48];
+    let mut slot_for_tile = [usize::MAX; 48];
     let mut used_slots = [false; VRAM_SLOT_COUNT];
 
     // Phase 1: Match already-resident 64x64 tiles in VRAM LRU cache
@@ -422,17 +425,27 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
-    // Phase 2: Allocate slots for missing tiles and decompress from RAM to VRAM
+    let mut decodes_this_frame = 0;
+
+    // Phase 2: Stagger tile decompression to budget (max 2 decodes per frame)
     for i in 0..vis_count {
         let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
         let s = slot_for_tile[i];
-        let slot = &vram_slots[s];
-        let is_hit = slot.resident_circuit == active_circuit
-            && slot.resident_block_x == bx
-            && slot.resident_block_y == by
-            && slot.resident_tile_x == sub_tx
-            && slot.resident_tile_y == sub_ty;
+        let is_hit = s != usize::MAX && {
+            let slot = &vram_slots[s];
+            slot.resident_circuit == active_circuit
+                && slot.resident_block_x == bx
+                && slot.resident_block_y == by
+                && slot.resident_tile_x == sub_tx
+                && slot.resident_tile_y == sub_ty
+        };
         if is_hit {
+            continue;
+        }
+
+        // If we reached our per-frame decode budget, leave slot as usize::MAX to display placeholder
+        if decodes_this_frame >= MAX_DECODES_PER_FRAME {
+            slot_for_tile[i] = usize::MAX;
             continue;
         }
 
@@ -466,9 +479,10 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
             best_slot,
             current_frame,
         );
+        decodes_this_frame += 1;
     }
 
-    // Phase 3: Render visible textured quads using assigned VRAM slot Tpages and UVs
+    // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
     for i in 0..vis_count {
         let (tx, ty, _, _, _, _) = visible_tiles[i];
         let s_idx = slot_for_tile[i];
@@ -497,25 +511,32 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
             y: Fixed::from_int(ty1),
         });
 
-        let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
+        if s_idx == usize::MAX {
+            // Pending tile in decode queue: render sleek placeholder shading
+            let checker = ((tx ^ ty) & 1) != 0;
+            let (pr, pg, pb) = texlayout::placeholder_tile_colour(true, checker);
+            gpu::draw_quad_flat([tl, tr, bl, br], pr, pg, pb);
+        } else {
+            let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
 
-        // Map fractional position inside the tile to 0..64 UV texels
-        let local_u0 = (((tx0 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
-        let local_u1 = (((tx1 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
-        let local_v0 = (((ty0 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
-        let local_v1 = (((ty1 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
+            // Map fractional position inside the tile to 0..64 UV texels
+            let local_u0 = (((tx0 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
+            let local_u1 = (((tx1 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
+            let local_v0 = (((ty0 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
+            let local_v1 = (((ty1 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
 
-        let u0 = ((u_base as u16) + local_u0).min(255) as u8;
-        let u1 = ((u_base as u16) + local_u1).min(255) as u8;
-        let v0 = ((v_base as u16) + local_v0).min(255) as u8;
-        let v1 = ((v_base as u16) + local_v1).min(255) as u8;
+            let u0 = ((u_base as u16) + local_u0).min(255) as u8;
+            let u1 = ((u_base as u16) + local_u1).min(255) as u8;
+            let v0 = ((v_base as u16) + local_v0).min(255) as u8;
+            let v1 = ((v_base as u16) + local_v1).min(255) as u8;
 
-        let tpage = TPAGES[tpage_idx];
-        let material = TextureMaterial::opaque(0, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
-        gpu::draw_quad_textured_material(
-            [tl, tr, bl, br],
-            [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
-            material,
-        );
+            let tpage = TPAGES[tpage_idx];
+            let material = TextureMaterial::opaque(0, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
+            gpu::draw_quad_textured_material(
+                [tl, tr, bl, br],
+                [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
+                material,
+            );
+        }
     }
 }

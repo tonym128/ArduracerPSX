@@ -670,12 +670,8 @@ pub fn decode_tile_64x64(
             let base_px = mcu_x * 16;
             let base_py = row * 16;
 
-            const BAYER4X4: [[i32; 4]; 4] = [
-                [0, 8, 2, 10],
-                [12, 4, 14, 6],
-                [3, 11, 1, 9],
-                [15, 7, 13, 5],
-            ];
+            const BAYER4X4: [[i32; 4]; 4] =
+                [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
             // Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
             // (sample_0, sample_1, weight_0, weight_1)
@@ -698,6 +694,7 @@ pub fn decode_tile_64x64(
                 (7, 7, 4, 0),
             ];
 
+            #[allow(clippy::needless_range_loop)]
             for py in 0..16 {
                 let out_y = base_py + py;
                 let (y_block, y_sub_y) = if py < 8 {

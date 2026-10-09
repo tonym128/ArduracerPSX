@@ -2515,7 +2515,6 @@ mod intro_transition_tests {
         Title,
         MainMenu,
         TrackSelect,
-        CitySelect,
         Garage,
         Racing,
         Results,
