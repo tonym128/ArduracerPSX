@@ -200,6 +200,12 @@ pub struct AiRacer {
     pub progress_ticks: u16,
     /// Total ticks spent wedged (for HUD / telemetry).
     pub wedged_total_ticks: u32,
+    /// Current lap time in ticks.
+    pub current_lap_ticks: u32,
+    /// Best recorded lap time in ticks (u32::MAX if no lap finished yet).
+    pub best_lap_ticks: u32,
+    /// Total race elapsed ticks.
+    pub total_race_ticks: u32,
 }
 
 impl AiRacer {
@@ -217,6 +223,9 @@ impl AiRacer {
             best_gate_distance: i32::MAX,
             progress_ticks: 0,
             wedged_total_ticks: 0,
+            current_lap_ticks: 0,
+            best_lap_ticks: u32::MAX,
+            total_race_ticks: 0,
         }
     }
 
@@ -228,10 +237,10 @@ impl AiRacer {
         forward: i32,
         lateral: i32,
     ) {
-        let fx = crate::math::cos(start_heading);
-        let fy = crate::math::sin(start_heading);
-        let lx = -crate::math::sin(start_heading);
-        let ly = crate::math::cos(start_heading);
+        let fx = crate::math::sin(start_heading);
+        let fy = -crate::math::cos(start_heading);
+        let lx = crate::math::cos(start_heading);
+        let ly = crate::math::sin(start_heading);
         self.state.position = start_pos
             + Vec2::new(
                 fx * Fixed::from_int(forward) + lx * Fixed::from_int(lateral),
@@ -302,12 +311,14 @@ impl AiRacer {
                 // is already going, so it hugs the middle of the road instead of
                 // sawing across it.
                 let align = angle_error(heading_towards(from, centre), leg).abs() as i64;
-                // Racing surface first; off-road is drivable but a line that uses
-                // it is a line that cuts.
-                let surface = if track.is_road_at(nx, ny) {
-                    0
-                } else {
-                    OFF_LINE_PENALTY
+                // Racing surface first; boost pads give a speed advantage; oil slicks cause spinouts.
+                // Off-road is drivable but a line that uses it is a line that cuts.
+                let tile = track.tile_at(nx, ny);
+                let surface = match tile {
+                    crate::track::TrackTile::BoostPad => -100_000,
+                    crate::track::TrackTile::OilSlick => 200_000,
+                    t if t.is_road() => 0,
+                    _ => OFF_LINE_PENALTY,
                 };
                 let score = distance * 8 + align * 64 + surface;
                 if score < best_score {
@@ -561,14 +572,23 @@ impl AiRacer {
         let route = track.route_len();
         let checkpoint_count = track.active_checkpoint_count();
 
-        // Start/finish arming.
-        if !track.start_gate.contains_tile(tx, ty) {
+        // Start/finish arming: rival has left the start line when leaving start_gate tile/nearby
+        // or when moving onto a non-start tile.
+        let on_start = track.start_gate.contains_tile_or_nearby(tx, ty, 1)
+            || track.tile_at(tx, ty) == crate::track::TrackTile::StartFinish;
+        if !on_start {
             self.left_start_gate = true;
         }
 
         // Advance along the racing line when the current node is reached.
         let node = (self.target_gate_idx as usize) % route;
-        if track.route_node(node).contains_tile(tx, ty) {
+        let route_gate = track.route_node(node);
+        let node_centre = TrackDef::gate_centre(&route_gate);
+        let dist_to_node = (node_centre - self.state.position).length();
+        let reached_node =
+            route_gate.contains_tile_or_nearby(tx, ty, 1) || dist_to_node < Fixed::from_int(48);
+
+        if reached_node {
             let next = node + 1;
             self.target_gate_idx = if next >= route {
                 // Wrapped past the start/finish: a full circuit is done.
@@ -588,7 +608,9 @@ impl AiRacer {
                 continue;
             }
             match track.checkpoints.get(i) {
-                Some(gate) if gate.contains_tile(tx, ty) => self.checkpoint_mask |= 1 << i,
+                Some(gate) if gate.contains_tile_or_nearby(tx, ty, 1) => {
+                    self.checkpoint_mask |= 1 << i
+                }
                 _ => {}
             }
         }
@@ -596,6 +618,11 @@ impl AiRacer {
 
     fn on_lap_complete(&mut self) {
         if self.left_start_gate && !self.is_finished {
+            let lap_ticks = self.current_lap_ticks;
+            if lap_ticks > 0 && lap_ticks < self.best_lap_ticks {
+                self.best_lap_ticks = lap_ticks;
+            }
+            self.current_lap_ticks = 0;
             self.current_lap = self.current_lap.saturating_add(1);
             // `timing::TOTAL_LAPS`, not a hard-coded 5: a rival that counted a
             // different number of laps than the lap timer can never be reconciled
@@ -611,6 +638,11 @@ impl AiRacer {
     pub fn tick(&mut self, track: &TrackDef, other_positions: &[Vec2]) {
         let input = self.compute_input(track, other_positions);
         self.state.tick_on_track(input, track);
+
+        if !self.is_finished {
+            self.current_lap_ticks = self.current_lap_ticks.saturating_add(1);
+            self.total_race_ticks = self.total_race_ticks.saturating_add(1);
+        }
 
         // `TrackDef::tile_x_of` / `tile_y_of`, not `pos / TILE_SIZE`: truncating
         // `i32` division produced negative indices for negative positions and a
@@ -1359,5 +1391,42 @@ mod tests {
             }
         }
         assert_eq!(atan2_bams(0, 0), 0);
+    }
+
+    #[test]
+    fn offset_from_pole_places_cars_consistently_with_screen_space() {
+        let profile = AI_PROFILES[0];
+        let start_pos = Vec2::new(Fixed::from_int(500), Fixed::from_int(500));
+        // Heading 0 = North (0, -1). Forward is -Y, Lateral (+Right) is +X.
+        let mut ai_north = AiRacer::new(start_pos, 0, profile);
+        ai_north.offset_from_pole(start_pos, 0, -50, 20);
+        // forward -50 means 50 units behind pole => +Y (+50)
+        // lateral +20 means 20 units right of pole => +X (+20)
+        assert_eq!(ai_north.state.position.x.to_int(), 520);
+        assert_eq!(ai_north.state.position.y.to_int(), 550);
+
+        // Heading 1024 = East (+1, 0). Forward is +X, Lateral (+Right) is +Y.
+        let mut ai_east = AiRacer::new(start_pos, 1024, profile);
+        ai_east.offset_from_pole(start_pos, 1024, -50, 20);
+        // forward -50 means behind pole => -X (-50)
+        // lateral +20 means right of pole => +Y (+20)
+        assert_eq!(ai_east.state.position.x.to_int(), 450);
+        assert_eq!(ai_east.state.position.y.to_int(), 520);
+    }
+
+    #[test]
+    fn ai_racer_records_lap_and_race_ticks() {
+        let track = ALL_TRACKS[0];
+        let profile = AI_PROFILES[0];
+        let mut ai = AiRacer::new(track.start_pos, track.start_heading, profile);
+        assert_eq!(ai.current_lap_ticks, 0);
+        assert_eq!(ai.best_lap_ticks, u32::MAX);
+        assert_eq!(ai.total_race_ticks, 0);
+
+        for _ in 0..100 {
+            ai.tick(track, &[]);
+        }
+        assert_eq!(ai.current_lap_ticks, 100);
+        assert_eq!(ai.total_race_ticks, 100);
     }
 }

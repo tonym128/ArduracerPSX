@@ -246,6 +246,10 @@ fn main() {
         "Visual track texture aligns with physical collision road",
         test_visual_track_aligns_with_collision_data
     );
+    run_test!(
+        "AI rivals race Grand Prix stages and score standings",
+        test_ai_grand_prix_race_and_standings
+    );
 
     println!("------------------------------------------------------------");
     println!("  Summary: {}/{} tests passed", passed, total);
@@ -2281,4 +2285,68 @@ fn test_visual_track_aligns_with_collision_data() {
             lum
         );
     }
+}
+
+fn test_ai_grand_prix_race_and_standings() {
+    let track = ALL_TRACKS[0];
+    let grid_offsets: [(i32, i32); 5] = [(-48, 16), (-96, -16), (-144, 16), (-192, -16), (-240, 0)];
+
+    let mut rivals = [
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[1]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[2]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[3]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[4]),
+    ];
+
+    for (i, rival) in rivals.iter_mut().enumerate() {
+        let (fwd, lat) = grid_offsets[i];
+        rival.offset_from_pole(track.start_pos, track.start_heading, fwd, lat);
+        assert_eq!(rival.current_lap, 1);
+        assert!(!rival.is_finished);
+    }
+
+    let mut champ = ChampionshipSession::new(0);
+    assert_eq!(champ.current_stage, 0);
+
+    // Simulate 600 ticks of race: cars must navigate without wedging on spawn
+    for _ in 0..600 {
+        let mut positions = [Vec2::ZERO; 6];
+        positions[0] = track.start_pos;
+        for i in 0..5 {
+            positions[i + 1] = rivals[i].state.position;
+        }
+        for rival in rivals.iter_mut() {
+            rival.tick(track, &positions);
+        }
+    }
+
+    // After 600 ticks, rivals must have progressed down the track
+    for (i, rival) in rivals.iter().enumerate() {
+        assert!(
+            rival.state.speed > Fixed::ZERO || rival.checkpoints_cleared() > 0,
+            "Rival {} ({}) should be moving or have cleared checkpoints",
+            i,
+            rival.profile.name
+        );
+    }
+
+    // Compute standings: all 6 competitors (player + 5 rivals) must be uniquely ranked
+    let standings = compute_standings(track.start_pos, 1, 0, false, &rivals, track);
+    let mut seen = [false; 6];
+    for &rank_idx in standings.iter() {
+        assert!(rank_idx < 6, "standings index must be < 6");
+        assert!(!seen[rank_idx], "standings index must be unique");
+        seen[rank_idx] = true;
+    }
+
+    // Award stage points and advance to next Grand Prix stage
+    champ.award_stage_points(standings);
+    assert!(champ.competitors.iter().any(|c| c.total_points > 0));
+    let cup_finished = champ.advance_stage();
+    assert!(
+        !cup_finished,
+        "stage 1 of cup is not the end of the championship"
+    );
+    assert_eq!(champ.current_stage, 1);
 }

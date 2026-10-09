@@ -44,21 +44,7 @@ pub const SCREEN_HEIGHT: u16 = 240;
 const GRID_OFFSETS: [(i32, i32); 5] = [(-48, 16), (-96, -16), (-144, 16), (-192, -16), (-240, 0)];
 
 /// Whether AI rivals take part in a race.
-///
-/// **Off, deliberately.** One authored circuit exists (`Hells Bells`), so every
-/// grid slot holds the same oval. Five rivals would be stacked on one racing
-/// line, racing the player for a position on a circuit they all know as well as
-/// the car does -- noise, not a race.
-///
-/// Gating all three of *drive*, *spawn* and *render* from one flag is the point.
-/// Rivals that are spawned but not ticked are parked on the start line, still
-/// drawn and still occupying road, so a tick-only gate would leave the player
-/// driving away from five stationary cars. The rivals themselves are left in
-/// place rather than deleted, so this is a constant flip and the standings code
-/// keeps compiling against a real array.
-///
-/// Switch back on as soon as a second circuit exists to race on.
-const RIVALS_ENABLED: bool = false;
+const RIVALS_ENABLED: bool = true;
 
 /// Spawns 5 AI rivals on staggered grid positions behind the player.
 fn spawn_rivals(start_pos: Vec2, start_heading: u16) -> [AiRacer; 5] {

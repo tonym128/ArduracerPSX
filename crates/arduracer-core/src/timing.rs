@@ -75,6 +75,20 @@ impl CheckpointGate {
     pub fn is_active(&self) -> bool {
         self.width > 0 && self.height > 0
     }
+
+    /// Tests if a given tile coordinate (tx, ty) falls within this checkpoint gate,
+    /// or within `tolerance` tiles around its boundaries.
+    #[inline]
+    pub fn contains_tile_or_nearby(&self, tx: u8, ty: u8, tolerance: u8) -> bool {
+        if !self.is_active() {
+            return false;
+        }
+        let min_x = self.x.saturating_sub(tolerance);
+        let max_x = self.x.saturating_add(self.width).saturating_add(tolerance);
+        let min_y = self.y.saturating_sub(tolerance);
+        let max_y = self.y.saturating_add(self.height).saturating_add(tolerance);
+        tx >= min_x && tx < max_x && ty >= min_y && ty < max_y
+    }
 }
 
 /// Target par times for a track in 60Hz ticks.
@@ -976,5 +990,24 @@ mod tests {
         t.current_lap_ticks = u32::MAX;
         let d = t.delta_ticks();
         assert_eq!(d, i32::MAX, "clamped, not wrapped");
+    }
+
+    #[test]
+    fn test_checkpoint_gate_nearby() {
+        let gate = CheckpointGate {
+            x: 10,
+            y: 10,
+            width: 1,
+            height: 1,
+        };
+        assert!(gate.contains_tile(10, 10));
+        assert!(!gate.contains_tile(9, 10));
+        assert!(gate.contains_tile_or_nearby(10, 10, 1));
+        assert!(gate.contains_tile_or_nearby(9, 10, 1));
+        assert!(gate.contains_tile_or_nearby(11, 10, 1));
+        assert!(gate.contains_tile_or_nearby(10, 9, 1));
+        assert!(gate.contains_tile_or_nearby(10, 11, 1));
+        assert!(!gate.contains_tile_or_nearby(8, 10, 1));
+        assert!(!gate.contains_tile_or_nearby(10, 12, 1));
     }
 }
