@@ -12,7 +12,7 @@
 //! image that cannot change while the circuit does not (TASK-1202). The moving
 //! half -- the racer blips -- stays as primitives drawn on top.
 
-use crate::gpu::texlayout::{minimap_colour, minimap_step, MINIMAP_SIZE};
+use crate::gpu::texlayout::{minimap_colour, minimap_tile_rect, minimap_world_pos, MINIMAP_SIZE};
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
 use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
@@ -25,16 +25,12 @@ use psx_gpu::material::BlendMode;
 /// the image is static for the whole race.
 pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
     slot.begin_compose();
-    let step_x = minimap_step(track.width);
-    let step_y = minimap_step(track.height);
-    // One pixel of overlap so adjacent tiles do not leave seams at this scale.
-    let w = step_x.max(1) + 1;
-    let h = step_y.max(1) + 1;
-    for ty in 0..track.height as i32 {
-        for tx in 0..track.width as i32 {
-            let tile = track.tile_at(tx as u8, ty as u8);
+    for ty in 0..track.height {
+        for tx in 0..track.width {
+            let tile = track.tile_at(tx, ty);
             let (r, g, b) = minimap_colour(tile);
-            slot.fill_rect(tx * step_x, ty * step_y, w, h, (r, g, b));
+            let (px, py, pw, ph) = minimap_tile_rect(tx, ty, track.width, track.height);
+            slot.fill_rect(px, py, pw, ph, (r, g, b));
         }
     }
     slot.upload();
@@ -253,39 +249,20 @@ pub fn render_hud<const N: usize>(
         36,
     );
 
-    let step_x = minimap_step(track.width);
-    let step_y = minimap_step(track.height);
-
     // The circuit outline is already in VRAM; one sprite packet replaces the
     // per-tile rectangle walk.
     minimap_texture.blit(map_x + 4, map_y + 4, BlendMode::Opaque);
 
     // Rival blips
     for rival in rivals {
-        let r_tx = TrackDef::tile_x_of(rival.state.position.x) as i32;
-        let r_ty = TrackDef::tile_y_of(rival.state.position.y) as i32;
+        let rx = minimap_world_pos(rival.state.position.x, track.width);
+        let ry = minimap_world_pos(rival.state.position.y, track.height);
         let (rc, gc, bc) = rival.profile.color;
-        gpu::draw_rect_flat(
-            map_x + 4 + (r_tx * step_x) as i16,
-            map_y + 4 + (r_ty * step_y) as i16,
-            2,
-            2,
-            rc,
-            gc,
-            bc,
-        );
+        gpu::draw_rect_flat(map_x + 4 + rx - 1, map_y + 4 + ry - 1, 2, 2, rc, gc, bc);
     }
 
     // Player position blip (bright golden dot)
-    let p_tx = TrackDef::tile_x_of(player.position.x) as i32;
-    let p_ty = TrackDef::tile_y_of(player.position.y) as i32;
-    gpu::draw_rect_flat(
-        map_x + 3 + (p_tx * step_x) as i16,
-        map_y + 3 + (p_ty * step_y) as i16,
-        3,
-        3,
-        255,
-        230,
-        0,
-    );
+    let px = minimap_world_pos(player.position.x, track.width);
+    let py = minimap_world_pos(player.position.y, track.height);
+    gpu::draw_rect_flat(map_x + 4 + px - 1, map_y + 4 + py - 1, 3, 3, 255, 230, 0);
 }

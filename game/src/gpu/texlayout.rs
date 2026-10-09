@@ -104,6 +104,41 @@ pub const fn pack_bgr555(r: u8, g: u8, b: u8) -> u16 {
     (((b as u16) >> 3) << 10) | (((g as u16) >> 3) << 5) | ((r as u16) >> 3)
 }
 
+/// Rectangular pixel extent in minimap coordinates for a given tile `(tx, ty)`
+/// within a circuit of dimensions `(width, height)`.
+///
+/// Returns `(px, py, pw, ph)` all strictly inside `0..MINIMAP_INNER`.
+/// Guaranteed non-zero width and height without leaving seams between adjacent tiles
+/// or overflowing the minimap boundary regardless of circuit dimensions (up to `MAX_TRACK_DIM`).
+pub const fn minimap_tile_rect(tx: u8, ty: u8, width: u8, height: u8) -> (i32, i32, i32, i32) {
+    let w_div = if width == 0 { 1 } else { width as i32 };
+    let h_div = if height == 0 { 1 } else { height as i32 };
+
+    let x0 = (tx as i32 * MINIMAP_INNER) / w_div;
+    let x1 = (((tx as i32 + 1) * MINIMAP_INNER) + w_div - 1) / w_div;
+    let pw = if x1 > x0 { x1 - x0 } else { 1 };
+
+    let y0 = (ty as i32 * MINIMAP_INNER) / h_div;
+    let y1 = (((ty as i32 + 1) * MINIMAP_INNER) + h_div - 1) / h_div;
+    let ph = if y1 > y0 { y1 - y0 } else { 1 };
+
+    (x0, y0, pw, ph)
+}
+
+/// Converts a world coordinate in fixed point (Q20.12) to a minimap offset `0..MINIMAP_INNER`.
+///
+/// Scales continuously across the entire track extent (`extent_tiles * TILE_SIZE`).
+pub fn minimap_world_pos(world: arduracer_core::Fixed, extent_tiles: u8) -> i16 {
+    let extent = if extent_tiles == 0 {
+        1
+    } else {
+        extent_tiles as i32
+    };
+    let total_world = extent * arduracer_core::TILE_SIZE;
+    let units = world.to_int().clamp(0, total_world);
+    ((units * MINIMAP_INNER) / total_world) as i16
+}
+
 /// Pixels per tile along each axis when scaling a `w` x `h` circuit into the
 /// minimap's inner area.
 ///

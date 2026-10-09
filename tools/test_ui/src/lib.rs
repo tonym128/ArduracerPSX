@@ -2267,10 +2267,10 @@ mod ui_defect_tests {
 mod texture_pipeline_tests {
     use super::palette::to_bgr555;
     use super::texlayout::{
-        minimap_colour, minimap_step, pack_bgr555, slot_overlaps_framebuffers, MAX_DIM,
-        MINIMAP_INNER, SLOT_BYTES, TEXTURE_X, TEXTURE_Y,
+        minimap_colour, minimap_step, minimap_tile_rect, minimap_world_pos, pack_bgr555,
+        slot_overlaps_framebuffers, MAX_DIM, MINIMAP_INNER, SLOT_BYTES, TEXTURE_X, TEXTURE_Y,
     };
-    use arduracer_core::TrackTile;
+    use arduracer_core::{Fixed, TrackTile, TILE_SIZE};
 
     #[test]
     fn the_texture_quantiser_agrees_with_the_polygon_one() {
@@ -2358,30 +2358,116 @@ mod texture_pipeline_tests {
     /// leaves a hole in the circuit outline.
     #[test]
     fn the_bake_covers_every_tile_of_the_largest_circuits() {
-        for (w, h) in [(38u8, 38u8), (40, 40), (30, 30), (4, 4)] {
-            let step_x = minimap_step(w);
-            let step_y = minimap_step(h);
-            let last_x = (w as i32 - 1) * step_x;
-            let last_y = (h as i32 - 1) * step_y;
-            let stamp_w = step_x.max(1) + 1;
-            let stamp_h = step_y.max(1) + 1;
-            assert!(
-                last_x + stamp_w <= MAX_DIM as i32,
-                "{w}x{h}: the last column ends at {}, past the {MAX_DIM}-px slot",
-                last_x + stamp_w
+        for (w, h) in [
+            (80u8, 80u8),
+            (96, 96),
+            (38, 38),
+            (40, 40),
+            (30, 30),
+            (4, 4),
+            (1, 1),
+        ] {
+            for ty in 0..h {
+                for tx in 0..w {
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    assert!(px >= 0, "px negative: {px}");
+                    assert!(py >= 0, "py negative: {py}");
+                    assert!(pw >= 1, "pw must be at least 1: {pw}");
+                    assert!(ph >= 1, "ph must be at least 1: {ph}");
+                    assert!(
+                        px + pw <= MINIMAP_INNER,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({px}, {pw}) overflows inner area {MINIMAP_INNER}"
+                    );
+                    assert!(
+                        py + ph <= MINIMAP_INNER,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({py}, {ph}) overflows inner area {MINIMAP_INNER}"
+                    );
+                    assert!(
+                        px + pw <= MAX_DIM as i32,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({px}, {pw}) overflows slot {MAX_DIM}"
+                    );
+                    assert!(
+                        py + ph <= MAX_DIM as i32,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({py}, {ph}) overflows slot {MAX_DIM}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Adjacent tiles must meet or overlap so there are no empty seams in the circuit outline.
+    #[test]
+    fn minimap_tiles_leave_no_seams() {
+        for dim in [4u8, 10, 30, 38, 40, 80, 96] {
+            for i in 0..(dim - 1) {
+                let (px, _, pw, _) = minimap_tile_rect(i, 0, dim, dim);
+                let (next_px, _, _, _) = minimap_tile_rect(i + 1, 0, dim, dim);
+                assert!(
+                    px + pw >= next_px,
+                    "seam found at tile {i} of dim {dim}: right edge {}+{} < next {next_px}",
+                    px,
+                    pw
+                );
+            }
+        }
+    }
+
+    /// World player positions map accurately and monotonically to minimap pixel space.
+    #[test]
+    fn player_placement_maps_accurately_to_minimap_space() {
+        for extent in [80u8, 96, 40, 30] {
+            let total_world = extent as i32 * TILE_SIZE;
+            // Bounds check
+            let p_zero = minimap_world_pos(Fixed::ZERO, extent);
+            assert_eq!(p_zero, 0);
+
+            let p_max = minimap_world_pos(Fixed::from_int(total_world), extent);
+            assert_eq!(p_max, MINIMAP_INNER as i16);
+
+            let p_neg = minimap_world_pos(Fixed::from_int(-500), extent);
+            assert_eq!(p_neg, 0, "negative coordinates should clamp to origin");
+
+            let p_over = minimap_world_pos(Fixed::from_int(total_world + 500), extent);
+            assert_eq!(
+                p_over, MINIMAP_INNER as i16,
+                "coordinates past extent clamp to inner max"
             );
-            assert!(
-                last_y + stamp_h <= MAX_DIM as i32,
-                "{w}x{h}: the last row ends at {}, past the {MAX_DIM}-px slot",
-                last_y + stamp_h
-            );
+
+            // Monotonicity across every world unit
+            let mut prev_px = 0;
+            for wu in 0..=total_world {
+                let px = minimap_world_pos(Fixed::from_int(wu), extent);
+                assert!(
+                    px >= prev_px,
+                    "player position went backwards at world unit {wu}"
+                );
+                assert!(
+                    px <= MINIMAP_INNER as i16,
+                    "player position exceeded inner area at {wu}"
+                );
+                prev_px = px;
+            }
+
+            // A world coordinate inside tile `t` lands strictly inside tile `t`'s minimap footprint
+            for t in 0..extent {
+                let (rect_x, _, rect_w, _) = minimap_tile_rect(t, 0, extent, extent);
+                for sub in 0..TILE_SIZE {
+                    let wu = (t as i32 * TILE_SIZE) + sub;
+                    let px = minimap_world_pos(Fixed::from_int(wu), extent) as i32;
+                    assert!(
+                        px >= rect_x && px < rect_x + rect_w,
+                        "world pos {wu} in tile {t} mapped to px {px}, outside rect [{rect_x}, {})",
+                        rect_x + rect_w
+                    );
+                }
+            }
         }
     }
 
     /// The step must never be zero, or every tile would stack on one pixel.
     #[test]
     fn the_bake_step_is_never_zero() {
-        for w in [0u8, 1, 2, 10, 30, 38, 40, 255] {
+        for w in [0u8, 1, 2, 10, 30, 38, 40, 80, 96, 255] {
             assert!(minimap_step(w) >= 1, "step collapsed for width {w}");
         }
     }
