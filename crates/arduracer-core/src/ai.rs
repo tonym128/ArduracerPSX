@@ -114,8 +114,8 @@ const CORNER_LEAD_UNITS: i32 = 448;
 /// Aiming four tiles further down the road-following line is what puts the whole
 /// lap back.
 const AIM_LOOKAHEAD_UNITS: i32 = 256;
-/// Maximum tiles the racing-line walk will cross.
-const MAX_TILE_WALK: usize = 14;
+/// Maximum tiles the racing-line walk will cross (256 lookahead units is at most 8-9 tiles).
+const MAX_TILE_WALK: usize = 10;
 /// Neighbour offsets the racing-line walk considers, axis-aligned first so a
 /// straight tile is preferred over a diagonal one on equal merit.
 const TILE_NEIGHBOURS: [(i32, i32); 8] = [
