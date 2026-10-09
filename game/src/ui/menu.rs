@@ -13,7 +13,7 @@ pub enum MenuItem {
     GrandPrix = 1,
     TuningGarage = 2,
     Records = 3,
-    CapeTownFreeRoam = 4,
+    CityFreeDrive = 4,
 }
 
 pub struct MainMenu {
@@ -76,7 +76,7 @@ impl MainMenu {
                 1 => Some(MenuItem::GrandPrix),
                 2 => Some(MenuItem::TuningGarage),
                 3 => Some(MenuItem::Records),
-                4 => Some(MenuItem::CapeTownFreeRoam),
+                4 => Some(MenuItem::CityFreeDrive),
                 _ => None,
             }
         } else {
@@ -100,7 +100,7 @@ impl MainMenu {
             "2. GRAND PRIX",
             "3. TUNING GARAGE",
             "4. RECORDS & MEDALS",
-            "5. CAPE TOWN 10KM ROAM",
+            "5. CITY FREE DRIVE",
         ];
 
         for (idx, label) in items.iter().enumerate() {

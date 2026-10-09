@@ -21,7 +21,7 @@ pub mod video;
 
 use arduracer_core::{
     compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, StartPhase, StartSequence,
-    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS, TRACK_CAPETOWN,
+    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -35,7 +35,7 @@ use memcard::{MemcardStatus, MemoryCardManager};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
 use state::{GameState, StateManager};
 use ui::font::draw_text;
-use ui::{MenuItem, PauseChoice, PauseMenu, ResultsScreen};
+use ui::{CityInfo, MenuItem, PauseChoice, PauseMenu, ResultsScreen};
 
 pub const SCREEN_WIDTH: u16 = 320;
 pub const SCREEN_HEIGHT: u16 = 240;
@@ -231,15 +231,15 @@ impl ArduracerGame {
         self.audio.enter_race();
     }
 
-    /// Loads Cape Town 10 km^2 free roam map seamlessly.
-    pub fn load_capetown_freeroam(&mut self) {
-        self.current_track_idx = 99;
-        self.current_track = &TRACK_CAPETOWN;
-        self.ghost.reset(99);
+    /// Loads a 10 km^2 city free roam map seamlessly.
+    pub fn load_city_freeroam(&mut self, city: &'static CityInfo) {
+        self.current_track_idx = city.track_id;
+        self.current_track = city.track;
+        self.ghost.reset(city.track_id as u8);
         self.reset_race();
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
-        init_track_texture(99);
+        init_track_texture(city.track_id);
 
         // CD-DA Track 4: "Coastal Drive" D&B - high tempo street cruise
         self.audio.cdda.play_track(4);
@@ -383,15 +383,27 @@ impl ArduracerGame {
                                 self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
-                            MenuItem::CapeTownFreeRoam => {
+                            MenuItem::CityFreeDrive => {
                                 self.state_mgr.championship = None;
-                                self.load_capetown_freeroam();
-                                self.state_mgr.current = GameState::Racing;
+                                self.state_mgr.city_select.arm_for_entry();
+                                self.state_mgr.current = GameState::CitySelect;
                             }
                         }
                     }
                     self.fb.clear(15, 18, 25);
                     self.state_mgr.menu.render();
+                }
+                GameState::CitySelect => {
+                    self.audio.ui_frame(pad.buttons.bits());
+                    let (confirmed, cancelled) = self.state_mgr.city_select.update(&pad);
+                    if let Some(city) = confirmed {
+                        self.load_city_freeroam(city);
+                        self.state_mgr.current = GameState::Racing;
+                    } else if cancelled {
+                        self.state_mgr.current = GameState::MainMenu;
+                    }
+                    self.fb.clear(15, 18, 25);
+                    self.state_mgr.city_select.render();
                 }
                 GameState::Garage => {
                     self.audio.ui_frame(pad.buttons.bits());

@@ -907,6 +907,166 @@ pub fn decode_tile_reference(
     }
 }
 
+/// Decodes one 64x16 MCU row (row 0..4) within a 64x64 tile from a 1024x1024 JPEG image.
+///
+/// Each 64x16 row starts on an independent 4-MCU restart interval (DRI = 4) and emits
+/// 1024 BGR555 texels directly into `out_bgr555` at scanlines `(row * 16)..(row * 16 + 16)`.
+/// This enables incremental time-sliced tile decoding across multiple frames to eliminate
+/// frame-time spikes on PS1 hardware.
+#[inline(never)]
+pub fn decode_tile_row_64x16(
+    jpeg_data: &[u8],
+    header: &JpegHeader,
+    restart_offsets: &[u32; RESTART_INTERVAL_COUNT],
+    tile_x: usize,
+    tile_y: usize,
+    row: usize,
+    out_bgr555: &mut [u16; TILE_PIXELS],
+) {
+    if tile_x >= TILES_PER_AXIS || tile_y >= TILES_PER_AXIS || row >= 4 {
+        return;
+    }
+
+    let interval_idx = (tile_y * 4 + row) * TILES_PER_AXIS + tile_x;
+    if interval_idx >= RESTART_INTERVAL_COUNT {
+        return;
+    }
+    let start_offset = restart_offsets[interval_idx] as usize;
+    let mut br = BitReader::new(jpeg_data, start_offset);
+
+    let mut y0 = [0u8; 64];
+    let mut y1 = [0u8; 64];
+    let mut y2 = [0u8; 64];
+    let mut y3 = [0u8; 64];
+    let mut cb = [0u8; 64];
+    let mut cr = [0u8; 64];
+    let mut coeff_scratch = [0i32; 64];
+
+    // Reset DC predictors at the restart marker
+    let mut dc_y = 0i32;
+    let mut dc_cb = 0i32;
+    let mut dc_cr = 0i32;
+
+    // Exactly 4 MCUs in this 64-pixel interval
+    for mcu_x in 0..4 {
+        decode_block(
+            &mut br,
+            &header.dc_huffman[0],
+            &header.ac_huffman[0],
+            &header.q_tables[0],
+            &mut dc_y,
+            &mut coeff_scratch,
+            &mut y0,
+        );
+        decode_block(
+            &mut br,
+            &header.dc_huffman[0],
+            &header.ac_huffman[0],
+            &header.q_tables[0],
+            &mut dc_y,
+            &mut coeff_scratch,
+            &mut y1,
+        );
+        decode_block(
+            &mut br,
+            &header.dc_huffman[0],
+            &header.ac_huffman[0],
+            &header.q_tables[0],
+            &mut dc_y,
+            &mut coeff_scratch,
+            &mut y2,
+        );
+        decode_block(
+            &mut br,
+            &header.dc_huffman[0],
+            &header.ac_huffman[0],
+            &header.q_tables[0],
+            &mut dc_y,
+            &mut coeff_scratch,
+            &mut y3,
+        );
+        decode_block(
+            &mut br,
+            &header.dc_huffman[1],
+            &header.ac_huffman[1],
+            &header.q_tables[1],
+            &mut dc_cb,
+            &mut coeff_scratch,
+            &mut cb,
+        );
+        decode_block(
+            &mut br,
+            &header.dc_huffman[1],
+            &header.ac_huffman[1],
+            &header.q_tables[1],
+            &mut dc_cr,
+            &mut coeff_scratch,
+            &mut cr,
+        );
+
+        // Convert 16x16 MCU pixels to BGR555 using smooth bilinear chroma upsampling
+        // and precomputed 16x16 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
+        let base_px = mcu_x * 16;
+        let base_py = row * 16;
+
+        #[allow(clippy::needless_range_loop)]
+        for py in 0..16 {
+            let out_y = base_py + py;
+            let y_block = if py < 8 { (&y0, &y1) } else { (&y2, &y3) };
+            let (y_sub_y, cy0, cy1, wy0, wy1) = PY_LUT[py];
+            let y_row_off = y_sub_y * 8;
+
+            // Hoist chroma row slices (8 bytes each) to avoid per-pixel multiplications
+            let cb_r0: &[u8; 8] = cb[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
+            let cb_r1: &[u8; 8] = cb[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
+            let cr_r0: &[u8; 8] = cr[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
+            let cr_r1: &[u8; 8] = cr[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
+
+            let bayer_row = &BAYER16[py];
+
+            for px in 0..16 {
+                let out_x = base_px + px;
+                let (y_sub_x, cx0, cx1, wx0, wx1) = PX_LUT[px];
+
+                let y_arr = if px < 8 { y_block.0 } else { y_block.1 };
+                let y_val = y_arr[y_row_off + y_sub_x] as i32;
+
+                // Bilinear interpolation for Cb and Cr using slice indexing
+                let cb_00 = cb_r0[cx0] as i32;
+                let cb_01 = cb_r0[cx1] as i32;
+                let cb_10 = cb_r1[cx0] as i32;
+                let cb_11 = cb_r1[cx1] as i32;
+                let cb_val =
+                    (((cb_00 * wx0 + cb_01 * wx1) * wy0 + (cb_10 * wx0 + cb_11 * wx1) * wy1) >> 4)
+                        - 128;
+
+                let cr_00 = cr_r0[cx0] as i32;
+                let cr_01 = cr_r0[cx1] as i32;
+                let cr_10 = cr_r1[cx0] as i32;
+                let cr_11 = cr_r1[cx1] as i32;
+                let cr_val =
+                    (((cr_00 * wx0 + cr_01 * wx1) * wy0 + (cr_10 * wx0 + cr_11 * wx1) * wy1) >> 4)
+                        - 128;
+
+                // ITU-R BT.601 integer fixed-point YCbCr to RGB conversion
+                let r_raw = y_val + ((359 * cr_val) >> 8);
+                let g_raw = y_val - ((88 * cb_val + 183 * cr_val) >> 8);
+                let b_raw = y_val + ((454 * cb_val) >> 8);
+
+                // 16x16 Bayer ordered dither collapsed from 4x4 matrix
+                let dither = bayer_row[px] >> 1; // 0..7
+
+                let r = ((r_raw + dither).clamp(0, 255) >> 3) as u16;
+                let g = ((g_raw + dither).clamp(0, 255) >> 3) as u16;
+                let b = ((b_raw + dither).clamp(0, 255) >> 3) as u16;
+
+                let bgr555 = (b << 10) | (g << 5) | r;
+                out_bgr555[out_y * TILE_TEXELS + out_x] = bgr555;
+            }
+        }
+    }
+}
+
 /// Decodes one 64x64 block from a 1024x1024 JPEG image into 16-bit direct-colour BGR555 texels.
 #[inline(never)]
 pub fn decode_tile_64x64(
@@ -921,148 +1081,16 @@ pub fn decode_tile_64x64(
         return;
     }
 
-    let mut y0 = [0u8; 64];
-    let mut y1 = [0u8; 64];
-    let mut y2 = [0u8; 64];
-    let mut y3 = [0u8; 64];
-    let mut cb = [0u8; 64];
-    let mut cr = [0u8; 64];
-    let mut coeff_scratch = [0i32; 64];
-
-    // A 64x64 block spans 4 MCU rows (each MCU is 16x16, 4 rows = 64 pixels).
     for row in 0..4 {
-        let interval_idx = (tile_y * 4 + row) * TILES_PER_AXIS + tile_x;
-        if interval_idx >= RESTART_INTERVAL_COUNT {
-            break;
-        }
-        let start_offset = restart_offsets[interval_idx] as usize;
-        let mut br = BitReader::new(jpeg_data, start_offset);
-
-        // Reset DC predictors at the restart marker
-        let mut dc_y = 0i32;
-        let mut dc_cb = 0i32;
-        let mut dc_cr = 0i32;
-
-        // Exactly 4 MCUs in this 64-pixel interval
-        for mcu_x in 0..4 {
-            decode_block(
-                &mut br,
-                &header.dc_huffman[0],
-                &header.ac_huffman[0],
-                &header.q_tables[0],
-                &mut dc_y,
-                &mut coeff_scratch,
-                &mut y0,
-            );
-            decode_block(
-                &mut br,
-                &header.dc_huffman[0],
-                &header.ac_huffman[0],
-                &header.q_tables[0],
-                &mut dc_y,
-                &mut coeff_scratch,
-                &mut y1,
-            );
-            decode_block(
-                &mut br,
-                &header.dc_huffman[0],
-                &header.ac_huffman[0],
-                &header.q_tables[0],
-                &mut dc_y,
-                &mut coeff_scratch,
-                &mut y2,
-            );
-            decode_block(
-                &mut br,
-                &header.dc_huffman[0],
-                &header.ac_huffman[0],
-                &header.q_tables[0],
-                &mut dc_y,
-                &mut coeff_scratch,
-                &mut y3,
-            );
-            decode_block(
-                &mut br,
-                &header.dc_huffman[1],
-                &header.ac_huffman[1],
-                &header.q_tables[1],
-                &mut dc_cb,
-                &mut coeff_scratch,
-                &mut cb,
-            );
-            decode_block(
-                &mut br,
-                &header.dc_huffman[1],
-                &header.ac_huffman[1],
-                &header.q_tables[1],
-                &mut dc_cr,
-                &mut coeff_scratch,
-                &mut cr,
-            );
-
-            // Convert 16x16 MCU pixels to BGR555 using smooth bilinear chroma upsampling
-            // and precomputed 16x16 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
-            let base_px = mcu_x * 16;
-            let base_py = row * 16;
-
-            #[allow(clippy::needless_range_loop)]
-            for py in 0..16 {
-                let out_y = base_py + py;
-                let y_block = if py < 8 { (&y0, &y1) } else { (&y2, &y3) };
-                let (y_sub_y, cy0, cy1, wy0, wy1) = PY_LUT[py];
-                let y_row_off = y_sub_y * 8;
-
-                // Hoist chroma row slices (8 bytes each) to avoid per-pixel multiplications
-                let cb_r0: &[u8; 8] = cb[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
-                let cb_r1: &[u8; 8] = cb[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
-                let cr_r0: &[u8; 8] = cr[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
-                let cr_r1: &[u8; 8] = cr[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
-
-                let bayer_row = &BAYER16[py];
-
-                for px in 0..16 {
-                    let out_x = base_px + px;
-                    let (y_sub_x, cx0, cx1, wx0, wx1) = PX_LUT[px];
-
-                    let y_arr = if px < 8 { y_block.0 } else { y_block.1 };
-                    let y_val = y_arr[y_row_off + y_sub_x] as i32;
-
-                    // Bilinear interpolation for Cb and Cr using slice indexing
-                    let cb_00 = cb_r0[cx0] as i32;
-                    let cb_01 = cb_r0[cx1] as i32;
-                    let cb_10 = cb_r1[cx0] as i32;
-                    let cb_11 = cb_r1[cx1] as i32;
-                    let cb_val = (((cb_00 * wx0 + cb_01 * wx1) * wy0
-                        + (cb_10 * wx0 + cb_11 * wx1) * wy1)
-                        >> 4)
-                        - 128;
-
-                    let cr_00 = cr_r0[cx0] as i32;
-                    let cr_01 = cr_r0[cx1] as i32;
-                    let cr_10 = cr_r1[cx0] as i32;
-                    let cr_11 = cr_r1[cx1] as i32;
-                    let cr_val = (((cr_00 * wx0 + cr_01 * wx1) * wy0
-                        + (cr_10 * wx0 + cr_11 * wx1) * wy1)
-                        >> 4)
-                        - 128;
-
-                    // ITU-R BT.601 integer fixed-point YCbCr to RGB conversion
-                    let r_raw = y_val + ((359 * cr_val) >> 8);
-                    let g_raw = y_val - ((88 * cb_val + 183 * cr_val) >> 8);
-                    let b_raw = y_val + ((454 * cb_val) >> 8);
-
-                    // 16x16 Bayer ordered dither collapsed from 4x4 matrix
-                    let dither = bayer_row[px] >> 1; // 0..7
-
-                    let r = ((r_raw + dither).clamp(0, 255) >> 3) as u16;
-                    let g = ((g_raw + dither).clamp(0, 255) >> 3) as u16;
-                    let b = ((b_raw + dither).clamp(0, 255) >> 3) as u16;
-
-                    let bgr555 = (b << 10) | (g << 5) | r;
-                    out_bgr555[out_y * TILE_TEXELS + out_x] = bgr555;
-                }
-            }
-        }
+        decode_tile_row_64x16(
+            jpeg_data,
+            header,
+            restart_offsets,
+            tile_x,
+            tile_y,
+            row,
+            out_bgr555,
+        );
     }
 }
 

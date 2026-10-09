@@ -24,7 +24,7 @@
 //!    and bounded regardless of world size.
 
 use arduracer_core::jpeg::{
-    decode_tile_64x64, JpegHeader, RESTART_INTERVAL_COUNT, TILE_PIXELS, TILE_TEXELS,
+    decode_tile_row_64x16, JpegHeader, RESTART_INTERVAL_COUNT, TILE_PIXELS, TILE_TEXELS,
 };
 use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
@@ -130,12 +130,43 @@ impl VramSlot {
     }
 }
 
+/// Active incremental tile decode job (time-sliced over 4 consecutive frames).
+#[derive(Copy, Clone)]
+struct DecodeJob {
+    active: bool,
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+    next_row: usize, // 0..4 (4 means all rows decoded and uploaded)
+}
+
+impl DecodeJob {
+    const fn empty() -> Self {
+        Self {
+            active: false,
+            circuit: usize::MAX,
+            block_x: usize::MAX,
+            block_y: usize::MAX,
+            tile_x: usize::MAX,
+            tile_y: usize::MAX,
+            target_slot: usize::MAX,
+            next_row: 0,
+        }
+    }
+}
+
 /// 3-slot RAM LRU cache holding 1024x1024 JPEG blocks (~300 KB total).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] =
     [RamBlock::new(), RamBlock::new(), RamBlock::new()];
 
 /// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
 static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];
+
+/// Active incremental decode job stepping 1 MCU row per frame (~20% frame budget).
+static mut ACTIVE_JOB: DecodeJob = DecodeJob::empty();
 
 /// Temporary scratch buffer for 64x64 tile decompression (4096 halfwords = 8 KB).
 static mut TILE_SCRATCH: [u16; TILE_PIXELS] = [0u16; TILE_PIXELS];
@@ -148,14 +179,19 @@ static mut TRACKS_BIN_LBA: Option<u32> = None;
 static mut TRACKS_PROBED: bool = false;
 
 static mut CAPETOWN_BIN_LBA: Option<u32> = None;
-static mut IS_CAPETOWN: bool = false;
+static mut MELBOURNE_BIN_LBA: Option<u32> = None;
+static mut ACTIVE_CITY: usize = 0; // 0 = standard circuits, 99 = Cape Town, 98 = Melbourne
 
 /// Prepares the track texture streaming cache for a new circuit or city.
 #[allow(clippy::needless_range_loop)]
 pub fn init_track_texture(circuit: usize) {
-    let is_capetown = circuit == 99;
+    let city_id = if circuit == 99 || circuit == 98 {
+        circuit
+    } else {
+        0
+    };
     unsafe {
-        IS_CAPETOWN = is_capetown;
+        ACTIVE_CITY = city_id;
         ACTIVE_CIRCUIT = circuit;
         let vram_slots = &mut *core::ptr::addr_of_mut!(VRAM_SLOTS);
         for i in 0..VRAM_SLOT_COUNT {
@@ -167,21 +203,31 @@ pub fn init_track_texture(circuit: usize) {
             ram_blocks[i].valid = false;
             ram_blocks[i].last_used = 0;
         }
+        ACTIVE_JOB = DecodeJob::empty();
         FRAME_COUNTER = 0;
 
         if !TRACKS_PROBED {
             let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
-            crate::dbg::println("[TRACKTEX] Probing disc for TRACKS.BIN and CAPETOWN.BIN...");
+            crate::dbg::println(
+                "[TRACKTEX] Probing disc for TRACKS.BIN, CAPETOWN.BIN, MELBOURNE.BIN...",
+            );
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
             CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
-            crate::dbg::print("[TRACKTEX] TRACKS.BIN LBA: 0x");
+            MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
+            crate::dbg::print("[TRACKTEX] TRACKS: 0x");
             if let Some(lba) = TRACKS_BIN_LBA {
                 crate::dbg::print_hex(lba);
             } else {
                 crate::dbg::print("NONE");
             }
-            crate::dbg::print("  CAPETOWN.BIN LBA: 0x");
+            crate::dbg::print("  CAPETOWN: 0x");
             if let Some(lba) = CAPETOWN_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
+            crate::dbg::print("  MELBOURNE: 0x");
+            if let Some(lba) = MELBOURNE_BIN_LBA {
                 crate::dbg::print_hex(lba);
             } else {
                 crate::dbg::print("NONE");
@@ -191,9 +237,13 @@ pub fn init_track_texture(circuit: usize) {
         }
 
         // Preload initial 1024x1024 block for the circuit into RAM slot 0 before race starts
-        // For Cape Town, preloading block (1, 1) covers Helen Suzman Blvd & Green Point stadium spawn
-        let init_bx = if is_capetown { 1 } else { 0 };
-        let init_by = if is_capetown { 1 } else { 0 };
+        // Cape Town: block (1, 1) covers Helen Suzman Blvd & Green Point stadium spawn
+        // Melbourne: block (1, 2) covers Albert Park pit straight spawn (cell 125, 177)
+        let (init_bx, init_by) = match city_id {
+            99 => (1, 1),
+            98 => (1, 2),
+            _ => (0, 0),
+        };
         load_block_into_ram(circuit, init_bx, init_by, 0);
     }
 }
@@ -201,19 +251,29 @@ pub fn init_track_texture(circuit: usize) {
 /// Streams a 1024x1024 JPEG block (~100-200 KB) from CD-ROM into the specified RAM cache slot.
 #[inline(never)]
 fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) {
-    let is_ct = unsafe { IS_CAPETOWN } || circuit == 99;
-    let (bin_lba, entry) = if is_ct {
-        let b_idx = (block_y * 3 + block_x).min(8);
-        (
-            unsafe { CAPETOWN_BIN_LBA },
-            visual_tex::CAPETOWN_BLOCK_SECTORS[b_idx],
-        )
-    } else {
-        let c = circuit % visual_tex::COUNT;
-        (
-            unsafe { TRACKS_BIN_LBA },
-            visual_tex::CIRCUIT_BLOCK_SECTORS[c],
-        )
+    let city = unsafe { ACTIVE_CITY };
+    let (bin_lba, entry) = match city {
+        99 => {
+            let b_idx = (block_y * 3 + block_x).min(8);
+            (
+                unsafe { CAPETOWN_BIN_LBA },
+                visual_tex::CAPETOWN_BLOCK_SECTORS[b_idx],
+            )
+        }
+        98 => {
+            let b_idx = (block_y * 3 + block_x).min(8);
+            (
+                unsafe { MELBOURNE_BIN_LBA },
+                visual_tex::MELBOURNE_BLOCK_SECTORS[b_idx],
+            )
+        }
+        _ => {
+            let c = circuit % visual_tex::COUNT;
+            (
+                unsafe { TRACKS_BIN_LBA },
+                visual_tex::CIRCUIT_BLOCK_SECTORS[c],
+            )
+        }
     };
     let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
     let mut loaded = false;
@@ -289,35 +349,36 @@ fn ensure_ram_block(circuit: usize, block_x: usize, block_y: usize, current_fram
     best_slot
 }
 
-/// Decompresses a 64x64 block from an in-RAM JPEG directly into a VRAM cache slot.
+/// Advances the active time-sliced decode job by 1 MCU row (64x16 pixels).
 ///
-/// NOTE: Operates ENTIRELY in main RAM and VRAM. Does NOT touch the CD-ROM!
+/// Running 1 MCU row takes ~110,000 cycles (~20% of the 564,480-cycle frame budget),
+/// completely eliminating frame drops and stutter while streaming new terrain tiles.
+/// When row 3 finishes, the full 64x64 tile is uploaded to VRAM and marked resident.
 #[inline(never)]
-fn decompress_tile_to_vram(
-    circuit: usize,
-    block_x: usize,
-    block_y: usize,
-    tile_x: usize,
-    tile_y: usize,
-    vram_slot: usize,
-    current_frame: u32,
-) {
-    let ram_slot_idx = ensure_ram_block(circuit, block_x, block_y, current_frame);
+fn step_decode_job(current_frame: u32) {
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+    if !job.active {
+        return;
+    }
+
+    let ram_slot_idx = ensure_ram_block(job.circuit, job.block_x, job.block_y, current_frame);
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
 
     if ram_slot.valid && ram_slot.byte_len > 0 {
-        decode_tile_64x64(
+        decode_tile_row_64x16(
             &ram_slot.jpeg_data[..ram_slot.byte_len],
             &ram_slot.header,
             &ram_slot.restart_offsets,
-            tile_x,
-            tile_y,
+            job.tile_x,
+            job.tile_y,
+            job.next_row,
             scratch,
         );
     } else {
-        // Fallback procedural checkerboard when JPEG is absent
-        for y in 0..TILE_TEXELS {
+        // Fallback procedural checkerboard pattern if JPEG data missing
+        let start_y = job.next_row * 16;
+        for y in start_y..start_y + 16 {
             for x in 0..TILE_TEXELS {
                 let c = if ((x >> 3) ^ (y >> 3)) & 1 == 0 {
                     0x1CE7
@@ -329,17 +390,23 @@ fn decompress_tile_to_vram(
         }
     }
 
-    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(vram_slot);
-    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
-    upload_16bpp(rect, scratch);
+    job.next_row += 1;
+    if job.next_row >= 4 {
+        // All 4 MCU rows (64x64 pixels) complete! Upload to VRAM.
+        let (vx, vy, _, _, _) = texlayout::vram_slot_coords(job.target_slot);
+        let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
+        upload_16bpp(rect, scratch);
 
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[vram_slot].resident_circuit = circuit;
-    vram_slots[vram_slot].resident_block_x = block_x;
-    vram_slots[vram_slot].resident_block_y = block_y;
-    vram_slots[vram_slot].resident_tile_x = tile_x;
-    vram_slots[vram_slot].resident_tile_y = tile_y;
-    vram_slots[vram_slot].last_used = current_frame;
+        let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+        vram_slots[job.target_slot].resident_circuit = job.circuit;
+        vram_slots[job.target_slot].resident_block_x = job.block_x;
+        vram_slots[job.target_slot].resident_block_y = job.block_y;
+        vram_slots[job.target_slot].resident_tile_x = job.tile_x;
+        vram_slots[job.target_slot].resident_tile_y = job.tile_y;
+        vram_slots[job.target_slot].last_used = current_frame;
+
+        job.active = false;
+    }
 }
 
 /// Draws the visible world window as textured quads, streaming tiles dynamically.
@@ -450,61 +517,61 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
-    let mut decodes_this_frame = 0;
+    // Phase 2: Progress the active time-sliced decode job by 1 MCU row, or schedule the next pending tile.
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+    if job.active {
+        // Continue stepping current 4-frame job (1 MCU row = ~110,000 cycles, ~20% frame budget)
+        step_decode_job(current_frame);
+    } else {
+        // No active decode job running: check if any visible tile needs decoding
+        for i in 0..vis_count {
+            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+            let s = slot_for_tile[i];
+            let is_hit = s != usize::MAX && {
+                let slot = &vram_slots[s];
+                slot.resident_circuit == active_circuit
+                    && slot.resident_block_x == bx
+                    && slot.resident_block_y == by
+                    && slot.resident_tile_x == sub_tx
+                    && slot.resident_tile_y == sub_ty
+            };
+            if is_hit {
+                continue;
+            }
 
-    // Phase 2: Stagger tile decompression to budget (max 2 decodes per frame)
-    for i in 0..vis_count {
-        let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
-        let s = slot_for_tile[i];
-        let is_hit = s != usize::MAX && {
-            let slot = &vram_slots[s];
-            slot.resident_circuit == active_circuit
-                && slot.resident_block_x == bx
-                && slot.resident_block_y == by
-                && slot.resident_tile_x == sub_tx
-                && slot.resident_tile_y == sub_ty
-        };
-        if is_hit {
-            continue;
-        }
-
-        // If we reached our per-frame decode budget, leave slot as usize::MAX to display placeholder
-        if decodes_this_frame >= MAX_DECODES_PER_FRAME {
-            slot_for_tile[i] = usize::MAX;
-            continue;
-        }
-
-        // Find oldest VRAM slot not currently visible in this frame
-        let mut best_slot = 0;
-        let mut oldest_age = u32::MAX;
-        for s_idx in 0..VRAM_SLOT_COUNT {
-            if !used_slots[s_idx] {
-                let slot = &vram_slots[s_idx];
-                if slot.resident_circuit == usize::MAX {
-                    best_slot = s_idx;
-                    break;
-                }
-                if slot.last_used < oldest_age {
-                    oldest_age = slot.last_used;
-                    best_slot = s_idx;
+            // Find oldest VRAM slot not currently visible in this frame
+            let mut best_slot = 0;
+            let mut oldest_age = u32::MAX;
+            for s_idx in 0..VRAM_SLOT_COUNT {
+                if !used_slots[s_idx] {
+                    let slot = &vram_slots[s_idx];
+                    if slot.resident_circuit == usize::MAX {
+                        best_slot = s_idx;
+                        break;
+                    }
+                    if slot.last_used < oldest_age {
+                        oldest_age = slot.last_used;
+                        best_slot = s_idx;
+                    }
                 }
             }
+
+            // Schedule incremental decode job starting at MCU row 0
+            *job = DecodeJob {
+                active: true,
+                circuit: active_circuit,
+                block_x: bx,
+                block_y: by,
+                tile_x: sub_tx,
+                tile_y: sub_ty,
+                target_slot: best_slot,
+                next_row: 0,
+            };
+
+            // Execute first MCU row immediately in this frame
+            step_decode_job(current_frame);
+            break;
         }
-
-        slot_for_tile[i] = best_slot;
-        used_slots[best_slot] = true;
-
-        // Decompress 64x64 block from in-RAM JPEG directly to VRAM (NO CD-ROM TOUCHED)
-        decompress_tile_to_vram(
-            active_circuit,
-            bx,
-            by,
-            sub_tx,
-            sub_ty,
-            best_slot,
-            current_frame,
-        );
-        decodes_this_frame += 1;
     }
 
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)

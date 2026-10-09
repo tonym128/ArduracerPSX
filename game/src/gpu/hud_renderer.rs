@@ -123,10 +123,10 @@ pub fn render_hud<const N: usize>(
 
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
     if is_freeroam {
-        gpu::draw_rect_flat(8, 6, 84, 38, 14, 16, 24);
-        gpu::draw_rect_flat(9, 7, 82, 36, 22, 26, 36);
-        draw_text(13, 11, "CAPE TOWN", (255, 225, 40), 1);
-        draw_text(13, 23, "10KM ROAM", (140, 210, 255), 1);
+        gpu::draw_rect_flat(8, 6, 88, 38, 14, 16, 24);
+        gpu::draw_rect_flat(9, 7, 86, 36, 22, 26, 36);
+        draw_text(13, 11, track.name, (255, 225, 40), 1);
+        draw_text(13, 23, "FREE ROAM", (140, 210, 255), 1);
     } else {
         gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
         gpu::draw_rect_flat(9, 7, 72, 36, 22, 26, 36);

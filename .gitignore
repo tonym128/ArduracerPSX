@@ -51,6 +51,7 @@ PSoXide-emulator
 /build/
 *.bin
 !tracks/capetown_10km/capetown_10km_collision.bin
+!tracks/melbourne_10km/melbourne_10km_collision.bin
 *.cue
 *.exe
 *.iso
