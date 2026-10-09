@@ -16,10 +16,10 @@ pub const TILES_PER_BLOCK_AXIS: usize = 16;
 pub const TILES_PER_BLOCK: usize = 256;
 /// Number of authored circuits, one 1024x1024 JPEG block each.
 pub const COUNT: usize = 4;
-/// Maximum bytes per 1024x1024 compressed JPEG block (100 KB = 102,400 bytes).
-pub const BLOCK_MAX_BYTES: usize = 102400;
-/// Number of 2048-byte CD sectors allocated per JPEG block (50 sectors = 100 KB).
-pub const BLOCK_SECTORS: usize = 50;
+/// Maximum bytes per 1024x1024 compressed JPEG block (200 KB = 204,800 bytes).
+pub const BLOCK_MAX_BYTES: usize = 204800;
+/// Number of 2048-byte CD sectors allocated per JPEG block (100 sectors = 200 KB).
+pub const BLOCK_SECTORS: usize = 100;
 /// Restart marker interval in MCUs (4 MCUs = 64x16 pixels).
 pub const RESTART_INTERVAL: usize = 4;
 /// Total restart intervals in one 1024x1024 block.
@@ -46,23 +46,23 @@ pub struct TileSectorEntry {
 pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 0,
-        sector_count: 50,
-        byte_len: 96967,
-    },
-    TileSectorEntry {
-        sector_offset: 50,
-        sector_count: 50,
-        byte_len: 99509,
+        sector_count: 100,
+        byte_len: 159974,
     },
     TileSectorEntry {
         sector_offset: 100,
-        sector_count: 50,
-        byte_len: 98653,
+        sector_count: 100,
+        byte_len: 168012,
     },
     TileSectorEntry {
-        sector_offset: 150,
-        sector_count: 50,
-        byte_len: 99871,
+        sector_offset: 200,
+        sector_count: 100,
+        byte_len: 173673,
+    },
+    TileSectorEntry {
+        sector_offset: 300,
+        sector_count: 100,
+        byte_len: 204783,
     },
 ];
 

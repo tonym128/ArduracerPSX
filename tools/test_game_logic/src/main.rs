@@ -2807,8 +2807,8 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
 
     assert_eq!(visual_tex::COUNT, 4);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
-    assert_eq!(visual_tex::BLOCK_SECTORS, 50);
-    assert_eq!(visual_tex::BLOCK_MAX_BYTES, 102400);
+    assert_eq!(visual_tex::BLOCK_SECTORS, 100);
+    assert_eq!(visual_tex::BLOCK_MAX_BYTES, 204800);
     assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 4);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

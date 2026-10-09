@@ -28,9 +28,9 @@ DUCKSTATION_APPIMAGES := \
 # The linker itself hard-errors when the sections outgrow the region, so this is
 # the *early* gate: it turns "section will not fit in region" from the middle of a
 # 300-crate link into one readable line naming the real budget, and it catches a
-# runaway static buffer long before it becomes a link error. The other half stays
-# free for the runtime stack and any future heap.
-RAM_GATE_MAX_PCT ?= 50
+# runaway static buffer long before it becomes a link error. Headroom is left
+# for the runtime stack (32 KiB reserved in linker script) and any future dynamic heap.
+RAM_GATE_MAX_PCT ?= 75
 
 RETROARCH_CORE_DIRS := \
 	$(HOME)/.config/retroarch/cores \

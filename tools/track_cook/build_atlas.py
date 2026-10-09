@@ -275,8 +275,8 @@ def lz_stream_compress(src: bytes, window: int = 8192, max_chain: int = 48) -> b
     return bytes(dst)
 
 
-def compress_1024_jpeg_100kb(im: Image.Image) -> bytes:
-    """Compresses an image to a 1024x1024 baseline JPEG block targeting <= 100 KB (102,400 bytes).
+def compress_1024_jpeg_200kb(im: Image.Image) -> bytes:
+    """Compresses an image to a 1024x1024 baseline JPEG block targeting <= 200 KB (204,800 bytes).
 
     Uses restart_marker_blocks=4 (DRI=4) so that each 64x16 MCU row segment is preceded by
     a restart marker (0xFFD0..0xFFD7), allowing independent 64x64 block decompression directly
@@ -287,7 +287,7 @@ def compress_1024_jpeg_100kb(im: Image.Image) -> bytes:
     if im.size != (1024, 1024):
         im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
 
-    TARGET_BYTES = 100 * 1024  # 102,400 bytes = exactly 50 CD sectors
+    TARGET_BYTES = 200 * 1024  # 204,800 bytes = exactly 100 CD sectors
     low = 5
     high = 95
     best_data = None
@@ -308,19 +308,19 @@ def compress_1024_jpeg_100kb(im: Image.Image) -> bytes:
         im.save(buf, format="JPEG", quality=5, restart_marker_blocks=4)
         best_data = buf.getvalue()
 
-    assert len(best_data) <= TARGET_BYTES, f"JPEG exceeds 100 KB: {len(best_data)} bytes"
+    assert len(best_data) <= TARGET_BYTES, f"JPEG exceeds 200 KB: {len(best_data)} bytes"
     return best_data
 
 
 def pack_visual(name: str) -> list[bytes]:
-    """Packs one circuit's visual image into a 1024x1024 JPEG block (<= 100 KB) and exports it."""
+    """Packs one circuit's visual image into a 1024x1024 JPEG block (<= 200 KB) and exports it."""
     clean_name = name.replace(" ", "_")
     stem = os.path.join(ROOT, "tracks", clean_name)
     vis_path = stem + ".visual.png"
     gen_path = stem + ".visual.gen.png"
     jpg_path = stem + ".jpg"
 
-    # Prioritize visual.gen.png if present, otherwise visual.png, or existing 100kb .jpg
+    # Prioritize visual.gen.png if present, otherwise visual.png, or existing .jpg
     if os.path.exists(gen_path):
         im = Image.open(gen_path).convert("RGB")
         src_desc = f"tracks/{clean_name}.visual.gen.png"
@@ -333,7 +333,7 @@ def pack_visual(name: str) -> list[bytes]:
     else:
         raise FileNotFoundError(f"No visual image found for {name} ({vis_path} or {gen_path})")
 
-    jpeg_data = compress_1024_jpeg_100kb(im)
+    jpeg_data = compress_1024_jpeg_200kb(im)
 
     # Export to tracks/<Circuit>.jpg
     with open(jpg_path, "wb") as f_jpg:
@@ -353,7 +353,7 @@ def pack_visual(name: str) -> list[bytes]:
 def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
     """Writes `assets/TRACKS.BIN` and `crates/arduracer-core/src/visual_tex.rs`.
 
-    All 1024x1024 JPEG blocks are written sector-aligned (50 sectors = 100 KB each) into
+    All 1024x1024 JPEG blocks are written sector-aligned (100 sectors = 200 KB each) into
     `assets/TRACKS.BIN` on the CD-ROM disc image. `visual_tex.rs` receives the sector index table
     (offset, sector count, and byte len), completely decoupling runtime textures from static executable size.
     """
@@ -365,7 +365,7 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
 
     n = len(packed_per_circuit)
     SECTOR_SIZE = 2048
-    SECTORS_PER_BLOCK = 50
+    SECTORS_PER_BLOCK = 100
 
     # Build TRACKS.BIN with sector-aligned blocks
     current_sector = 0
@@ -408,9 +408,9 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
             "pub const TILES_PER_BLOCK: usize = 256;\n"
             "/// Number of authored circuits, one 1024x1024 JPEG block each.\n"
             f"pub const COUNT: usize = {n};\n"
-            "/// Maximum bytes per 1024x1024 compressed JPEG block (100 KB = 102,400 bytes).\n"
-            "pub const BLOCK_MAX_BYTES: usize = 102400;\n"
-            "/// Number of 2048-byte CD sectors allocated per JPEG block (50 sectors = 100 KB).\n"
+            "/// Maximum bytes per 1024x1024 compressed JPEG block (200 KB = 204,800 bytes).\n"
+            "pub const BLOCK_MAX_BYTES: usize = 204800;\n"
+            "/// Number of 2048-byte CD sectors allocated per JPEG block (100 sectors = 200 KB).\n"
             f"pub const BLOCK_SECTORS: usize = {SECTORS_PER_BLOCK};\n"
             "/// Restart marker interval in MCUs (4 MCUs = 64x16 pixels).\n"
             "pub const RESTART_INTERVAL: usize = 4;\n"
