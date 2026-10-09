@@ -444,10 +444,15 @@ fn idct_row(block: &mut [i32; 64], offset: usize) {
     let z4 = ws5 + ws1;
     let z5 = (z3 + z4) * FIX_1_175875602;
 
-    let u0 = ws7 * FIX_0_298631336 + z1 * (-FIX_0_899976223) + (z3 * (-FIX_1_961570560) + z5);
-    let u1 = ws5 * FIX_2_053119869 + z2 * (-FIX_2_562915447) + (z4 * (-FIX_0_390180644) + z5);
-    let u2 = ws3 * FIX_3_072711026 + z2 * (-FIX_2_562915447) + (z3 * (-FIX_1_961570560) + z5);
-    let u3 = ws1 * FIX_1_501321110 + z1 * (-FIX_0_899976223) + (z4 * (-FIX_0_390180644) + z5);
+    let mz1 = z1 * (-FIX_0_899976223);
+    let mz2 = z2 * (-FIX_2_562915447);
+    let mz3 = z3 * (-FIX_1_961570560);
+    let mz4 = z4 * (-FIX_0_390180644);
+
+    let u0 = ws7 * FIX_0_298631336 + mz1 + mz3 + z5;
+    let u1 = ws5 * FIX_2_053119869 + mz2 + mz4 + z5;
+    let u2 = ws3 * FIX_3_072711026 + mz2 + mz3 + z5;
+    let u3 = ws1 * FIX_1_501321110 + mz1 + mz4 + z5;
 
     block[offset] =
         (tmp10 + u3 + (1 << (CONST_BITS - PASS1_BITS - 1))) >> (CONST_BITS - PASS1_BITS);
@@ -513,10 +518,15 @@ fn idct_col(block: &mut [i32; 64], offset: usize, out: &mut [u8; 64]) {
     let z4 = ws5 + ws1;
     let z5 = (z3 + z4) * FIX_1_175875602;
 
-    let u0 = ws7 * FIX_0_298631336 + z1 * (-FIX_0_899976223) + (z3 * (-FIX_1_961570560) + z5);
-    let u1 = ws5 * FIX_2_053119869 + z2 * (-FIX_2_562915447) + (z4 * (-FIX_0_390180644) + z5);
-    let u2 = ws3 * FIX_3_072711026 + z2 * (-FIX_2_562915447) + (z3 * (-FIX_1_961570560) + z5);
-    let u3 = ws1 * FIX_1_501321110 + z1 * (-FIX_0_899976223) + (z4 * (-FIX_0_390180644) + z5);
+    let mz1 = z1 * (-FIX_0_899976223);
+    let mz2 = z2 * (-FIX_2_562915447);
+    let mz3 = z3 * (-FIX_1_961570560);
+    let mz4 = z4 * (-FIX_0_390180644);
+
+    let u0 = ws7 * FIX_0_298631336 + mz1 + mz3 + z5;
+    let u1 = ws5 * FIX_2_053119869 + mz2 + mz4 + z5;
+    let u2 = ws3 * FIX_3_072711026 + mz2 + mz3 + z5;
+    let u3 = ws1 * FIX_1_501321110 + mz1 + mz4 + z5;
 
     let clamp_sample = |v: i32| -> u8 {
         let sample = ((v + (1 << (shift - 1))) >> shift) + 128;
@@ -754,18 +764,18 @@ pub fn decode_tile_64x64(
                     let cb_01 = cb[cy0 * 8 + cx1] as i32;
                     let cb_10 = cb[cy1 * 8 + cx0] as i32;
                     let cb_11 = cb[cy1 * 8 + cx1] as i32;
-                    let cb_val = ((cb_00 * wx0 + cb_01 * wx1) * wy0
+                    let cb_val = (((cb_00 * wx0 + cb_01 * wx1) * wy0
                         + (cb_10 * wx0 + cb_11 * wx1) * wy1)
-                        / 16
+                        >> 4)
                         - 128;
 
                     let cr_00 = cr[cy0 * 8 + cx0] as i32;
                     let cr_01 = cr[cy0 * 8 + cx1] as i32;
                     let cr_10 = cr[cy1 * 8 + cx0] as i32;
                     let cr_11 = cr[cy1 * 8 + cx1] as i32;
-                    let cr_val = ((cr_00 * wx0 + cr_01 * wx1) * wy0
+                    let cr_val = (((cr_00 * wx0 + cr_01 * wx1) * wy0
                         + (cr_10 * wx0 + cr_11 * wx1) * wy1)
-                        / 16
+                        >> 4)
                         - 128;
 
                     // ITU-R BT.601 integer fixed-point YCbCr to RGB conversion

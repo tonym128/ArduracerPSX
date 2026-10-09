@@ -437,6 +437,13 @@ iso: exe
 assets:
 	@mkdir -p $(ROOT)/assets/cdda
 	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	@if [ ! -f "$(ROOT)/assets/CAPETOWN.BIN" ]; then \
+		if [ -f "$(DIST)/capetown_10km/CAPETOWN.BIN" ]; then \
+			cp $(DIST)/capetown_10km/CAPETOWN.BIN $(ROOT)/assets/CAPETOWN.BIN; \
+		else \
+			python3 $(ROOT)/tools/track_cook/cook_capetown_10km.py && cp $(DIST)/capetown_10km/CAPETOWN.BIN $(ROOT)/assets/CAPETOWN.BIN; \
+		fi; \
+	fi
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 

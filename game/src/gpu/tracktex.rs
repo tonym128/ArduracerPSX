@@ -307,14 +307,19 @@ fn decompress_tile_to_vram(
     let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
 
     if ram_slot.valid && ram_slot.byte_len > 0 {
-        decode_tile_64x64(
-            &ram_slot.jpeg_data[..ram_slot.byte_len],
-            &ram_slot.header,
-            &ram_slot.restart_offsets,
-            tile_x,
-            tile_y,
-            scratch,
-        );
+        type TileStack = psx_rt::scratchpad::ScratchpadStack<0, 1024>;
+        unsafe {
+            TileStack::run(|| {
+                decode_tile_64x64(
+                    &ram_slot.jpeg_data[..ram_slot.byte_len],
+                    &ram_slot.header,
+                    &ram_slot.restart_offsets,
+                    tile_x,
+                    tile_y,
+                    scratch,
+                );
+            });
+        }
     } else {
         // Fallback procedural checkerboard when JPEG is absent
         for y in 0..TILE_TEXELS {
