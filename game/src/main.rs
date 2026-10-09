@@ -21,7 +21,7 @@ pub mod video;
 
 use arduracer_core::{
     compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, StartPhase, StartSequence,
-    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS,
+    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS, TRACK_CAPETOWN,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -231,6 +231,22 @@ impl ArduracerGame {
         self.audio.enter_race();
     }
 
+    /// Loads Cape Town 10 km^2 free roam map seamlessly.
+    pub fn load_capetown_freeroam(&mut self) {
+        self.current_track_idx = 99;
+        self.current_track = &TRACK_CAPETOWN;
+        self.ghost.reset(99);
+        self.reset_race();
+        bake_minimap(&self.minimap_texture, self.current_track);
+        self.audio.cdda.stop();
+        init_track_texture(99);
+
+        // CD-DA Track 4: "Coastal Drive" D&B - high tempo street cruise
+        self.audio.cdda.play_track(4);
+        self.pause.arm_for_race_start();
+        self.audio.enter_race();
+    }
+
     /// Resets the current race state to the starting grid.
     pub fn reset_race(&mut self) {
         let track = self.current_track;
@@ -367,6 +383,11 @@ impl ArduracerGame {
                                 self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
+                            MenuItem::CapeTownFreeRoam => {
+                                self.state_mgr.championship = None;
+                                self.load_capetown_freeroam();
+                                self.state_mgr.current = GameState::Racing;
+                            }
                         }
                     }
                     self.fb.clear(15, 18, 25);
@@ -468,8 +489,11 @@ impl ArduracerGame {
                                     // held right now so the same press is not
                                     // re-read against the fresh race.
                                     self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
-                                    let cdda_track =
-                                        3 + ((self.current_track_idx / 6) as u8).min(3);
+                                    let cdda_track = if self.current_track_idx == 99 {
+                                        4
+                                    } else {
+                                        3 + ((self.current_track_idx / 6) as u8).min(3)
+                                    };
                                     self.audio.cdda.play_track(cdda_track);
                                 }
                                 PauseChoice::QuitToMenu => {

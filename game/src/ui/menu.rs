@@ -13,6 +13,7 @@ pub enum MenuItem {
     GrandPrix = 1,
     TuningGarage = 2,
     Records = 3,
+    CapeTownFreeRoam = 4,
 }
 
 pub struct MainMenu {
@@ -52,10 +53,10 @@ impl MainMenu {
             if self.selected_idx > 0 {
                 self.selected_idx -= 1;
             } else {
-                self.selected_idx = 3;
+                self.selected_idx = 4;
             }
         } else if down && !self.prev_down {
-            if self.selected_idx < 3 {
+            if self.selected_idx < 4 {
                 self.selected_idx += 1;
             } else {
                 self.selected_idx = 0;
@@ -75,6 +76,7 @@ impl MainMenu {
                 1 => Some(MenuItem::GrandPrix),
                 2 => Some(MenuItem::TuningGarage),
                 3 => Some(MenuItem::Records),
+                4 => Some(MenuItem::CapeTownFreeRoam),
                 _ => None,
             }
         } else {
@@ -90,18 +92,19 @@ impl MainMenu {
         gpu::draw_rect_flat(22, 22, 276, 196, 32, 36, 48);
 
         // Header Title
-        draw_text(110, 32, "MAIN MENU", (255, 225, 30), 2);
-        gpu::draw_rect_flat(40, 52, 240, 2, 220, 40, 60);
+        draw_text(110, 26, "MAIN MENU", (255, 225, 30), 2);
+        gpu::draw_rect_flat(40, 44, 240, 2, 220, 40, 60);
 
         let items = [
             "1. TIME TRIAL",
             "2. GRAND PRIX",
             "3. TUNING GARAGE",
             "4. RECORDS & MEDALS",
+            "5. CAPE TOWN 10KM ROAM",
         ];
 
         for (idx, label) in items.iter().enumerate() {
-            let y = 68 + (idx as i16) * 24;
+            let y = 56 + (idx as i16) * 26;
             let is_sel = (idx as u8) == self.selected_idx;
 
             if is_sel {
@@ -112,13 +115,13 @@ impl MainMenu {
                 } else {
                     (180, 25, 45) // Deep crimson
                 };
-                gpu::draw_rect_flat(50, y - 3, 220, 20, bg_color.0, bg_color.1, bg_color.2);
-                draw_text(60, y as u16, label, (255, 255, 255), 1);
+                gpu::draw_rect_flat(44, y - 4, 232, 21, bg_color.0, bg_color.1, bg_color.2);
+                draw_text(52, y as u16, label, (255, 255, 255), 1);
                 // Pulsing cursor arrows
-                draw_text(240, y as u16, "<<", (255, 235, 40), 1);
+                draw_text(252, y as u16, "<<", (255, 235, 40), 1);
             } else {
-                gpu::draw_rect_flat(50, y - 3, 220, 20, 40, 45, 58);
-                draw_text(60, y as u16, label, (180, 190, 205), 1);
+                gpu::draw_rect_flat(44, y - 4, 232, 21, 40, 45, 58);
+                draw_text(52, y as u16, label, (180, 190, 205), 1);
             }
         }
 

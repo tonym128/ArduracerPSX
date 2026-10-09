@@ -147,12 +147,16 @@ static mut DISC_READER: DiscReader = DiscReader::new();
 static mut TRACKS_BIN_LBA: Option<u32> = None;
 static mut TRACKS_PROBED: bool = false;
 
+static mut CAPETOWN_BIN_LBA: Option<u32> = None;
+static mut IS_CAPETOWN: bool = false;
+
 /// Prepares the track texture streaming cache for a new circuit or city.
 #[allow(clippy::needless_range_loop)]
 pub fn init_track_texture(circuit: usize) {
-    let c = circuit % visual_tex::COUNT;
+    let is_capetown = circuit == 99;
     unsafe {
-        ACTIVE_CIRCUIT = c;
+        IS_CAPETOWN = is_capetown;
+        ACTIVE_CIRCUIT = circuit;
         let vram_slots = &mut *core::ptr::addr_of_mut!(VRAM_SLOTS);
         for i in 0..VRAM_SLOT_COUNT {
             vram_slots[i] = VramSlot::empty();
@@ -167,10 +171,17 @@ pub fn init_track_texture(circuit: usize) {
 
         if !TRACKS_PROBED {
             let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
-            crate::dbg::println("[TRACKTEX] Probing disc for TRACKS.BIN...");
+            crate::dbg::println("[TRACKTEX] Probing disc for TRACKS.BIN and CAPETOWN.BIN...");
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
+            CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
             crate::dbg::print("[TRACKTEX] TRACKS.BIN LBA: 0x");
             if let Some(lba) = TRACKS_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
+            crate::dbg::print("  CAPETOWN.BIN LBA: 0x");
+            if let Some(lba) = CAPETOWN_BIN_LBA {
                 crate::dbg::print_hex(lba);
             } else {
                 crate::dbg::print("NONE");
@@ -180,16 +191,30 @@ pub fn init_track_texture(circuit: usize) {
         }
 
         // Preload initial 1024x1024 block for the circuit into RAM slot 0 before race starts
-        load_block_into_ram(c, 0, 0, 0);
+        // For Cape Town, preloading block (1, 1) covers Helen Suzman Blvd & Green Point stadium spawn
+        let init_bx = if is_capetown { 1 } else { 0 };
+        let init_by = if is_capetown { 1 } else { 0 };
+        load_block_into_ram(circuit, init_bx, init_by, 0);
     }
 }
 
-/// Streams a 1024x1024 JPEG block (~100 KB) from CD-ROM into the specified RAM cache slot.
+/// Streams a 1024x1024 JPEG block (~100-200 KB) from CD-ROM into the specified RAM cache slot.
 #[inline(never)]
 fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) {
-    let bin_lba = unsafe { TRACKS_BIN_LBA };
-    let c = circuit % visual_tex::COUNT;
-    let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[c];
+    let is_ct = unsafe { IS_CAPETOWN } || circuit == 99;
+    let (bin_lba, entry) = if is_ct {
+        let b_idx = (block_y * 3 + block_x).min(8);
+        (
+            unsafe { CAPETOWN_BIN_LBA },
+            visual_tex::CAPETOWN_BLOCK_SECTORS[b_idx],
+        )
+    } else {
+        let c = circuit % visual_tex::COUNT;
+        (
+            unsafe { TRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_BLOCK_SECTORS[c],
+        )
+    };
     let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
     let mut loaded = false;
 
