@@ -47,6 +47,26 @@ pub const HUFF_LUT_SIZE: usize = 1 << HUFF_LUT_BITS; // 512
 /// 4x4 Bayer ordered dither matrix for smooth 15-bit color gradients.
 const BAYER4X4: [[i32; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
+/// Precomputed 16x16 Bayer table collapsed from BAYER4X4.
+/// Invariant: Because base_py = row * 16 and base_px = mcu_x * 16 are both multiples of 16
+/// (and hence multiples of 4), out_y % 4 == py % 4 and out_x % 4 == px % 4.
+/// Indexing BAYER16[py][px] avoids runtime modulo arithmetic entirely.
+const BAYER16: [[i32; 16]; 16] = build_bayer16();
+
+const fn build_bayer16() -> [[i32; 16]; 16] {
+    let mut table = [[0i32; 16]; 16];
+    let mut y = 0;
+    while y < 16 {
+        let mut x = 0;
+        while x < 16 {
+            table[y][x] = BAYER4X4[y & 3][x & 3];
+            x += 1;
+        }
+        y += 1;
+    }
+    table
+}
+
 /// Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
 /// (sample_0, sample_1, weight_0, weight_1)
 const INTERP_16: [(usize, usize, i32, i32); 16] = [
@@ -67,6 +87,36 @@ const INTERP_16: [(usize, usize, i32, i32); 16] = [
     (6, 7, 1, 3),
     (7, 7, 4, 0),
 ];
+
+/// (y_sub_x, chroma_col_0, chroma_col_1, weight_0, weight_1)
+const PX_LUT: [(usize, usize, usize, i32, i32); 16] = build_px_lut();
+
+const fn build_px_lut() -> [(usize, usize, usize, i32, i32); 16] {
+    let mut lut = [(0, 0, 0, 0, 0); 16];
+    let mut px = 0;
+    while px < 16 {
+        let y_sub_x = if px < 8 { px } else { px - 8 };
+        let (cx0, cx1, wx0, wx1) = INTERP_16[px];
+        lut[px] = (y_sub_x, cx0, cx1, wx0, wx1);
+        px += 1;
+    }
+    lut
+}
+
+/// (y_sub_y, chroma_row_0, chroma_row_1, weight_0, weight_1)
+const PY_LUT: [(usize, usize, usize, i32, i32); 16] = build_py_lut();
+
+const fn build_py_lut() -> [(usize, usize, usize, i32, i32); 16] {
+    let mut lut = [(0, 0, 0, 0, 0); 16];
+    let mut py = 0;
+    while py < 16 {
+        let y_sub_y = if py < 8 { py } else { py - 8 };
+        let (cy0, cy1, wy0, wy1) = INTERP_16[py];
+        lut[py] = (y_sub_y, cy0, cy1, wy0, wy1);
+        py += 1;
+    }
+    lut
+}
 
 /// A compact canonical Huffman lookup table with 9-bit fast O(1) prefix table.
 #[derive(Copy, Clone)]
@@ -567,19 +617,18 @@ fn idct_col(block: &mut [i32; 64], offset: usize, out: &mut [u8; 64]) {
     out[offset + 32] = clamp_sample(tmp13 - u0);
 }
 
-/// Performs 2D 8x8 IDCT.
+/// Performs 2D 8x8 IDCT in-place on the provided coefficient workspace.
 #[inline(always)]
-fn idct_8x8(coeffs: &[i32; 64], out_pixels: &mut [u8; 64]) {
-    let mut ws = *coeffs;
+fn idct_8x8(coeffs: &mut [i32; 64], out_pixels: &mut [u8; 64]) {
     for r in 0..8 {
-        idct_row(&mut ws, r * 8);
+        idct_row(coeffs, r * 8);
     }
     for c in 0..8 {
-        idct_col(&mut ws, c, out_pixels);
+        idct_col(coeffs, c, out_pixels);
     }
 }
 
-/// Decodes one 8x8 coefficient block from the bitstream.
+/// Decodes one 8x8 coefficient block from the bitstream using the caller-provided scratch buffer.
 #[inline(always)]
 fn decode_block(
     br: &mut BitReader,
@@ -587,6 +636,7 @@ fn decode_block(
     ac_table: &HuffTable,
     q_table: &[u16; 64],
     last_dc: &mut i32,
+    coeffs: &mut [i32; 64],
     out_samples: &mut [u8; 64],
 ) {
     // Decode DC coefficient
@@ -607,7 +657,7 @@ fn decode_block(
         return;
     }
 
-    let mut coeffs = [0i32; 64];
+    coeffs.fill(0);
     coeffs[0] = dc_val;
 
     // Process the first AC symbol already fetched
@@ -644,12 +694,12 @@ fn decode_block(
         }
     }
 
-    idct_8x8(&coeffs, out_samples);
+    idct_8x8(coeffs, out_samples);
 }
 
-/// Decodes one 64x64 block from a 1024x1024 JPEG image into 16-bit direct-colour BGR555 texels.
-#[inline(never)]
-pub fn decode_tile_64x64(
+/// Reference implementation preserved for bit-exactness verification.
+#[cfg(test)]
+pub fn decode_tile_reference(
     jpeg_data: &[u8],
     header: &JpegHeader,
     restart_offsets: &[u32; RESTART_INTERVAL_COUNT],
@@ -661,6 +711,73 @@ pub fn decode_tile_64x64(
         return;
     }
 
+    fn idct_8x8_ref(coeffs: &[i32; 64], out_pixels: &mut [u8; 64]) {
+        let mut ws = *coeffs;
+        for r in 0..8 {
+            idct_row(&mut ws, r * 8);
+        }
+        for c in 0..8 {
+            idct_col(&mut ws, c, out_pixels);
+        }
+    }
+
+    fn decode_block_ref(
+        br: &mut BitReader,
+        dc_table: &HuffTable,
+        ac_table: &HuffTable,
+        q_table: &[u16; 64],
+        last_dc: &mut i32,
+        out_samples: &mut [u8; 64],
+    ) {
+        let dc_size = dc_table.decode(br).unwrap_or(0);
+        let dc_diff = br.read_signed(dc_size) as i32;
+        *last_dc += dc_diff;
+        let dc_val = *last_dc * (q_table[0] as i32);
+
+        let first_sym = ac_table.decode(br).unwrap_or(0);
+        if first_sym == 0 {
+            let sample = (((dc_val + 4) >> 3).clamp(-128, 127) + 128) as u8;
+            out_samples.fill(sample);
+            return;
+        }
+
+        let mut coeffs = [0i32; 64];
+        coeffs[0] = dc_val;
+
+        let run = (first_sym >> 4) as usize;
+        let size = first_sym & 0x0F;
+        let mut k = 1 + run;
+        if k < 64 {
+            if size > 0 {
+                let val = br.read_signed(size) as i32;
+                let zz = ZIGZAG[k];
+                coeffs[zz] = val * (q_table[k] as i32);
+            }
+            k += 1;
+
+            while k < 64 {
+                let sym = ac_table.decode(br).unwrap_or(0);
+                if sym == 0 {
+                    break;
+                }
+                let run = (sym >> 4) as usize;
+                let size = sym & 0x0F;
+                k += run;
+                if k >= 64 {
+                    break;
+                }
+                if size > 0 {
+                    let val = br.read_signed(size) as i32;
+                    let zz = ZIGZAG[k];
+                    coeffs[zz] = val * (q_table[k] as i32);
+                }
+                k += 1;
+            }
+        }
+
+        idct_8x8_ref(&coeffs, out_samples);
+    }
+
     let mut y0 = [0u8; 64];
     let mut y1 = [0u8; 64];
     let mut y2 = [0u8; 64];
@@ -668,7 +785,6 @@ pub fn decode_tile_64x64(
     let mut cb = [0u8; 64];
     let mut cr = [0u8; 64];
 
-    // A 64x64 block spans 4 MCU rows (each MCU is 16x16, 4 rows = 64 pixels).
     for row in 0..4 {
         let interval_idx = (tile_y * 4 + row) * TILES_PER_AXIS + tile_x;
         if interval_idx >= RESTART_INTERVAL_COUNT {
@@ -677,14 +793,12 @@ pub fn decode_tile_64x64(
         let start_offset = restart_offsets[interval_idx] as usize;
         let mut br = BitReader::new(jpeg_data, start_offset);
 
-        // Reset DC predictors at the restart marker
         let mut dc_y = 0i32;
         let mut dc_cb = 0i32;
         let mut dc_cr = 0i32;
 
-        // Exactly 4 MCUs in this 64-pixel interval
         for mcu_x in 0..4 {
-            decode_block(
+            decode_block_ref(
                 &mut br,
                 &header.dc_huffman[0],
                 &header.ac_huffman[0],
@@ -692,7 +806,7 @@ pub fn decode_tile_64x64(
                 &mut dc_y,
                 &mut y0,
             );
-            decode_block(
+            decode_block_ref(
                 &mut br,
                 &header.dc_huffman[0],
                 &header.ac_huffman[0],
@@ -700,7 +814,7 @@ pub fn decode_tile_64x64(
                 &mut dc_y,
                 &mut y1,
             );
-            decode_block(
+            decode_block_ref(
                 &mut br,
                 &header.dc_huffman[0],
                 &header.ac_huffman[0],
@@ -708,7 +822,7 @@ pub fn decode_tile_64x64(
                 &mut dc_y,
                 &mut y2,
             );
-            decode_block(
+            decode_block_ref(
                 &mut br,
                 &header.dc_huffman[0],
                 &header.ac_huffman[0],
@@ -716,7 +830,7 @@ pub fn decode_tile_64x64(
                 &mut dc_y,
                 &mut y3,
             );
-            decode_block(
+            decode_block_ref(
                 &mut br,
                 &header.dc_huffman[1],
                 &header.ac_huffman[1],
@@ -724,7 +838,7 @@ pub fn decode_tile_64x64(
                 &mut dc_cb,
                 &mut cb,
             );
-            decode_block(
+            decode_block_ref(
                 &mut br,
                 &header.dc_huffman[1],
                 &header.ac_huffman[1],
@@ -733,8 +847,6 @@ pub fn decode_tile_64x64(
                 &mut cr,
             );
 
-            // Convert 16x16 MCU pixels to BGR555 using smooth bilinear chroma upsampling
-            // and 4x4 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
             let base_px = mcu_x * 16;
             let base_py = row * 16;
 
@@ -759,7 +871,6 @@ pub fn decode_tile_64x64(
 
                     let y_val = y_arr[y_sub_y * 8 + y_sub_x] as i32;
 
-                    // Bilinear interpolation for Cb and Cr
                     let cb_00 = cb[cy0 * 8 + cx0] as i32;
                     let cb_01 = cb[cy0 * 8 + cx1] as i32;
                     let cb_10 = cb[cy1 * 8 + cx0] as i32;
@@ -778,13 +889,170 @@ pub fn decode_tile_64x64(
                         >> 4)
                         - 128;
 
+                    let r_raw = y_val + ((359 * cr_val) >> 8);
+                    let g_raw = y_val - ((88 * cb_val + 183 * cr_val) >> 8);
+                    let b_raw = y_val + ((454 * cb_val) >> 8);
+
+                    let dither = BAYER4X4[out_y % 4][out_x % 4] >> 1;
+
+                    let r = ((r_raw + dither).clamp(0, 255) >> 3) as u16;
+                    let g = ((g_raw + dither).clamp(0, 255) >> 3) as u16;
+                    let b = ((b_raw + dither).clamp(0, 255) >> 3) as u16;
+
+                    let bgr555 = (b << 10) | (g << 5) | r;
+                    out_bgr555[out_y * TILE_TEXELS + out_x] = bgr555;
+                }
+            }
+        }
+    }
+}
+
+/// Decodes one 64x64 block from a 1024x1024 JPEG image into 16-bit direct-colour BGR555 texels.
+#[inline(never)]
+pub fn decode_tile_64x64(
+    jpeg_data: &[u8],
+    header: &JpegHeader,
+    restart_offsets: &[u32; RESTART_INTERVAL_COUNT],
+    tile_x: usize,
+    tile_y: usize,
+    out_bgr555: &mut [u16; TILE_PIXELS],
+) {
+    if tile_x >= TILES_PER_AXIS || tile_y >= TILES_PER_AXIS {
+        return;
+    }
+
+    let mut y0 = [0u8; 64];
+    let mut y1 = [0u8; 64];
+    let mut y2 = [0u8; 64];
+    let mut y3 = [0u8; 64];
+    let mut cb = [0u8; 64];
+    let mut cr = [0u8; 64];
+    let mut coeff_scratch = [0i32; 64];
+
+    // A 64x64 block spans 4 MCU rows (each MCU is 16x16, 4 rows = 64 pixels).
+    for row in 0..4 {
+        let interval_idx = (tile_y * 4 + row) * TILES_PER_AXIS + tile_x;
+        if interval_idx >= RESTART_INTERVAL_COUNT {
+            break;
+        }
+        let start_offset = restart_offsets[interval_idx] as usize;
+        let mut br = BitReader::new(jpeg_data, start_offset);
+
+        // Reset DC predictors at the restart marker
+        let mut dc_y = 0i32;
+        let mut dc_cb = 0i32;
+        let mut dc_cr = 0i32;
+
+        // Exactly 4 MCUs in this 64-pixel interval
+        for mcu_x in 0..4 {
+            decode_block(
+                &mut br,
+                &header.dc_huffman[0],
+                &header.ac_huffman[0],
+                &header.q_tables[0],
+                &mut dc_y,
+                &mut coeff_scratch,
+                &mut y0,
+            );
+            decode_block(
+                &mut br,
+                &header.dc_huffman[0],
+                &header.ac_huffman[0],
+                &header.q_tables[0],
+                &mut dc_y,
+                &mut coeff_scratch,
+                &mut y1,
+            );
+            decode_block(
+                &mut br,
+                &header.dc_huffman[0],
+                &header.ac_huffman[0],
+                &header.q_tables[0],
+                &mut dc_y,
+                &mut coeff_scratch,
+                &mut y2,
+            );
+            decode_block(
+                &mut br,
+                &header.dc_huffman[0],
+                &header.ac_huffman[0],
+                &header.q_tables[0],
+                &mut dc_y,
+                &mut coeff_scratch,
+                &mut y3,
+            );
+            decode_block(
+                &mut br,
+                &header.dc_huffman[1],
+                &header.ac_huffman[1],
+                &header.q_tables[1],
+                &mut dc_cb,
+                &mut coeff_scratch,
+                &mut cb,
+            );
+            decode_block(
+                &mut br,
+                &header.dc_huffman[1],
+                &header.ac_huffman[1],
+                &header.q_tables[1],
+                &mut dc_cr,
+                &mut coeff_scratch,
+                &mut cr,
+            );
+
+            // Convert 16x16 MCU pixels to BGR555 using smooth bilinear chroma upsampling
+            // and precomputed 16x16 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
+            let base_px = mcu_x * 16;
+            let base_py = row * 16;
+
+            #[allow(clippy::needless_range_loop)]
+            for py in 0..16 {
+                let out_y = base_py + py;
+                let y_block = if py < 8 { (&y0, &y1) } else { (&y2, &y3) };
+                let (y_sub_y, cy0, cy1, wy0, wy1) = PY_LUT[py];
+                let y_row_off = y_sub_y * 8;
+
+                // Hoist chroma row slices (8 bytes each) to avoid per-pixel multiplications
+                let cb_r0: &[u8; 8] = cb[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
+                let cb_r1: &[u8; 8] = cb[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
+                let cr_r0: &[u8; 8] = cr[cy0 * 8..cy0 * 8 + 8].try_into().unwrap();
+                let cr_r1: &[u8; 8] = cr[cy1 * 8..cy1 * 8 + 8].try_into().unwrap();
+
+                let bayer_row = &BAYER16[py];
+
+                for px in 0..16 {
+                    let out_x = base_px + px;
+                    let (y_sub_x, cx0, cx1, wx0, wx1) = PX_LUT[px];
+
+                    let y_arr = if px < 8 { y_block.0 } else { y_block.1 };
+                    let y_val = y_arr[y_row_off + y_sub_x] as i32;
+
+                    // Bilinear interpolation for Cb and Cr using slice indexing
+                    let cb_00 = cb_r0[cx0] as i32;
+                    let cb_01 = cb_r0[cx1] as i32;
+                    let cb_10 = cb_r1[cx0] as i32;
+                    let cb_11 = cb_r1[cx1] as i32;
+                    let cb_val = (((cb_00 * wx0 + cb_01 * wx1) * wy0
+                        + (cb_10 * wx0 + cb_11 * wx1) * wy1)
+                        >> 4)
+                        - 128;
+
+                    let cr_00 = cr_r0[cx0] as i32;
+                    let cr_01 = cr_r0[cx1] as i32;
+                    let cr_10 = cr_r1[cx0] as i32;
+                    let cr_11 = cr_r1[cx1] as i32;
+                    let cr_val = (((cr_00 * wx0 + cr_01 * wx1) * wy0
+                        + (cr_10 * wx0 + cr_11 * wx1) * wy1)
+                        >> 4)
+                        - 128;
+
                     // ITU-R BT.601 integer fixed-point YCbCr to RGB conversion
                     let r_raw = y_val + ((359 * cr_val) >> 8);
                     let g_raw = y_val - ((88 * cb_val + 183 * cr_val) >> 8);
                     let b_raw = y_val + ((454 * cb_val) >> 8);
 
-                    // 4x4 Bayer ordered dither for smooth 15-bit color gradients
-                    let dither = BAYER4X4[out_y % 4][out_x % 4] >> 1; // 0..7
+                    // 16x16 Bayer ordered dither collapsed from 4x4 matrix
+                    let dither = bayer_row[px] >> 1; // 0..7
 
                     let r = ((r_raw + dither).clamp(0, 255) >> 3) as u16;
                     let g = ((g_raw + dither).clamp(0, 255) >> 3) as u16;
@@ -817,7 +1085,7 @@ mod tests {
         // For spatial value 200, C = 72, DC = 72 * 8 = 576.
         coeffs[0] = 576;
         let mut out = [0u8; 64];
-        idct_8x8(&coeffs, &mut out);
+        idct_8x8(&mut coeffs, &mut out);
         for &px in out.iter() {
             // Should be within +/- 1 of 200
             assert!((px as i32 - 200).abs() <= 2, "Expected ~200, got {px}");
@@ -832,7 +1100,7 @@ mod tests {
             let mut coeffs = [0i32; 64];
             coeffs[0] = dc;
             let mut idct_out = [0u8; 64];
-            idct_8x8(&coeffs, &mut idct_out);
+            idct_8x8(&mut coeffs, &mut idct_out);
 
             let fast_sample = (((dc + 4) >> 3).clamp(-128, 127) + 128) as u8;
             for (idx, &px) in idct_out.iter().enumerate() {
@@ -915,5 +1183,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_bit_exactness_all_256_tiles() {
+        // Decode all 256 tiles both ways, compare every pixel.
+        let candidates = [
+            "../../tracks/capetown_10km/capetown_b0_b0.jpg",
+            "../../tracks/Amber_Mesa.jpg",
+            "../../tracks/test_100kb.jpg",
+        ];
+        let mut tested = false;
+        for path in candidates {
+            if let Ok(bytes) = std::fs::read(path) {
+                if let Some(hdr) = JpegHeader::parse(&bytes) {
+                    let mut restarts = [0u32; RESTART_INTERVAL_COUNT];
+                    hdr.index_restarts(&bytes, &mut restarts);
+
+                    let mut a = [0u16; TILE_PIXELS];
+                    let mut b = [0u16; TILE_PIXELS];
+                    for ty in 0..16 {
+                        for tx in 0..16 {
+                            decode_tile_reference(&bytes, &hdr, &restarts, tx, ty, &mut a);
+                            decode_tile_64x64(&bytes, &hdr, &restarts, tx, ty, &mut b);
+                            assert_eq!(a, b, "tile ({tx},{ty}) diverged for {path}");
+                        }
+                    }
+                    tested = true;
+                    break;
+                }
+            }
+        }
+        assert!(
+            tested,
+            "Expected at least one test JPEG image to be present"
+        );
     }
 }
