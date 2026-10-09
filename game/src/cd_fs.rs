@@ -79,6 +79,8 @@ impl DiscReader {
 
         if result.is_none() && filename.starts_with(b"TRACKS.BIN") {
             Some(1779)
+        } else if result.is_none() && filename.starts_with(b"CAPETOWN.BIN") {
+            Some(2179)
         } else {
             result
         }

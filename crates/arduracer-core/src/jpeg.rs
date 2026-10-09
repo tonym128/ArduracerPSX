@@ -44,6 +44,35 @@ const FIX_3_072711026: i32 = 25172;
 pub const HUFF_LUT_BITS: usize = 9;
 pub const HUFF_LUT_SIZE: usize = 1 << HUFF_LUT_BITS; // 512
 
+/// 4x4 Bayer ordered dither matrix for smooth 15-bit color gradients.
+const BAYER4X4: [[i32; 4]; 4] = [
+    [0, 8, 2, 10],
+    [12, 4, 14, 6],
+    [3, 11, 1, 9],
+    [15, 7, 13, 5],
+];
+
+/// Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
+/// (sample_0, sample_1, weight_0, weight_1)
+const INTERP_16: [(usize, usize, i32, i32); 16] = [
+    (0, 0, 4, 0),
+    (0, 1, 3, 1),
+    (0, 1, 1, 3),
+    (1, 2, 3, 1),
+    (1, 2, 1, 3),
+    (2, 3, 3, 1),
+    (2, 3, 1, 3),
+    (3, 4, 3, 1),
+    (3, 4, 1, 3),
+    (4, 5, 3, 1),
+    (4, 5, 1, 3),
+    (5, 6, 3, 1),
+    (5, 6, 1, 3),
+    (6, 7, 3, 1),
+    (6, 7, 1, 3),
+    (7, 7, 4, 0),
+];
+
 /// A compact canonical Huffman lookup table with 9-bit fast O(1) prefix table.
 #[derive(Copy, Clone)]
 pub struct HuffTable {
@@ -713,30 +742,6 @@ pub fn decode_tile_64x64(
             // and 4x4 Bayer ordered dithering for maximum visual fidelity in 15bpp direct colour.
             let base_px = mcu_x * 16;
             let base_py = row * 16;
-
-            const BAYER4X4: [[i32; 4]; 4] =
-                [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-
-            // Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
-            // (sample_0, sample_1, weight_0, weight_1)
-            const INTERP_16: [(usize, usize, i32, i32); 16] = [
-                (0, 0, 4, 0),
-                (0, 1, 3, 1),
-                (0, 1, 1, 3),
-                (1, 2, 3, 1),
-                (1, 2, 1, 3),
-                (2, 3, 3, 1),
-                (2, 3, 1, 3),
-                (3, 4, 3, 1),
-                (3, 4, 1, 3),
-                (4, 5, 3, 1),
-                (4, 5, 1, 3),
-                (5, 6, 3, 1),
-                (5, 6, 1, 3),
-                (6, 7, 3, 1),
-                (6, 7, 1, 3),
-                (7, 7, 4, 0),
-            ];
 
             #[allow(clippy::needless_range_loop)]
             for py in 0..16 {
