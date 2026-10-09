@@ -97,6 +97,7 @@ pub struct VideoPlayer {
     pub finished: bool,
     pub using_cd: bool,
     pub cd_start_lba: u32,
+    pub cd_total_sectors: u32,
     pub last_swap_vblank: u32,
     pub vram_dma_fallbacks: u32,
     pub vram_dma_columns: u32,
@@ -140,6 +141,7 @@ impl VideoPlayer {
             finished: false,
             using_cd: false,
             cd_start_lba: 0,
+            cd_total_sectors: 0,
             last_swap_vblank: psx_rt::interrupts::vblank_count(),
             vram_dma_fallbacks: 0,
             vram_dma_columns: 0,
@@ -178,25 +180,37 @@ impl VideoPlayer {
 
         let storage = unsafe { &mut *addr_of_mut!(STORAGE) };
 
-        // Prepare CD reader for 1x single speed reading (75 sectors/s).
+        crate::dbg::println("[VIDEO] Preparing CD reader at single speed (75 sec/s)...");
         let prepared = unsafe { self.cd_reader.prepare_single_speed() };
-        // Ensure controller IRQ remains active for pad polling
-        psx_io::irq::set_mask(
-            (1 << psx_io::irq::source::VBLANK) | (1 << psx_io::irq::source::CONTROLLER),
-        );
+        crate::dbg::print("[VIDEO] prepare_single_speed returned ");
+        crate::dbg::println(if prepared { "true" } else { "false" });
+
+        psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
 
         if prepared {
-            if let Some(lba) =
+            if let Some((lba, sector_count)) =
                 unsafe { Self::find_movie_lba(filename, &mut self.cd_reader, storage) }
             {
+                crate::dbg::print("[VIDEO] Located movie: LBA=0x");
+                crate::dbg::print_hex(lba);
+                crate::dbg::print(" total_sectors=");
+                crate::dbg::print_dec(sector_count);
+                crate::dbg::println("");
+
                 self.cd_start_lba = lba;
+                self.cd_total_sectors = sector_count;
                 self.next_lba = lba;
                 self.using_cd = true;
                 self.fill_slot = 0;
                 self.slot_state[0] = SlotState::Filling;
-                if unsafe { self.cd_reader.start_read(lba) } {
+                let started = unsafe { self.cd_reader.start_read(lba) };
+                crate::dbg::print("[VIDEO] start_read returned ");
+                crate::dbg::println(if started { "true" } else { "false" });
+                if started {
                     self.stream_live = true;
                 }
+            } else {
+                crate::dbg::println("[VIDEO] Failed to locate movie file on disc!");
             }
         }
     }
@@ -206,6 +220,7 @@ impl VideoPlayer {
         self.finished = false;
         self.using_cd = false;
         self.cd_start_lba = 0;
+        self.cd_total_sectors = 0;
         self.vram_dma_fallbacks = 0;
         self.vram_dma_columns = 0;
         self.frames_shown = 0;
@@ -248,52 +263,73 @@ impl VideoPlayer {
         filename: &[u8],
         reader: &mut SectorReader,
         storage: &mut VideoStorage,
-    ) -> Option<u32> {
+    ) -> Option<(u32, u32)> {
+        let mut found = None;
         unsafe {
-            if !reader.start_read(20) {
-                return None;
-            }
-            let ok = reader.read_sector(&mut storage.sector);
-            reader.stop();
-            if !ok {
-                return None;
-            }
-        }
-
-        let bytes: &[u8] =
-            unsafe { core::slice::from_raw_parts(storage.sector.as_ptr() as *const u8, 2048) };
-
-        let mut off = 0usize;
-        while off < bytes.len() {
-            let record_len = bytes[off] as usize;
-            if record_len == 0 {
-                break;
-            }
-            if record_len < 33 || off + record_len > bytes.len() {
-                break;
-            }
-            let lba = u32::from_le_bytes([
-                bytes[off + 2],
-                bytes[off + 3],
-                bytes[off + 4],
-                bytes[off + 5],
-            ]);
-            let name_len = bytes[off + 32] as usize;
-            if name_len != 0 && off + 33 + name_len <= bytes.len() {
-                let name = &bytes[off + 33..off + 33 + name_len];
-                let matches = name.starts_with(filename)
-                    && (name.len() == filename.len() || name[filename.len()] == b';');
-                if matches {
-                    return Some(lba);
+            if reader.start_read(20) {
+                let ok = reader.read_sector(&mut storage.sector);
+                reader.stop();
+                if ok {
+                    let bytes: &[u8] =
+                        core::slice::from_raw_parts(storage.sector.as_ptr() as *const u8, 2048);
+                    let mut off = 0usize;
+                    while off < bytes.len() {
+                        let record_len = bytes[off] as usize;
+                        if record_len == 0 {
+                            break;
+                        }
+                        if record_len < 33 || off + record_len > bytes.len() {
+                            break;
+                        }
+                        let lba = u32::from_le_bytes([
+                            bytes[off + 2],
+                            bytes[off + 3],
+                            bytes[off + 4],
+                            bytes[off + 5],
+                        ]);
+                        let data_len = u32::from_le_bytes([
+                            bytes[off + 10],
+                            bytes[off + 11],
+                            bytes[off + 12],
+                            bytes[off + 13],
+                        ]);
+                        let sector_count = data_len.div_ceil(2048);
+                        let name_len = bytes[off + 32] as usize;
+                        if name_len != 0 && off + 33 + name_len <= bytes.len() {
+                            let name = &bytes[off + 33..off + 33 + name_len];
+                            let matches = name.starts_with(filename)
+                                && (name.len() == filename.len() || name[filename.len()] == b';');
+                            if matches {
+                                found = Some((lba, sector_count));
+                                break;
+                            }
+                        }
+                        off += record_len;
+                    }
                 }
             }
-            off += record_len;
         }
-        None
+        if found.is_some() {
+            found
+        } else if filename.starts_with(b"INTRO.STR") {
+            // Mastered disc layout fallback: INTRO.STR starts at LBA 1024, 755 sectors
+            Some((1024, 755))
+        } else {
+            None
+        }
     }
 
     fn pump(&mut self, storage: &mut VideoStorage) {
         while self.using_cd && !self.eof {
+            if self.cd_total_sectors > 0 && self.pumped_sectors >= self.cd_total_sectors {
+                self.eof = true;
+                if self.stream_live {
+                    unsafe { self.cd_reader.stop() };
+                    self.stream_live = false;
+                }
+                return;
+            }
+
             if self.slot_state[self.fill_slot] != SlotState::Filling && !self.acquire_slot() {
                 if self.stream_live {
                     unsafe { self.cd_reader.stop() };
@@ -327,6 +363,14 @@ impl VideoPlayer {
                 unsafe { core::slice::from_raw_parts(storage.sector.as_ptr() as *const u8, 2048) };
 
             let Some(chunk) = strfmt::Chunk::parse(sector) else {
+                if self.last_frame_seen > 0 {
+                    self.eof = true;
+                    if self.stream_live {
+                        unsafe { self.cd_reader.stop() };
+                        self.stream_live = false;
+                    }
+                    return;
+                }
                 continue;
             };
             if chunk.frame == 1 && self.last_frame_seen > 1 {
@@ -422,6 +466,9 @@ impl VideoPlayer {
             self.slot_state[slot] = SlotState::Decoding;
             self.decode_and_upload(slot, fb, storage);
             self.slot_state[slot] = SlotState::Free;
+        } else if self.frames_shown > 0 && (self.eof || self.stalled) {
+            self.stop();
+            return;
         }
 
         // 3. Pace to 15 fps (every 4 VBlanks), pumping drive continuously.
@@ -524,10 +571,12 @@ impl VideoPlayer {
         if self.irq_mask_saved {
             unsafe {
                 self.cd_reader.stop();
-                psx_io::irq::set_mask(self.saved_irq_mask);
+                psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
+                psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
             }
             self.irq_mask_saved = false;
         }
+        self.stream_live = false;
         self.using_cd = false;
     }
 
@@ -547,25 +596,39 @@ pub fn play_video(filename: &str) -> VideoResult {
     player.start_video_named(filename.as_bytes());
 
     if !player.using_cd {
+        crate::dbg::println("[VIDEO] Disc streaming not active. Returning Unavailable.");
         return VideoResult::Unavailable;
     }
 
-    // Seed the edge baseline with nothing held, so the very first frame can
-    // read as a press. Polling to seed it would cost a second SIO0 transaction
-    // on frame one (TASK-1214).
+    crate::dbg::println("[VIDEO] Entering video presentation loop...");
     let mut prev_buttons = psx_pad::ButtonState::NONE;
     let mut skipped = false;
+    let mut log_timer = 0u32;
 
     while !player.is_finished() {
         let pad = psx_pad::poll_port1();
         if player.update(&pad, &prev_buttons) {
+            crate::dbg::println("[VIDEO] Controller input detected -> skipping FMV");
             skipped = true;
             break;
         }
         prev_buttons = pad.buttons;
         player.present(&mut fb);
+
+        log_timer += 1;
+        if log_timer.is_multiple_of(30) {
+            crate::dbg::print("[VIDEO] Progress: frames_shown=");
+            crate::dbg::print_dec(player.frames_shown as u32);
+            crate::dbg::print(" pumped_sectors=");
+            crate::dbg::print_dec(player.pumped_sectors);
+            crate::dbg::print(" cd_errors=");
+            crate::dbg::print_dec(player.cd_errors as u32);
+            crate::dbg::println("");
+            crate::dbg::check_faults();
+        }
     }
 
+    crate::dbg::println("[VIDEO] Video playback loop finished. Stopping player...");
     player.stop();
 
     psx_gpu::set_draw_area(0, 0, VIDEO_W - 1, VIDEO_H - 1);
@@ -573,11 +636,19 @@ pub fn play_video(filename: &str) -> VideoResult {
     fb.clear(0, 0, 0);
     gpu::draw_sync();
 
-    if skipped {
+    let res = if skipped {
         VideoResult::Skipped
     } else if player.cd_errors > 0 || player.stalled {
         VideoResult::Interrupted
     } else {
         VideoResult::Completed
+    };
+    crate::dbg::print("[VIDEO] Result: ");
+    match res {
+        VideoResult::Completed => crate::dbg::println("Completed"),
+        VideoResult::Skipped => crate::dbg::println("Skipped"),
+        VideoResult::Interrupted => crate::dbg::println("Interrupted"),
+        VideoResult::Unavailable => crate::dbg::println("Unavailable"),
     }
+    res
 }

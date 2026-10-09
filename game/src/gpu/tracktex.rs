@@ -173,7 +173,15 @@ pub fn init_track_texture(circuit: usize) {
         FRAME_COUNTER = 0;
         if !TRACKS_PROBED {
             let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
+            crate::dbg::println("[TRACKTEX] Probing disc for TRACKS.BIN...");
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
+            crate::dbg::print("[TRACKTEX] TRACKS.BIN LBA: 0x");
+            if let Some(lba) = TRACKS_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
+            crate::dbg::println("");
             TRACKS_PROBED = true;
         }
     }
@@ -184,7 +192,57 @@ pub fn render_track(track: &TrackDef, camera: &Camera) {
     render_track_extents(track.world_width(), track.world_height(), camera);
 }
 
+/// Loads a tile from CD (or fallback checkerboard) directly into the specified VRAM slot.
+#[inline(never)]
+fn load_tile_into_slot(
+    active_circuit: usize,
+    tile_idx: usize,
+    best_slot: usize,
+    ring: &mut [u8; visual_tex::STREAM_WINDOW],
+) {
+    let (slot_x, slot_y) = TRACK_VRAM_SLOTS[best_slot];
+    let rect = VramRect::new(slot_x, slot_y, TILE_TEX as u16, TILE_TEX as u16);
+    let entry = visual_tex::CIRCUIT_TILE_SECTORS[active_circuit][tile_idx];
+    let bin_lba = unsafe { TRACKS_BIN_LBA };
+    let mut loaded = false;
+
+    if let Some(lba) = bin_lba {
+        let tile_lba = lba + entry.sector_offset;
+        let sector_count = entry.sector_count as usize;
+        let byte_len = entry.byte_len as usize;
+        let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+        let buf = unsafe { &mut *core::ptr::addr_of_mut!(TILE_BOUNCE_BUFFER) };
+
+        if sector_count <= MAX_TILE_SECTORS && reader.read_sectors(tile_lba, sector_count, buf) {
+            let stream = &buf[..byte_len];
+            upload_16bpp_stream(rect, |emit| {
+                visual_tex::decompress_stream(stream, visual_tex::RAW_TILE_HALFWORDS, ring, |hw| {
+                    emit(hw);
+                });
+            });
+            loaded = true;
+        }
+    }
+
+    if !loaded {
+        // Graceful fallback pattern when CD-ROM / TRACKS.BIN is not present
+        upload_16bpp_stream(rect, |emit| {
+            for y in 0..TILE_TEX {
+                for x in 0..TILE_TEX {
+                    let c = if ((x >> 4) ^ (y >> 4)) & 1 == 0 {
+                        0x1CE7
+                    } else {
+                        0x2108
+                    };
+                    emit(c);
+                }
+            }
+        });
+    }
+}
+
 /// Renders the world texture clamped to arbitrary world extents (e.g. tracks or cities).
+#[inline(never)]
 #[allow(clippy::needless_range_loop)]
 pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     let (half_w, half_h) = camera.visible_half_extents();
@@ -292,51 +350,7 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
         slot_for_tile[i] = best_slot;
         used_slots[best_slot] = true;
 
-        let (slot_x, slot_y) = TRACK_VRAM_SLOTS[best_slot];
-        let rect = VramRect::new(slot_x, slot_y, TILE_TEX as u16, TILE_TEX as u16);
-        let entry = visual_tex::CIRCUIT_TILE_SECTORS[active_circuit][tile_idx];
-        let bin_lba = unsafe { TRACKS_BIN_LBA };
-        let mut loaded = false;
-
-        if let Some(lba) = bin_lba {
-            let tile_lba = lba + entry.sector_offset;
-            let sector_count = entry.sector_count as usize;
-            let byte_len = entry.byte_len as usize;
-            let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-            let buf = unsafe { &mut *core::ptr::addr_of_mut!(TILE_BOUNCE_BUFFER) };
-
-            if sector_count <= MAX_TILE_SECTORS && reader.read_sectors(tile_lba, sector_count, buf)
-            {
-                let stream = &buf[..byte_len];
-                upload_16bpp_stream(rect, |emit| {
-                    visual_tex::decompress_stream(
-                        stream,
-                        visual_tex::RAW_TILE_HALFWORDS,
-                        ring,
-                        |hw| {
-                            emit(hw);
-                        },
-                    );
-                });
-                loaded = true;
-            }
-        }
-
-        if !loaded {
-            // Graceful fallback pattern when CD-ROM / TRACKS.BIN is not present
-            upload_16bpp_stream(rect, |emit| {
-                for y in 0..TILE_TEX {
-                    for x in 0..TILE_TEX {
-                        let c = if ((x >> 4) ^ (y >> 4)) & 1 == 0 {
-                            0x1CE7
-                        } else {
-                            0x2108
-                        };
-                        emit(c);
-                    }
-                }
-            });
-        }
+        load_tile_into_slot(active_circuit, tile_idx, best_slot, ring);
 
         unsafe {
             SLOTS[best_slot].resident_circuit = active_circuit;

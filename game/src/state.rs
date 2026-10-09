@@ -9,7 +9,7 @@ use crate::ui::{
 use arduracer_core::championship::ChampionshipSession;
 use arduracer_core::tuning::CarTuning;
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum GameState {
     #[default]
     Title,

@@ -68,12 +68,14 @@ impl CddaController {
             return;
         }
         self.current_track = track;
-        // The mode byte is drive-global and shared with the FMV sector reader,
-        // so re-assert ours before every Play: a stale 2x/streaming mode would
-        // otherwise leave the track silent (CD-DA enable clear) or running fast.
+        crate::dbg::print("[CDDA] Requesting play_track ");
+        crate::dbg::print_dec(track as u32);
+        crate::dbg::println("...");
         self.apply_mode();
         cdrom::try_demute(50_000);
-        cdrom::try_play_track(track, 50_000);
+        let ok = cdrom::try_play_track(track, 50_000);
+        crate::dbg::print("[CDDA] try_play_track returned ");
+        crate::dbg::println(if ok.is_some() { "OK" } else { "TIMEOUT/ERROR" });
         self.state = CddaState::Playing;
     }
 
@@ -96,7 +98,7 @@ impl CddaController {
 
     /// Stops CD-DA playback completely.
     pub fn stop(&mut self) {
-        cdrom::try_stop(50_000);
+        cdrom::try_pause_until_complete(50_000);
         self.state = CddaState::Stopped;
     }
 

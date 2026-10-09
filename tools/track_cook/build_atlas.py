@@ -415,6 +415,7 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
         f.write(
             "/// Streams and decompresses 16-bit BGR555 pixels on-the-fly using an 8192-byte ring buffer.\n"
             "/// Emits each 16-bit halfword directly to the consumer callback with zero heap allocations.\n"
+            "#[inline(never)]\n"
             "pub fn decompress_stream<F: FnMut(u16)>(\n"
             "    src: &[u8],\n"
             "    total_halfwords: usize,\n"

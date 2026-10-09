@@ -574,6 +574,7 @@ pub static CLUT_RGB: [(u8, u8, u8); 16] = [
 
 /// Streams and decompresses 16-bit BGR555 pixels on-the-fly using an 8192-byte ring buffer.
 /// Emits each 16-bit halfword directly to the consumer callback with zero heap allocations.
+#[inline(never)]
 pub fn decompress_stream<F: FnMut(u16)>(
     src: &[u8],
     total_halfwords: usize,

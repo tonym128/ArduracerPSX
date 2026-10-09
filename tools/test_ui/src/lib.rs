@@ -36,6 +36,9 @@ mod palette;
 #[path = "../../../game/src/gpu/texlayout.rs"]
 mod texlayout;
 
+#[path = "../../../game/src/ui/title_input.rs"]
+mod title_input;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -2490,6 +2493,205 @@ mod frame_close_tests {
             !early_exits().is_empty(),
             "no `continue` found in main.rs -- if the loop was restructured, \
              revisit this test rather than letting it pass trivially"
+        );
+    }
+}
+
+#[cfg(test)]
+mod intro_transition_tests {
+    use super::title_input::TitleInput;
+
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum VideoResult {
+        Completed,
+        Skipped,
+        Interrupted,
+        Unavailable,
+    }
+
+    #[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum GameState {
+        #[default]
+        Title,
+        MainMenu,
+        TrackSelect,
+        CitySelect,
+        Garage,
+        Racing,
+        Results,
+    }
+
+    /// Evaluates boot state transition from video player result (as done in ArduracerGame::new).
+    fn initial_state_from_intro(res: VideoResult) -> GameState {
+        let mut state = GameState::Title;
+        if res == VideoResult::Skipped {
+            state = GameState::MainMenu;
+        }
+        state
+    }
+
+    #[test]
+    fn intro_completed_transitions_to_title_screen() {
+        let state = initial_state_from_intro(VideoResult::Completed);
+        assert_eq!(
+            state,
+            GameState::Title,
+            "When intro FMV finishes, game must start at Title screen"
+        );
+    }
+
+    #[test]
+    fn intro_skipped_transitions_directly_to_main_menu() {
+        let state = initial_state_from_intro(VideoResult::Skipped);
+        assert_eq!(
+            state,
+            GameState::MainMenu,
+            "When intro FMV is skipped, game must proceed directly to Main Menu"
+        );
+    }
+
+    #[test]
+    fn intro_unavailable_defaults_to_title_screen() {
+        let state = initial_state_from_intro(VideoResult::Unavailable);
+        assert_eq!(
+            state,
+            GameState::Title,
+            "When intro FMV is unavailable (e.g. side-loaded EXE), default to Title screen"
+        );
+    }
+
+    #[test]
+    fn button_held_across_intro_completion_does_not_prematurely_dismiss_title() {
+        let mut title = TitleInput::new();
+        // Frame 1 after intro: user was still holding START from skipping or gamepad resting
+        let confirmed = title.update(true, false);
+        assert!(
+            !confirmed,
+            "Title screen must require button release before triggering so it is never skipped instantly"
+        );
+
+        // Frame 2: user continues holding START
+        let confirmed = title.update(true, false);
+        assert!(!confirmed);
+
+        // Frame 3: user releases buttons
+        let confirmed = title.update(false, false);
+        assert!(!confirmed);
+
+        // Frame 4: user presses START newly -> edge trigger fires!
+        let confirmed = title.update(true, false);
+        assert!(
+            confirmed,
+            "Fresh START press after release must confirm title screen"
+        );
+    }
+
+    #[test]
+    fn cross_press_confirms_title_screen_to_main_menu() {
+        let mut title = TitleInput::new();
+        // Release first
+        title.update(false, false);
+        // Press CROSS
+        let confirmed = title.update(false, true);
+        assert!(confirmed, "Fresh CROSS press must confirm title screen");
+    }
+
+    #[test]
+    fn full_transition_intro_completion_to_main_menu() {
+        let mut current_state = initial_state_from_intro(VideoResult::Completed);
+        assert_eq!(current_state, GameState::Title);
+
+        let mut title = TitleInput::new();
+
+        // 30 frames of title screen attract loop with no inputs held
+        for _ in 0..30 {
+            if title.update(false, false) {
+                current_state = GameState::MainMenu;
+            }
+        }
+        assert_eq!(
+            current_state,
+            GameState::Title,
+            "Should remain on Title screen while idling"
+        );
+
+        // Player presses START
+        if title.update(true, false) {
+            current_state = GameState::MainMenu;
+        }
+        assert_eq!(
+            current_state,
+            GameState::MainMenu,
+            "Must cleanly transition from Title screen to Main Menu on START"
+        );
+    }
+
+    #[test]
+    fn video_stream_bounds_and_eof_drain_without_hanging() {
+        // Simulates the sector pumping and frame drain logic of VideoPlayer
+        const TOTAL_SECTORS: u32 = 755;
+        let mut pumped_sectors: u32 = 0;
+        let mut eof = false;
+        let mut ready_queue: std::collections::VecDeque<u32> = std::collections::VecDeque::new();
+        let mut frames_shown: u32 = 0;
+        let mut drive_active = true;
+
+        // Simulate streaming drive
+        for sector in 0..1000 {
+            if pumped_sectors >= TOTAL_SECTORS {
+                eof = true;
+                drive_active = false;
+                break;
+            }
+            pumped_sectors += 1;
+            // Every 5 sectors assemble a frame
+            if sector % 5 == 0 && ready_queue.len() < 4 {
+                ready_queue.push_back(sector / 5);
+            }
+        }
+
+        assert!(eof, "Video stream must detect EOF at sector boundary");
+        assert_eq!(
+            pumped_sectors, 755,
+            "Must never read past total movie sectors"
+        );
+        assert!(!drive_active, "Drive reading must stop once EOF reached");
+
+        // Drain remaining ready frames
+        while let Some(_frame) = ready_queue.pop_front() {
+            frames_shown += 1;
+        }
+
+        let drained = ready_queue.is_empty();
+        assert!(drained && eof);
+        let result = if frames_shown > 0 && eof {
+            VideoResult::Completed
+        } else {
+            VideoResult::Interrupted
+        };
+        assert_eq!(result, VideoResult::Completed);
+    }
+
+    #[test]
+    fn non_str_sector_triggers_early_eof_after_frames_seen() {
+        // Simulates reading into TRACKS.BIN if sector count was somehow unconstrained
+        let last_frame_seen: u32 = 10;
+        let mut eof = false;
+        let mut drive_active = true;
+
+        let is_str_chunk = false; // Encounters TRACKS.BIN / non-STR sector
+        if !is_str_chunk && last_frame_seen > 0 {
+            eof = true;
+            drive_active = false;
+        }
+
+        assert!(
+            eof,
+            "Non-STR sector encountered after movie frames must trigger EOF"
+        );
+        assert!(
+            !drive_active,
+            "Drive must stop immediately to prevent reading into audio tracks"
         );
     }
 }

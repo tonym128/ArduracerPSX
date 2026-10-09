@@ -9,6 +9,7 @@ extern crate psx_rt;
 
 pub mod audio;
 pub mod cd_fs;
+pub mod dbg;
 pub mod ghost_player;
 pub mod ghost_recorder;
 pub mod gpu;
@@ -111,17 +112,29 @@ impl Default for ArduracerGame {
 
 impl ArduracerGame {
     pub fn new() -> Self {
+        dbg::log_step(1, 9, "Initializing GPU (320x240 NTSC)...");
         psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
+        dbg::check_faults();
 
-        // SPU audio & FMV attract intro from CD-ROM. Skippable; silently absent when the
-        // disc has no INTRO.STR (e.g. EXE side-loaded in an emulator).
+        dbg::log_step(2, 9, "Starting intro audio (SPU ADPCM)...");
         audio::play_intro_audio();
-        let intro_res = video::play_video("INTRO.STR");
-        audio::stop_intro_audio();
+        dbg::check_faults();
 
-        // Initialize the disc track texture streaming and locate TRACKS.BIN NOW,
-        // while the drive is stopped and before CD-DA audio playback is started.
+        dbg::log_step(3, 9, "Playing attract FMV (INTRO.STR)...");
+        let intro_res = video::play_video("INTRO.STR");
+        dbg::check_faults();
+
+        dbg::log_step(4, 9, "Stopping intro audio...");
+        audio::stop_intro_audio();
+        dbg::check_faults();
+
+        dbg::log_step(
+            5,
+            9,
+            "Initializing track texture streaming & locating TRACKS.BIN...",
+        );
         init_track_texture(ALL_TRACK_VISUALS[0]);
+        dbg::check_faults();
 
         let fb = FrameBuffer::new(SCREEN_WIDTH, SCREEN_HEIGHT);
         psx_gpu_mod::set_draw_area(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
@@ -133,19 +146,31 @@ impl ArduracerGame {
         let rivals = spawn_rivals(track.start_pos, track.start_heading);
         let camera = Camera::new(track.start_pos);
 
-        // Probe the memory card once during boot so every later frame is
-        // pure RAM work (GAME.md §8).
+        dbg::log_step(6, 9, "Probing memory card...");
         let mut memcard = MemoryCardManager::new();
         memcard.probe();
+        dbg::check_faults();
 
+        dbg::log_step(
+            7,
+            9,
+            "Initializing audio subsystem and cueing CD-DA Track 2...",
+        );
         let mut audio = AudioSystem::new();
         audio.cdda.play_track(2);
+        dbg::check_faults();
+
+        dbg::log_step(8, 9, "Initializing DualShock analog controller manager...");
         let mut input_mgr = InputManager::new(InputProfile::ClassicArcade);
         input_mgr.init();
+        dbg::check_faults();
 
         let mut state_mgr = StateManager::new();
         if intro_res == video::VideoResult::Skipped {
             state_mgr.current = GameState::MainMenu;
+            dbg::println("[STATE] Intro skipped -> starting at MainMenu");
+        } else {
+            dbg::println("[STATE] Intro completed/idle -> starting at Title");
         }
 
         let game = ArduracerGame {
@@ -171,9 +196,10 @@ impl ArduracerGame {
             start: StartSequence::new(),
             memcard,
         };
-        // The boot track never goes through `load_track`, so bake its minimap
-        // here or the HUD would blit an empty texture until the first load.
+        dbg::log_step(9, 9, "Baking circuit minimap...");
         bake_minimap(&game.minimap_texture, game.current_track);
+        dbg::check_faults();
+        dbg::println("[BOOT] All 9 initialization steps completed!");
         game
     }
 
@@ -311,7 +337,10 @@ impl ArduracerGame {
         // The queued display flip is applied by the VBlank handler, which
         // requires this counter (TASK-1201).
         psx_rt::interrupts::install_vblank_counter();
+        dbg::println("[LOOP] Entering main game loop with VBlank interrupt installed.");
+        dbg::check_faults();
 
+        let mut first_frame = true;
         loop {
             // 1. Synchronize to 60Hz NTSC VBlank. The handler has now applied
             //    last frame's queued flip, so program the draw target for the
@@ -320,6 +349,15 @@ impl ArduracerGame {
             self.fb.apply_draw_target();
 
             self.frame_counter = self.frame_counter.wrapping_add(1);
+            if first_frame {
+                dbg::println("[LOOP] Frame 1 synchronized and rendering!");
+                first_frame = false;
+            } else if self.frame_counter.is_multiple_of(300) {
+                dbg::print("[LOOP] Heartbeat: frame ");
+                dbg::print_dec(self.frame_counter);
+                dbg::println("");
+                dbg::check_faults();
+            }
 
             let pad = psx_pad::poll_port1();
 
@@ -327,6 +365,7 @@ impl ArduracerGame {
                 GameState::Title => {
                     self.audio.ui_frame(pad.buttons.bits());
                     if self.state_mgr.title.update(&pad) {
+                        dbg::println("[STATE] Title screen confirmed -> entering MainMenu");
                         self.state_mgr.current = GameState::MainMenu;
                     }
                     self.fb.clear(12, 14, 20);
@@ -939,14 +978,26 @@ static mut GAME: Option<ArduracerGame> = None;
 
 #[no_mangle]
 fn main() -> ! {
+    dbg::println("");
+    dbg::println("==================================================");
+    dbg::println("      ARDURACER PSX - BOOTSTRAP INITIALIZING      ");
+    dbg::println("==================================================");
+    dbg::check_stack();
+    dbg::check_faults();
+
     unsafe {
         let slot = core::ptr::addr_of_mut!(GAME);
+        dbg::println("[MAIN] Initializing ArduracerGame in static BSS slot...");
         *slot = Some(ArduracerGame::new());
-        // `GAME` is assigned unconditionally on the line above, so the `None`
-        // arm is unreachable. Panicking is strictly better than the `loop {}`
-        // this replaced: a silent hang on a console with no OS to kill it.
+        dbg::println("[MAIN] ArduracerGame::new() completed successfully!");
+        dbg::check_stack();
+        dbg::check_faults();
+
         match (*slot).as_mut() {
-            Some(game) => game.run(),
+            Some(game) => {
+                dbg::println("[MAIN] Launching game.run()...");
+                game.run();
+            }
             None => panic!("GAME was assigned above and cannot be None"),
         }
     }

@@ -33,6 +33,7 @@ impl InputManager {
     /// Attempts to activate DualShock analog mode on boot.
     pub fn init(&mut self) {
         let _ = psx_pad::enable_analog_port1();
+        psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
     }
 
     /// Builds vehicle input from an already-polled pad sample, and updates the
