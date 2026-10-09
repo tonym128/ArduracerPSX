@@ -160,6 +160,97 @@ def main():
     os.makedirs(tracks_dir, exist_ok=True)
     os.makedirs(assets_dir, exist_ok=True)
 
+    # If all 9 JPEG blocks and collision bin exist locally in tracks/, package directly without remote fetching
+    all_blocks_exist = True
+    for by in range(GRID_BLOCKS_Y):
+        for bx in range(GRID_BLOCKS_X):
+            jpg_path = os.path.join(tracks_dir, f"melbourne_b{bx}_b{by}.jpg")
+            if not os.path.exists(jpg_path):
+                all_blocks_exist = False
+                break
+        if not all_blocks_exist:
+            break
+
+    col_track_path = os.path.join(tracks_dir, "melbourne_10km_collision.bin")
+    force_fetch = "--force-fetch" in sys.argv
+
+    if all_blocks_exist and os.path.exists(col_track_path) and not force_fetch:
+        print("[Compiler] Found local JPEG blocks and collision binary in tracks/melbourne_10km/.")
+        print("[Compiler] Packaging MELBOURNE.BIN directly from local files (0 network requests)...")
+        bin_dist_path = os.path.join(out_dir, "MELBOURNE.BIN")
+        bin_assets_path = os.path.join(assets_dir, "MELBOURNE.BIN")
+        col_dist_path = os.path.join(out_dir, "melbourne_10km_collision.bin")
+
+        import shutil
+        if not os.path.exists(col_dist_path) or os.path.abspath(col_track_path) != os.path.abspath(col_dist_path):
+            shutil.copyfile(col_track_path, col_dist_path)
+
+        manifest_entries = []
+        current_sector = 0
+        SECTOR_SIZE = 2048
+        SECTORS_PER_BLOCK = 100
+
+        with open(bin_dist_path, "wb") as f_bin:
+            for by in range(GRID_BLOCKS_Y):
+                for bx in range(GRID_BLOCKS_X):
+                    block_name = f"melbourne_b{bx}_b{by}"
+                    jpg_path = os.path.join(tracks_dir, f"{block_name}.jpg")
+                    jpg_out = os.path.join(out_dir, f"{block_name}.jpg")
+                    if os.path.abspath(jpg_path) != os.path.abspath(jpg_out):
+                        shutil.copyfile(jpg_path, jpg_out)
+
+                    with open(jpg_path, "rb") as fj:
+                        jpeg_data = fj.read()
+                    b_len = len(jpeg_data)
+
+                    pad_len = (SECTORS_PER_BLOCK * SECTOR_SIZE) - b_len
+                    f_bin.write(jpeg_data)
+                    if pad_len > 0:
+                        f_bin.write(b"\x00" * pad_len)
+
+                    manifest_entries.append({
+                        "block_x": bx,
+                        "block_y": by,
+                        "sector_offset": current_sector,
+                        "sector_count": SECTORS_PER_BLOCK,
+                        "byte_len": b_len,
+                        "file": f"{block_name}.jpg",
+                        "kb": round(b_len / 1024.0, 2),
+                    })
+                    current_sector += SECTORS_PER_BLOCK
+
+        shutil.copyfile(bin_dist_path, bin_assets_path)
+
+        manifest = {
+            "name": "Melbourne Albert Park Grand Prix & St Kilda",
+            "area_km2": 10.0,
+            "width_km": 3.162,
+            "height_km": 3.162,
+            "bbox": {
+                "min_lat": MIN_LAT,
+                "min_lon": MIN_LON,
+                "max_lat": MAX_LAT,
+                "max_lon": MAX_LON,
+            },
+            "blocks_x": GRID_BLOCKS_X,
+            "blocks_y": GRID_BLOCKS_Y,
+            "block_dim": BLOCK_DIM,
+            "total_texels_w": TOTAL_W,
+            "total_texels_h": TOTAL_H,
+            "cells_x": TOTAL_CELLS_X,
+            "cells_y": TOTAL_CELLS_Y,
+            "sectors_per_block": 100,
+            "blocks": manifest_entries,
+        }
+        manifest_path = os.path.join(out_dir, "melbourne_manifest.json")
+        with open(manifest_path, "w") as fm:
+            json.dump(manifest, fm, indent=2)
+
+        print(f"\nSUCCESS! Mastered Melbourne 10 km^2 CD container from local blocks:")
+        print(f"  Container: {bin_dist_path} and {bin_assets_path}")
+        print(f"  Manifest:  {manifest_path}")
+        return
+
     print("=================================================================")
     print("  ARDURACER PSX - MELBOURNE 10 KM^2 MAP & VISUAL ATLAS COOKER    ")
     print("=================================================================")

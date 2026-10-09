@@ -422,6 +422,12 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
             "pub const RAW_TILE_BYTES: usize = RAW_TILE_HALFWORDS * 2;\n"
             "/// Name of the track visual asset file on the CD-ROM disc.\n"
             "pub const TRACKS_BIN_NAME: &[u8] = b\"TRACKS.BIN\";\n"
+            "/// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.\n"
+            "pub const CAPETOWN_BIN_NAME: &[u8] = b\"CAPETOWN.BIN\";\n"
+            "/// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.\n"
+            "pub const MELBOURNE_BIN_NAME: &[u8] = b\"MELBOURNE.BIN\";\n"
+            "/// Name of the London 10 km^2 city visual asset file on the CD-ROM disc.\n"
+            "pub const LONDON_BIN_NAME: &[u8] = b\"LONDON.BIN\";\n"
             "\n"
             "/// CD-ROM sector index entry for a compressed 1024x1024 JPEG block in TRACKS.BIN.\n"
             "#[derive(Copy, Clone, Debug, PartialEq, Eq)]\n"
@@ -443,6 +449,27 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
                 f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
             )
         f.write("];\n\n")
+
+        # Emit city block sector mappings from local tracks/<city>_10km/ blocks
+        for city_prefix, var_name, city_title in [
+            ("capetown", "CAPETOWN_BLOCK_SECTORS", "Cape Town"),
+            ("melbourne", "MELBOURNE_BLOCK_SECTORS", "Melbourne"),
+            ("london", "LONDON_BLOCK_SECTORS", "London"),
+        ]:
+            city_dir = os.path.join(ROOT, "tracks", f"{city_prefix}_10km")
+            f.write(f"/// {city_title} 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].\n")
+            f.write(f"pub static {var_name}: [TileSectorEntry; 9] = [\n")
+            current_sec = 0
+            for by in range(3):
+                for bx in range(3):
+                    jpg = os.path.join(city_dir, f"{city_prefix}_b{bx}_b{by}.jpg")
+                    b_sz = os.path.getsize(jpg) if os.path.exists(jpg) else 200000
+                    f.write(
+                        f"    TileSectorEntry {{ sector_offset: {current_sec}, "
+                        f"sector_count: {SECTORS_PER_BLOCK}, byte_len: {b_sz} }},\n"
+                    )
+                    current_sec += SECTORS_PER_BLOCK
+            f.write("];\n\n")
 
         f.write("/// Alias matching single-entry lookup for backwards compatibility.\n")
         f.write("pub static CIRCUIT_TILE_SECTORS: [TileSectorEntry; COUNT] = CIRCUIT_BLOCK_SECTORS;\n\n")

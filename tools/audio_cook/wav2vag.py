@@ -331,11 +331,19 @@ def cook_cdda_tracks(out_dir, source_dir):
     """Masters the 6 Red Book CD-DA audio tracks for disc tracks 2 through 7."""
     os.makedirs(out_dir, exist_ok=True)
     for tid, fname, source_name, role in CDDA_TRACKS:
+        path = os.path.join(out_dir, fname)
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            sectors = os.path.getsize(path) // 2352
+            seconds = sectors * CDDA_FRAMES_PER_SECTOR / CDDA_SAMPLE_RATE
+            print(
+                f"CD-DA Track {tid:02d} cached -> {path} "
+                f"({source_name}, {role}: {os.path.getsize(path)} bytes, {sectors} sectors, {seconds:.1f}s)"
+            )
+            continue
         mp3 = os.path.join(source_dir, source_name)
         if not os.path.exists(mp3):
             raise SystemExit(f"error: missing CD-DA source {mp3}")
         pcm = decode_to_cdda_pcm(mp3)
-        path = os.path.join(out_dir, fname)
         with open(path, "wb") as f:
             f.write(pcm)
         sectors = len(pcm) // 2352
