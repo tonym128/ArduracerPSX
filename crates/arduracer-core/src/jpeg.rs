@@ -41,14 +41,17 @@ const FIX_2_053119869: i32 = 16819;
 const FIX_2_562915447: i32 = 20995;
 const FIX_3_072711026: i32 = 25172;
 
-/// A compact canonical Huffman lookup table.
+pub const HUFF_LUT_BITS: usize = 9;
+pub const HUFF_LUT_SIZE: usize = 1 << HUFF_LUT_BITS; // 512
+
+/// A compact canonical Huffman lookup table with 9-bit fast O(1) prefix table.
 #[derive(Copy, Clone)]
 pub struct HuffTable {
     counts: [u8; 16],
     symbols: [u8; 162],
     num_symbols: usize,
-    /// Fast 8-bit lookup: high 8 bits = symbol, low 8 bits = length (0 if > 8 bits).
-    lut: [u16; 256],
+    /// Fast 9-bit lookup: high 8 bits = symbol, low 8 bits = length (0 if > 9 bits).
+    lut: [u16; HUFF_LUT_SIZE],
     /// Min code per length (1..=16)
     min_code: [u32; 17],
     /// Max code per length (1..=16)
@@ -69,7 +72,7 @@ impl HuffTable {
             counts: [0; 16],
             symbols: [0; 162],
             num_symbols: 0,
-            lut: [0; 256],
+            lut: [0; HUFF_LUT_SIZE],
             min_code: [0; 17],
             max_code: [0; 17],
             val_offset: [0; 17],
@@ -81,7 +84,7 @@ impl HuffTable {
         self.counts = *counts;
         self.num_symbols = symbols.len().min(162);
         self.symbols[..self.num_symbols].copy_from_slice(&symbols[..self.num_symbols]);
-        self.lut = [0; 256];
+        self.lut = [0; HUFF_LUT_SIZE];
 
         let mut code: u32 = 0;
         let mut sym_idx = 0usize;
@@ -102,8 +105,8 @@ impl HuffTable {
             for _ in 0..count {
                 if sym_idx < self.num_symbols {
                     let sym = self.symbols[sym_idx];
-                    if len <= 8 {
-                        let fill_bits = 8 - len;
+                    if len <= HUFF_LUT_BITS {
+                        let fill_bits = HUFF_LUT_BITS - len;
                         let base = (code << fill_bits) as usize;
                         let entries = 1usize << fill_bits;
                         for e in 0..entries {
@@ -122,7 +125,7 @@ impl HuffTable {
     /// Decodes one Huffman symbol from the bit reader.
     #[inline(always)]
     pub fn decode(&self, br: &mut BitReader) -> Option<u8> {
-        let peek = br.peek_bits(8);
+        let peek = br.peek_bits(HUFF_LUT_BITS as u8);
         let entry = self.lut[peek as usize];
         let len = (entry & 0xFF) as u8;
         if len > 0 {
@@ -130,16 +133,17 @@ impl HuffTable {
             return Some((entry >> 8) as u8);
         }
 
-        // Slower path for codes longer than 8 bits
+        // Slower path for codes longer than 9 bits (typically <2% of entropy stream)
         let code = br.peek_bits(16);
-        for l in 9..=16 {
+        for l in 10..=16 {
             let cur_code = (code >> (16 - l)) as i32;
-            if cur_code <= self.max_code[l] && cur_code >= self.min_code[l] as i32 {
+            if cur_code <= self.max_code[l] {
                 br.consume_bits(l as u8);
                 let idx = self.val_offset[l] + (cur_code - self.min_code[l] as i32) as usize;
                 if idx < self.num_symbols {
                     return Some(self.symbols[idx]);
                 }
+                break;
             }
         }
         None
@@ -404,6 +408,11 @@ fn idct_row(block: &mut [i32; 64], offset: usize) {
     let ws6 = block[offset + 6];
     let ws7 = block[offset + 7];
 
+    if ws0 == 0 && ws1 == 0 && ws2 == 0 && ws3 == 0 && ws4 == 0 && ws5 == 0 && ws6 == 0 && ws7 == 0
+    {
+        return;
+    }
+
     if ws1 == 0 && ws2 == 0 && ws3 == 0 && ws4 == 0 && ws5 == 0 && ws6 == 0 && ws7 == 0 {
         let val = ws0 << PASS1_BITS;
         block[offset] = val;
@@ -546,34 +555,59 @@ fn decode_block(
     last_dc: &mut i32,
     out_samples: &mut [u8; 64],
 ) {
-    let mut coeffs = [0i32; 64];
-
     // Decode DC coefficient
     let dc_size = dc_table.decode(br).unwrap_or(0);
     let dc_diff = br.read_signed(dc_size) as i32;
     *last_dc += dc_diff;
-    coeffs[0] = *last_dc * (q_table[0] as i32);
+    let dc_val = *last_dc * (q_table[0] as i32);
 
-    // Decode AC coefficients
-    let mut k = 1usize;
-    while k < 64 {
-        let sym = ac_table.decode(br).unwrap_or(0);
-        if sym == 0 {
-            // EOB: End of Block
-            break;
-        }
-        let run = (sym >> 4) as usize;
-        let size = sym & 0x0F;
-        k += run;
-        if k >= 64 {
-            break;
-        }
+    // Fast AC early-out: decode first AC symbol.
+    // If first symbol is 0 (EOB), all 63 AC coefficients are zero!
+    let first_sym = ac_table.decode(br).unwrap_or(0);
+    if first_sym == 0 {
+        // Pure DC flat block: 2D IDCT collapses to a constant spatial level.
+        // Bit-for-bit identical to full idct_col(idct_row(dc)):
+        // sample = ((dc_val + 4) >> 3).clamp(-128, 127) + 128
+        let sample = (((dc_val + 4) >> 3).clamp(-128, 127) + 128) as u8;
+        out_samples.fill(sample);
+        return;
+    }
+
+    let mut coeffs = [0i32; 64];
+    coeffs[0] = dc_val;
+
+    // Process the first AC symbol already fetched
+    let run = (first_sym >> 4) as usize;
+    let size = first_sym & 0x0F;
+    let mut k = 1 + run;
+    if k < 64 {
         if size > 0 {
             let val = br.read_signed(size) as i32;
             let zz = ZIGZAG[k];
             coeffs[zz] = val * (q_table[k] as i32);
         }
         k += 1;
+
+        // Decode remaining AC coefficients
+        while k < 64 {
+            let sym = ac_table.decode(br).unwrap_or(0);
+            if sym == 0 {
+                // EOB: End of Block
+                break;
+            }
+            let run = (sym >> 4) as usize;
+            let size = sym & 0x0F;
+            k += run;
+            if k >= 64 {
+                break;
+            }
+            if size > 0 {
+                let val = br.read_signed(size) as i32;
+                let zz = ZIGZAG[k];
+                coeffs[zz] = val * (q_table[k] as i32);
+            }
+            k += 1;
+        }
     }
 
     idct_8x8(&coeffs, out_samples);
@@ -781,6 +815,26 @@ mod tests {
     }
 
     #[test]
+    fn test_dc_flat_block_exact_equivalence() {
+        // Verify that (((dc_val + 4) >> 3).clamp(-128, 127) + 128) as u8
+        // is 100% bit-for-bit identical to full idct_8x8 for any DC value.
+        for dc in -2048..=2048 {
+            let mut coeffs = [0i32; 64];
+            coeffs[0] = dc;
+            let mut idct_out = [0u8; 64];
+            idct_8x8(&coeffs, &mut idct_out);
+
+            let fast_sample = (((dc + 4) >> 3).clamp(-128, 127) + 128) as u8;
+            for (idx, &px) in idct_out.iter().enumerate() {
+                assert_eq!(
+                    px, fast_sample,
+                    "Mismatch at dc={dc}, idx={idx}: idct={px} vs fast={fast_sample}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_zigzag_table_bounds() {
         assert_eq!(ZIGZAG.len(), 64);
         for &z in &ZIGZAG {
@@ -827,6 +881,29 @@ mod tests {
                 non_zero > 1000,
                 "Tile should contain non-zero pixels, got {non_zero}"
             );
+        }
+    }
+
+    #[test]
+    fn test_decode_capetown_tiles() {
+        let path = "../../tracks/capetown_10km/capetown_b0_b0.jpg";
+        if let Ok(data) = std::fs::read(path) {
+            let header = JpegHeader::parse(&data).expect("Must parse header");
+            assert_eq!(header.width, 1024);
+            assert_eq!(header.height, 1024);
+            assert_eq!(header.restart_interval, 4);
+
+            let mut restart_offsets = [0u32; RESTART_INTERVAL_COUNT];
+            header.index_restarts(&data, &mut restart_offsets);
+
+            let mut out = [0u16; TILE_PIXELS];
+            for ty in 0..4 {
+                for tx in 0..4 {
+                    decode_tile_64x64(&data, &header, &restart_offsets, tx, ty, &mut out);
+                    let non_zero = out.iter().filter(|&&px| px != 0).count();
+                    assert!(non_zero > 1000, "Tile ({tx},{ty}) non-zero: {non_zero}");
+                }
+            }
         }
     }
 }
