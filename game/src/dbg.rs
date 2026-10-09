@@ -28,6 +28,7 @@ pub fn print_hex(val: u32) {
 }
 
 #[inline(never)]
+#[allow(unused_mut)]
 pub fn print_dec(mut v: u32) {
     #[cfg(target_arch = "mips")]
     {

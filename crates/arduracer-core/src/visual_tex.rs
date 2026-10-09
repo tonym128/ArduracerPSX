@@ -30,6 +30,8 @@ pub const RAW_TILE_HALFWORDS: usize = TILE_DIM * TILE_DIM;
 pub const RAW_TILE_BYTES: usize = RAW_TILE_HALFWORDS * 2;
 /// Name of the track visual asset file on the CD-ROM disc.
 pub const TRACKS_BIN_NAME: &[u8] = b"TRACKS.BIN";
+/// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.
+pub const CAPETOWN_BIN_NAME: &[u8] = b"CAPETOWN.BIN";
 
 /// CD-ROM sector index entry for a compressed 1024x1024 JPEG block in TRACKS.BIN.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -63,6 +65,55 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
         sector_offset: 300,
         sector_count: 100,
         byte_len: 204783,
+    },
+];
+
+/// Cape Town 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
+pub static CAPETOWN_BLOCK_SECTORS: [TileSectorEntry; 9] = [
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 100,
+        byte_len: 137276,
+    },
+    TileSectorEntry {
+        sector_offset: 100,
+        sector_count: 100,
+        byte_len: 200201,
+    },
+    TileSectorEntry {
+        sector_offset: 200,
+        sector_count: 100,
+        byte_len: 202761,
+    },
+    TileSectorEntry {
+        sector_offset: 300,
+        sector_count: 100,
+        byte_len: 201551,
+    },
+    TileSectorEntry {
+        sector_offset: 400,
+        sector_count: 100,
+        byte_len: 202370,
+    },
+    TileSectorEntry {
+        sector_offset: 500,
+        sector_count: 100,
+        byte_len: 204573,
+    },
+    TileSectorEntry {
+        sector_offset: 600,
+        sector_count: 100,
+        byte_len: 201942,
+    },
+    TileSectorEntry {
+        sector_offset: 700,
+        sector_count: 100,
+        byte_len: 201336,
+    },
+    TileSectorEntry {
+        sector_offset: 800,
+        sector_count: 100,
+        byte_len: 203666,
     },
 ];
 

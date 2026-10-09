@@ -13,6 +13,7 @@
 
 pub mod ai;
 pub mod ai_profiles;
+pub mod capetown;
 pub mod championship;
 pub mod drift;
 pub mod ghost;
@@ -31,6 +32,7 @@ pub mod visual_tex;
 
 pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
 pub use ai_profiles::{AiProfile, AI_PROFILES};
+pub use capetown::TRACK_CAPETOWN;
 pub use championship::{compute_standings, ChampionshipSession, Competitor, POINTS_TABLE};
 pub use drift::{DriftState, DRIFT_BOOST_LEVEL1_TICKS, DRIFT_BOOST_LEVEL2_TICKS, SPINOUT_TICKS};
 pub use ghost::{

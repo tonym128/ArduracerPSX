@@ -28,7 +28,7 @@ pub const MAX_TRACK_CHECKPOINTS: usize = 24;
 /// ~347 KB the PSX build has free. The next step down, 192x192, is 884 KB and
 /// does not fit; see the note on [`TILE_SIZE`] for why 16-unit cells are the
 /// floor rather than the ceiling.
-pub const MAX_TRACK_DIM: usize = 96;
+pub const MAX_TRACK_DIM: usize = 240;
 /// Largest cell index the `u8` cell API can represent.
 ///
 /// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
@@ -630,10 +630,9 @@ mod tests {
         let one_past = (MAX_TRACK_DIM as i32 + 1) * TILE_SIZE;
         for (units, wrapped_before) in [
             (one_past, 0), // one past the ceiling
-            (4_096, 64),   // 64 tiles
-            (8_191, 127),  // 127 tiles
-            (16_383, 255), // 255 tiles -- one below the wrap
-            (16_384, 0),   // 256 tiles -> wrapped to 0
+            (8_191, 127),  // 255 tiles
+            (16_383, 255), // 511 tiles -- one below the wrap
+            (16_384, 0),   // 512 tiles -> wrapped to 0
             (100_000, 26), // 1562 tiles -> wrapped
             (524_287, 31), // 8191 tiles, the largest world
         ] {

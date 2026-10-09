@@ -448,6 +448,7 @@ disc: assets exe
 		--volume ARDURACER \
 		--file $(ROOT)/assets/INTRO.STR \
 		--file $(ROOT)/assets/TRACKS.BIN \
+		--file $(ROOT)/assets/CAPETOWN.BIN \
 		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
 		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \
 		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \
