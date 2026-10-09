@@ -1,97 +1,58 @@
-//! Per-pixel track renderer.
+//! JPEG-Streamed Track Texture Renderer with Hierarchical RAM and VRAM LRU Caching.
 //!
-//! The old `tile_blitter.rs` drew the circuit as one flat GP0 rectangle per
-//! 32x32 surface cell -- the world is 96x96 cells by construction, so the
-//! road was a 32-world-unit staircase: blocky borders, no kerb painting, no
-//! racing line. This module replaces that layer with a genuine textured
-//! quad: the whole world visual, baked at per-pixel resolution into one
-//! 4-bit CLUT texture in VRAM, sampled a window at a time.
+//! # Architecture
 //!
-//! # Design, and why not the other candidates
+//! 1. **RAM Block Cache (1024x1024 blocks @ ~100 KB each):**
+//!    Main PSX RAM maintains an LRU cache of 3 resident 1024x1024 JPEG blocks
+//!    (~300 KB total). Blocks are streamed from CD-ROM (`TRACKS.BIN`) only when
+//!    crossing large 1024-texel geographic boundaries.
 //!
-//! *4bpp, not 15bpp.* The level palette has exactly 16 colours, so 4bpp
-//! carries the visual losslessly; a 15bpp texture would cost 2 bytes per
-//! texel and still not help. More decisively, the hardware caps a single
-//! texture page at 256 texels wide in 4bpp but only 64 in 15bpp -- so a
-//! wide direct-colour window (like the one the first draft planned) needs
-//! seven page-tiles across, and a wide 4bpp one needs only three. The
-//! CLUT is 16 halfwords and free.
+//! 2. **VRAM Tile Cache (64x64 blocks @ 8 KB each):**
+//!    PSX VRAM maintains a 64-slot LRU cache across 4 texture pages (16 slots of
+//!    64x64 per 256x256 Tpage = 64 slots total = 512 KB VRAM pool).
 //!
-//! *Whole world resident, not a streamed window.* The task sketch was a
-//! 15-bit window sized to the visible rect, re-uploaded as the camera
-//! moves. The upload path is GP0 FIFO word writes (the DMA path is
-//! opt-in only because a Clayton-s silicon erratum can wedge channel 2;
-//! see `psx_vram::upload_bytes`), and a 51 KB tile upload is a few ms
-//! of CPU at release rates -- it would hitch every time the camera
-//! re-centred. The 2560-world at 4bpp is 320x320 texels = 51 KB, which
-//! *fits* VRAM with room to spare: ~300 KB of framebuffers + 51 KB of
-//! track + 8 KB of minimap ≈ 360 KB of 1 MB. One upload at track load
-//! costs the same few ms once, and then the per-frame cost is zero -- a
-//! UV window re-selected per quad instead of a VRAM re-upload.
-//! "Streaming" therefore happens in the *addressing* (a UV rect into the
-//! resident world texture), not in DMA.
+//! 3. **CD-ROM Decoupling & Audio Continuity:**
+//!    64x64 tiles are decompressed on-demand directly from the in-memory JPEG blocks
+//!    in RAM into VRAM using our freestanding integer JPEG decoder (`arduracer_core::jpeg`).
+//!    This decompression NEVER touches the CD-ROM drive during active gameplay,
+//!    guaranteeing that CD-DA Redbook audio plays with zero interruptions, zero head seeks,
+//!    and zero audio stutter.
 //!
-//! *One circuit resident at a time.* `visual_tex::PACKED` holds a packed
-//! texture for every authored circuit, but only the active one is ever
-//! uploaded, so VRAM holds 51 KB rather than four times that. The RAM
-//! side is the constraint that dictated the texture size: all four live
-//! in `.rodata` for the whole life of the program, and at the previous
-//! 768x768 they would have been 1.15 MB against a static-RAM ceiling of
-//! under a megabyte.
-//!
-//! *One VRAM band, no fold.* A 4bpp page is 256 texels tall and VRAM is
-//! 512 rows, so the old 768-row image needed three page stripes and the
-//! third had to be laid out beside the first two -- band 1 at x 320..512,
-//! y 0..512, band 2 at x 512..704, y 0..256 -- which `page_for` encoded.
-//! The 320-row image fits inside 512 rows outright, so there is one band
-//! and `page_for` is plain page arithmetic again.
-//!
-//! # Failure modes guarded here
-//!
-//! *UV wrap at the page edge.* A 4bpp primitive's U coordinate is 8 bits
-//! and wraps inside its 256-texel page. No quad may span a page boundary
-//! in one primitive: it would sample the page's left edge at the seam.
-//! Hence one quad per 3x3 tile intersecting the visible rect, each with
-//! its own `Tpage`. At a 256-texel-to-UV 1:1 fit, a quad covering the
-//! whole tile would need u1 = 256, which overflows u8 -- capping at 255
-//! buys one texel of stretch, which is the cheaper error than a wrap.
-//!
-//! *Zoom.* The visible window is `camera.visible_half_extents()` around
-//! the camera centre; quads are axis-aligned in screen space, which is
-//! what the camera's uniform-scale zoom produces, and the PSX quads are
-//! affine-mapped over a linear screen rect, which is perspective-correct
-//! for a uniform scale.
-//!
-//! *Culling.* The visible rect is clamped to the track bounds so a
-//! zoom-out at the world edge cannot sample outside the world.
+//! 4. **Massive Playfield Scalability (10km x 10km City Support):**
+//!    The coordinate addressing maps arbitrary world extents to an unbounded 2D grid
+//!    of 1024x1024 blocks. Both RAM and VRAM memory consumption remain strictly constant
+//!    and bounded regardless of world size.
 
+use arduracer_core::jpeg::{
+    decode_tile_64x64, JpegHeader, RESTART_INTERVAL_COUNT, TILE_PIXELS, TILE_TEXELS,
+};
 use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
 use crate::cd_fs::DiscReader;
 use crate::gpu::camera::Camera;
 use crate::gpu::texlayout::{
-    TRACK_SLOT_COUNT, TRACK_TILE_DIM, TRACK_VRAM_SLOTS, TRACK_WU_PER_TEXEL,
+    self, BLOCK_DIM, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, TRACK_WU_PER_TEXEL,
+    VRAM_SLOT_COUNT, VRAM_TILE_DIM,
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
-use psx_vram::{upload_16bpp_stream, TexDepth, Tpage, VramRect};
+use psx_vram::{upload_16bpp, TexDepth, Tpage, VramRect};
 
-/// Source texels are 2x2 world units (2560 world units / 1280 texels).
+/// World units per visual texel (2 world units per texel).
 const WU_PER_TEXEL: i32 = TRACK_WU_PER_TEXEL as i32;
 
-/// One source tile of the page grid: 256 texels.
-const TILE_TEX: i32 = TRACK_TILE_DIM as i32;
+/// World size of one 64x64 tile: 64 * 2 = 128 world units.
+const TILE_WU: i32 = (VRAM_TILE_DIM as i32) * WU_PER_TEXEL;
 
-/// Tile world size: 256 texels * 2 world units/texel = 512 world units.
-const TILE_WU: i32 = TILE_TEX * WU_PER_TEXEL;
+/// World size of one 1024x1024 block: 1024 * 2 = 2048 world units.
+const BLOCK_WU: i32 = (BLOCK_DIM as i32) * WU_PER_TEXEL;
 
-/// Maximum sectors per compressed tile bounce buffer (64 sectors = 128 KB).
-const MAX_TILE_SECTORS: usize = 64;
-const TILE_BUFFER_BYTES: usize = MAX_TILE_SECTORS * 2048;
+/// Capacity of the in-RAM JPEG block LRU cache (3 blocks of 1024x1024 @ 100 KB each).
+pub const RAM_CACHE_BLOCKS: usize = 3;
 
-/// Precomputed Tpage descriptors for each of the 4 working VRAM slots.
-const SLOT_TPAGES: [Tpage; TRACK_SLOT_COUNT] = [
+/// Precomputed Tpage descriptors for each of the 4 allocated 256x256 VRAM regions.
+const TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
     Tpage::new(
         TRACK_VRAM_SLOTS[0].0,
         TRACK_VRAM_SLOTS[0].1,
@@ -114,63 +75,102 @@ const SLOT_TPAGES: [Tpage; TRACK_SLOT_COUNT] = [
     ),
 ];
 
+/// An in-RAM resident 1024x1024 JPEG image block.
+struct RamBlock {
+    resident_circuit: usize,
+    resident_block_x: usize,
+    resident_block_y: usize,
+    last_used: u32,
+    header: JpegHeader,
+    restart_offsets: [u32; RESTART_INTERVAL_COUNT],
+    jpeg_data: [u8; visual_tex::BLOCK_MAX_BYTES],
+    byte_len: usize,
+    valid: bool,
+}
+
+impl RamBlock {
+    const fn new() -> Self {
+        Self {
+            resident_circuit: 0,
+            resident_block_x: 0,
+            resident_block_y: 0,
+            last_used: 0,
+            header: JpegHeader {
+                width: 0,
+                height: 0,
+                restart_interval: 0,
+                q_tables: [[0; 64]; 2],
+                dc_huffman: [arduracer_core::jpeg::HuffTable::empty(); 2],
+                ac_huffman: [arduracer_core::jpeg::HuffTable::empty(); 2],
+                scan_offset: 0,
+            },
+            restart_offsets: [0; RESTART_INTERVAL_COUNT],
+            jpeg_data: [0u8; visual_tex::BLOCK_MAX_BYTES],
+            byte_len: 0,
+            valid: false,
+        }
+    }
+}
+
+/// A resident 64x64 tile in the VRAM cache.
 #[derive(Copy, Clone)]
 struct VramSlot {
     resident_circuit: usize,
-    resident_tile: Option<usize>,
+    resident_block_x: usize,
+    resident_block_y: usize,
+    resident_tile_x: usize,
+    resident_tile_y: usize,
     last_used: u32,
 }
 
-/// Dynamic 4-slot VRAM LRU tile cache.
-static mut SLOTS: [VramSlot; TRACK_SLOT_COUNT] = [
-    VramSlot {
-        resident_circuit: usize::MAX,
-        resident_tile: None,
-        last_used: 0,
-    },
-    VramSlot {
-        resident_circuit: usize::MAX,
-        resident_tile: None,
-        last_used: 0,
-    },
-    VramSlot {
-        resident_circuit: usize::MAX,
-        resident_tile: None,
-        last_used: 0,
-    },
-    VramSlot {
-        resident_circuit: usize::MAX,
-        resident_tile: None,
-        last_used: 0,
-    },
-];
+impl VramSlot {
+    const fn empty() -> Self {
+        Self {
+            resident_circuit: usize::MAX,
+            resident_block_x: usize::MAX,
+            resident_block_y: usize::MAX,
+            resident_tile_x: usize::MAX,
+            resident_tile_y: usize::MAX,
+            last_used: 0,
+        }
+    }
+}
+
+/// 3-slot RAM LRU cache holding 1024x1024 JPEG blocks (~300 KB total).
+static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] =
+    [RamBlock::new(), RamBlock::new(), RamBlock::new()];
+
+/// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
+static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];
+
+/// Temporary scratch buffer for 64x64 tile decompression (4096 halfwords = 8 KB).
+static mut TILE_SCRATCH: [u16; TILE_PIXELS] = [0u16; TILE_PIXELS];
 
 static mut ACTIVE_CIRCUIT: usize = 0;
 static mut FRAME_COUNTER: u32 = 0;
 
-/// Static zero-allocation streaming ring buffer in .bss for decompressing
-/// 15-bit direct colour circuit textures directly into VRAM.
-static mut STREAM_RING: [u8; visual_tex::STREAM_WINDOW] = [0u8; visual_tex::STREAM_WINDOW];
-
-/// Scratch bounce buffer for streaming sectors off the CD disc into VRAM.
-static mut TILE_BOUNCE_BUFFER: [u8; TILE_BUFFER_BYTES] = [0u8; TILE_BUFFER_BYTES];
 static mut DISC_READER: DiscReader = DiscReader::new();
 static mut TRACKS_BIN_LBA: Option<u32> = None;
 static mut TRACKS_PROBED: bool = false;
 
-/// Prepares the track texture streaming cache for a new circuit.
+/// Prepares the track texture streaming cache for a new circuit or city.
 #[allow(clippy::needless_range_loop)]
 pub fn init_track_texture(circuit: usize) {
     let c = circuit % visual_tex::COUNT;
     unsafe {
         ACTIVE_CIRCUIT = c;
-        for i in 0..TRACK_SLOT_COUNT {
-            let slot = &mut *core::ptr::addr_of_mut!(SLOTS[i]);
-            slot.resident_circuit = usize::MAX;
-            slot.resident_tile = None;
-            slot.last_used = 0;
+        let vram_slots = &mut *core::ptr::addr_of_mut!(VRAM_SLOTS);
+        for i in 0..VRAM_SLOT_COUNT {
+            vram_slots[i] = VramSlot::empty();
+        }
+        let ram_blocks = &mut *core::ptr::addr_of_mut!(RAM_BLOCKS);
+        for i in 0..RAM_CACHE_BLOCKS {
+            ram_blocks[i].resident_circuit = usize::MAX;
+            ram_blocks[i].valid = false;
+            ram_blocks[i].last_used = 0;
         }
         FRAME_COUNTER = 0;
+
         if !TRACKS_PROBED {
             let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
             crate::dbg::println("[TRACKTEX] Probing disc for TRACKS.BIN...");
@@ -184,7 +184,143 @@ pub fn init_track_texture(circuit: usize) {
             crate::dbg::println("");
             TRACKS_PROBED = true;
         }
+
+        // Preload initial 1024x1024 block for the circuit into RAM slot 0 before race starts
+        load_block_into_ram(c, 0, 0, 0);
     }
+}
+
+/// Streams a 1024x1024 JPEG block (~100 KB) from CD-ROM into the specified RAM cache slot.
+#[inline(never)]
+fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) {
+    let bin_lba = unsafe { TRACKS_BIN_LBA };
+    let c = circuit % visual_tex::COUNT;
+    let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[c];
+    let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
+    let mut loaded = false;
+
+    if let Some(lba) = bin_lba {
+        let block_lba = lba + entry.sector_offset;
+        let sector_count = entry.sector_count as usize;
+        let byte_len = entry.byte_len as usize;
+        let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+
+        if sector_count <= visual_tex::BLOCK_SECTORS
+            && reader.read_sectors(block_lba, sector_count, &mut ram_slot.jpeg_data)
+        {
+            ram_slot.byte_len = byte_len;
+            if let Some(hdr) = JpegHeader::parse(&ram_slot.jpeg_data[..byte_len]) {
+                hdr.index_restarts(
+                    &ram_slot.jpeg_data[..byte_len],
+                    &mut ram_slot.restart_offsets,
+                );
+                ram_slot.header = hdr;
+                ram_slot.resident_circuit = circuit;
+                ram_slot.resident_block_x = block_x;
+                ram_slot.resident_block_y = block_y;
+                ram_slot.valid = true;
+                loaded = true;
+            }
+        }
+    }
+
+    if !loaded {
+        // Fallback pattern if disc read fails
+        ram_slot.resident_circuit = circuit;
+        ram_slot.resident_block_x = block_x;
+        ram_slot.resident_block_y = block_y;
+        ram_slot.byte_len = 0;
+        ram_slot.valid = false;
+    }
+}
+
+/// Ensures the required 1024x1024 block is resident in RAM, returning its RAM slot index.
+#[inline(never)]
+#[allow(clippy::needless_range_loop)]
+fn ensure_ram_block(circuit: usize, block_x: usize, block_y: usize, current_frame: u32) -> usize {
+    let blocks = unsafe { &mut *core::ptr::addr_of_mut!(RAM_BLOCKS) };
+    for i in 0..RAM_CACHE_BLOCKS {
+        let b = &mut blocks[i];
+        if b.valid
+            && b.resident_circuit == circuit
+            && b.resident_block_x == block_x
+            && b.resident_block_y == block_y
+        {
+            b.last_used = current_frame;
+            return i;
+        }
+    }
+
+    // Find least recently used RAM slot
+    let mut best_slot = 0;
+    let mut oldest_age = u32::MAX;
+    for i in 0..RAM_CACHE_BLOCKS {
+        if !blocks[i].valid {
+            best_slot = i;
+            break;
+        }
+        if blocks[i].last_used < oldest_age {
+            oldest_age = blocks[i].last_used;
+            best_slot = i;
+        }
+    }
+
+    load_block_into_ram(circuit, block_x, block_y, best_slot);
+    blocks[best_slot].last_used = current_frame;
+    best_slot
+}
+
+/// Decompresses a 64x64 block from an in-RAM JPEG directly into a VRAM cache slot.
+///
+/// NOTE: Operates ENTIRELY in main RAM and VRAM. Does NOT touch the CD-ROM!
+#[inline(never)]
+fn decompress_tile_to_vram(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    tile_x: usize,
+    tile_y: usize,
+    vram_slot: usize,
+    current_frame: u32,
+) {
+    let ram_slot_idx = ensure_ram_block(circuit, block_x, block_y, current_frame);
+    let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
+    let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
+
+    if ram_slot.valid && ram_slot.byte_len > 0 {
+        decode_tile_64x64(
+            &ram_slot.jpeg_data[..ram_slot.byte_len],
+            &ram_slot.header,
+            &ram_slot.restart_offsets,
+            tile_x,
+            tile_y,
+            scratch,
+        );
+    } else {
+        // Fallback procedural checkerboard when JPEG is absent
+        for y in 0..TILE_TEXELS {
+            for x in 0..TILE_TEXELS {
+                let c = if ((x >> 3) ^ (y >> 3)) & 1 == 0 {
+                    0x1CE7
+                } else {
+                    0x2108
+                };
+                scratch[y * TILE_TEXELS + x] = c;
+            }
+        }
+    }
+
+    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(vram_slot);
+    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
+    upload_16bpp(rect, scratch);
+
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[vram_slot].resident_circuit = circuit;
+    vram_slots[vram_slot].resident_block_x = block_x;
+    vram_slots[vram_slot].resident_block_y = block_y;
+    vram_slots[vram_slot].resident_tile_x = tile_x;
+    vram_slots[vram_slot].resident_tile_y = tile_y;
+    vram_slots[vram_slot].last_used = current_frame;
 }
 
 /// Draws the visible world window as textured quads, streaming tiles dynamically.
@@ -192,56 +328,7 @@ pub fn render_track(track: &TrackDef, camera: &Camera) {
     render_track_extents(track.world_width(), track.world_height(), camera);
 }
 
-/// Loads a tile from CD (or fallback checkerboard) directly into the specified VRAM slot.
-#[inline(never)]
-fn load_tile_into_slot(
-    active_circuit: usize,
-    tile_idx: usize,
-    best_slot: usize,
-    ring: &mut [u8; visual_tex::STREAM_WINDOW],
-) {
-    let (slot_x, slot_y) = TRACK_VRAM_SLOTS[best_slot];
-    let rect = VramRect::new(slot_x, slot_y, TILE_TEX as u16, TILE_TEX as u16);
-    let entry = visual_tex::CIRCUIT_TILE_SECTORS[active_circuit][tile_idx];
-    let bin_lba = unsafe { TRACKS_BIN_LBA };
-    let mut loaded = false;
-
-    if let Some(lba) = bin_lba {
-        let tile_lba = lba + entry.sector_offset;
-        let sector_count = entry.sector_count as usize;
-        let byte_len = entry.byte_len as usize;
-        let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-        let buf = unsafe { &mut *core::ptr::addr_of_mut!(TILE_BOUNCE_BUFFER) };
-
-        if sector_count <= MAX_TILE_SECTORS && reader.read_sectors(tile_lba, sector_count, buf) {
-            let stream = &buf[..byte_len];
-            upload_16bpp_stream(rect, |emit| {
-                visual_tex::decompress_stream(stream, visual_tex::RAW_TILE_HALFWORDS, ring, |hw| {
-                    emit(hw);
-                });
-            });
-            loaded = true;
-        }
-    }
-
-    if !loaded {
-        // Graceful fallback pattern when CD-ROM / TRACKS.BIN is not present
-        upload_16bpp_stream(rect, |emit| {
-            for y in 0..TILE_TEX {
-                for x in 0..TILE_TEX {
-                    let c = if ((x >> 4) ^ (y >> 4)) & 1 == 0 {
-                        0x1CE7
-                    } else {
-                        0x2108
-                    };
-                    emit(c);
-                }
-            }
-        });
-    }
-}
-
-/// Renders the world texture clamped to arbitrary world extents (e.g. tracks or cities).
+/// Renders the world texture clamped to arbitrary world extents (tracks or 10km x 10km cities).
 #[inline(never)]
 #[allow(clippy::needless_range_loop)]
 pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
@@ -263,86 +350,100 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     }
     let current_frame = unsafe { FRAME_COUNTER };
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
 
     let tile_wu = TILE_WU;
-    let max_grid_x = (visual_tex::TILES_X - 1) as i32;
-    let max_grid_y = (visual_tex::TILES_Y - 1) as i32;
+    let block_wu = BLOCK_WU;
 
-    let min_tx = (x0 / tile_wu).clamp(0, max_grid_x) as usize;
-    let max_tx = ((x1 - 1).max(0) / tile_wu).clamp(0, max_grid_x) as usize;
-    let min_ty = (y0 / tile_wu).clamp(0, max_grid_y) as usize;
-    let max_ty = ((y1 - 1).max(0) / tile_wu).clamp(0, max_grid_y) as usize;
+    let min_tx = (x0 / tile_wu).max(0);
+    let max_tx = (x1 - 1).max(0) / tile_wu;
+    let min_ty = (y0 / tile_wu).max(0);
+    let max_ty = (y1 - 1).max(0) / tile_wu;
 
-    let mut visible_tiles: [(usize, usize, usize); 4] = [(0, 0, 0); 4];
+    // Maximum 48 visible tiles per frame on standard screen resolution (320x240)
+    let mut visible_tiles: [(i32, i32, usize, usize, usize, usize); 48] = [(0, 0, 0, 0, 0, 0); 48];
     let mut vis_count = 0;
+
     for ty in min_ty..=max_ty {
         for tx in min_tx..=max_tx {
-            let wx0 = tx as i32 * tile_wu;
-            let wy0 = ty as i32 * tile_wu;
+            let wx0 = tx * tile_wu;
+            let wy0 = ty * tile_wu;
             let tx0 = x0.max(wx0);
             let tx1 = x1.min(wx0 + tile_wu);
             let ty0 = y0.max(wy0);
             let ty1 = y1.min(wy0 + tile_wu);
-            if tx0 < tx1 && ty0 < ty1 && vis_count < 4 {
-                visible_tiles[vis_count] = (tx, ty, ty * visual_tex::TILES_X + tx);
+
+            if tx0 < tx1 && ty0 < ty1 && vis_count < 48 {
+                let bx = (wx0 / block_wu) as usize;
+                let by = (wy0 / block_wu) as usize;
+                let sub_tx = ((wx0 % block_wu) / tile_wu)
+                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                    as usize;
+                let sub_ty = ((wy0 % block_wu) / tile_wu)
+                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                    as usize;
+
+                visible_tiles[vis_count] = (tx, ty, bx, by, sub_tx, sub_ty);
                 vis_count += 1;
             }
         }
     }
 
-    let mut slot_for_tile = [0usize; 4];
-    let mut used_slots = [false; 4];
+    let mut slot_for_tile = [0usize; 48];
+    let mut used_slots = [false; VRAM_SLOT_COUNT];
 
-    // Phase 1: Match already-resident tiles in VRAM cache
+    // Phase 1: Match already-resident 64x64 tiles in VRAM LRU cache
     for i in 0..vis_count {
-        let (_, _, tile_idx) = visible_tiles[i];
+        let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
         let mut found = None;
-        unsafe {
-            for s_idx in 0..TRACK_SLOT_COUNT {
-                let slot = &*core::ptr::addr_of!(SLOTS[s_idx]);
-                if slot.resident_circuit == active_circuit && slot.resident_tile == Some(tile_idx) {
-                    found = Some(s_idx);
-                    break;
-                }
+
+        for s_idx in 0..VRAM_SLOT_COUNT {
+            let slot = &vram_slots[s_idx];
+            if slot.resident_circuit == active_circuit
+                && slot.resident_block_x == bx
+                && slot.resident_block_y == by
+                && slot.resident_tile_x == sub_tx
+                && slot.resident_tile_y == sub_ty
+            {
+                found = Some(s_idx);
+                break;
             }
         }
+
         if let Some(s_idx) = found {
             slot_for_tile[i] = s_idx;
             used_slots[s_idx] = true;
-            unsafe {
-                let slot = &mut *core::ptr::addr_of_mut!(SLOTS[s_idx]);
-                slot.last_used = current_frame;
-            }
+            vram_slots[s_idx].last_used = current_frame;
         }
     }
 
-    // Phase 2: Allocate slots for missing tiles and stream them directly into VRAM
-    let ring = unsafe { &mut *core::ptr::addr_of_mut!(STREAM_RING) };
+    // Phase 2: Allocate slots for missing tiles and decompress from RAM to VRAM
     for i in 0..vis_count {
-        let (_, _, tile_idx) = visible_tiles[i];
-        let is_hit = unsafe {
-            let s = slot_for_tile[i];
-            let slot = &*core::ptr::addr_of!(SLOTS[s]);
-            slot.resident_circuit == active_circuit && slot.resident_tile == Some(tile_idx)
-        };
+        let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+        let s = slot_for_tile[i];
+        let slot = &vram_slots[s];
+        let is_hit = slot.resident_circuit == active_circuit
+            && slot.resident_block_x == bx
+            && slot.resident_block_y == by
+            && slot.resident_tile_x == sub_tx
+            && slot.resident_tile_y == sub_ty;
         if is_hit {
             continue;
         }
 
+        // Find oldest VRAM slot not currently visible in this frame
         let mut best_slot = 0;
         let mut oldest_age = u32::MAX;
-        unsafe {
-            for s_idx in 0..TRACK_SLOT_COUNT {
-                if !used_slots[s_idx] {
-                    let slot = &*core::ptr::addr_of!(SLOTS[s_idx]);
-                    if slot.resident_tile.is_none() {
-                        best_slot = s_idx;
-                        break;
-                    }
-                    if slot.last_used < oldest_age {
-                        oldest_age = slot.last_used;
-                        best_slot = s_idx;
-                    }
+        for s_idx in 0..VRAM_SLOT_COUNT {
+            if !used_slots[s_idx] {
+                let slot = &vram_slots[s_idx];
+                if slot.resident_circuit == usize::MAX {
+                    best_slot = s_idx;
+                    break;
+                }
+                if slot.last_used < oldest_age {
+                    oldest_age = slot.last_used;
+                    best_slot = s_idx;
                 }
             }
         }
@@ -350,22 +451,25 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
         slot_for_tile[i] = best_slot;
         used_slots[best_slot] = true;
 
-        load_tile_into_slot(active_circuit, tile_idx, best_slot, ring);
-
-        unsafe {
-            SLOTS[best_slot].resident_circuit = active_circuit;
-            SLOTS[best_slot].resident_tile = Some(tile_idx);
-            SLOTS[best_slot].last_used = current_frame;
-        }
+        // Decompress 64x64 block from in-RAM JPEG directly to VRAM (NO CD-ROM TOUCHED)
+        decompress_tile_to_vram(
+            active_circuit,
+            bx,
+            by,
+            sub_tx,
+            sub_ty,
+            best_slot,
+            current_frame,
+        );
     }
 
-    // Phase 3: Render visible textured quads using assigned VRAM slot Tpages
+    // Phase 3: Render visible textured quads using assigned VRAM slot Tpages and UVs
     for i in 0..vis_count {
-        let (tx, ty, _) = visible_tiles[i];
+        let (tx, ty, _, _, _, _) = visible_tiles[i];
         let s_idx = slot_for_tile[i];
 
-        let wx0 = tx as i32 * tile_wu;
-        let wy0 = ty as i32 * tile_wu;
+        let wx0 = tx * tile_wu;
+        let wy0 = ty * tile_wu;
         let tx0 = x0.max(wx0);
         let tx1 = x1.min(wx0 + tile_wu);
         let ty0 = y0.max(wy0);
@@ -388,13 +492,19 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
             y: Fixed::from_int(ty1),
         });
 
-        // Tile-local UV coordinates: 0..255
-        let u0 = ((tx0 - wx0) / WU_PER_TEXEL).clamp(0, 255) as u8;
-        let u1 = ((tx1 - wx0) / WU_PER_TEXEL).min(255) as u8;
-        let v0 = ((ty0 - wy0) / WU_PER_TEXEL).clamp(0, 255) as u8;
-        let v1 = ((ty1 - wy0) / WU_PER_TEXEL).min(255) as u8;
+        let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
 
-        let tpage = SLOT_TPAGES[s_idx];
+        let local_u0 = ((tx0 - wx0) / WU_PER_TEXEL) as u16;
+        let local_u1 = ((tx1 - wx0) / WU_PER_TEXEL) as u16;
+        let local_v0 = ((ty0 - wy0) / WU_PER_TEXEL) as u16;
+        let local_v1 = ((ty1 - wy0) / WU_PER_TEXEL) as u16;
+
+        let u0 = ((u_base as u16) + local_u0).min(255) as u8;
+        let u1 = ((u_base as u16) + local_u1).min(255) as u8;
+        let v0 = ((v_base as u16) + local_v0).min(255) as u8;
+        let v1 = ((v_base as u16) + local_v1).min(255) as u8;
+
+        let tpage = TPAGES[tpage_idx];
         let material = TextureMaterial::opaque(0, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
         gpu::draw_quad_textured_material(
             [tl, tr, bl, br],

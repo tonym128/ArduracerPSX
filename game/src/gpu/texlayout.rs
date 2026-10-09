@@ -43,22 +43,45 @@ pub const TRACK_PAGE_COLS: u16 = 64;
 pub const TRACK_TEX_W: u16 = 1280;
 pub const TRACK_TEX_H: u16 = 1280;
 
-/// Tile dimensions: 256x256 texels per page.
-pub const TRACK_TILE_DIM: u16 = 256;
-pub const TRACK_TILES_X: usize = 5;
-pub const TRACK_TILES_Y: usize = 5;
-pub const TRACK_TILE_COUNT: usize = 25;
+/// Decompressed VRAM tile dimension: 64x64 texels.
+pub const VRAM_TILE_DIM: u16 = 64;
+pub const TRACK_TILE_DIM: u16 = 64;
 
-/// Working VRAM pool: 4 resident slots of 256x256 in 15bpp direct colour.
-/// Slot 0: (384, 0)
-/// Slot 1: (640, 0)
-/// Slot 2: (384, 256)
-/// Slot 3: (640, 256)
-pub const TRACK_SLOT_COUNT: usize = 4;
-pub const TRACK_VRAM_SLOTS: [(u16, u16); TRACK_SLOT_COUNT] =
+/// 1024x1024 block dimensions in texels.
+pub const BLOCK_DIM: usize = 1024;
+pub const TILES_PER_BLOCK_AXIS: usize = 16;
+pub const TILES_PER_BLOCK: usize = 256;
+
+/// Number of 64x64 tiles per 256x256 VRAM page (4x4 = 16).
+pub const TILES_PER_TPAGE_AXIS: usize = 4;
+pub const TILES_PER_TPAGE: usize = 16;
+
+/// Number of 256x256 VRAM texture pages (4).
+pub const TRACK_TPAGE_COUNT: usize = 4;
+
+/// Total number of 64x64 VRAM cache slots across all 4 Tpages (4 * 16 = 64).
+pub const TRACK_SLOT_COUNT: usize = TRACK_TPAGE_COUNT * TILES_PER_TPAGE; // 64
+pub const VRAM_SLOT_COUNT: usize = TRACK_SLOT_COUNT;
+
+/// 4 resident 256x256 Tpage origins in VRAM in 15bpp direct colour.
+/// Page 0: (384, 0)
+/// Page 1: (640, 0)
+/// Page 2: (384, 256)
+/// Page 3: (640, 256)
+pub const TRACK_VRAM_SLOTS: [(u16, u16); TRACK_TPAGE_COUNT] =
     [(384, 0), (640, 0), (384, 256), (640, 256)];
 
-/// Bytes one 256x256 tile costs in VRAM: 256 * 256 * 2 = 131,072 bytes.
+/// Returns VRAM coordinates (x, y, tpage_idx, u, v) for a 64x64 slot (0..64).
+pub const fn vram_slot_coords(slot: usize) -> (u16, u16, usize, u8, u8) {
+    let tpage_idx = slot / TILES_PER_TPAGE;
+    let sub = slot % TILES_PER_TPAGE;
+    let u = (sub % TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
+    let v = (sub / TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
+    let (tx, ty) = TRACK_VRAM_SLOTS[tpage_idx];
+    (tx + u, ty + v, tpage_idx, u as u8, v as u8)
+}
+
+/// Bytes one 64x64 tile costs in VRAM: 64 * 64 * 2 = 8,192 bytes (8 KB).
 pub const TRACK_TILE_BYTES: usize = (TRACK_TILE_DIM as usize) * (TRACK_TILE_DIM as usize) * 2;
 
 /// Where the 16-entry level-palette CLUT lives. 16 halfwords at 15 bits.
@@ -137,18 +160,30 @@ const _: () = assert!(
 );
 const _: () = assert!(MAX_DIM as usize * MAX_DIM as usize * 2 == SLOT_BYTES);
 
-// Verify all 4 VRAM streaming slots:
+// Verify all 4 VRAM streaming Tpages:
 const _: () = {
     let mut i = 0;
-    while i < TRACK_SLOT_COUNT {
+    while i < TRACK_TPAGE_COUNT {
         let (x, y) = TRACK_VRAM_SLOTS[i];
-        assert!(x % 64 == 0, "slot X must be multiple of 64");
-        assert!(y == 0 || y == 256, "slot Y must be 0 or 256");
-        assert!(x >= SCREEN_W, "slot touches framebuffer");
-        assert!(x + TRACK_TILE_DIM <= TEXTURE_X, "slot touches minimap");
-        assert!(x + TRACK_TILE_DIM <= 1024, "slot overflows VRAM width");
-        assert!(y + TRACK_TILE_DIM <= 512, "slot overflows VRAM height");
+        assert!(x % 64 == 0, "page X must be multiple of 64");
+        assert!(y == 0 || y == 256, "page Y must be 0 or 256");
+        assert!(x >= SCREEN_W, "page touches framebuffer");
+        assert!(x + 256 <= TEXTURE_X, "page touches minimap");
+        assert!(x + 256 <= 1024, "page overflows VRAM width");
+        assert!(y + 256 <= 512, "page overflows VRAM height");
         i += 1;
+    }
+    // Verify all 64 64x64 cache slots are within bounds
+    let mut s = 0;
+    while s < TRACK_SLOT_COUNT {
+        let (sx, sy, tpage, u, v) = vram_slot_coords(s);
+        assert!(sx >= SCREEN_W, "slot touches framebuffer");
+        assert!(sx + VRAM_TILE_DIM <= TEXTURE_X, "slot touches minimap");
+        assert!(sy + VRAM_TILE_DIM <= 512, "slot overflows VRAM height");
+        assert!(tpage < TRACK_TPAGE_COUNT, "invalid tpage index");
+        assert!((u as u16) + VRAM_TILE_DIM <= 256, "slot U overflows page");
+        assert!((v as u16) + VRAM_TILE_DIM <= 256, "slot V overflows page");
+        s += 1;
     }
 };
 

@@ -38,12 +38,12 @@ pub const ROWS: u32 = VIDEO_H as u32 / 16;
 /// 60 Hz NTSC display.
 pub const VBLANKS_PER_VIDEO_FRAME: u32 = 4;
 
-/// Sectors one frame may span (5 for a 1x BS v2 frame; 16 leaves ample headroom).
-pub const MAX_CHUNKS: u16 = 16;
+/// Sectors one frame may span (5 for a 1x BS v2 frame; 8 leaves ample headroom).
+pub const MAX_CHUNKS: u16 = 8;
 /// Reassembly buffer per slot, in u32 words.
 pub const SLOT_WORDS: usize = MAX_CHUNKS as usize * strfmt::CHUNK_PAYLOAD_BYTES / 4;
-/// Frame slots: one decoding, one ready, the rest filling.
-pub const SLOTS: usize = 6;
+/// Frame slots: one decoding, one ready, two filling.
+pub const SLOTS: usize = 4;
 /// MDEC run-length buffer in u32 words.
 pub const RLE_WORDS: usize = 16 * 1024;
 /// Decoded pixels in one 16x240 column: 8 words per row.

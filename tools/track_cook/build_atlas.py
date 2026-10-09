@@ -275,46 +275,87 @@ def lz_stream_compress(src: bytes, window: int = 8192, max_chain: int = 48) -> b
     return bytes(dst)
 
 
-def pack_visual(name: str) -> list[bytes]:
-    """Packs one circuit's visual PNG into 25 independent 15-bit direct colour (BGR555) 256x256 tile streams.
+def compress_1024_jpeg_100kb(im: Image.Image) -> bytes:
+    """Compresses an image to a 1024x1024 baseline JPEG block targeting <= 100 KB (102,400 bytes).
 
-    The track image is 1280x1280 texels (5x5 tiles of 256x256). Each tile is compressed
-    individually with LZSS to ~1.7 KB - ~3 KB so that the runtime GPU renderer can stream any
-    newly visible tile directly into one of the 4 active VRAM cache slots with < 1 ms latency.
+    Uses restart_marker_blocks=4 (DRI=4) so that each 64x16 MCU row segment is preceded by
+    a restart marker (0xFFD0..0xFFD7), allowing independent 64x64 block decompression directly
+    into VRAM with zero CD-ROM access during gameplay.
     """
-    stem = os.path.join(ROOT, "tracks", name.replace(" ", "_"))
-    gen_path = stem + ".visual.gen.png"
+    import io
+
+    if im.size != (1024, 1024):
+        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+
+    TARGET_BYTES = 100 * 1024  # 102,400 bytes = exactly 50 CD sectors
+    low = 5
+    high = 95
+    best_data = None
+
+    while low <= high:
+        mid = (low + high) // 2
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=mid, restart_marker_blocks=4)
+        data = buf.getvalue()
+        if len(data) <= TARGET_BYTES:
+            best_data = data
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    if best_data is None:
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=5, restart_marker_blocks=4)
+        best_data = buf.getvalue()
+
+    assert len(best_data) <= TARGET_BYTES, f"JPEG exceeds 100 KB: {len(best_data)} bytes"
+    return best_data
+
+
+def pack_visual(name: str) -> list[bytes]:
+    """Packs one circuit's visual image into a 1024x1024 JPEG block (<= 100 KB) and exports it."""
+    clean_name = name.replace(" ", "_")
+    stem = os.path.join(ROOT, "tracks", clean_name)
     vis_path = stem + ".visual.png"
-    target_path = gen_path if os.path.exists(gen_path) else vis_path
-    im = Image.open(target_path).convert("RGB")
-    h, w = im.size[1], im.size[0]
-    assert (w, h) == VISUAL_SIZE, (
-        f"{name}: visual is {w}x{h}, expected {VISUAL_SIZE[0]}x{VISUAL_SIZE[1]}. "
-        f"`gpu::tracktex` hardcodes the page arithmetic for that size; if the "
-        f"grid changed, change it in the same commit."
-    )
+    gen_path = stem + ".visual.gen.png"
+    jpg_path = stem + ".jpg"
 
-    arr = np.array(im)
-    tiles: list[bytes] = []
+    # Prioritize visual.gen.png if present, otherwise visual.png, or existing 100kb .jpg
+    if os.path.exists(gen_path):
+        im = Image.open(gen_path).convert("RGB")
+        src_desc = f"tracks/{clean_name}.visual.gen.png"
+    elif os.path.exists(vis_path):
+        im = Image.open(vis_path).convert("RGB")
+        src_desc = f"tracks/{clean_name}.visual.png"
+    elif os.path.exists(jpg_path):
+        im = Image.open(jpg_path).convert("RGB")
+        src_desc = f"tracks/{clean_name}.jpg"
+    else:
+        raise FileNotFoundError(f"No visual image found for {name} ({vis_path} or {gen_path})")
 
-    for ty in range(TILES_Y):
-        for tx in range(TILES_X):
-            tile_arr = arr[ty * TILE_DIM : (ty + 1) * TILE_DIM, tx * TILE_DIM : (tx + 1) * TILE_DIM]
-            r = tile_arr[:, :, 0].astype(np.uint16)
-            g = tile_arr[:, :, 1].astype(np.uint16)
-            b = tile_arr[:, :, 2].astype(np.uint16)
-            bgr555 = ((r >> 3) & 0x1F) | (((g >> 3) & 0x1F) << 5) | (((b >> 3) & 0x1F) << 10)
-            raw = bgr555.tobytes()
-            tiles.append(lz_stream_compress(raw, window=8192))
-    return tiles
+    jpeg_data = compress_1024_jpeg_100kb(im)
+
+    # Export to tracks/<Circuit>.jpg
+    with open(jpg_path, "wb") as f_jpg:
+        f_jpg.write(jpeg_data)
+
+    # Export to dist/textures/<Circuit>.jpg
+    dist_dir = os.path.join(ROOT, "dist", "textures")
+    os.makedirs(dist_dir, exist_ok=True)
+    dist_jpg = os.path.join(dist_dir, f"{clean_name}.jpg")
+    with open(dist_jpg, "wb") as f_dist:
+        f_dist.write(jpeg_data)
+
+    print(f"  exported JPEG: {jpg_path} ({len(jpeg_data)} bytes = {len(jpeg_data)/1024:.2f} KB from {src_desc})")
+    return [jpeg_data]
 
 
 def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
     """Writes `assets/TRACKS.BIN` and `crates/arduracer-core/src/visual_tex.rs`.
 
-    All compressed 15-bit visual tile streams are written sector-aligned into `assets/TRACKS.BIN`
-    on the CD-ROM disc image. `visual_tex.rs` receives only the sector index table (offset and length),
-    keeping the PSX-EXE static RAM footprint (< 1 KB) completely decoupled from high-detail textures.
+    All 1024x1024 JPEG blocks are written sector-aligned (50 sectors = 100 KB each) into
+    `assets/TRACKS.BIN` on the CD-ROM disc image. `visual_tex.rs` receives the sector index table
+    (offset, sector count, and byte len), completely decoupling runtime textures from static executable size.
     """
     assert packed_per_circuit, "no circuits to pack a visual for"
     out_rs = os.path.join(ROOT, "crates", "arduracer-core", "src", "visual_tex.rs")
@@ -324,85 +365,87 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
 
     n = len(packed_per_circuit)
     SECTOR_SIZE = 2048
+    SECTORS_PER_BLOCK = 50
 
-    # Build TRACKS.BIN with sector-aligned tiles
+    # Build TRACKS.BIN with sector-aligned blocks
     current_sector = 0
-    tile_entries: list[list[tuple[int, int, int]]] = []
+    tile_entries: list[tuple[int, int, int]] = []
 
     with open(out_bin, "wb") as f_bin:
-        for c, tiles in enumerate(packed_per_circuit):
-            circuit_entries = []
-            for t, packed in enumerate(tiles):
-                byte_len = len(packed)
-                sector_count = (byte_len + SECTOR_SIZE - 1) // SECTOR_SIZE
-                circuit_entries.append((current_sector, sector_count, byte_len))
-                f_bin.write(packed)
-                pad_len = (sector_count * SECTOR_SIZE) - byte_len
-                if pad_len > 0:
-                    f_bin.write(b"\x00" * pad_len)
-                current_sector += sector_count
-            tile_entries.append(circuit_entries)
+        for c, blocks in enumerate(packed_per_circuit):
+            assert len(blocks) >= 1, f"Circuit {c} has no blocks"
+            packed = blocks[0]
+            byte_len = len(packed)
+            sector_count = SECTORS_PER_BLOCK
+            tile_entries.append((current_sector, sector_count, byte_len))
+            f_bin.write(packed)
+            pad_len = (sector_count * SECTOR_SIZE) - byte_len
+            if pad_len > 0:
+                f_bin.write(b"\x00" * pad_len)
+            current_sector += sector_count
 
     total_sectors = current_sector
     total_bin_bytes = total_sectors * SECTOR_SIZE
 
-    # Emit visual_tex.rs with tile sector index
+    # Emit visual_tex.rs with block sector index
     with open(out_rs, "w") as f:
         f.write(
-            "//! Per-circuit visual texture metadata and decompression stream codec.\n"
+            "//! Per-circuit visual texture metadata and JPEG streaming index.\n"
             "//!\n"
             "//! Generated by `tools/track_cook/build_atlas.py`. Do not edit by hand.\n"
             "\n"
-            "/// Visual image width in texels.\n"
-            f"pub const WIDTH: usize = {VISUAL_SIZE[0]};\n"
-            "/// Visual image height in texels.\n"
-            f"pub const HEIGHT: usize = {VISUAL_SIZE[1]};\n"
-            "/// Tile dimension in texels (256x256 per page).\n"
-            f"pub const TILE_DIM: usize = {TILE_DIM};\n"
-            "/// Number of tiles along X axis.\n"
-            f"pub const TILES_X: usize = {TILES_X};\n"
-            "/// Number of tiles along Y axis.\n"
-            f"pub const TILES_Y: usize = {TILES_Y};\n"
-            "/// Total number of tiles per circuit.\n"
-            f"pub const TILE_COUNT: usize = {TILE_COUNT};\n"
-            "/// Number of authored circuits, one texture set each.\n"
+            "/// Visual block dimension in texels (1024x1024).\n"
+            "pub const BLOCK_DIM: usize = 1024;\n"
+            "/// Width of a single visual block in texels.\n"
+            "pub const WIDTH: usize = 1024;\n"
+            "/// Height of a single visual block in texels.\n"
+            "pub const HEIGHT: usize = 1024;\n"
+            "/// Decompressed VRAM tile dimension in texels (64x64).\n"
+            "pub const TILE_DIM: usize = 64;\n"
+            "/// Number of 64x64 tiles along each axis of a 1024x1024 block (16).\n"
+            "pub const TILES_PER_BLOCK_AXIS: usize = 16;\n"
+            "/// Total number of 64x64 tiles per 1024x1024 block (256).\n"
+            "pub const TILES_PER_BLOCK: usize = 256;\n"
+            "/// Number of authored circuits, one 1024x1024 JPEG block each.\n"
             f"pub const COUNT: usize = {n};\n"
-            "/// Raw uncompressed 16-bit BGR555 halfword count per 256x256 tile (65,536).\n"
+            "/// Maximum bytes per 1024x1024 compressed JPEG block (100 KB = 102,400 bytes).\n"
+            "pub const BLOCK_MAX_BYTES: usize = 102400;\n"
+            "/// Number of 2048-byte CD sectors allocated per JPEG block (50 sectors = 100 KB).\n"
+            f"pub const BLOCK_SECTORS: usize = {SECTORS_PER_BLOCK};\n"
+            "/// Restart marker interval in MCUs (4 MCUs = 64x16 pixels).\n"
+            "pub const RESTART_INTERVAL: usize = 4;\n"
+            "/// Total restart intervals in one 1024x1024 block.\n"
+            "pub const RESTART_INTERVAL_COUNT: usize = 1024;\n"
+            "/// Raw uncompressed 16-bit BGR555 halfwords per 64x64 tile.\n"
             "pub const RAW_TILE_HALFWORDS: usize = TILE_DIM * TILE_DIM;\n"
-            "/// Raw uncompressed byte count per tile (131,072 bytes).\n"
+            "/// Raw uncompressed byte count per 64x64 tile (8,192 bytes = 8 KB).\n"
             "pub const RAW_TILE_BYTES: usize = RAW_TILE_HALFWORDS * 2;\n"
-            "/// Raw uncompressed 16-bit BGR555 halfword count per full track image.\n"
-            "pub const RAW_HALFWORDS: usize = WIDTH * HEIGHT;\n"
-            "/// Raw uncompressed byte count per full track image.\n"
-            "pub const RAW_BYTES: usize = RAW_HALFWORDS * 2;\n"
-            "/// Streaming ring buffer window size in bytes.\n"
-            "pub const STREAM_WINDOW: usize = 8192;\n"
             "/// Name of the track visual asset file on the CD-ROM disc.\n"
             "pub const TRACKS_BIN_NAME: &[u8] = b\"TRACKS.BIN\";\n"
             "\n"
-            "/// CD-ROM sector index entry for a compressed tile stream in TRACKS.BIN.\n"
+            "/// CD-ROM sector index entry for a compressed 1024x1024 JPEG block in TRACKS.BIN.\n"
             "#[derive(Copy, Clone, Debug, PartialEq, Eq)]\n"
             "pub struct TileSectorEntry {\n"
             "    /// 2048-byte sector offset from the start of TRACKS.BIN.\n"
             "    pub sector_offset: u32,\n"
-            "    /// Number of 2048-byte CD sectors allocated for this tile.\n"
+            "    /// Number of 2048-byte CD sectors allocated for this block.\n"
             "    pub sector_count: u32,\n"
-            "    /// Exact payload length of the compressed stream in bytes.\n"
+            "    /// Exact payload length of the compressed JPEG stream in bytes.\n"
             "    pub byte_len: u32,\n"
             "}\n"
             "\n"
-            "/// Streaming compressed 15-bit visual tile sector index [circuit][tile_idx].\n"
-            f"pub static CIRCUIT_TILE_SECTORS: [[TileSectorEntry; TILE_COUNT]; COUNT] = [\n"
+            "/// Streaming compressed 1024x1024 JPEG block sector index [circuit].\n"
+            f"pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [\n"
         )
-        for c, entries in enumerate(tile_entries):
-            f.write("    [\n")
-            for t, (sec_off, sec_cnt, b_len) in enumerate(entries):
-                f.write(
-                    f"        TileSectorEntry {{ sector_offset: {sec_off}, "
-                    f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
-                )
-            f.write("    ],\n")
+        for c, (sec_off, sec_cnt, b_len) in enumerate(tile_entries):
+            f.write(
+                f"    TileSectorEntry {{ sector_offset: {sec_off}, "
+                f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
+            )
         f.write("];\n\n")
+
+        f.write("/// Alias matching single-entry lookup for backwards compatibility.\n")
+        f.write("pub static CIRCUIT_TILE_SECTORS: [TileSectorEntry; COUNT] = CIRCUIT_BLOCK_SECTORS;\n\n")
 
         f.write(
             "/// The 16 level-palette core reference colours in code order 0..=15.\n"
@@ -410,88 +453,14 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
         )
         for r, g, b in CLUT_RGB:
             f.write(f"    ({r}, {g}, {b}),\n")
-        f.write("];\n\n")
+        f.write("];\n")
 
-        f.write(
-            "/// Streams and decompresses 16-bit BGR555 pixels on-the-fly using an 8192-byte ring buffer.\n"
-            "/// Emits each 16-bit halfword directly to the consumer callback with zero heap allocations.\n"
-            "#[inline(never)]\n"
-            "pub fn decompress_stream<F: FnMut(u16)>(\n"
-            "    src: &[u8],\n"
-            "    total_halfwords: usize,\n"
-            "    ring: &mut [u8; STREAM_WINDOW],\n"
-            "    mut emit: F,\n"
-            ") {\n"
-            "    let total_bytes = total_halfwords * 2;\n"
-            "    let mut in_pos = 0;\n"
-            "    let mut out_pos = 0;\n"
-            "    let mut lo_byte: u8 = 0;\n"
-            "    let mut has_lo = false;\n"
-            "\n"
-            "    while out_pos < total_bytes && in_pos < src.len() {\n"
-            "        let flag = src[in_pos];\n"
-            "        in_pos += 1;\n"
-            "        for bit in 0..8 {\n"
-            "            if out_pos >= total_bytes || in_pos >= src.len() {\n"
-            "                break;\n"
-            "            }\n"
-            "            if (flag & (1 << bit)) != 0 {\n"
-            "                let b = src[in_pos];\n"
-            "                in_pos += 1;\n"
-            "                ring[out_pos % STREAM_WINDOW] = b;\n"
-            "                out_pos += 1;\n"
-            "                if !has_lo {\n"
-            "                    lo_byte = b;\n"
-            "                    has_lo = true;\n"
-            "                } else {\n"
-            "                    emit((lo_byte as u16) | ((b as u16) << 8));\n"
-            "                    has_lo = false;\n"
-            "                }\n"
-            "            } else {\n"
-            "                if in_pos + 3 > src.len() {\n"
-            "                    return;\n"
-            "                }\n"
-            "                let b0 = src[in_pos] as usize;\n"
-            "                let b1 = src[in_pos + 1] as usize;\n"
-            "                let mlen = (src[in_pos + 2] as usize) + 3;\n"
-            "                in_pos += 3;\n"
-            "                let dist = (b0 << 8) | b1;\n"
-            "                for _ in 0..mlen {\n"
-            "                    if out_pos >= total_bytes {\n"
-            "                        break;\n"
-            "                    }\n"
-            "                    let b = ring[(out_pos.wrapping_sub(dist)) % STREAM_WINDOW];\n"
-            "                    ring[out_pos % STREAM_WINDOW] = b;\n"
-            "                    out_pos += 1;\n"
-            "                    if !has_lo {\n"
-            "                        lo_byte = b;\n"
-            "                        has_lo = true;\n"
-            "                    } else {\n"
-            "                        emit((lo_byte as u16) | ((b as u16) << 8));\n"
-            "                        has_lo = false;\n"
-            "                    }\n"
-            "                }\n"
-            "            }\n"
-            "        }\n"
-            "    }\n"
-            "}\n\n"
-            "/// Decompresses a 15-bit texture stream into a destination slice of halfwords.\n"
-            "pub fn decompress_to_slice(src: &[u8], dst: &mut [u16]) {\n"
-            "    let mut ring = [0u8; STREAM_WINDOW];\n"
-            "    let mut idx = 0;\n"
-            "    let max_len = dst.len();\n"
-            "    decompress_stream(src, max_len, &mut ring, |halfword| {\n"
-            "        if idx < max_len {\n"
-            "            dst[idx] = halfword;\n"
-            "            idx += 1;\n"
-            "        }\n"
-            "    });\n"
-            "}\n"
-        )
+    fmt_generated(out_rs)
     print(
         f"wrote {out_bin} ({total_sectors} sectors = {total_bin_bytes} bytes) and "
-        f"{out_rs} ({n} circuits x {TILE_COUNT} tile entries)"
+        f"{out_rs} ({n} circuits x 1024x1024 100KB JPEG blocks)"
     )
+
 
 
 def main() -> int:

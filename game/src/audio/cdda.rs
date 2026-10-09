@@ -40,6 +40,36 @@ impl Default for CddaController {
     }
 }
 
+static mut ACTIVE_CDDA_TRACK: u8 = 0;
+
+/// Returns the currently active playing CD-DA track, if any.
+pub fn active_cdda_track() -> Option<u8> {
+    let t = unsafe { core::ptr::read_volatile(core::ptr::addr_of!(ACTIVE_CDDA_TRACK)) };
+    if t != 0 {
+        Some(t)
+    } else {
+        None
+    }
+}
+
+/// Safely pauses CD-DA playback for background data sector reading.
+pub fn pause_for_cd_read() {
+    let t = unsafe { core::ptr::read_volatile(core::ptr::addr_of!(ACTIVE_CDDA_TRACK)) };
+    if t != 0 {
+        cdrom::try_pause_until_complete(50_000);
+    }
+}
+
+/// Seamlessly resumes CD-DA playback following a background sector read.
+pub fn resume_after_cd_read() {
+    let t = unsafe { core::ptr::read_volatile(core::ptr::addr_of!(ACTIVE_CDDA_TRACK)) };
+    if t != 0 {
+        cdrom::try_set_mode(CDDA_PLAY_MODE, 50_000);
+        cdrom::try_demute(50_000);
+        cdrom::try_play_track(t, 50_000);
+    }
+}
+
 impl CddaController {
     pub const fn new() -> Self {
         CddaController {
@@ -77,6 +107,9 @@ impl CddaController {
         crate::dbg::print("[CDDA] try_play_track returned ");
         crate::dbg::println(if ok.is_some() { "OK" } else { "TIMEOUT/ERROR" });
         self.state = CddaState::Playing;
+        unsafe {
+            core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), track);
+        }
     }
 
     /// Pauses CD-DA playback.
@@ -84,6 +117,9 @@ impl CddaController {
         if self.state == CddaState::Playing {
             cdrom::try_pause(50_000);
             self.state = CddaState::Paused;
+            unsafe {
+                core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
+            }
         }
     }
 
@@ -93,6 +129,12 @@ impl CddaController {
             cdrom::try_demute(50_000);
             cdrom::try_play_track(self.current_track, 50_000);
             self.state = CddaState::Playing;
+            unsafe {
+                core::ptr::write_volatile(
+                    core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK),
+                    self.current_track,
+                );
+            }
         }
     }
 
@@ -100,6 +142,9 @@ impl CddaController {
     pub fn stop(&mut self) {
         cdrom::try_pause_until_complete(50_000);
         self.state = CddaState::Stopped;
+        unsafe {
+            core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
+        }
     }
 
     /// Mutes CD-DA playback.

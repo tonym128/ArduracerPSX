@@ -87,8 +87,9 @@ impl DiscReader {
     /// Reads `count` contiguous 2048-byte sectors starting at `start_lba` into `dst`.
     #[inline(never)]
     pub fn read_sectors(&mut self, start_lba: u32, count: usize, dst: &mut [u8]) -> bool {
+        let active_track = crate::audio::cdda::active_cdda_track();
         // Ensure drive is paused from any active CD-DA playback
-        psx_io::cdrom::try_pause_until_complete(50_000);
+        crate::audio::cdda::pause_for_cd_read();
 
         let ok = unsafe {
             if !self.reader.prepare_single_speed() {
@@ -119,6 +120,12 @@ impl DiscReader {
         // Always restore interrupt mask ensuring VBlank remains enabled (polled pad/MC must not have IRQ unmasked)
         psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
         psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
+
+        // Resume CD-DA if it was playing prior to reading sectors
+        if active_track.is_some() {
+            crate::audio::cdda::resume_after_cd_read();
+        }
+
         ok
     }
 }

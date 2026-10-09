@@ -112,16 +112,14 @@ DATA_PX = 3
 #:
 #: 320 also lands the image on a page grid that `gpu::tracktex` can address with
 #: no fold: a 4bpp page is 256 texels, so 320 is one full page plus a 64-texel
-#: Visual image pixel resolution: 16 px/cell, yielding 1280x1280 master visual images.
-VISUAL_PX = 16
+#: Visual image pixel resolution: 1024x1024 master visual images for streaming.
+SIZE = 1024
+VISUAL_PX = SIZE // GRID
 
 #: Raster is taken at this multiple of the data resolution, then majority-voted
 #: down. 4x4 = 16 samples per cell is ample to resolve a 0.7-cell fringe; the
 #: default 3 px/cell with no supersampling leaves edges ambiguous.
 SUPERSAMPLE = 3
-
-#: Side of the authored master image, in pixels: 80 cells x 16 px = 1280x1280.
-SIZE = GRID * VISUAL_PX
 
 # --- Palette, mirroring tools/track_cook/palette.json exactly ------------------
 #
@@ -482,7 +480,7 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
     runoff_hw = kerb_hw + RUNOFF_CELLS
     wall_hw = runoff_hw + WALL_CELLS
 
-    out = svg_header(GRID * VISUAL_PX)
+    out = svg_header(SIZE)
     out.append(f'<!-- {spec["name"]}: authored circuit, cell units. -->')
     out.append(f'<!-- {shape_note(spec)} -->')
 
@@ -612,15 +610,54 @@ def resolve_cells(rgb: np.ndarray, px_per_cell: int) -> np.ndarray:
 # --- Output -------------------------------------------------------------------
 
 
-def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
-    """Paints the appearance image from the code map. Display only.
+def compress_1024_jpeg_100kb(im: Image.Image) -> bytes:
+    """Compresses an image to a 1024x1024 baseline JPEG block targeting <= 100 KB (102,400 bytes).
+
+    Uses restart_marker_blocks=4 (DRI=4) so that each 64x16 MCU row segment is preceded by
+    a restart marker (0xFFD0..0xFFD7), allowing independent 64x64 block decompression directly
+    into VRAM with zero CD-ROM access during gameplay.
+    """
+    import io
+
+    if im.size != (1024, 1024):
+        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+
+    TARGET_BYTES = 100 * 1024  # 102,400 bytes = exactly 50 CD sectors
+    low = 5
+    high = 95
+    best_data = None
+
+    while low <= high:
+        mid = (low + high) // 2
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=mid, restart_marker_blocks=4)
+        data = buf.getvalue()
+        if len(data) <= TARGET_BYTES:
+            best_data = data
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    if best_data is None:
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=5, restart_marker_blocks=4)
+        best_data = buf.getvalue()
+
+    assert len(best_data) <= TARGET_BYTES, f"JPEG exceeds 100 KB: {len(best_data)} bytes"
+    return best_data
+
+
+def paint_visual(codes: np.ndarray, size: int = SIZE) -> np.ndarray:
+    """Paints the appearance image from the code map at size x size (1024x1024). Display only.
 
     Deliberately does *not* read the SVG raster. The visual image is what the
     player sees and the data map is what the car drives; keeping them separate is
     the whole point of the two-image format, and sharing one would let a pretty
     texture quietly change collision.
     """
-    vis = np.repeat(np.repeat(codes, px, axis=0), px, axis=1)
+    grid_h, grid_w = codes.shape
+    vis_img = Image.fromarray(codes.astype(np.uint8)).resize((size, size), Image.Resampling.NEAREST)
+    vis = np.array(vis_img)
     h, w = vis.shape
     out = np.zeros((h, w, 3), dtype=np.uint8)
 
@@ -628,7 +665,7 @@ def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
         return np.array(RGB_TUPLE[code], dtype=np.float32)
 
     def grain(y, x, salt=0):
-        scale = max(1, px // 2)
+        scale = max(1, size // grid_w // 2)
         gx = x // scale
         gy = y // scale
         v = ((gx * 73856093) ^ (gy * 19349663) ^ (salt * 83492791)) & 0xFF
@@ -643,18 +680,7 @@ def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
             if c in (TARMAC, TARMAC_WORN):
                 out[y, x] = np.clip(b * (1.0 - 0.10 - n * 0.10 - n2 * 0.06), 0, 255)
             elif c in (KERB_WHITE, KERB_RED):
-                # Blocks along the direction of travel, not the 1-cell fringe the
-                # data map carries: the map says "kerb here", the visual says
-                # "red and white in 2-cell blocks".
-                #
-                # The block size is one *cell*, not two pixels. The original 2-px
-                # checker averaged out at display scale into a flat pink, because
-                # a 2-px alternating pair has a mean colour and the eye sees the
-                # mean. A cell is `VISUAL_PX` px wide, and it is also 32 world
-                # units, which is 32 screen px at rest zoom -- an order of
-                # magnitude above the display's own resolution, so the alternation
-                # survives all the way to the screen however coarse the texture is.
-                blk = ((x // px) + (y // px)) % 2
+                blk = ((x * grid_w // size) + (y * grid_h // size)) % 2
                 b = base(KERB_WHITE if blk == 0 else KERB_RED)
                 out[y, x] = np.clip(b * (1.0 - n * 0.12), 0, 255)
             elif c in (GRASS,):
@@ -672,15 +698,14 @@ def paint_visual(codes: np.ndarray, px: int) -> np.ndarray:
                 lit = 0.22 if edge else n * 0.08
                 out[y, x] = np.clip(b + (255 - b) * lit, 0, 255)
             elif c == START_LINE:
-                # Chequer in *cells*, not in pixels. The periods here used to be
-                # 6 px, which was 0.75 cells at the old 8 px/cell and silently
-                # became 1.5 cells when `VISUAL_PX` dropped -- the start line came
-                # out with twice as many chequer rows and nobody could say why.
+                cell_x = x * grid_w // size
+                cell_y = y * grid_h // size
                 out[y, x] = ((245, 245, 245)
-                             if ((x // px) + (y // px)) % 2 else (28, 28, 32))
+                             if (cell_x + cell_y) % 2 else (28, 28, 32))
             elif c == BOOST:
-                # Chevron bands a cell apart, again measured in cells.
-                band = (y // px + x // px) % 2
+                cell_x = x * grid_w // size
+                cell_y = y * grid_h // size
+                band = (cell_y + cell_x) % 2
                 out[y, x] = (255, 240, 200) if band else np.clip(b * (1 - n * 0.1), 0, 255)
             elif c == OIL:
                 t = 0.5 + 0.5 * ((x * 0.3 + y * 0.2) % 6) / 6.0
@@ -707,7 +732,6 @@ def write_outputs(spec: dict, outdir: str) -> dict:
 
     # Data image: flat exact palette colours, DATA_PX px per cell.
     dat = np.repeat(np.repeat(codes, DATA_PX, axis=0), DATA_PX, axis=1)
-    dat = np.repeat(np.repeat(codes, DATA_PX, axis=0), DATA_PX, axis=1)
     # Index by code through a lookup table rather than a boolean mask per code:
     # the data image must be *exactly* palette colours, and building it from the
     # code map by table guarantees that rather than hoping the raster was exact.
@@ -717,13 +741,24 @@ def write_outputs(spec: dict, outdir: str) -> dict:
     flat = lut[dat]
     Image.fromarray(flat, "RGB").save(stem + ".data.png")
 
-    # Visual image: painted from the code map, VISUAL_PX px per cell.
-    vis = paint_visual(codes, VISUAL_PX)
-    Image.fromarray(vis, "RGB").save(stem + ".visual.png")
+    # Visual image: painted from the code map, 1024x1024.
+    vis = paint_visual(codes, SIZE)
+    vis_path = stem + ".visual.png"
+    gen_path = stem + ".visual.gen.png"
+    Image.fromarray(vis, "RGB").save(vis_path)
+
+    # Compress the current visual or visual.gen png to a 100kb jpeg for streaming
+    src_png = gen_path if os.path.exists(gen_path) else vis_path
+    im = Image.open(src_png).convert("RGB")
+    jpeg_bytes = compress_1024_jpeg_100kb(im)
+    jpg_path = stem + ".jpg"
+    with open(jpg_path, "wb") as f:
+        f.write(jpeg_bytes)
 
     with open(stem + ".palette.json", "w") as f:
         json.dump({"cell_px": DATA_PX, "grid": GRID,
-                   "visual_px_per_cell": VISUAL_PX,
+                   "visual_size": SIZE,
+                   "visual_px_per_cell": SIZE // GRID,
                    "palette": {str(k): list(v) for k, v in RGB_TUPLE.items()}}, f)
 
     # Centreline sidecar, in cell units as the compiler expects.
@@ -744,7 +779,8 @@ def write_outputs(spec: dict, outdir: str) -> dict:
         "name": spec["name"],
         "svg": stem + ".svg",
         "data": stem + ".data.png",
-        "visual": stem + ".visual.png",
+        "visual": vis_path,
+        "jpeg": jpg_path,
         "line": stem + ".line.json",
         "centreline_samples": len(centre),
         "counts": counts,
@@ -939,7 +975,7 @@ def main() -> int:
         road = info["counts"][RGB[TARMAC]] + info["counts"][RGB[TARMAC_WORN]]
         print(f"{info['name']:16} {info['centreline_samples']:6} centreline samples  "
               f"road {road:5} cells  -> {os.path.basename(info['svg'])}")
-        print(f"{'':16} + .data.png + .visual.png + .line.json + .palette.json")
+        print(f"{'':16} + .data.png + .visual.png + .line.json + .palette.json + .jpg (100kb streaming)")
     print(f"\nwrote to {outdir}")
     return 0
 

@@ -18,6 +18,7 @@ pub mod city;
 pub mod city_data;
 pub mod drift;
 pub mod ghost;
+pub mod jpeg;
 pub mod levels;
 pub mod math;
 pub mod route;

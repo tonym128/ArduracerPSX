@@ -2802,13 +2802,14 @@ fn test_visual_image_bit_depth_to_15bit_conversions() {
 }
 
 fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
+    use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
     assert_eq!(visual_tex::COUNT, 4);
-    assert_eq!(visual_tex::WIDTH, 1280);
-    assert_eq!(visual_tex::HEIGHT, 1280);
-    assert_eq!(visual_tex::TILE_COUNT, 25);
-    assert_eq!(visual_tex::CIRCUIT_TILE_SECTORS.len(), 4);
+    assert_eq!(visual_tex::BLOCK_DIM, 1024);
+    assert_eq!(visual_tex::BLOCK_SECTORS, 50);
+    assert_eq!(visual_tex::BLOCK_MAX_BYTES, 102400);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 4);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -2820,36 +2821,31 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
 
     if tracks_bin_path.exists() {
         let tracks_bin = std::fs::read(&tracks_bin_path).expect("Failed to read TRACKS.BIN");
-        let mut ring = [0u8; visual_tex::STREAM_WINDOW];
         for circuit_idx in 0..visual_tex::COUNT {
-            for tile_idx in 0..visual_tex::TILE_COUNT {
-                let entry = visual_tex::CIRCUIT_TILE_SECTORS[circuit_idx][tile_idx];
-                assert!(entry.sector_count > 0);
-                assert!(entry.byte_len > 0);
+            let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[circuit_idx];
+            assert!(
+                entry.sector_count > 0 && entry.sector_count <= visual_tex::BLOCK_SECTORS as u32
+            );
+            assert!(entry.byte_len > 0 && (entry.byte_len as usize) <= visual_tex::BLOCK_MAX_BYTES);
 
-                let byte_offset = (entry.sector_offset as usize) * 2048;
-                let byte_len = entry.byte_len as usize;
-                let stream = &tracks_bin[byte_offset..byte_offset + byte_len];
+            let byte_offset = (entry.sector_offset as usize) * 2048;
+            let byte_len = entry.byte_len as usize;
+            let jpeg_data = &tracks_bin[byte_offset..byte_offset + byte_len];
 
-                let mut emitted_count = 0usize;
-                visual_tex::decompress_stream(
-                    stream,
-                    visual_tex::RAW_TILE_HALFWORDS,
-                    &mut ring,
-                    |_halfword| {
-                        emitted_count += 1;
-                    },
-                );
+            let header = JpegHeader::parse(jpeg_data).expect("Valid JPEG header");
+            assert_eq!(header.width, 1024);
+            assert_eq!(header.height, 1024);
+            assert_eq!(header.restart_interval, 4);
 
-                assert_eq!(
-                    emitted_count,
-                    visual_tex::RAW_TILE_HALFWORDS,
-                    "Circuit {} tile {} streaming decompress must produce exactly {} halfwords",
-                    circuit_idx,
-                    tile_idx,
-                    visual_tex::RAW_TILE_HALFWORDS
-                );
-            }
+            let mut restart_offsets = [0u32; 1024];
+            header.index_restarts(jpeg_data, &mut restart_offsets);
+
+            let mut tile_pixels = [0u16; 64 * 64];
+            decode_tile_64x64(jpeg_data, &header, &restart_offsets, 0, 0, &mut tile_pixels);
+            assert!(
+                tile_pixels.iter().any(|&p| p != 0),
+                "Decoded tile pixels must be non-empty"
+            );
         }
     }
 }
