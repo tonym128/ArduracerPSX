@@ -180,12 +180,13 @@ static mut TRACKS_PROBED: bool = false;
 
 static mut CAPETOWN_BIN_LBA: Option<u32> = None;
 static mut MELBOURNE_BIN_LBA: Option<u32> = None;
-static mut ACTIVE_CITY: usize = 0; // 0 = standard circuits, 99 = Cape Town, 98 = Melbourne
+static mut LONDON_BIN_LBA: Option<u32> = None;
+static mut ACTIVE_CITY: usize = 0; // 0 = standard circuits, 99 = Cape Town, 98 = Melbourne, 97 = London
 
 /// Prepares the track texture streaming cache for a new circuit or city.
 #[allow(clippy::needless_range_loop)]
 pub fn init_track_texture(circuit: usize) {
-    let city_id = if circuit == 99 || circuit == 98 {
+    let city_id = if circuit == 99 || circuit == 98 || circuit == 97 {
         circuit
     } else {
         0
@@ -209,11 +210,12 @@ pub fn init_track_texture(circuit: usize) {
         if !TRACKS_PROBED {
             let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
             crate::dbg::println(
-                "[TRACKTEX] Probing disc for TRACKS.BIN, CAPETOWN.BIN, MELBOURNE.BIN...",
+                "[TRACKTEX] Probing disc for TRACKS.BIN, CAPETOWN.BIN, MELBOURNE.BIN, LONDON.BIN...",
             );
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
             CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
             MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
+            LONDON_BIN_LBA = reader.find_file_lba(visual_tex::LONDON_BIN_NAME);
             crate::dbg::print("[TRACKTEX] TRACKS: 0x");
             if let Some(lba) = TRACKS_BIN_LBA {
                 crate::dbg::print_hex(lba);
@@ -232,6 +234,12 @@ pub fn init_track_texture(circuit: usize) {
             } else {
                 crate::dbg::print("NONE");
             }
+            crate::dbg::print("  LONDON: 0x");
+            if let Some(lba) = LONDON_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
             crate::dbg::println("");
             TRACKS_PROBED = true;
         }
@@ -239,9 +247,11 @@ pub fn init_track_texture(circuit: usize) {
         // Preload initial 1024x1024 block for the circuit into RAM slot 0 before race starts
         // Cape Town: block (1, 1) covers Helen Suzman Blvd & Green Point stadium spawn
         // Melbourne: block (1, 2) covers Albert Park pit straight spawn (cell 125, 177)
+        // London: block (1, 1) covers The Mall spawn (cell 89, 147)
         let (init_bx, init_by) = match city_id {
             99 => (1, 1),
             98 => (1, 2),
+            97 => (1, 1),
             _ => (0, 0),
         };
         load_block_into_ram(circuit, init_bx, init_by, 0);
@@ -265,6 +275,13 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
             (
                 unsafe { MELBOURNE_BIN_LBA },
                 visual_tex::MELBOURNE_BLOCK_SECTORS[b_idx],
+            )
+        }
+        97 => {
+            let b_idx = (block_y * 3 + block_x).min(8);
+            (
+                unsafe { LONDON_BIN_LBA },
+                visual_tex::LONDON_BLOCK_SECTORS[b_idx],
             )
         }
         _ => {

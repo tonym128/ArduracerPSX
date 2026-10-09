@@ -34,6 +34,8 @@ pub const TRACKS_BIN_NAME: &[u8] = b"TRACKS.BIN";
 pub const CAPETOWN_BIN_NAME: &[u8] = b"CAPETOWN.BIN";
 /// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.
 pub const MELBOURNE_BIN_NAME: &[u8] = b"MELBOURNE.BIN";
+/// Name of the London 10 km^2 city visual asset file on the CD-ROM disc.
+pub const LONDON_BIN_NAME: &[u8] = b"LONDON.BIN";
 
 /// CD-ROM sector index entry for a compressed 1024x1024 JPEG block in TRACKS.BIN.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -165,6 +167,55 @@ pub static MELBOURNE_BLOCK_SECTORS: [TileSectorEntry; 9] = [
         sector_offset: 800,
         sector_count: 100,
         byte_len: 201445,
+    },
+];
+
+/// London 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
+pub static LONDON_BLOCK_SECTORS: [TileSectorEntry; 9] = [
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 100,
+        byte_len: 201632,
+    },
+    TileSectorEntry {
+        sector_offset: 100,
+        sector_count: 100,
+        byte_len: 203679,
+    },
+    TileSectorEntry {
+        sector_offset: 200,
+        sector_count: 100,
+        byte_len: 201511,
+    },
+    TileSectorEntry {
+        sector_offset: 300,
+        sector_count: 100,
+        byte_len: 203232,
+    },
+    TileSectorEntry {
+        sector_offset: 400,
+        sector_count: 100,
+        byte_len: 204505,
+    },
+    TileSectorEntry {
+        sector_offset: 500,
+        sector_count: 100,
+        byte_len: 204588,
+    },
+    TileSectorEntry {
+        sector_offset: 600,
+        sector_count: 100,
+        byte_len: 203685,
+    },
+    TileSectorEntry {
+        sector_offset: 700,
+        sector_count: 100,
+        byte_len: 202005,
+    },
+    TileSectorEntry {
+        sector_offset: 800,
+        sector_count: 100,
+        byte_len: 201521,
     },
 ];
 

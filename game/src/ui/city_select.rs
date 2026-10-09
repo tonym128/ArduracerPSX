@@ -4,7 +4,7 @@
 //! (Cape Town, Melbourne, etc.) and launching free urban roam.
 
 use crate::ui::font::draw_text;
-use arduracer_core::{TrackDef, TRACK_CAPETOWN, TRACK_MELBOURNE};
+use arduracer_core::{TrackDef, TRACK_CAPETOWN, TRACK_LONDON, TRACK_MELBOURNE};
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
 
@@ -13,10 +13,10 @@ pub struct CityInfo {
     pub country: &'static str,
     pub landmarks: &'static str,
     pub track: &'static TrackDef,
-    pub track_id: usize, // 99 for Cape Town, 98 for Melbourne
+    pub track_id: usize, // 99 for Cape Town, 98 for Melbourne, 97 for London
 }
 
-pub static CITIES: [CityInfo; 2] = [
+pub static CITIES: [CityInfo; 3] = [
     CityInfo {
         name: "CAPE TOWN",
         country: "SOUTH AFRICA (ATLANTIC COAST)",
@@ -30,6 +30,13 @@ pub static CITIES: [CityInfo; 2] = [
         landmarks: "ALBERT PARK GP & ST KILDA",
         track: &TRACK_MELBOURNE,
         track_id: 98,
+    },
+    CityInfo {
+        name: "LONDON",
+        country: "UNITED KINGDOM (CENTRAL)",
+        landmarks: "THE MALL, WESTMINSTER & THAMES",
+        track: &TRACK_LONDON,
+        track_id: 97,
     },
 ];
 

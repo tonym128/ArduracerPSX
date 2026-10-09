@@ -451,6 +451,13 @@ assets:
 			python3 $(ROOT)/tools/track_cook/cook_melbourne_10km.py && cp $(DIST)/melbourne_10km/MELBOURNE.BIN $(ROOT)/assets/MELBOURNE.BIN; \
 		fi; \
 	fi
+	@if [ ! -f "$(ROOT)/assets/LONDON.BIN" ]; then \
+		if [ -f "$(DIST)/london_10km/LONDON.BIN" ]; then \
+			cp $(DIST)/london_10km/LONDON.BIN $(ROOT)/assets/LONDON.BIN; \
+		else \
+			python3 $(ROOT)/tools/track_cook/cook_london_10km.py && cp $(DIST)/london_10km/LONDON.BIN $(ROOT)/assets/LONDON.BIN; \
+		fi; \
+	fi
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
@@ -464,6 +471,7 @@ disc: assets exe
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/CAPETOWN.BIN \
 		--file $(ROOT)/assets/MELBOURNE.BIN \
+		--file $(ROOT)/assets/LONDON.BIN \
 		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
 		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \
 		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \

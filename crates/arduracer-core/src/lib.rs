@@ -19,6 +19,7 @@ pub mod drift;
 pub mod ghost;
 pub mod jpeg;
 pub mod levels;
+pub mod london;
 pub mod math;
 pub mod melbourne;
 pub mod route;
@@ -41,6 +42,7 @@ pub use ghost::{
     FLAG_DRIFTING, FLAG_SKIDMARK, GHOST_MAGIC, GHOST_SAMPLE_INTERVAL_TICKS, GHOST_VERSION,
 };
 pub use levels::{ALL_TRACKS, ALL_TRACK_VISUALS, AUTHORED_TRACK_COUNT};
+pub use london::TRACK_LONDON;
 pub use math::{cos, sin, Fixed, Vec2, ANGLE_180, ANGLE_360, ANGLE_45, ANGLE_90, FP_ONE, FP_SHIFT};
 pub use melbourne::TRACK_MELBOURNE;
 
