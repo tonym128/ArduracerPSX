@@ -8,7 +8,6 @@ Converts any source visual image (PNG of 1-bit, 2-bit, 4-bit, 8-bit grayscale,
 
 Usage:
     python3 tools/track_cook/convert_visual.py input.png output.bin [--clut output_clut.bin]
-    python3 tools/track_cook/convert_visual.py --slice-city city.png --out-dir dist/city_chunks/
 """
 
 import argparse
@@ -113,45 +112,11 @@ def convert_image_to_8bit_colour(img: Image.Image) -> Tuple[bytes, List[Tuple[in
     return pixel_bytes, clut
 
 
-def slice_city_visual(
-    img: Image.Image,
-    chunk_texel_size: int = 256,
-) -> Tuple[List[Tuple[int, int, bytes]], List[Tuple[int, int, int]]]:
-    """
-    Slices a large city image of any bit-depth into 8-bit colour chunks
-    (default: 256x256 texels per chunk, matching a PSX texture page).
-    Returns (chunks_list, city_clut_256).
-    """
-    pixel_bytes, clut = convert_image_to_8bit_colour(img)
-    w, h = img.size
-
-    indices = np.frombuffer(pixel_bytes, dtype=np.uint8).reshape((h, w))
-    chunks_x = (w + chunk_texel_size - 1) // chunk_texel_size
-    chunks_y = (h + chunk_texel_size - 1) // chunk_texel_size
-
-    chunks = []
-    for cy in range(chunks_y):
-        for cx in range(chunks_x):
-            x0 = cx * chunk_texel_size
-            y0 = cy * chunk_texel_size
-            x1 = min(x0 + chunk_texel_size, w)
-            y1 = min(y0 + chunk_texel_size, h)
-
-            chunk_arr = np.zeros((chunk_texel_size, chunk_texel_size), dtype=np.uint8)
-            sub = indices[y0:y1, x0:x1]
-            chunk_arr[0 : y1 - y0, 0 : x1 - x0] = sub
-            chunks.append((cx, cy, chunk_arr.tobytes()))
-
-    return chunks, clut
-
-
 def main():
     parser = argparse.ArgumentParser(description="Convert any image bit depth to 8-bit colour for Arduracer PSX")
     parser.add_argument("input", help="Source image path")
-    parser.add_argument("output", nargs="?", help="Output 8bpp raw byte file")
+    parser.add_argument("output", help="Output 8bpp raw byte file")
     parser.add_argument("--clut", help="Output CLUT file (512 bytes BGR555)")
-    parser.add_argument("--slice-city", action="store_true", help="Slice city into 256x256 chunks")
-    parser.add_argument("--out-dir", default="dist/chunks", help="Directory for city chunks")
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -161,37 +126,17 @@ def main():
     img = Image.open(args.input)
     print(f"Loaded {args.input}: {img.size[0]}x{img.size[1]} mode={img.mode}")
 
-    if args.slice_city:
-        os.makedirs(args.out_dir, exist_ok=True)
-        chunks, clut = slice_city_visual(img)
-        print(f"Sliced into {len(chunks)} chunks of 256x256 texels (8-bit colour)")
+    pixel_bytes, clut = convert_image_to_8bit_colour(img)
+    with open(args.output, "wb") as f:
+        f.write(pixel_bytes)
+    print(f"Wrote {len(pixel_bytes)} 8bpp texels to {args.output}")
 
-        clut_path = os.path.join(args.out_dir, "city_clut.bin")
-        with open(clut_path, "wb") as f:
+    if args.clut:
+        with open(args.clut, "wb") as f:
             for r, g, b in clut:
                 word = pack_bgr555(r, g, b)
                 f.write(word.to_bytes(2, "little"))
-
-        for cx, cy, cbytes in chunks:
-            chunk_file = os.path.join(args.out_dir, f"chunk_{cx}_{cy}.bin")
-            with open(chunk_file, "wb") as f:
-                f.write(cbytes)
-        print(f"Wrote {len(chunks)} chunks and CLUT to {args.out_dir}")
-    else:
-        if not args.output:
-            print("Error: output path required when not slicing", file=sys.stderr)
-            return 1
-        pixel_bytes, clut = convert_image_to_8bit_colour(img)
-        with open(args.output, "wb") as f:
-            f.write(pixel_bytes)
-        print(f"Wrote {len(pixel_bytes)} 8bpp texels to {args.output}")
-
-        if args.clut:
-            with open(args.clut, "wb") as f:
-                for r, g, b in clut:
-                    word = pack_bgr555(r, g, b)
-                    f.write(word.to_bytes(2, "little"))
-            print(f"Wrote 256-colour CLUT to {args.clut}")
+        print(f"Wrote 256-colour CLUT to {args.clut}")
 
     return 0
 

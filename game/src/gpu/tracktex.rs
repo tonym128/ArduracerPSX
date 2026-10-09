@@ -18,7 +18,7 @@
 //!    guaranteeing that CD-DA Redbook audio plays with zero interruptions, zero head seeks,
 //!    and zero audio stutter.
 //!
-//! 4. **Massive Playfield Scalability (10km x 10km City Support):**
+//! 4. **Massive Playfield Scalability:**
 //!    The coordinate addressing maps arbitrary world extents to an unbounded 2D grid
 //!    of 1024x1024 blocks. Both RAM and VRAM memory consumption remain strictly constant
 //!    and bounded regardless of world size.
@@ -43,7 +43,7 @@ use psx_vram::{upload_16bpp, TexDepth, Tpage, VramRect};
 pub const RAM_CACHE_BLOCKS: usize = 3;
 
 /// Maximum number of 64x64 tiles decompressed per frame (staggers decoding to eliminate frame drops).
-pub const MAX_DECODES_PER_FRAME: usize = 2;
+pub const MAX_DECODES_PER_FRAME: usize = 1;
 
 /// Precomputed Tpage descriptors for each of the 4 allocated 256x256 VRAM regions.
 const TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
@@ -147,7 +147,7 @@ static mut DISC_READER: DiscReader = DiscReader::new();
 static mut TRACKS_BIN_LBA: Option<u32> = None;
 static mut TRACKS_PROBED: bool = false;
 
-/// Prepares the track texture streaming cache for a new circuit or city.
+/// Prepares the track texture streaming cache for a new circuit.
 #[allow(clippy::needless_range_loop)]
 pub fn init_track_texture(circuit: usize) {
     let c = circuit % visual_tex::COUNT;
