@@ -45,12 +45,7 @@ pub const HUFF_LUT_BITS: usize = 9;
 pub const HUFF_LUT_SIZE: usize = 1 << HUFF_LUT_BITS; // 512
 
 /// 4x4 Bayer ordered dither matrix for smooth 15-bit color gradients.
-const BAYER4X4: [[i32; 4]; 4] = [
-    [0, 8, 2, 10],
-    [12, 4, 14, 6],
-    [3, 11, 1, 9],
-    [15, 7, 13, 5],
-];
+const BAYER4X4: [[i32; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
 /// Bilinear sampling weights and indices for 8-to-16 upsampling (weights sum to 4)
 /// (sample_0, sample_1, weight_0, weight_1)
