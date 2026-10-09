@@ -50,6 +50,7 @@ PSoXide-emulator
 /dist/
 /build/
 *.bin
+!tracks/capetown_10km/capetown_10km_collision.bin
 *.cue
 *.exe
 *.iso

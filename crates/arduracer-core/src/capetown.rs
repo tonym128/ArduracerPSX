@@ -11,7 +11,7 @@ use crate::track::{TrackDef, TrackTile, MAX_TRACK_CHECKPOINTS};
 /// 240x240 tile collision grid (57,600 tiles).
 pub static CAPETOWN_TILES: [TrackTile; 57600] = unsafe {
     core::mem::transmute(*include_bytes!(
-        "../../../dist/capetown_10km/capetown_10km_collision.bin"
+        "../../../tracks/capetown_10km/capetown_10km_collision.bin"
     ))
 };
 
