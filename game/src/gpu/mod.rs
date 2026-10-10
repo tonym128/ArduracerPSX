@@ -21,4 +21,4 @@ pub use effects_sim::{Particle, ParticleSystem, ParticleType, Skidmark, Skidmark
 pub use hud_renderer::{bake_minimap, render_hud};
 pub use texpipe::TextureSlot;
 pub use tracktex::init_track_texture;
-pub use tracktex::{render_track, render_track_extents};
+pub use tracktex::{prewarm_starting_tiles, render_track, render_track_extents};

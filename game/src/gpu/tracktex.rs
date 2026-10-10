@@ -257,6 +257,119 @@ pub fn init_track_texture(circuit: usize) {
     }
 }
 
+#[inline(never)]
+fn decode_and_upload_full_tile(
+    circuit: usize,
+    bx: usize,
+    by: usize,
+    sub_tx: usize,
+    sub_ty: usize,
+    target_slot: usize,
+) {
+    let ram_slot_idx = ensure_ram_block(circuit, bx, by, 0);
+    let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
+    let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
+
+    if ram_slot.valid && ram_slot.byte_len > 0 {
+        for row in 0..4 {
+            decode_tile_row_64x16(
+                &ram_slot.jpeg_data[..ram_slot.byte_len],
+                &ram_slot.header,
+                &ram_slot.restart_offsets,
+                sub_tx,
+                sub_ty,
+                row,
+                scratch,
+            );
+        }
+    } else {
+        for y in 0..64 {
+            for x in 0..TILE_TEXELS {
+                let c = if ((x >> 3) ^ (y >> 3)) & 1 == 0 {
+                    0x1CE7
+                } else {
+                    0x2108
+                };
+                scratch[y * TILE_TEXELS + x] = c;
+            }
+        }
+    }
+
+    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
+    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
+    upload_16bpp(rect, scratch);
+
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[target_slot].resident_circuit = circuit;
+    vram_slots[target_slot].resident_block_x = bx;
+    vram_slots[target_slot].resident_block_y = by;
+    vram_slots[target_slot].resident_tile_x = sub_tx;
+    vram_slots[target_slot].resident_tile_y = sub_ty;
+    vram_slots[target_slot].last_used = 1;
+}
+
+/// Pre-warms the starting grid tiles directly into VRAM so the race starts with 100% texture residency.
+#[inline(never)]
+pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
+    let (half_w, half_h) = camera.visible_half_extents();
+    let cam_x = camera.pos.x.to_int();
+    let cam_y = camera.pos.y.to_int();
+
+    let x0 = (cam_x - half_w).max(0);
+    let x1 = (cam_x + half_w).min(world_w);
+    let y0 = (cam_y - half_h).max(0);
+    let y1 = (cam_y + half_h).min(world_h);
+
+    if x0 >= x1 || y0 >= y1 {
+        return;
+    }
+
+    let active_circuit = unsafe { ACTIVE_CIRCUIT };
+    let block_wu_x = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
+        world_w.max(1)
+    } else {
+        BLOCK_DIM as i32 * 5 / 2
+    };
+    let block_wu_y = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
+        world_h.max(1)
+    } else {
+        BLOCK_DIM as i32 * 5 / 2
+    };
+
+    let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
+    let tile_wu_y = (block_wu_y / (TILES_PER_BLOCK_AXIS as i32)).max(1);
+
+    let min_tx = (x0 / tile_wu_x).max(0);
+    let max_tx = (x1 - 1).max(0) / tile_wu_x;
+    let min_ty = (y0 / tile_wu_y).max(0);
+    let max_ty = (y1 - 1).max(0) / tile_wu_y;
+
+    let mut next_slot = 0usize;
+    for ty in min_ty..=max_ty {
+        for tx in min_tx..=max_tx {
+            let wx0 = tx * tile_wu_x;
+            let wy0 = ty * tile_wu_y;
+            let bx = (wx0 / block_wu_x) as usize;
+            let by = (wy0 / block_wu_y) as usize;
+            let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
+            let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
+
+            let slot_idx = next_slot % VRAM_SLOT_COUNT;
+            decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot_idx);
+
+            next_slot += 1;
+            if next_slot >= VRAM_SLOT_COUNT {
+                break;
+            }
+        }
+        if next_slot >= VRAM_SLOT_COUNT {
+            break;
+        }
+    }
+}
+
 /// Streams a 1024x1024 JPEG block (~100-200 KB) from CD-ROM into the specified RAM cache slot.
 #[inline(never)]
 fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) {

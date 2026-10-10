@@ -31,8 +31,8 @@ use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
-    bake_minimap, init_track_texture, render_car, render_hud, render_track, Camera, ParticleSystem,
-    SkidmarkBuffer, TextureSlot,
+    bake_minimap, init_track_texture, prewarm_starting_tiles, render_car, render_hud, render_track,
+    Camera, ParticleSystem, SkidmarkBuffer, TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -221,6 +221,11 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
+        prewarm_starting_tiles(
+            self.current_track.world_width(),
+            self.current_track.world_height(),
+            &self.camera,
+        );
 
         // Play the CD-DA theme corresponding to the active cup:
         // Cup 1 (Tracks 1-6) -> CD-DA Track 3 ("Asphalt Adrenaline" Eurobeat)
@@ -249,6 +254,11 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(city.track_id);
+        prewarm_starting_tiles(
+            self.current_track.world_width(),
+            self.current_track.world_height(),
+            &self.camera,
+        );
 
         // CD-DA Track 4: "Coastal Drive" D&B - high tempo street cruise
         self.audio.cdda.play_track(4);
@@ -366,6 +376,7 @@ impl ArduracerGame {
                 let _s = prof::span(prof::VBLANK);
                 psx_rt::interrupts::wait_vblank();
             }
+            psx_gpu_mod::arm_draw_done();
             self.fb.apply_draw_target();
 
             {
