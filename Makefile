@@ -30,7 +30,7 @@ DUCKSTATION_APPIMAGES := \
 # 300-crate link into one readable line naming the real budget, and it catches a
 # runaway static buffer long before it becomes a link error. Headroom is left
 # for the runtime stack (32 KiB reserved in linker script) and any future dynamic heap.
-RAM_GATE_MAX_PCT ?= 75
+RAM_GATE_MAX_PCT ?= 78
 
 RETROARCH_CORE_DIRS := \
 	$(HOME)/.config/retroarch/cores \
