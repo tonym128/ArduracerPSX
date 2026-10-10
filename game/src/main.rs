@@ -887,109 +887,10 @@ impl ArduracerGame {
                     }
                 }
                 GameState::Results => {
-                    self.fb.clear(14, 16, 22);
-                    self.audio.ui_frame(pad.buttons.bits());
-                    let mut action: Option<ResultsAction> = None;
-                    if let Some(ref mut results) = self.state_mgr.results {
-                        action = results.update(&pad);
-                        results.render(self.state_mgr.championship.as_ref());
-                    }
-                    match action {
-                        Some(ResultsAction::Continue) => {
-                            let next_step = if let Some(ref mut champ) = self.state_mgr.championship
-                            {
-                                if champ.current_stage >= STAGES_PER_CUP - 1 {
-                                    None
-                                } else {
-                                    champ.advance_stage();
-                                    Some(*champ)
-                                }
-                            } else {
-                                None
-                            };
-
-                            if let Some(champ) = next_step {
-                                self.state_mgr.champ_stage_backup = Some(champ);
-                                self.memcard.save_data.save_championship(&champ);
-                                self.memcard.mark_dirty();
-                                self.memcard.flush();
-                                self.load_track(champ.current_track_idx());
-                                self.state_mgr.current = GameState::Racing;
-                            } else if let Some(ref champ) = self.state_mgr.championship {
-                                // Final stage completed: clear championship from memory card and celebrate!
-                                self.memcard.save_data.clear_championship();
-                                self.memcard.mark_dirty();
-                                self.memcard.flush();
-                                self.state_mgr.victory = Some(VictoryScreen::new(champ));
-                                self.state_mgr.current = GameState::Victory;
-                                self.audio.cdda.play_track(7);
-                            } else {
-                                // Time Trial: replay track
-                                self.load_track(self.current_track_idx);
-                                self.state_mgr.current = GameState::Racing;
-                            }
-                        }
-                        Some(ResultsAction::RestartRace) => {
-                            if let Some(backup) = self.state_mgr.champ_stage_backup {
-                                self.state_mgr.championship = Some(backup);
-                                self.memcard.save_data.save_championship(&backup);
-                                self.memcard.mark_dirty();
-                                self.memcard.flush();
-                            }
-                            self.reset_race();
-                            self.audio.enter_race();
-                            self.pause.arm_for_race_start();
-                            self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
-                            let cdda_track = if self.current_track_idx == 99 {
-                                4
-                            } else {
-                                3 + ((self.current_track_idx / 6) as u8).min(3)
-                            };
-                            self.audio.cdda.play_track(cdda_track);
-                            self.state_mgr.current = GameState::Racing;
-                        }
-                        Some(ResultsAction::ExitToMenu) => {
-                            if let Some(ref mut champ) = self.state_mgr.championship {
-                                if champ.current_stage >= STAGES_PER_CUP - 1 {
-                                    self.memcard.save_data.clear_championship();
-                                } else {
-                                    champ.advance_stage();
-                                    self.memcard.save_data.save_championship(champ);
-                                }
-                                self.memcard.mark_dirty();
-                                self.memcard.flush();
-                            }
-                            self.state_mgr.championship = None;
-                            self.state_mgr.champ_stage_backup = None;
-                            self.state_mgr.current = GameState::MainMenu;
-                            self.audio.leave_race();
-                            self.audio.sync_ui_edges(pad.buttons.bits());
-                            self.audio.cdda.play_track(2);
-                        }
-                        None => {}
-                    }
+                    self.handle_results_screen(&pad);
                 }
                 GameState::Victory => {
-                    self.fb.clear(14, 16, 22);
-                    self.audio.ui_frame(pad.buttons.bits());
-                    let finished = if let (Some(ref mut victory), Some(ref champ)) =
-                        (&mut self.state_mgr.victory, &self.state_mgr.championship)
-                    {
-                        let cont = victory.update(&pad);
-                        victory.render(champ);
-                        cont
-                    } else {
-                        true
-                    };
-                    if finished {
-                        self.state_mgr.championship = None;
-                        self.state_mgr.champ_stage_backup = None;
-                        self.state_mgr.victory = None;
-                        self.state_mgr.current = GameState::MainMenu;
-                        self.audio.leave_race();
-                        self.audio.sync_ui_edges(pad.buttons.bits());
-                        self.audio.cdda.play_track(2);
-                    }
+                    self.handle_victory_screen(&pad);
                 }
             }
 
@@ -1026,6 +927,112 @@ impl ArduracerGame {
     /// GP0(1Fh) closes the command stream, and the VBlank handler applies the
     /// display-start word only once the GPU has reached that flag -- so the flip
     /// cannot land on a half-drawn frame.
+    #[inline(never)]
+    fn handle_results_screen(&mut self, pad: &psx_pad::PadResponse) {
+        self.fb.clear(14, 16, 22);
+        self.audio.ui_frame(pad.buttons.bits());
+        let mut action: Option<ResultsAction> = None;
+        if let Some(ref mut results) = self.state_mgr.results {
+            action = results.update(pad);
+            results.render(self.state_mgr.championship.as_ref());
+        }
+        match action {
+            Some(ResultsAction::Continue) => {
+                let next_step = if let Some(ref mut champ) = self.state_mgr.championship {
+                    if champ.current_stage >= STAGES_PER_CUP - 1 {
+                        None
+                    } else {
+                        champ.advance_stage();
+                        Some(*champ)
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(champ) = next_step {
+                    self.state_mgr.champ_stage_backup = Some(champ);
+                    self.memcard.save_data.save_championship(&champ);
+                    self.memcard.mark_dirty();
+                    self.memcard.flush();
+                    self.load_track(champ.current_track_idx());
+                    self.state_mgr.current = GameState::Racing;
+                } else if let Some(ref champ) = self.state_mgr.championship {
+                    self.memcard.save_data.clear_championship();
+                    self.memcard.mark_dirty();
+                    self.memcard.flush();
+                    self.state_mgr.victory = Some(VictoryScreen::new(champ));
+                    self.state_mgr.current = GameState::Victory;
+                    self.audio.cdda.play_track(7);
+                } else {
+                    self.load_track(self.current_track_idx);
+                    self.state_mgr.current = GameState::Racing;
+                }
+            }
+            Some(ResultsAction::RestartRace) => {
+                if let Some(backup) = self.state_mgr.champ_stage_backup {
+                    self.state_mgr.championship = Some(backup);
+                    self.memcard.save_data.save_championship(&backup);
+                    self.memcard.mark_dirty();
+                    self.memcard.flush();
+                }
+                self.reset_race();
+                self.audio.enter_race();
+                self.pause.arm_for_race_start();
+                self.pause.sync_edges(PauseMenu::input_from_pad(pad));
+                let cdda_track = if self.current_track_idx == 99 {
+                    4
+                } else {
+                    3 + ((self.current_track_idx / 6) as u8).min(3)
+                };
+                self.audio.cdda.play_track(cdda_track);
+                self.state_mgr.current = GameState::Racing;
+            }
+            Some(ResultsAction::ExitToMenu) => {
+                if let Some(ref mut champ) = self.state_mgr.championship {
+                    if champ.current_stage >= STAGES_PER_CUP - 1 {
+                        self.memcard.save_data.clear_championship();
+                    } else {
+                        champ.advance_stage();
+                        self.memcard.save_data.save_championship(champ);
+                    }
+                    self.memcard.mark_dirty();
+                    self.memcard.flush();
+                }
+                self.state_mgr.championship = None;
+                self.state_mgr.champ_stage_backup = None;
+                self.state_mgr.current = GameState::MainMenu;
+                self.audio.leave_race();
+                self.audio.sync_ui_edges(pad.buttons.bits());
+                self.audio.cdda.play_track(2);
+            }
+            None => {}
+        }
+    }
+
+    #[inline(never)]
+    fn handle_victory_screen(&mut self, pad: &psx_pad::PadResponse) {
+        self.fb.clear(14, 16, 22);
+        self.audio.ui_frame(pad.buttons.bits());
+        let finished = if let (Some(ref mut victory), Some(ref champ)) =
+            (&mut self.state_mgr.victory, &self.state_mgr.championship)
+        {
+            let cont = victory.update(pad);
+            victory.render(champ);
+            cont
+        } else {
+            true
+        };
+        if finished {
+            self.state_mgr.championship = None;
+            self.state_mgr.champ_stage_backup = None;
+            self.state_mgr.victory = None;
+            self.state_mgr.current = GameState::MainMenu;
+            self.audio.leave_race();
+            self.audio.sync_ui_edges(pad.buttons.bits());
+            self.audio.cdda.play_track(2);
+        }
+    }
+
     fn close_frame(&mut self) {
         psx_gpu_mod::signal_draw_done();
         let flip = self.fb.begin_deferred_swap();
