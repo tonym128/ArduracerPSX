@@ -1,6 +1,6 @@
 //! Arduracer PSX - Bare-metal PlayStation 1 Entry Point.
 //!
-//! Locked 60 FPS overhead arcade racer built with PSoXide.
+//! Locked 30 FPS overhead arcade racer built with PSoXide.
 
 #![no_std]
 #![no_main]
@@ -115,6 +115,8 @@ pub struct ArduracerGame {
     pub last_vblank_count: u32,
     /// Monotonic count of simulation ticks executed.
     pub sim_tick_counter: u32,
+    /// VBlank counter value of the last display flip applied (for 30 FPS pacing).
+    pub last_flip_vblank: u32,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -220,6 +222,7 @@ impl ArduracerGame {
             sim_accumulator: 0,
             last_vblank_count: 0,
             sim_tick_counter: 0,
+            last_flip_vblank: 0,
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -321,6 +324,7 @@ impl ArduracerGame {
         self.sim_accumulator = 0;
         self.last_vblank_count = psx_rt::interrupts::vblank_count();
         self.sim_tick_counter = 0;
+        self.last_flip_vblank = psx_rt::interrupts::vblank_count();
     }
 
     /// Draws the five rivals back-to-front by screen row.
@@ -394,12 +398,35 @@ impl ArduracerGame {
             // VBlank period is attributed to the frame that lost it.
             prof::begin_frame();
 
-            // 1. Synchronize to 60Hz NTSC VBlank. The handler has now applied
-            //    last frame's queued flip, so program the draw target for the
-            //    buffer we are about to fill.
+            // 1. Synchronize to 30 FPS display flip (wait until the queued flip is applied at VBlank).
+            //    The handler has now applied last frame's queued flip, so program the draw target
+            //    for the buffer we are about to fill.
             {
                 let _s = prof::span(prof::VBLANK);
-                psx_rt::interrupts::wait_vblank();
+                #[cfg(target_arch = "mips")]
+                {
+                    if first_frame {
+                        psx_rt::interrupts::wait_vblank();
+                        self.last_flip_vblank = psx_rt::interrupts::vblank_count();
+                    } else {
+                        let mut wait_spins = 0u32;
+                        while psx_rt::interrupts::gp1_queue_pending() && wait_spins < 8 {
+                            psx_rt::interrupts::wait_vblank();
+                            wait_spins += 1;
+                        }
+                        if psx_rt::interrupts::gp1_queue_pending() {
+                            let word = psx_rt::interrupts::take_pending_gp1();
+                            if word != 0 {
+                                psx_io::gpu::write_gp1(word);
+                            }
+                        }
+                        self.last_flip_vblank = psx_rt::interrupts::vblank_count();
+                    }
+                }
+                #[cfg(not(target_arch = "mips"))]
+                {
+                    psx_rt::interrupts::wait_vblank();
+                }
             }
             psx_gpu_mod::arm_draw_done();
             self.fb.apply_draw_target();
@@ -582,6 +609,7 @@ impl ArduracerGame {
                             self.audio.cdda.resume();
                             self.sim_accumulator = 0;
                             self.last_vblank_count = psx_rt::interrupts::vblank_count();
+                            self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                         }
                     }
                     if frame.select_pressed {
@@ -605,6 +633,7 @@ impl ArduracerGame {
                                     self.audio.cdda.resume();
                                     self.sim_accumulator = 0;
                                     self.last_vblank_count = psx_rt::interrupts::vblank_count();
+                                    self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                                 }
                                 PauseChoice::RestartRace => {
                                     if let Some(backup) = self.state_mgr.champ_stage_backup {
@@ -1104,6 +1133,14 @@ impl ArduracerGame {
     /// cannot land on a half-drawn frame.
     fn close_frame(&mut self) {
         psx_gpu_mod::signal_draw_done();
+        #[cfg(target_arch = "mips")]
+        {
+            // Lock to 30 FPS: ensure at least 1 VBlank has elapsed since the previous flip
+            // before queueing this flip, so the deferred swap lands on the 2nd VBlank (30 FPS).
+            while psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank) < 1 {
+                psx_rt::interrupts::wait_vblank();
+            }
+        }
         let flip = self.fb.begin_deferred_swap();
         psx_rt::interrupts::queue_gp1_at_vblank(flip);
     }

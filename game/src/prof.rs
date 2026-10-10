@@ -42,20 +42,19 @@ use crate::dbg;
 // Budget
 // ---------------------------------------------------------------------------
 
-/// Cycles available per frame at 60 Hz NTSC (33.8688 MHz / 60).
+/// Cycles available per frame at 30 Hz NTSC (33.8688 MHz / 30 = 2 VBlanks).
 ///
 /// This is the naive figure, and it is what the emulator's own profile report
 /// divides by too. The emulator's scheduler instead uses a slightly longer
-/// beam-cadence period (571,236 cycles, derived from measured HSYNC clocks
-/// rather than `clock / 60`), so a frame reported here as 99% of budget may in
+/// beam-cadence period, so a frame reported here as 99% of budget may in
 /// fact still have fit. Use it to compare stages and runs against each other,
 /// not as the exact drop threshold.
-pub const BUDGET_CYCLES: u32 = 564_480;
+pub const BUDGET_CYCLES: u32 = 1_128_960;
 
-/// Frames per report window. 60 frames is one second at the target rate: short
+/// Frames per report window. 30 frames is one second at the target rate: short
 /// enough to catch a transient, long enough that the report's own TTY traffic
 /// does not distort the window it describes.
-pub const WINDOW_FRAMES: u32 = 60;
+pub const WINDOW_FRAMES: u32 = 30;
 
 // ---------------------------------------------------------------------------
 // Stages
@@ -554,7 +553,7 @@ pub fn report_window() {
         dbg::print_dec(mean_work);
         dbg::print(" mean-vblank-slack=");
         dbg::print_dec(window_stages[VBLANK] / WINDOW_FRAMES);
-        dbg::print(" slack-if-60fps=");
+        dbg::print(" slack-if-30fps=");
         dbg::print_dec(
             BUDGET_CYCLES.saturating_sub(*core::ptr::addr_of!(WINDOW_WORK) / WINDOW_FRAMES),
         );
