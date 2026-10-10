@@ -23,9 +23,9 @@ pub mod ui;
 pub mod video;
 
 use arduracer_core::{
-    compute_standings, grid_slot_position, AiRacer, ChampionshipSession, Difficulty, Fixed,
-    LapTimer, StartPhase, StartSequence, TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS,
-    ALL_TRACK_VISUALS, GRID_SLOT_OFFSETS, STAGES_PER_CUP,
+    compute_standings, grid_slot_position, resolve_field, AiRacer, ChampionshipSession, Difficulty,
+    Fixed, LapTimer, StartPhase, StartSequence, TrackDef, Vec2, VehicleState, AI_PROFILES,
+    ALL_TRACKS, ALL_TRACK_VISUALS, GRID_SLOT_OFFSETS, STAGES_PER_CUP,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -117,6 +117,10 @@ pub struct ArduracerGame {
     pub sim_tick_counter: u32,
     /// VBlank counter value of the last display flip applied (for 30 FPS pacing).
     pub last_flip_vblank: u32,
+    /// Cached race standings across simulation sub-ticks.
+    pub last_standings: [usize; 6],
+    /// Cached player rank (1..=6) across simulation sub-ticks.
+    pub last_player_rank: u8,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -223,6 +227,8 @@ impl ArduracerGame {
             last_vblank_count: 0,
             sim_tick_counter: 0,
             last_flip_vblank: 0,
+            last_standings: [0, 1, 2, 3, 4, 5],
+            last_player_rank: 1,
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -325,6 +331,8 @@ impl ArduracerGame {
         self.last_vblank_count = psx_rt::interrupts::vblank_count();
         self.sim_tick_counter = 0;
         self.last_flip_vblank = psx_rt::interrupts::vblank_count();
+        self.last_standings = [0, 1, 2, 3, 4, 5];
+        self.last_player_rank = 1;
     }
 
     /// Draws the five rivals back-to-front by screen row.
@@ -702,9 +710,10 @@ impl ArduracerGame {
 
                     // Frame-rate agnostic simulation updates:
                     let ticks_to_run = self.compute_ticks_to_run();
-                    let mut player_rank = 1u8;
-                    for _ in 0..ticks_to_run {
-                        let (rank, _) = self.tick_racing_simulation(&pad, track);
+                    let mut player_rank = self.last_player_rank;
+                    for tick_idx in 0..ticks_to_run {
+                        let is_last = tick_idx + 1 == ticks_to_run;
+                        let (rank, _) = self.tick_racing_simulation(&pad, track, is_last);
                         player_rank = rank;
                         if self.state_mgr.current != GameState::Racing {
                             break;
@@ -831,6 +840,7 @@ impl ArduracerGame {
         &mut self,
         pad: &psx_pad::PadState,
         track: &'static TrackDef,
+        compute_standings_now: bool,
     ) -> (u8, [usize; 6]) {
         self.sim_tick_counter = self.sim_tick_counter.wrapping_add(1);
         let sim_tick = self.sim_tick_counter;
@@ -879,7 +889,7 @@ impl ArduracerGame {
             (hit_wall, track.surface_at(tx, ty))
         };
 
-        let mut player_rank = 1u8;
+        let player_rank;
         self.timer.tick();
         if self.timer.update_player_on_track(&self.player, track) {
             // A lap was just scored. Promote this lap's telemetry to
@@ -892,18 +902,17 @@ impl ArduracerGame {
             self.ghost.start_lap();
         }
 
-        let standings;
-        {
+        let (standings, contacts) = {
             let _s = prof::span(prof::SIM_RIVALS);
+            let is_racing = self.start.phase() == StartPhase::Racing || self.start.just_started();
+
             // AI rivals tick with dynamic obstacle avoidance
-            let mut other_positions = [Vec2::ZERO; 6];
-            other_positions[0] = self.player.position;
-            for i in 0..5 {
-                other_positions[i + 1] = self.rivals[i].state.position;
-            }
-            if RIVALS_ENABLED
-                && (self.start.phase() == StartPhase::Racing || self.start.just_started())
-            {
+            if RIVALS_ENABLED && is_racing {
+                let mut other_positions = [Vec2::ZERO; 6];
+                other_positions[0] = self.player.position;
+                for i in 0..5 {
+                    other_positions[i + 1] = self.rivals[i].state.position;
+                }
                 // Rivals launch with the player: held on the grid until
                 // the lights go out, like a standing start.
                 for i in 0..5 {
@@ -913,24 +922,42 @@ impl ArduracerGame {
                 }
             }
 
+            // Resolve vehicle-to-vehicle contacts (player <-> rival, rival <-> rival).
+            let contacts = if RIVALS_ENABLED && is_racing {
+                resolve_field(&mut self.player, &mut self.rivals, track)
+            } else {
+                arduracer_core::contact::FieldContacts::default()
+            };
+
             // Race standings: player checkpoint progress is compared on
-            // the same route index the rivals use.
-            let player_route_node = self.timer.route_node_index(track.route_len()) as u8;
-            standings = compute_standings(
-                self.player.position,
-                self.timer.current_lap,
-                player_route_node,
-                self.timer.is_finished,
-                &self.rivals,
-                track,
-            );
-            for (place, &competitor_idx) in standings.iter().enumerate() {
-                if competitor_idx == 0 {
-                    player_rank = (place + 1) as u8;
-                    break;
+            // the same route index the rivals use. Only recomputed on the
+            // last simulation sub-tick of the frame or when the race finishes.
+            let standings = if is_racing && (compute_standings_now || self.timer.is_finished) {
+                let player_route_node = self.timer.route_node_index(track.route_len()) as u8;
+                let s = compute_standings(
+                    self.player.position,
+                    self.timer.current_lap,
+                    player_route_node,
+                    self.timer.is_finished,
+                    &self.rivals,
+                    track,
+                );
+                self.last_standings = s;
+                for (place, &competitor_idx) in s.iter().enumerate() {
+                    if competitor_idx == 0 {
+                        self.last_player_rank = (place + 1) as u8;
+                        break;
+                    }
                 }
-            }
-        }
+                s
+            } else {
+                self.last_standings
+            };
+
+            player_rank = self.last_player_rank;
+
+            (standings, contacts)
+        };
 
         // Ghost telemetry sample
         {
@@ -976,11 +1003,12 @@ impl ArduracerGame {
         }
 
         let cleared = self.timer.checkpoints_cleared() as u8;
+        let any_impact = hit_wall || contacts.player_hard_hit();
         // Audio engine tick (engine RPM synth, tire screech, SFX)
         {
             let _s = prof::span(prof::AUDIO);
             self.audio
-                .tick(&self.player, input.throttle, surface, hit_wall, cleared);
+                .tick(&self.player, input.throttle, surface, any_impact, cleared);
         }
 
         // Emit smoke particles and skidmarks during hard turns or drifts
@@ -994,6 +1022,13 @@ impl ArduracerGame {
             let away = self.player.velocity.scale(Fixed::from_raw(-256));
             self.particles.emit_sparks(self.player.position, away);
             self.input_mgr.rumble.trigger_impact(200);
+        }
+        // Vehicle collision sparks + proportional rumble on hard car bumps.
+        if contacts.player_hard_hit() {
+            let away = contacts.player_contact_normal.scale(Fixed::from_raw(256));
+            self.particles
+                .emit_sparks(contacts.player_contact_point, away);
+            self.input_mgr.rumble.trigger_impact(160);
         }
         if self.player.boost_ticks == 29 {
             self.input_mgr.rumble.trigger_boost();

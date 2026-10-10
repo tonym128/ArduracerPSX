@@ -57,21 +57,7 @@ pub const MAX_TILE_INDEX: u8 = (MAX_TRACK_DIM - 1) as u8;
 /// collision is not.
 pub const TILE_SIZE: i32 = 32;
 
-/// Integer square root (floor) of a `u64`. No floats: the core is `no_std`
-/// Q20.12 arithmetic only.
-fn isqrt_u64(n: u64) -> u64 {
-    if n < 2 {
-        return n;
-    }
-    // Newton's method seeded with a power-of-two upper bound.
-    let mut x = n;
-    let mut y = x.div_ceil(2);
-    while y < x {
-        x = y;
-        y = (x + n / x) / 2;
-    }
-    x
-}
+use crate::math::isqrt_u64;
 
 /// A single cell of a track's tile grid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

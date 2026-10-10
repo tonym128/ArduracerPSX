@@ -30,15 +30,29 @@ pub fn atan2_bams(dy: i32, dx: i32) -> u16 {
     if dx == 0 && dy == 0 {
         return 0;
     }
-    let abs_y = dy.abs();
-    let abs_x = dx.abs();
+    let abs_y = dy.unsigned_abs();
+    let abs_x = dx.unsigned_abs();
 
-    // Octant ratio calculation (Q12) using i64 to prevent overflow
+    // Octant ratio calculation (Q12) without 64-bit software division.
+    // In all normal track calculations deltas are within track bounds (< 2048).
+    // Large deltas (> 524,287) are scaled down uniformly.
     let angle_octant = if abs_x >= abs_y {
-        let ratio = ((abs_y as i64 * 4096) / (abs_x as i64).max(1)) as i32;
+        let (num, den) = if abs_y > 524_287 {
+            let shift = 32 - abs_y.leading_zeros() - 19;
+            ((abs_y >> shift) * 4096, (abs_x >> shift).max(1))
+        } else {
+            (abs_y * 4096, abs_x.max(1))
+        };
+        let ratio = (num / den) as i32;
         (ratio * 512) / 4096
     } else {
-        let ratio = ((abs_x as i64 * 4096) / (abs_y as i64).max(1)) as i32;
+        let (num, den) = if abs_x > 524_287 {
+            let shift = 32 - abs_x.leading_zeros() - 19;
+            ((abs_x >> shift) * 4096, (abs_y >> shift).max(1))
+        } else {
+            (abs_x * 4096, abs_y.max(1))
+        };
+        let ratio = (num / den) as i32;
         1024 - (ratio * 512) / 4096
     };
 
@@ -81,16 +95,7 @@ pub fn heading_towards(from: Vec2, to: Vec2) -> u16 {
 fn segment_units(dx: i32, dy: i32) -> i32 {
     let (x, y) = (dx.unsigned_abs() as u64, dy.unsigned_abs() as u64);
     let square = x * x + y * y;
-    if square < 2 {
-        return square as i32;
-    }
-    let mut x0 = square;
-    let mut x1 = x0.div_ceil(2);
-    while x1 < x0 {
-        x0 = x1;
-        x1 = (x0 + square / x0) / 2;
-    }
-    x0.min(i32::MAX as u64) as i32
+    crate::math::isqrt_u64(square).min(i32::MAX as u64) as i32
 }
 
 /// Whether a tile coordinate is somewhere a car can actually be driven.
@@ -128,13 +133,17 @@ const TILE_NEIGHBOURS: [(i32, i32); 8] = [
     (1, -1),
     (-1, -1),
 ];
+/// Precomputed headings between neighbouring tile centres (0=N, 1024=E, 2048=S, 3072=W).
+const NEIGHBOUR_HEADINGS: [u16; 8] = [1024, 2048, 3072, 0, 1536, 2560, 512, 3584];
+/// Step distance in world units between neighbouring tile centres (32 straight, 45 diagonal).
+const NEIGHBOUR_STEPS: [i32; 8] = [32, 32, 32, 32, 45, 45, 45, 45];
 /// Score penalty for a drivable tile that is not part of the racing surface.
 ///
 /// Large enough to lose to any positional term, so a racing-surface tile is
 /// always chosen while one is available.
 const OFF_LINE_PENALTY: i64 = 1 << 50;
 /// Ticks between full racing-line tile-walk recomputations for a rival.
-const AIM_CACHE_INTERVAL: u8 = 3;
+const AIM_CACHE_INTERVAL: u8 = 6;
 
 /// World-space centre of a tile.
 fn tile_centre_world(tx: u8, ty: u8) -> Vec2 {
@@ -338,10 +347,10 @@ impl AiRacer {
         // Direction the line is currently going; seeded from the car's heading so
         // the walk starts by following the car and only bends when the road does.
         let mut leg = self.state.heading;
-        for _ in 0..MAX_TILE_WALK {
+        for step_idx in 0..MAX_TILE_WALK {
             let mut best_score = i64::MAX;
-            let mut best: Option<(u8, u8)> = None;
-            for (dx, dy) in TILE_NEIGHBOURS {
+            let mut best: Option<(u8, u8, usize)> = None;
+            for (neighbour_idx, &(dx, dy)) in TILE_NEIGHBOURS.iter().enumerate() {
                 let nx = tx as i32 + dx;
                 let ny = ty as i32 + dy;
                 if nx < 0 || ny < 0 || nx >= track.width as i32 || ny >= track.height as i32 {
@@ -358,7 +367,12 @@ impl AiRacer {
                 // Shaping: among near-equal candidates keep going the way the line
                 // is already going, so it hugs the middle of the road instead of
                 // sawing across it.
-                let align = angle_error(heading_towards(from, centre), leg).abs() as i64;
+                let heading = if step_idx == 0 {
+                    heading_towards(from, centre)
+                } else {
+                    NEIGHBOUR_HEADINGS[neighbour_idx]
+                };
+                let align = angle_error(heading, leg).abs() as i64;
                 // Racing surface first; boost pads give a speed advantage; oil slicks cause spinouts.
                 // Off-road is drivable but a line that uses it is a line that cuts.
                 let tile = track.tile_at(nx, ny);
@@ -371,23 +385,30 @@ impl AiRacer {
                 let score = distance * 8 + align * 64 + surface;
                 if score < best_score {
                     best_score = score;
-                    best = Some((nx, ny));
+                    best = Some((nx, ny, neighbour_idx));
                 }
             }
-            let (nx, ny) = match best {
+            let (nx, ny, best_n_idx) = match best {
                 Some(next) => next,
                 None => break,
             };
             let centre = tile_centre_world(nx, ny);
-            let step =
-                segment_units((centre.x - from.x).to_int(), (centre.y - from.y).to_int()).max(1);
+            let step = if step_idx == 0 {
+                segment_units((centre.x - from.x).to_int(), (centre.y - from.y).to_int()).max(1)
+            } else {
+                NEIGHBOUR_STEPS[best_n_idx]
+            };
             if travelled + step >= lookahead {
                 let fraction = ((lookahead - travelled).max(0) as i64 * 4096) / step.max(1) as i64;
                 return from
                     + (centre - from).scale(Fixed::from_raw(fraction.clamp(0, 4096) as i32));
             }
             travelled += step;
-            leg = heading_towards(from, centre);
+            leg = if step_idx == 0 {
+                heading_towards(from, centre)
+            } else {
+                NEIGHBOUR_HEADINGS[best_n_idx]
+            };
             from = centre;
             tx = nx;
             ty = ny;

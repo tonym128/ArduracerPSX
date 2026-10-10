@@ -15,6 +15,7 @@ pub mod ai;
 pub mod ai_profiles;
 pub mod capetown;
 pub mod championship;
+pub mod contact;
 pub mod drift;
 pub mod ghost;
 pub mod jpeg;
@@ -38,6 +39,10 @@ pub use capetown::TRACK_CAPETOWN;
 pub use championship::{
     compute_standings, grid_slot_position, ChampionshipSession, Competitor, Difficulty, CUP_COUNT,
     CUP_NAMES, GRID_SLOT_OFFSETS, POINTS_TABLE, STAGES_PER_CUP,
+};
+pub use contact::{
+    collide_cars, resolve_field, CarContact, FieldContacts, CAR_BODY_HALF_SPAN, CAR_BODY_RADIUS,
+    CAR_RESTITUTION, HARD_BUMP_THRESHOLD,
 };
 pub use drift::{DriftState, DRIFT_BOOST_LEVEL1_TICKS, DRIFT_BOOST_LEVEL2_TICKS, SPINOUT_TICKS};
 pub use ghost::{

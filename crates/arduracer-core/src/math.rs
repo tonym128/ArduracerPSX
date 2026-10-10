@@ -256,25 +256,29 @@ pub fn cos(angle: u16) -> Fixed {
     sin(angle.wrapping_add(ANGLE_90))
 }
 
-/// Integer square root for a 64-bit unsigned integer.
+/// Integer square root (floor) for a 64-bit unsigned integer.
 ///
-/// Newton's method. Inputs up to `2^63` are supported, which covers the sum of
-/// squares of any pair of `i32` components.
+/// Binary digit recurrence without any 64-bit divisions. Inputs up to `2^64 - 1`
+/// are supported.
 #[inline]
-fn isqrt_u64(n: u64) -> u64 {
+pub fn isqrt_u64(n: u64) -> u64 {
     if n == 0 {
         return 0;
     }
-    let mut x0 = n >> 1;
-    if x0 == 0 {
-        return 1;
+    let mut root = 0u64;
+    let lz = n.leading_zeros() & !1;
+    let mut bit = 1u64 << (62 - lz);
+    let mut num = n;
+    while bit != 0 {
+        if num >= root + bit {
+            num -= root + bit;
+            root = (root >> 1) + bit;
+        } else {
+            root >>= 1;
+        }
+        bit >>= 2;
     }
-    let mut x1 = (x0 + n / x0) >> 1;
-    while x1 < x0 {
-        x0 = x1;
-        x1 = (x0 + n / x0) >> 1;
-    }
-    x0
+    root
 }
 
 #[cfg(test)]
