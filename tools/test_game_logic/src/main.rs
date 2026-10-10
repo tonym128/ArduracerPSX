@@ -2151,11 +2151,11 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
-    assert_eq!(visual_tex::COUNT, 4);
+    assert_eq!(visual_tex::COUNT, 24);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
     assert_eq!(visual_tex::BLOCK_SECTORS, 100);
     assert_eq!(visual_tex::BLOCK_MAX_BYTES, 204800);
-    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 4);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 24);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -2272,10 +2272,27 @@ fn test_visual_track_aligns_with_collision_data() {
         let g = ((p >> 5) & 0x1F) as u8;
         let b = ((p >> 10) & 0x1F) as u8;
 
+        // Check a 3x3 neighbourhood around local_u, local_v to account for rasterization sampling
+        let mut max_lum = (r as u32 + g as u32 + b as u32) / 3;
+        for dv in -1i32..=1 {
+            for du in -1i32..=1 {
+                let nu = (local_u as i32 + du).clamp(0, 63) as usize;
+                let nv = (local_v as i32 + dv).clamp(0, 63) as usize;
+                let np = tile_pixels[nv * 64 + nu];
+                let nr = (np & 0x1F) as u32;
+                let ng = ((np >> 5) & 0x1F) as u32;
+                let nb = ((np >> 10) & 0x1F) as u32;
+                let nlum = (nr + ng + nb) / 3;
+                if nlum > max_lum {
+                    max_lum = nlum;
+                }
+            }
+        }
+
         // Start finish lines are painted white/bright checker (>= 15 in 5-bit channel)
         // or tarmac road surface (luminance >= 3). It must NEVER be void black (0, 0, 0)
         // or off-road background.
-        let lum = (r as u32 + g as u32 + b as u32) / 3;
+        let lum = max_lum;
         assert!(
             lum >= 3,
             "Track {}: visual texture at start line ({}, {}) decoded luminance {} too dark -- visual track misaligned with collision track!",

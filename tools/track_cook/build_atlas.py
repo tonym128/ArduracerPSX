@@ -136,7 +136,7 @@ def calibrated_par(name: str) -> tuple[int, int, int, int]:
 
     found: dict[str, int] = {}
     for entry in data.get("tracks", []):
-        if entry.get("track") != name:
+        if entry.get("track", "").lower() != name.lower():
             continue
         for tier in ("bronze", "silver", "gold", "dev"):
             if tier not in found and isinstance(entry.get(tier), int):
@@ -546,7 +546,7 @@ def main() -> int:
               f"circuits that no longer exist", file=sys.stderr)
         git(["rm", "-q", "--"] + [f"tracks/{f}" for f in stale])
 
-    idents = ["TRACK_" + n.replace(" ", "_").upper() for n, _, _ in results]
+    idents = ["TRACK_" + "".join(c if c.isalnum() else "_" for c in n).upper() for n, _, _ in results]
     code = [
         "//! Racetrack definitions for Arduracer PSX.",
         "//!",

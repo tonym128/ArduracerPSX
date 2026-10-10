@@ -11,12 +11,81 @@ use crate::track::TrackDef;
 
 pub const POINTS_TABLE: [u8; 6] = [10, 6, 4, 3, 2, 1];
 
+/// Difficulty levels for AI opponent scaling.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum Difficulty {
+    Easy = 0,
+    #[default]
+    Medium = 1,
+    Hard = 2,
+}
+
+impl Difficulty {
+    pub const ALL: [Difficulty; 3] = [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Difficulty::Easy => "EASY",
+            Difficulty::Medium => "MEDIUM",
+            Difficulty::Hard => "HARD",
+        }
+    }
+
+    pub fn from_u8(val: u8) -> Self {
+        match val {
+            0 => Difficulty::Easy,
+            2 => Difficulty::Hard,
+            _ => Difficulty::Medium,
+        }
+    }
+
+    /// Acceleration / throttle scale in Q12 fixed point (4096 = 1.0x).
+    /// Easy = 0.88x (3604), Medium = 1.0x (4096), Hard = 1.10x (4505).
+    pub fn speed_scale_raw(self) -> i32 {
+        match self {
+            Difficulty::Easy => 3604,
+            Difficulty::Medium => 4096,
+            Difficulty::Hard => 4505,
+        }
+    }
+}
+
 /// Competitors in a championship: the player plus five rivals.
 pub const COMPETITORS_PER_SESSION: usize = 6;
+/// Staggered grid slots for 6 competitors (slot 0 is pole position, slots 1..5 follow).
+pub const GRID_SLOT_OFFSETS: [(i32, i32); COMPETITORS_PER_SESSION] = [
+    (0, 0),
+    (-48, 16),
+    (-96, -16),
+    (-144, 16),
+    (-192, -16),
+    (-240, 0),
+];
+
+/// Calculates the world-space position for a given grid slot (0..5) relative to pole.
+pub fn grid_slot_position(start_pos: Vec2, start_heading: u16, slot: usize) -> Vec2 {
+    let slot_idx = slot.min(COMPETITORS_PER_SESSION - 1);
+    let (forward, lateral) = GRID_SLOT_OFFSETS[slot_idx];
+    if forward == 0 && lateral == 0 {
+        return start_pos;
+    }
+    let fx = crate::math::sin(start_heading);
+    let fy = -crate::math::cos(start_heading);
+    let lx = crate::math::cos(start_heading);
+    let ly = crate::math::sin(start_heading);
+    start_pos
+        + Vec2::new(
+            fx * crate::math::Fixed::from_int(forward) + lx * crate::math::Fixed::from_int(lateral),
+            fy * crate::math::Fixed::from_int(forward) + ly * crate::math::Fixed::from_int(lateral),
+        )
+}
 /// Races in each cup.
 pub const STAGES_PER_CUP: u8 = 6;
 /// Cups in the championship.
 pub const CUP_COUNT: usize = 4;
+/// Display names for the four cups.
+pub const CUP_NAMES: [&str; CUP_COUNT] = ["BRONZE CUP", "SILVER CUP", "GOLD CUP", "PLATINUM CUP"];
 /// Weight of one completed lap in the standings score, in Q20.12 raw units.
 /// Larger than [`STANDINGS_DISTANCE_CAP`] so a car a whole lap *behind* can never
 /// out-score one that is nearer to its next gate.
@@ -41,14 +110,23 @@ pub struct Competitor {
     pub is_player: bool,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ChampionshipSession {
     pub cup_index: u8,     // 0..3 (Bronze, Silver, Gold, Platinum)
     pub current_stage: u8, // 0..5 (6 stages per cup)
+    pub difficulty: Difficulty,
+    /// Grid positions for the next race: `grid_positions[grid_slot] = competitor_idx`.
+    /// Slot 0 is pole position (1st on grid), slot 5 is 6th on grid.
+    pub grid_positions: [usize; COMPETITORS_PER_SESSION],
     pub competitors: [Competitor; COMPETITORS_PER_SESSION],
 }
 
 impl ChampionshipSession {
     pub fn new(cup_index: u8) -> Self {
+        Self::with_difficulty(cup_index, Difficulty::Medium)
+    }
+
+    pub fn with_difficulty(cup_index: u8, difficulty: Difficulty) -> Self {
         let competitors = [
             Competitor {
                 name: "PLAYER",
@@ -88,10 +166,26 @@ impl ChampionshipSession {
             },
         ];
 
-        ChampionshipSession {
+        let mut session = ChampionshipSession {
             cup_index: cup_index.min(CUP_COUNT as u8 - 1),
             current_stage: 0,
+            difficulty,
+            grid_positions: [0, 1, 2, 3, 4, 5],
             competitors,
+        };
+        session.randomise_initial_grid(12345 + cup_index as u32);
+        session
+    }
+
+    /// Shuffles the grid for the opening race of the championship using a simple LCG PRNG.
+    pub fn randomise_initial_grid(&mut self, seed: u32) {
+        let mut rng = if seed == 0 { 0xACE1 } else { seed };
+        self.grid_positions = [0, 1, 2, 3, 4, 5];
+        // Fisher-Yates shuffle
+        for i in (1..COMPETITORS_PER_SESSION).rev() {
+            rng = rng.wrapping_mul(1664525).wrapping_add(1013904223);
+            let j = ((rng >> 16) as usize) % (i + 1);
+            self.grid_positions.swap(i, j);
         }
     }
 
@@ -121,6 +215,9 @@ impl ChampionshipSession {
     ///   a single race.
     pub fn award_stage_points(&mut self, finish_indices: [usize; COMPETITORS_PER_SESSION]) {
         let mut scored: u8 = 0;
+        let mut valid_finishes = [0usize; COMPETITORS_PER_SESSION];
+        let mut valid_count = 0usize;
+
         for (place, &comp_idx) in finish_indices.iter().enumerate() {
             if comp_idx >= COMPETITORS_PER_SESSION {
                 continue;
@@ -132,7 +229,22 @@ impl ChampionshipSession {
             scored |= bit;
             let pts = POINTS_TABLE[place.min(POINTS_TABLE.len() - 1)];
             self.competitors[comp_idx].total_points += pts as u16;
+            valid_finishes[valid_count] = comp_idx;
+            valid_count += 1;
         }
+
+        // Fill any unranked competitors
+        for i in 0..COMPETITORS_PER_SESSION {
+            let bit = 1u8 << i;
+            if (scored & bit) == 0 {
+                valid_finishes[valid_count] = i;
+                valid_count += 1;
+            }
+        }
+
+        // Grid position for next race is based on previous race finish position
+        // (1st place finisher starts 1st on grid next race, 2nd starts 2nd, etc.)
+        self.grid_positions = valid_finishes;
     }
 
     /// Advances to the next stage in the cup. Returns true if championship finished.
@@ -167,6 +279,38 @@ impl ChampionshipSession {
             }
         }
         board
+    }
+
+    /// Returns the name of the current cup.
+    pub fn cup_name(&self) -> &'static str {
+        let idx = (self.cup_index as usize).min(CUP_COUNT - 1);
+        CUP_NAMES[idx]
+    }
+
+    /// Returns the player's 1-based rank on the current championship leaderboard.
+    pub fn player_leaderboard_rank(&self) -> u8 {
+        let board = self.sorted_leaderboard();
+        for (i, comp) in board.iter().enumerate() {
+            if comp.is_player {
+                return (i + 1) as u8;
+            }
+        }
+        1
+    }
+
+    /// Returns the 0-based grid slot index (0..5) assigned to `competitor_idx`.
+    pub fn grid_slot_of(&self, competitor_idx: usize) -> usize {
+        for (slot, &comp) in self.grid_positions.iter().enumerate() {
+            if comp == competitor_idx {
+                return slot;
+            }
+        }
+        competitor_idx.min(COMPETITORS_PER_SESSION - 1)
+    }
+
+    /// Rewinds or sets the stage to `stage`.
+    pub fn set_stage(&mut self, stage: u8) {
+        self.current_stage = stage.min(STAGES_PER_CUP - 1);
     }
 }
 

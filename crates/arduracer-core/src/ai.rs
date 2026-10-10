@@ -206,10 +206,26 @@ pub struct AiRacer {
     pub best_lap_ticks: u32,
     /// Total race elapsed ticks.
     pub total_race_ticks: u32,
+    /// Difficulty scale applied to top speed and cornering limit (4096 = 1.0x).
+    pub speed_scale: Fixed,
 }
 
 impl AiRacer {
     pub fn new(start_pos: Vec2, start_heading: u16, profile: AiProfile) -> Self {
+        Self::with_difficulty(
+            start_pos,
+            start_heading,
+            profile,
+            crate::championship::Difficulty::Medium,
+        )
+    }
+
+    pub fn with_difficulty(
+        start_pos: Vec2,
+        start_heading: u16,
+        profile: AiProfile,
+        difficulty: crate::championship::Difficulty,
+    ) -> Self {
         let state = VehicleState::new(start_pos, start_heading, profile.tuning);
         AiRacer {
             state,
@@ -226,6 +242,7 @@ impl AiRacer {
             current_lap_ticks: 0,
             best_lap_ticks: u32::MAX,
             total_race_ticks: 0,
+            speed_scale: Fixed::from_raw(difficulty.speed_scale_raw()),
         }
     }
 
@@ -248,6 +265,15 @@ impl AiRacer {
             );
         self.state.heading = start_heading;
         self.state.visual_angle = start_heading;
+        self.state.velocity = Vec2::ZERO;
+        self.state.speed = Fixed::ZERO;
+    }
+
+    /// Sets the rival's position directly on the grid facing `heading`.
+    pub fn place_at_position(&mut self, pos: Vec2, heading: u16) {
+        self.state.position = pos;
+        self.state.heading = heading;
+        self.state.visual_angle = heading;
         self.state.velocity = Vec2::ZERO;
         self.state.speed = Fixed::ZERO;
     }
@@ -536,6 +562,7 @@ impl AiRacer {
         // with no validation, and `aggression = 255` used to hand the rival an
         // 8.93x top-speed multiplier.
         limit = limit * Aggression::brake_bias(self.profile.aggression);
+        limit = limit * self.speed_scale;
 
         let apex_hunter =
             DriftTendency::clamped(self.profile.drift_tendency) >= DriftTendency::BLAZE;

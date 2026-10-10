@@ -15,7 +15,7 @@ pub const TILES_PER_BLOCK_AXIS: usize = 16;
 /// Total number of 64x64 tiles per 1024x1024 block (256).
 pub const TILES_PER_BLOCK: usize = 256;
 /// Number of authored circuits, one 1024x1024 JPEG block each.
-pub const COUNT: usize = 4;
+pub const COUNT: usize = 24;
 /// Maximum bytes per 1024x1024 compressed JPEG block (200 KB = 204,800 bytes).
 pub const BLOCK_MAX_BYTES: usize = 204800;
 /// Number of 2048-byte CD sectors allocated per JPEG block (100 sectors = 200 KB).
@@ -69,6 +69,106 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
         sector_offset: 300,
         sector_count: 100,
         byte_len: 204783,
+    },
+    TileSectorEntry {
+        sector_offset: 400,
+        sector_count: 100,
+        byte_len: 183431,
+    },
+    TileSectorEntry {
+        sector_offset: 500,
+        sector_count: 100,
+        byte_len: 184963,
+    },
+    TileSectorEntry {
+        sector_offset: 600,
+        sector_count: 100,
+        byte_len: 180724,
+    },
+    TileSectorEntry {
+        sector_offset: 700,
+        sector_count: 100,
+        byte_len: 194549,
+    },
+    TileSectorEntry {
+        sector_offset: 800,
+        sector_count: 100,
+        byte_len: 183612,
+    },
+    TileSectorEntry {
+        sector_offset: 900,
+        sector_count: 100,
+        byte_len: 185926,
+    },
+    TileSectorEntry {
+        sector_offset: 1000,
+        sector_count: 100,
+        byte_len: 186470,
+    },
+    TileSectorEntry {
+        sector_offset: 1100,
+        sector_count: 100,
+        byte_len: 182765,
+    },
+    TileSectorEntry {
+        sector_offset: 1200,
+        sector_count: 100,
+        byte_len: 185914,
+    },
+    TileSectorEntry {
+        sector_offset: 1300,
+        sector_count: 100,
+        byte_len: 195308,
+    },
+    TileSectorEntry {
+        sector_offset: 1400,
+        sector_count: 100,
+        byte_len: 183565,
+    },
+    TileSectorEntry {
+        sector_offset: 1500,
+        sector_count: 100,
+        byte_len: 185364,
+    },
+    TileSectorEntry {
+        sector_offset: 1600,
+        sector_count: 100,
+        byte_len: 188107,
+    },
+    TileSectorEntry {
+        sector_offset: 1700,
+        sector_count: 100,
+        byte_len: 192195,
+    },
+    TileSectorEntry {
+        sector_offset: 1800,
+        sector_count: 100,
+        byte_len: 192471,
+    },
+    TileSectorEntry {
+        sector_offset: 1900,
+        sector_count: 100,
+        byte_len: 190243,
+    },
+    TileSectorEntry {
+        sector_offset: 2000,
+        sector_count: 100,
+        byte_len: 187539,
+    },
+    TileSectorEntry {
+        sector_offset: 2100,
+        sector_count: 100,
+        byte_len: 184086,
+    },
+    TileSectorEntry {
+        sector_offset: 2200,
+        sector_count: 100,
+        byte_len: 188764,
+    },
+    TileSectorEntry {
+        sector_offset: 2300,
+        sector_count: 100,
+        byte_len: 187407,
     },
 ];
 

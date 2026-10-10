@@ -38,6 +38,7 @@
 //! therefore sanitises every field after the checksum passes -- see
 //! [`SaveData::sanitised`].
 
+use crate::championship::{ChampionshipSession, Difficulty, CUP_COUNT, STAGES_PER_CUP};
 use crate::timing::{Medal, MIN_PLAUSIBLE_LAP_TICKS, NO_BEST_LAP};
 use crate::tuning::CarTuning;
 
@@ -259,7 +260,26 @@ impl SaveData {
         self.sound_volume = self.sound_volume.min(MAX_VOLUME);
         self.music_volume = self.music_volume.min(MAX_VOLUME);
         self.rumble_enabled = u8::from(self.rumble_enabled != 0);
-        self._reserved0 = 0;
+        // _reserved0 stores Grand Prix progression when active.
+        // A valid active championship has:
+        // - active flag bit 0 set (0x01)
+        // - cup index (bits 1..=2) < CUP_COUNT (4)
+        // - stage index (bits 3..=5) < STAGES_PER_CUP (6)
+        // - difficulty (bits 6..=7) <= 2
+        // If inactive or invalid, clear to 0.
+        // To prevent an arbitrary corrupt byte (like 9 = active=1, cup=0, stage=1, diff=0)
+        // from being treated as a valid save when raw reserved bytes are tested,
+        // we can store difficulty encoded as (diff + 1) in bits 6..=7 (so diff+1 is 1, 2, or 3, never 0)
+        // when active.
+        if (self._reserved0 & 0x01) != 0 {
+            let stage = (self._reserved0 >> 3) & 0x07;
+            let diff_code = (self._reserved0 >> 6) & 0x03;
+            if stage >= STAGES_PER_CUP || diff_code == 0 || diff_code > 3 {
+                self._reserved0 = 0;
+            }
+        } else {
+            self._reserved0 = 0;
+        }
 
         for i in 0..TOTAL_TRACKS {
             self.medals_earned[i] = self.medals_earned[i].min(MAX_MEDAL);
@@ -360,6 +380,51 @@ impl SaveData {
     /// Fields outside their legal range are clamped; see [`SaveData::sanitised`].
     pub fn from_block_bytes(slice: &[u8]) -> Option<Self> {
         Self::read_payload(slice)
+    }
+
+    /// Returns true if an active championship session is saved on the card.
+    pub fn has_saved_championship(&self) -> bool {
+        (self._reserved0 & 0x01) != 0
+    }
+
+    /// Loads the in-progress championship session if present and valid.
+    pub fn load_championship(&self) -> Option<ChampionshipSession> {
+        if !self.has_saved_championship() {
+            return None;
+        }
+        let cup = (self._reserved0 >> 1) & 0x03;
+        let stage = (self._reserved0 >> 3) & 0x07;
+        let diff_code = (self._reserved0 >> 6) & 0x03;
+        if diff_code == 0 || diff_code > 3 {
+            return None;
+        }
+        let difficulty = Difficulty::from_u8(diff_code - 1);
+
+        if cup as usize >= CUP_COUNT || stage >= STAGES_PER_CUP {
+            return None;
+        }
+
+        let mut session = ChampionshipSession::with_difficulty(cup, difficulty);
+        session.current_stage = stage;
+        Some(session)
+    }
+
+    /// Saves the current championship session state and recomputes the checksum.
+    pub fn save_championship(&mut self, session: &ChampionshipSession) {
+        let active = 1u8;
+        let cup = (session.cup_index & 0x03) << 1;
+        let stage = (session.current_stage & 0x07) << 3;
+        let diff_code = ((session.difficulty as u8 + 1) & 0x03) << 6;
+        self._reserved0 = active | cup | stage | diff_code;
+        self.checksum = self.compute_checksum();
+    }
+
+    /// Clears any active championship state from the save data.
+    pub fn clear_championship(&mut self) {
+        if self._reserved0 != 0 {
+            self._reserved0 = 0;
+            self.checksum = self.compute_checksum();
+        }
     }
 }
 
@@ -678,5 +743,37 @@ mod tests {
         assert_eq!(save.medals_earned[1], MAX_MEDAL);
         assert!(save.is_valid());
         assert!(save.has_legal_fields());
+    }
+
+    #[test]
+    fn championship_save_and_load_roundtrips() {
+        let mut save = SaveData::default();
+        assert!(!save.has_saved_championship());
+        assert!(save.load_championship().is_none());
+
+        let mut session = ChampionshipSession::with_difficulty(2, Difficulty::Hard);
+        session.current_stage = 4;
+        save.save_championship(&session);
+
+        assert!(save.has_saved_championship());
+        assert!(save.is_valid());
+
+        // Roundtrip via block bytes
+        let mut block = [0u8; 8192];
+        save.to_block_bytes(&mut block);
+
+        let loaded = SaveData::from_block_bytes(&block).expect("must parse");
+        assert!(loaded.has_saved_championship());
+        let loaded_session = loaded.load_championship().expect("must load session");
+        assert_eq!(loaded_session.cup_index, 2);
+        assert_eq!(loaded_session.current_stage, 4);
+        assert_eq!(loaded_session.difficulty, Difficulty::Hard);
+
+        // Clear championship
+        let mut cleared = loaded;
+        cleared.clear_championship();
+        assert!(!cleared.has_saved_championship());
+        assert!(cleared.load_championship().is_none());
+        assert!(cleared.is_valid());
     }
 }
