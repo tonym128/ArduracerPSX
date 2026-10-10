@@ -39,8 +39,8 @@ use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
 use psx_vram::{upload_16bpp, TexDepth, Tpage, VramRect};
 
-/// Capacity of the in-RAM JPEG block LRU cache (2 blocks of 1024x1024 @ 200 KB each).
-pub const RAM_CACHE_BLOCKS: usize = 2;
+/// Capacity of the in-RAM JPEG block cache (1 unified block of 1024x1024 @ 500 KB).
+pub const RAM_CACHE_BLOCKS: usize = 1;
 
 /// Maximum number of 64x64 tiles decompressed per frame (staggers decoding to eliminate frame drops).
 pub const MAX_DECODES_PER_FRAME: usize = 1;
@@ -158,8 +158,8 @@ impl DecodeJob {
     }
 }
 
-/// 2-slot RAM LRU cache holding 1024x1024 JPEG blocks (~200 KB each).
-static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new(), RamBlock::new()];
+/// 1-slot unified RAM block holding the 1024x1024 JPEG map (<= 500 KB).
+static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
 /// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
 static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];

@@ -709,8 +709,8 @@ def resolve_cells(rgb: np.ndarray, px_per_cell: int) -> np.ndarray:
 # --- Output -------------------------------------------------------------------
 
 
-def compress_1024_jpeg_200kb(im: Image.Image) -> bytes:
-    """Compresses an image to a 1024x1024 baseline JPEG block targeting <= 200 KB (204,800 bytes).
+def compress_1024_jpeg_500kb(im: Image.Image) -> bytes:
+    """Compresses an image to a 1024x1024 baseline JPEG block targeting <= 500 KB (512,000 bytes).
 
     Uses restart_marker_blocks=4 (DRI=4) so that each 64x16 MCU row segment is preceded by
     a restart marker (0xFFD0..0xFFD7), allowing independent 64x64 block decompression directly
@@ -721,9 +721,9 @@ def compress_1024_jpeg_200kb(im: Image.Image) -> bytes:
     if im.size != (1024, 1024):
         im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
 
-    TARGET_BYTES = 200 * 1024  # 204,800 bytes = exactly 100 CD sectors
+    TARGET_BYTES = 500 * 1024  # 512,000 bytes = exactly 250 CD sectors
     low = 5
-    high = 95
+    high = 98
     best_data = None
 
     while low <= high:
@@ -742,7 +742,7 @@ def compress_1024_jpeg_200kb(im: Image.Image) -> bytes:
         im.save(buf, format="JPEG", quality=5, restart_marker_blocks=4)
         best_data = buf.getvalue()
 
-    assert len(best_data) <= TARGET_BYTES, f"JPEG exceeds 200 KB: {len(best_data)} bytes"
+    assert len(best_data) <= TARGET_BYTES, f"JPEG exceeds 500 KB: {len(best_data)} bytes"
     return best_data
 
 
@@ -846,10 +846,10 @@ def write_outputs(spec: dict, outdir: str) -> dict:
     gen_path = stem + ".visual.gen.png"
     Image.fromarray(vis, "RGB").save(vis_path)
 
-    # Compress the current visual or visual.gen png to a 200kb jpeg for streaming
+    # Compress the current visual or visual.gen png to a 500kb jpeg for streaming
     src_png = gen_path if os.path.exists(gen_path) else vis_path
     im = Image.open(src_png).convert("RGB")
-    jpeg_bytes = compress_1024_jpeg_200kb(im)
+    jpeg_bytes = compress_1024_jpeg_500kb(im)
     jpg_path = stem + ".jpg"
     with open(jpg_path, "wb") as f:
         f.write(jpeg_bytes)
