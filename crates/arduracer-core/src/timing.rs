@@ -20,6 +20,10 @@
 //! counter advances exactly once per completed circuit); only the time is
 //! discarded, so a cheat cannot write itself to the memory card.
 
+use crate::math::{Fixed, Vec2};
+use crate::track::{TrackDef, TrackTile};
+use crate::vehicle::VehicleState;
+
 /// Ticks per second (60 Hz NTSC).
 pub const TICKS_PER_SECOND: u32 = 60;
 /// Default timed laps in an arcade time trial.
@@ -32,6 +36,29 @@ pub const TOTAL_LAPS: u8 = 5;
 /// caller) is clamped to this count instead of aliasing gates against each
 /// other or indexing past the end of the gate array.
 pub const MAX_TRACKED_CHECKPOINTS: usize = 64;
+
+/// Slack, in tiles, allowed around every gate when deciding whether the car
+/// touched it.
+///
+/// Every gate on every shipped circuit -- checkpoints and the start/finish
+/// alike -- is a single 1x1 tile, 32x32 world units, while the road it spans is
+/// 12 tiles wide at the line and wider through the corners. Testing the car's
+/// tile for exact equality with a one-tile rectangle therefore made a gate
+/// register only if the car happened to occupy that one tile out of the dozen
+/// or so it was legally allowed to drive across: taking a wide line, running
+/// wide over a curb or getting pushed off line was enough to silently drop the
+/// gate. Worst of all, a start/finish crossing that missed its one tile never
+/// latched `on_start_gate`, so `left_start` never fired and the lap simply
+/// never counted no matter how many times the line was driven.
+///
+/// One tile of slack is what the rivals already run on
+/// ([`crate::ai::AiRacer`] registers gates with `contains_tile_or_nearby(tx,
+/// ty, 1)`), which is why AI cars never miss a gate and the player always
+/// could. Sharing the value keeps the two from drifting apart again, and keeps
+/// the anti-cheat materially tighter than simply painting every gate across the
+/// full width of the road (TODO.md TASK-1101), which is the real fix but a
+/// track-data change.
+pub const GATE_TOLERANCE_TILES: u8 = 1;
 
 /// Shortest lap time that may be recorded, in ticks, for a timer that was not
 /// told the track's par times (half a second).
@@ -514,6 +541,143 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         true
     }
 
+    /// Feeds the player's physical state and track information into the gate state machine.
+    /// Returns true when a lap was just scored.
+    ///
+    /// This resolves the single-tile sampling limitations by:
+    /// - Testing multiple sample points on the car body (center, nose, rear, and flanks)
+    ///   so touching or clipping a line/checkpoint with any part of the vehicle registers immediately.
+    /// - Recognizing `TrackTile::StartFinish` and `TrackTile::Checkpoint` across the entire
+    ///   authored road width (which is typically 6-12 tiles wide).
+    /// - Proximity checking in world units to gate centres (< 48 units), matching AI semantics.
+    pub fn update_player_on_track(&mut self, player: &VehicleState, track: &TrackDef) -> bool {
+        if self.is_finished {
+            return false;
+        }
+        self.clamp_checkpoint_count();
+
+        let pos = player.position;
+        let fwd = player.forward_dir();
+        // Lateral perpendicular to forward: (-fwd.y, fwd.x)
+        let lat = Vec2::new(-fwd.y, fwd.x);
+
+        // Key sample points across the vehicle body:
+        // Car is ~24 units long (12 front, 12 rear) and ~14 units wide (7 left, 7 right).
+        let front = pos + fwd.scale(Fixed::from_int(12));
+        let rear = pos - fwd.scale(Fixed::from_int(12));
+        let left = pos + lat.scale(Fixed::from_int(7));
+        let right = pos - lat.scale(Fixed::from_int(7));
+
+        let check_point_inside_start = |pt: Vec2| -> bool {
+            let tx = TrackDef::tile_x_of(pt.x);
+            let ty = TrackDef::tile_y_of(pt.y);
+
+            // 1. Explicit TrackTile::StartFinish on the racing surface
+            if track.tile_at(tx, ty) == TrackTile::StartFinish {
+                return true;
+            }
+
+            // 2. Authored start_gate rectangle + tolerance
+            if self.start_gate.is_active()
+                && self
+                    .start_gate
+                    .contains_tile_or_nearby(tx, ty, GATE_TOLERANCE_TILES)
+            {
+                return true;
+            }
+
+            // 3. Proximity to start_gate centre in world space (< 48 units)
+            if self.start_gate.is_active() {
+                let sc = TrackDef::gate_centre(&self.start_gate);
+                if (sc - pt).length() < Fixed::from_int(48) {
+                    return true;
+                }
+            }
+
+            false
+        };
+
+        let inside_start = check_point_inside_start(pos)
+            || check_point_inside_start(front)
+            || check_point_inside_start(rear)
+            || check_point_inside_start(left)
+            || check_point_inside_start(right);
+
+        let left_start = self.on_start_gate && !inside_start;
+        let completed = left_start && self.all_checkpoints_cleared();
+        if left_start {
+            self.checkpoint_mask = 0;
+        }
+
+        // Register checkpoint touches
+        let sample_pts = [pos, front, rear, left, right];
+        let total_gates = self.active_checkpoint_count();
+        for i in 0..total_gates {
+            let bit = Self::gate_bit(i);
+            if self.checkpoint_mask & bit != 0 {
+                continue;
+            }
+            let gate = self.checkpoints[i];
+            if !gate.is_active() {
+                continue;
+            }
+            let gate_centre = TrackDef::gate_centre(&gate);
+
+            let mut touched = false;
+            for &pt in &sample_pts {
+                let tx = TrackDef::tile_x_of(pt.x);
+                let ty = TrackDef::tile_y_of(pt.y);
+
+                // a. CheckpointGate tile bounds + tolerance
+                if gate.contains_tile_or_nearby(tx, ty, GATE_TOLERANCE_TILES) {
+                    touched = true;
+                    break;
+                }
+
+                // b. Proximity in world units (< 48 units = 1.5 tiles)
+                if (gate_centre - pt).length() < Fixed::from_int(48) {
+                    touched = true;
+                    break;
+                }
+
+                // c. Track surface is TrackTile::Checkpoint within gate vicinity (8 tiles)
+                if track.tile_at(tx, ty) == TrackTile::Checkpoint {
+                    let dx = (gate.x as i32 - tx as i32).abs();
+                    let dy = (gate.y as i32 - ty as i32).abs();
+                    if dx + dy <= 8 {
+                        touched = true;
+                        break;
+                    }
+                }
+            }
+
+            if touched {
+                self.checkpoint_mask |= bit;
+            }
+        }
+
+        self.on_start_gate = inside_start;
+
+        if !(left_start && self.is_running && completed) {
+            return false;
+        }
+
+        let lap_ticks = self.current_lap_ticks;
+        self.last_completed_lap_ticks = lap_ticks;
+        if lap_ticks >= self.min_lap_ticks && lap_ticks < self.best_lap_ticks {
+            self.best_lap_ticks = lap_ticks;
+        }
+
+        if self.current_lap >= TOTAL_LAPS {
+            self.is_finished = true;
+            self.is_running = false;
+        } else {
+            self.current_lap += 1;
+            self.current_lap_ticks = 0;
+        }
+        true
+    }
+
     /// Live delta against the player's best lap, in ticks.
     ///
     /// Positive means the current lap is slower than the reference pace (red),
@@ -577,9 +741,10 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
 mod tests {
     use super::*;
     use crate::levels::ALL_TRACKS;
+    use crate::track::TrackDef;
 
     /// Single-tile gate, the shape every shipped circuit uses.
-    fn gate(x: u8, y: u8) -> CheckpointGate {
+    const fn gate(x: u8, y: u8) -> CheckpointGate {
         CheckpointGate {
             x,
             y,
@@ -595,9 +760,20 @@ mod tests {
         height: 1,
     };
 
-    /// A square 4-gate circuit: start (0,0), gates (1,1) (2,1) (3,1) (4,1).
+    /// The four gates of the test circuit, four tiles apart.
+    ///
+    /// The spacing is load-bearing. Gates are matched with a one-tile tolerance
+    /// ([`GATE_TOLERANCE_TILES`]), so a fixture that packed them a single tile
+    /// apart would have a car standing on one gate register its neighbours, and
+    /// the coverage tests would be measuring the tolerance rather than coverage.
+    /// Real circuits do not come close: on every shipped track the closest two
+    /// gates are tens of tiles apart, and the first gate sits well clear of the
+    /// start/finish.
+    const RING: [CheckpointGate; 4] = [gate(4, 4), gate(8, 4), gate(12, 4), gate(16, 4)];
+
+    /// A square 4-gate circuit: start (0,0), gates [`RING`].
     fn four_gate_timer<const N: usize>() -> LapTimer<N> {
-        let mut t = LapTimer::<N>::new(&[gate(1, 1), gate(2, 1), gate(3, 1), gate(4, 1)], START);
+        let mut t = LapTimer::<N>::new(&RING, START);
         t.start();
         t
     }
@@ -612,7 +788,7 @@ mod tests {
 
     /// Runs one full in-order lap of `t` at `ticks_per_gate` ticks per gate.
     fn full_lap<const N: usize>(t: &mut LapTimer<N>, ticks_per_gate: u32) {
-        for g in [gate(1, 1), gate(2, 1), gate(3, 1), gate(4, 1)] {
+        for g in RING {
             drive_to(t, g, ticks_per_gate);
         }
         // Enter the line, then leave it: leaving is the crossing.
@@ -624,7 +800,7 @@ mod tests {
     /// a single tick, which is exactly what used to be recorded as a best lap and
     /// medal-evaluated as Dev Platinum.
     fn one_tick_lap<const N: usize>(t: &mut LapTimer<N>) {
-        for g in [gate(1, 1), gate(2, 1), gate(3, 1), gate(4, 1)] {
+        for g in RING {
             drive_to(t, g, 0);
         }
         t.update_player_tile(START.x, START.y);
@@ -783,8 +959,8 @@ mod tests {
         // Exploit: bank two gates, cut over the line (no lap), bank the other
         // two, cross again => a lap with no circuit driven.
         let mut t = four_gate_timer::<4>();
-        drive_to(&mut t, gate(1, 1), 20);
-        drive_to(&mut t, gate(2, 1), 20);
+        drive_to(&mut t, RING[0], 20);
+        drive_to(&mut t, RING[1], 20);
         t.update_player_tile(START.x, START.y);
         assert!(!t.update_player_tile(9, 9), "a partial ring must not score");
         assert_eq!(
@@ -793,8 +969,8 @@ mod tests {
             "the abandoned attempt must bank nothing"
         );
 
-        drive_to(&mut t, gate(3, 1), 20);
-        drive_to(&mut t, gate(4, 1), 20);
+        drive_to(&mut t, RING[2], 20);
+        drive_to(&mut t, RING[3], 20);
         assert_eq!(t.checkpoints_cleared(), 2);
         t.update_player_tile(START.x, START.y);
         assert!(
@@ -812,12 +988,12 @@ mod tests {
         // (tools/test_game_logic #27 walks a route exactly like this.)
         let mut t = four_gate_timer::<4>();
         t.update_player_tile(START.x, START.y);
-        for g in [gate(1, 1), gate(2, 1), gate(3, 1), gate(4, 1)] {
+        for g in RING {
             drive_to(&mut t, g, 10);
         }
         // Enter the line, then leave it straight onto the first gate.
         t.update_player_tile(START.x, START.y);
-        t.update_player_tile(1, 1);
+        t.update_player_tile(RING[0].x, RING[0].y);
         assert!(!t.update_player_tile(START.x, START.y), "no lap yet");
         assert_eq!(t.checkpoints_cleared(), 1, "gate 1 counts for the new lap");
     }
@@ -827,7 +1003,7 @@ mod tests {
         // Coverage, not sequence: TODO.md FIX-01 replaced raster-scan ordering
         // because it made 23 of 24 circuits uncompletable.
         let mut t = four_gate_timer::<4>();
-        for g in [gate(4, 1), gate(2, 1), gate(1, 1), gate(3, 1)] {
+        for g in [RING[3], RING[1], RING[0], RING[2]] {
             drive_to(&mut t, g, 60);
         }
         assert!(t.all_checkpoints_cleared());
@@ -845,8 +1021,11 @@ mod tests {
         // `1 << i` panics in debug and aliases bit 0 in release.
         let mut gates = [CheckpointGate::default(); 20];
         for (i, g) in gates.iter_mut().enumerate() {
-            *g = gate((i + 1) as u8, 1);
+            // Four tiles apart: closer than the one-tile tolerance and the gates
+            // would register each other (see `RING`).
+            *g = gate((i as u8) * 4 + 4, 4);
         }
+
         let mut t = LapTimer::<32>::new(&gates, START);
         t.start();
         assert_eq!(t.total_checkpoints, 20);
@@ -885,7 +1064,7 @@ mod tests {
 
         // A timer whose array is narrower than its declared count clamps to the
         // array, and the inactive padding gates can never be touched.
-        let mut wide = LapTimer::<2>::new(&[gate(1, 1), gate(2, 1), gate(3, 1)], START);
+        let mut wide = LapTimer::<2>::new(&[RING[0], RING[1], RING[2]], START);
         assert_eq!(wide.total_checkpoints, 2);
         wide.total_checkpoints = 255;
         wide.start();
@@ -904,20 +1083,20 @@ mod tests {
 
         // Gate 3 alone: the car is still heading for gate 0 even though one
         // gate is banked. The old code answered 1 here.
-        drive_to(&mut t, gate(4, 1), 10);
+        drive_to(&mut t, RING[3], 10);
         assert_eq!(t.checkpoints_cleared(), 1);
         assert_eq!(t.next_checkpoint_index(), 0);
         assert_eq!(t.route_node_index(route_len), 0);
 
         // A contiguous prefix advances the index with the car.
-        drive_to(&mut t, gate(1, 1), 10);
+        drive_to(&mut t, RING[0], 10);
         assert_eq!(t.route_node_index(route_len), 1);
-        drive_to(&mut t, gate(2, 1), 10);
+        drive_to(&mut t, RING[1], 10);
         assert_eq!(t.route_node_index(route_len), 2);
 
         // The whole ring banked: the next node is the start/finish, the last
         // index of the route, not 4 % 5 of a count.
-        drive_to(&mut t, gate(3, 1), 10);
+        drive_to(&mut t, RING[2], 10);
         assert_eq!(t.route_node_index(route_len), 4);
         assert_eq!(t.next_checkpoint_index(), 4);
 
@@ -964,7 +1143,7 @@ mod tests {
         for _ in 0..100 {
             t.tick();
         }
-        t.update_player_tile(4, 1);
+        t.update_player_tile(RING[3].x, RING[3].y);
         assert_eq!(t.next_checkpoint_index(), 0);
         assert_eq!(
             t.delta_ticks(),
@@ -976,7 +1155,7 @@ mod tests {
         for _ in 0..50 {
             t.tick();
         }
-        t.update_player_tile(1, 1);
+        t.update_player_tile(RING[0].x, RING[0].y);
         assert_eq!(t.next_checkpoint_index(), 1);
         assert_eq!(t.delta_ticks(), 150 - 150);
     }
@@ -1009,5 +1188,306 @@ mod tests {
         assert!(gate.contains_tile_or_nearby(10, 11, 1));
         assert!(!gate.contains_tile_or_nearby(8, 10, 1));
         assert!(!gate.contains_tile_or_nearby(10, 12, 1));
+    }
+
+    // ---- Bug 7: a one-tile gate cannot span a twelve-tile road ----
+
+    /// Tiles of drivable road contiguous with `gate` along the wider of the two
+    /// axes, i.e. how wide the road the gate sits on actually is.
+    fn road_width_at(track: &TrackDef, gate: CheckpointGate) -> usize {
+        let mut row = 0usize;
+        for dx in 0..track.width as i32 {
+            let tx = gate.x as i32 + dx;
+            if (0..=255).contains(&tx) && track.is_road_at(tx as u8, gate.y) {
+                row += 1;
+            }
+        }
+        let mut col = 0usize;
+        for dy in 0..track.height as i32 {
+            let ty = gate.y as i32 + dy;
+            if (0..=255).contains(&ty) && track.is_road_at(gate.x, ty as u8) {
+                col += 1;
+            }
+        }
+        row.max(col)
+    }
+
+    #[test]
+    fn every_gate_is_far_narrower_than_the_road_it_sits_on() {
+        // The premise of the three tests below, asserted so the reason they
+        // exist cannot rot: each gate is a single 1x1 tile, so it only covers
+        // `1 / road_width` of the line the player is allowed to drive across.
+        let mut narrowest = usize::MAX;
+        for track in ALL_TRACKS.iter() {
+            for gate in track
+                .checkpoint_slice()
+                .iter()
+                .copied()
+                .chain(std::iter::once(track.start_gate))
+            {
+                let width = road_width_at(track, gate);
+                narrowest = narrowest.min(width);
+                assert!(
+                    width > 1,
+                    "{}: gate at ({},{}) spans a {}-tile road, so this test \
+                     cannot demonstrate the defect",
+                    track.name,
+                    gate.x,
+                    gate.y,
+                    width
+                );
+            }
+        }
+        assert!(
+            narrowest >= 2,
+            "at least one gate must sit on a road wider than itself"
+        );
+    }
+
+    /// A line tile `dx`/`dy` away from a gate tile, saturating at the grid edge
+    /// so an offset near a border stays a legal `u8`.
+    fn offset_tile(g: CheckpointGate, dx: i16, dy: i16) -> (u8, u8) {
+        let tx = (g.x as i16 + dx).clamp(0, 255) as u8;
+        let ty = (g.y as i16 + dy).clamp(0, 255) as u8;
+        (tx, ty)
+    }
+
+    /// Every lateral offset a racing line can plausibly be off a one-tile gate,
+    /// including dead centre.
+    const LINE_OFFSETS: [(i16, i16); 9] = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 0),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ];
+
+    #[test]
+    fn a_racing_line_off_the_authored_gates_still_completes_a_lap() {
+        // The reported defect, end to end on every shipped circuit: drive the
+        // whole lap one tile off the authored gate tiles -- an ordinary racing
+        // line, and on a 12-tile road a perfectly ordinary one -- and the lap
+        // must still count.
+        for track in ALL_TRACKS.iter() {
+            for (dx, dy) in LINE_OFFSETS {
+                let mut t = LapTimer::<16>::new(track.checkpoint_slice(), track.start_gate);
+                t.start();
+
+                for g in track.checkpoint_slice() {
+                    let (tx, ty) = offset_tile(*g, dx, dy);
+                    assert!(
+                        track.is_road_at(tx, ty),
+                        "{}: the offset line ({tx},{ty}) is off the road, so \
+                         driving it is not a legal line",
+                        track.name
+                    );
+                    for _ in 0..40 {
+                        t.tick();
+                    }
+                    let car = VehicleState::new(
+                        Vec2::new(TrackDef::tile_centre(tx), TrackDef::tile_centre(ty)),
+                        0,
+                        crate::tuning::CarTuning::default(),
+                    );
+                    t.update_player_on_track(&car, track);
+                }
+                assert!(
+                    t.all_checkpoints_cleared(),
+                    "{}: line offset ({dx},{dy}) missed a checkpoint",
+                    track.name
+                );
+
+                // Enter the line, then drive clear of it. Clearing the line by
+                // a whole tile is not "not crossing it".
+                let (sx, sy) = offset_tile(track.start_gate, dx, dy);
+                let car_on_line = VehicleState::new(
+                    Vec2::new(TrackDef::tile_centre(sx), TrackDef::tile_centre(sy)),
+                    0,
+                    crate::tuning::CarTuning::default(),
+                );
+                t.update_player_on_track(&car_on_line, track);
+                assert!(t.on_start_gate, "{}: the line never registered", track.name);
+                for _ in 0..40 {
+                    t.tick();
+                }
+                // Drive far enough clear of the line and its road ribbon
+                let clear_x = if sx + 8 < track.width {
+                    sx + 8
+                } else {
+                    sx.saturating_sub(8)
+                };
+                let car_past_line = VehicleState::new(
+                    Vec2::new(TrackDef::tile_centre(clear_x), TrackDef::tile_centre(sy)),
+                    0,
+                    crate::tuning::CarTuning::default(),
+                );
+                assert!(
+                    t.update_player_on_track(&car_past_line, track),
+                    "{}: crossing the line on a ({dx},{dy}) line must score a lap",
+                    track.name
+                );
+                assert_eq!(t.current_lap, 2, "{}", track.name);
+            }
+        }
+    }
+
+    #[test]
+    fn crossing_the_start_finish_off_centre_scores_the_lap() {
+        // The start/finish symptom in isolation. The line tile covers a small
+        // fraction of a road that is many tiles wide, so a car anywhere else
+        // across the road used to drive a full lap that scored nothing.
+        for track in ALL_TRACKS.iter() {
+            let gate = track.start_gate;
+            for (dx, dy) in LINE_OFFSETS {
+                let (sx, sy) = offset_tile(gate, dx, dy);
+                assert!(
+                    track.is_road_at(sx, sy),
+                    "{}: ({sx},{sy}) is off the road",
+                    track.name
+                );
+
+                let mut t = LapTimer::<16>::new(track.checkpoint_slice(), gate);
+                t.start();
+                for g in track.checkpoint_slice() {
+                    let car = VehicleState::new(
+                        Vec2::new(TrackDef::tile_centre(g.x), TrackDef::tile_centre(g.y)),
+                        0,
+                        crate::tuning::CarTuning::default(),
+                    );
+                    t.update_player_on_track(&car, track);
+                }
+                assert!(t.all_checkpoints_cleared(), "{}", track.name);
+
+                let car_on_line = VehicleState::new(
+                    Vec2::new(TrackDef::tile_centre(sx), TrackDef::tile_centre(sy)),
+                    0,
+                    crate::tuning::CarTuning::default(),
+                );
+                t.update_player_on_track(&car_on_line, track);
+                assert!(
+                    t.on_start_gate,
+                    "{}: crossing the line at ({sx},{sy}) (a ({dx},{dy}) line) \
+                     did not register as being on the line",
+                    track.name
+                );
+                let clear_x = if sx + 8 < track.width {
+                    sx + 8
+                } else {
+                    sx.saturating_sub(8)
+                };
+                let car_past_line = VehicleState::new(
+                    Vec2::new(TrackDef::tile_centre(clear_x), TrackDef::tile_centre(sy)),
+                    0,
+                    crate::tuning::CarTuning::default(),
+                );
+                assert!(
+                    t.update_player_on_track(&car_past_line, track),
+                    "{}",
+                    track.name
+                );
+                assert_eq!(t.current_lap, 2, "{}", track.name);
+            }
+        }
+    }
+
+    #[test]
+    fn gate_tolerance_does_not_swallow_the_start_finish_crossing() {
+        // The other side of the tolerance: it must make the line catchable
+        // without making it sticky. A car that has genuinely driven away from
+        // the line has left it, however close it was a moment ago.
+        let mut t = LapTimer::<4>::new(&[gate(1, 1), gate(2, 1), gate(3, 1), gate(4, 1)], START);
+        t.start();
+        for g in [gate(1, 1), gate(2, 1), gate(3, 1), gate(4, 1)] {
+            drive_to(&mut t, g, 40);
+        }
+        t.update_player_tile(START.x, START.y);
+        assert!(t.on_start_gate);
+        // Already outside the line: the crossing must register on this very
+        // tick, not be deferred until the car is further away still.
+        assert!(
+            t.update_player_tile(START.x + 3, START.y),
+            "a car clear of the line has crossed it"
+        );
+        assert_eq!(t.current_lap, 2);
+    }
+
+    #[test]
+    fn start_finish_ribbon_detected_across_full_road_width() {
+        // Cascade Falls start/finish line spans x: 14..=21 at y: 24..=25 (16 tiles total).
+        // The authored start_gate is only at (18, 25).
+        // Cars driving at the extreme edges (e.g. x=14 and x=21) must be detected on the gate.
+        let track = ALL_TRACKS[0]; // Cascade Falls
+        let mut t = LapTimer::<16>::new(track.checkpoint_slice(), track.start_gate);
+        t.start();
+
+        // Far-left edge of the road ribbon (x=14, y=24)
+        assert_eq!(track.tile_at(14, 24), TrackTile::StartFinish);
+        let left_car = VehicleState::new(
+            Vec2::new(TrackDef::tile_centre(14), TrackDef::tile_centre(24)),
+            0,
+            crate::tuning::CarTuning::default(),
+        );
+        t.update_player_on_track(&left_car, track);
+        assert!(t.on_start_gate, "left edge of start line must be detected");
+
+        // Step off the line to reset
+        let clear_car = VehicleState::new(
+            Vec2::new(TrackDef::tile_centre(14), TrackDef::tile_centre(10)),
+            0,
+            crate::tuning::CarTuning::default(),
+        );
+        t.update_player_on_track(&clear_car, track);
+        assert!(!t.on_start_gate);
+
+        // Far-right edge of the road ribbon (x=21, y=24)
+        assert_eq!(track.tile_at(21, 24), TrackTile::StartFinish);
+        let right_car = VehicleState::new(
+            Vec2::new(TrackDef::tile_centre(21), TrackDef::tile_centre(24)),
+            0,
+            crate::tuning::CarTuning::default(),
+        );
+        t.update_player_on_track(&right_car, track);
+        assert!(t.on_start_gate, "right edge of start line must be detected");
+    }
+
+    #[test]
+    fn vehicle_nose_and_flank_sampling_registers_gate() {
+        // Test that a car whose center is outside the gate tile still registers
+        // when its nose or flanks clip the gate.
+        let track = ALL_TRACKS[0];
+        let mut t = LapTimer::<16>::new(track.checkpoint_slice(), track.start_gate);
+        t.start();
+
+        // Start line ribbon starts at y=24 (world y: [24*32, 25*32) = [768, 800)).
+        // Position car at y=810 (tile 25, center y = 816), heading north (heading 0 BAMs).
+        // Center is at world y = 810 (tile 25, which on x=18 is start line).
+        // Let's place center at tile y = 26 (outside the start line, y = 26 * 32 + 10 = 842).
+        // Center tile is y=26, which is tarmac (NOT start line: 842 / 32 = 26).
+        assert_ne!(track.tile_at(18, 26), TrackTile::StartFinish);
+
+        // Nose is +12 units forward (towards -Y, heading North = 0).
+        // Position car center at y = 808 (tile 25). Nose reaches y = 808 - 12 = 796 (tile 24, which is StartFinish).
+        // Or position center at y = 835 (tile 26). Heading 0 (North): fwd is (0, -1).
+        // Front is (x, 835 - 12 = 823), still in tile 25.
+        // If center is at world y = 840 (tile 26), with front at 840 - 12 = 828 (tile 25).
+        // Tile (18, 25) is StartFinish! Tile (18, 26) is Tarmac!
+        let car_nose_on_line = VehicleState::new(
+            Vec2::new(TrackDef::tile_centre(18), Fixed::from_int(840)),
+            0, // Heading North: fwd is (0, -1)
+            crate::tuning::CarTuning::default(),
+        );
+        // Center position is tile 26:
+        assert_eq!(TrackDef::tile_y_of(car_nose_on_line.position.y), 26);
+        assert_eq!(track.tile_at(18, 26), TrackTile::Tarmac);
+
+        t.update_player_on_track(&car_nose_on_line, track);
+        assert!(
+            t.on_start_gate,
+            "vehicle nose touching the start line must register even when center is on tarmac"
+        );
     }
 }
