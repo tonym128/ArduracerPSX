@@ -68,7 +68,7 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 300,
         sector_count: 100,
-        byte_len: 204783,
+        byte_len: 203864,
     },
     TileSectorEntry {
         sector_offset: 400,
