@@ -487,8 +487,8 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     out.append(f"    start_heading: {heading},")
 
     out.append("    start_gate: CheckpointGate {")
-    out.append(f"        x: {int(sx)},")
-    out.append(f"        y: {int(sy)},")
+    out.append(f"        x: {round(sx)},")
+    out.append(f"        y: {round(sy)},")
     out.append("        width: 1,")
     out.append("        height: 1,")
     out.append("    },")
@@ -509,8 +509,8 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     out.append("    checkpoints: [")
     for i, (cx, cy) in enumerate(cps):
         out.append("        CheckpointGate {")
-        out.append(f"            x: {int(cx)},")
-        out.append(f"            y: {int(cy)},")
+        out.append(f"            x: {round(cx)},")
+        out.append(f"            y: {round(cy)},")
         out.append("            width: 1,")
         out.append("            height: 1,")
         out.append("        },")

@@ -417,6 +417,107 @@ def transverse_band(cx: float, cy: float, at: tuple[float, float],
             f'stroke="none"/>')
 
 
+def poly_path_and_samples(vertices: list[tuple[float, float]],
+                          radii: list[float],
+                          step: float = 0.25) -> tuple[str, list[tuple[float, float]]]:
+    """Generates an SVG path and densely sampled centreline for a polygon with filleted corners.
+
+    Filleting fillets each corner with a circular arc of specified radius.
+    """
+    n = len(vertices)
+    edges = []
+    lengths = []
+    for i in range(n):
+        p1 = vertices[i]
+        p2 = vertices[(i + 1) % n]
+        dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+        L = math.hypot(dx, dy)
+        assert L > 1e-6, f"Duplicate vertex {i}: {p1}"
+        edges.append((dx / L, dy / L))
+        lengths.append(L)
+
+    fillets = []
+    for i in range(n):
+        p = vertices[i]
+        u_in = edges[(i - 1) % n]
+        u_out = edges[i]
+        cross = u_in[0] * u_out[1] - u_in[1] * u_out[0]
+        dot = u_in[0] * u_out[0] + u_in[1] * u_out[1]
+        theta = math.atan2(cross, dot)
+        r = radii[i]
+        tan_half = math.tan(abs(theta) / 2.0)
+        t_dist = r * tan_half
+        max_t = min(lengths[(i - 1) % n], lengths[i]) * 0.48
+        if t_dist > max_t:
+            t_dist = max_t
+            r = t_dist / max(1e-4, tan_half)
+
+        p_start = (p[0] - u_in[0] * t_dist, p[1] - u_in[1] * t_dist)
+        p_end = (p[0] + u_out[0] * t_dist, p[1] + u_out[1] * t_dist)
+
+        if cross > 0:
+            n_in = (-u_in[1], u_in[0])
+            sweep_flag = 1
+        else:
+            n_in = (u_in[1], -u_in[0])
+            sweep_flag = 0
+
+        c_arc = (p_start[0] + n_in[0] * r, p_start[1] + n_in[1] * r)
+        ang_start = math.atan2(p_start[1] - c_arc[1], p_start[0] - c_arc[0])
+        ang_end = math.atan2(p_end[1] - c_arc[1], p_end[0] - c_arc[0])
+
+        fillets.append({
+            "p_start": p_start, "p_end": p_end,
+            "r": r, "sweep_flag": sweep_flag,
+            "c_arc": c_arc, "ang_start": ang_start, "ang_end": ang_end,
+            "cross": cross, "abs_theta": abs(theta),
+        })
+
+    path_cmds = []
+    samples: list[tuple[float, float]] = []
+
+    def push(pt: tuple[float, float]) -> None:
+        if not samples or math.hypot(samples[-1][0] - pt[0], samples[-1][1] - pt[1]) > 1e-5:
+            samples.append(pt)
+
+    for i in range(n):
+        f_curr = fillets[i]
+        f_next = fillets[(i + 1) % n]
+        if i == 0:
+            path_cmds.append(f"M {f_curr['p_start'][0]:.4f} {f_curr['p_start'][1]:.4f}")
+
+        r = f_curr["r"]
+        p_end = f_curr["p_end"]
+        sw = f_curr["sweep_flag"]
+        path_cmds.append(f"A {r:.4f} {r:.4f} 0 0 {sw} {p_end[0]:.4f} {p_end[1]:.4f}")
+
+        c = f_curr["c_arc"]
+        a_start = f_curr["ang_start"]
+        if sw == 1:
+            d_ang = (f_curr["ang_end"] - a_start) % (2 * math.pi)
+        else:
+            d_ang = -((a_start - f_curr["ang_end"]) % (2 * math.pi))
+        arc_len = abs(d_ang) * r
+        n_arc = max(1, int(round(arc_len / step)))
+        for k in range(n_arc):
+            ang = a_start + d_ang * (k / n_arc)
+            push((c[0] + r * math.cos(ang), c[1] + r * math.sin(ang)))
+
+        p_next_start = f_next["p_start"]
+        path_cmds.append(f"L {p_next_start[0]:.4f} {p_next_start[1]:.4f}")
+
+        seg_len = math.hypot(p_next_start[0] - p_end[0], p_next_start[1] - p_end[1])
+        n_seg = max(1, int(round(seg_len / step)))
+        for k in range(n_seg):
+            t = k / n_seg
+            push((p_end[0] + (p_next_start[0] - p_end[0]) * t,
+                  p_end[1] + (p_next_start[1] - p_end[1]) * t))
+
+    path_cmds.append("Z")
+    svg_d = " ".join(path_cmds)
+    return svg_d, samples
+
+
 def shape_path(spec: dict, cx: float, cy: float) -> str:
     """The centreline of `spec` as an SVG path, for whichever shape it declares.
 
@@ -432,6 +533,9 @@ def shape_path(spec: dict, cx: float, cy: float) -> str:
     if shape == "rounded_rect":
         return rounded_rect_path(cx, cy, spec["half_x"], spec["half_y"],
                                  spec["radius"])
+    if shape == "polygon":
+        path_d, _ = poly_path_and_samples(spec["vertices"], spec["radii"])
+        return path_d
     raise ValueError(f'{spec["name"]}: unknown shape {shape!r}')
 
 
@@ -449,6 +553,9 @@ def shape_centreline(spec: dict, cx: float, cy: float) -> list[tuple[float, floa
     if shape == "rounded_rect":
         return rounded_rect_centreline(cx, cy, spec["half_x"], spec["half_y"],
                                        spec["radius"])
+    if shape == "polygon":
+        _, samples = poly_path_and_samples(spec["vertices"], spec["radii"])
+        return samples
     raise ValueError(f'{spec["name"]}: unknown shape {shape!r}')
 
 
@@ -461,6 +568,9 @@ def shape_note(spec: dict) -> str:
     if shape == "rounded_rect":
         return (f'centreline: rounded rect, half_x={spec["half_x"]}, '
                 f'half_y={spec["half_y"]}, radius={spec["radius"]}')
+    if shape == "polygon":
+        return (f'centreline: polygon, {len(spec["vertices"])} vertices, '
+                f'exciting corners, chicanes & shortcuts')
     raise ValueError(f'{spec["name"]}: unknown shape {shape!r}')
 
 
@@ -490,41 +600,27 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
                f'fill="{RGB[OUTSIDE]}"/>')
 
     # Barrier, then runoff over its inner half, so the barrier reads as a rim.
-    #
-    # `RGB[WALL]` and `RGB[TARMAC]` cannot be told apart by the snapping in
-    # `snap_to_codes`, which votes a blend of the two to whichever is nearer by a
-    # weighted RGB distance. Wall (42,46,56) sits close to tarmac (60,62,68), and
-    # a 1-cell barrier is *mostly* anti-aliased edge, so its cells resolved to
-    # tarmac. A barrier that reports as road is worse than no barrier: it becomes
-    # a drivable cell on the circuit's outer edge, and `find_regions` then counts
-    # it as part of the ring. Painted last it would be worse still -- it must be
-    # *wider* than the runoff so its outer band survives, which is why it goes
-    # first and the runoff covers only its inner half.
     out.append(f'<path d="{path}" fill="none" stroke="{RGB[WALL]}" '
                f'stroke-width="{2 * wall_hw:.4f}" stroke-linecap="butt"/>')
+    for sc_p in spec.get("shortcuts", []):
+        out.append(f'<path d="{sc_p}" fill="none" stroke="{RGB[WALL]}" '
+                   f'stroke-width="{2 * wall_hw:.4f}" stroke-linecap="round" stroke-linejoin="round"/>')
+
     runoff_code = int(spec["runoff"])
     out.append(f'<path d="{path}" fill="none" stroke="{RGB[runoff_code]}" '
                f'stroke-width="{2 * runoff_hw:.4f}" stroke-linecap="butt"/>')
+    for sc_p in spec.get("shortcuts", []):
+        out.append(f'<path d="{sc_p}" fill="none" stroke="{RGB[runoff_code]}" '
+                   f'stroke-width="{2 * runoff_hw:.4f}" stroke-linecap="round" stroke-linejoin="round"/>')
 
-    # Kerb as two dashes of opposite phase. Alternation is a property of the
-    # *sequence along the track*, so it cannot be decided per pixel; drawing it
-    # as two complementary dash patterns on the same path expresses the sequence
-    # directly in the document, which is the whole reason to be drawing SVG.
-    # A wide, solid kerb band first, so the rumble always reads as continuous.
+    # Kerb as two dashes of opposite phase.
     dash = 2.0
     out.append(f'<path d="{path}" fill="none" stroke="{RGB[KERB_WHITE]}" '
                f'stroke-width="{2 * kerb_hw:.4f}" stroke-linecap="butt"/>')
-    # Then the red half of the alternation as dashes over it.
-    #
-    # This is why the kerb is *two* passes and not two dashed strokes. Two
-    # complementary dashed strokes leave gaps: `stroke-dasharray` restarts on
-    # every subpath, and where a gap from one phase happens to land on the other
-    # phase's gap the kerb disappears entirely for a cell. `find_regions` is
-    # 4-connected, so a one-cell gap in the ring splits the circuit into pieces
-    # and validation reports "a second piece of road" -- an error that names the
-    # symptom rather than the cause, and that reads like a geometry bug when it
-    # is a paint-order bug. Solid underneath, dashed on top, the kerb is
-    # continuous by construction and the phase cannot open a hole in it.
+    for sc_p in spec.get("shortcuts", []):
+        out.append(f'<path d="{sc_p}" fill="none" stroke="{RGB[KERB_WHITE]}" '
+                   f'stroke-width="{2 * kerb_hw:.4f}" stroke-linecap="round" stroke-linejoin="round"/>')
+
     out.append(
         f'<path d="{path}" fill="none" stroke="{RGB[KERB_RED]}" '
         f'stroke-width="{2 * kerb_hw:.4f}" stroke-linecap="butt" '
@@ -532,9 +628,12 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
         f'stroke-dashoffset="0.00"/>'
     )
 
-    # Road.
+    # Road tarmac for main path and any shortcuts.
     out.append(f'<path d="{path}" fill="none" stroke="{RGB[TARMAC]}" '
                f'stroke-width="{2 * road_hw:.4f}" stroke-linecap="butt"/>')
+    for sc_p in spec.get("shortcuts", []):
+        out.append(f'<path d="{sc_p}" fill="none" stroke="{RGB[TARMAC]}" '
+                   f'stroke-width="{2 * road_hw:.4f}" stroke-linecap="round" stroke-linejoin="round"/>')
 
     # No centre racing stripe. `TARMAC_WORN` differs from `TARMAC` by one 5-bit
     # step per channel, and the road is only ~2.5 cells wide, so a centre band is
@@ -875,31 +974,13 @@ def write_outputs(spec: dict, outdir: str) -> dict:
 GATES = 6
 
 
-def standard_marks(boost_at: tuple[int, ...] = (1, 4)) -> list[tuple]:
-    """Gates evenly spaced round the lap, plus a boost pad in chosen intervals.
+def standard_marks(boost_at: tuple[int, ...] = (1, 4),
+                   oil_at: tuple[int, ...] = ()) -> list[tuple]:
+    """Gates evenly spaced round the lap, plus boost pads and oil slicks.
 
-    Gates sit at fractions `i / (GATES + 1)` for `i` in `1..=GATES`, and
-    `compile_circuit.emit_rust` places the runtime checkpoints at exactly the
-    same fractions of exactly the same centreline sample list. Those two must
-    agree, or the car drives through a gate that is not where the lap timer
-    thinks the gate is.
-
-    `boost_at` therefore selects *intervals between gates*, not raw fractions,
-    and the pad goes in the midpoint of each: `(i - 0.5) / (GATES + 1)`. That
-    is the furthest point on the lap from every gate, by construction.
-
-    Hand-picked fractions do not have that property, and the failure is silent
-    and specific. A pad at 0.72 sat 0.006 of the lap from the gate at 5/7 =
-    0.714 -- about three centreline samples -- so the two drew over each other,
-    the pad won, and the cell the checkpoint lives in became a `BoostPad`. Then
-    `check_geometry` in playtest reported "checkpoint 4 at (28,56) is off the
-    racing surface", which reads as a geometry bug and is not one:
-    `TrackTile::is_road` deliberately excludes boost pads, because they are
-    hazards rather than surface, and the pad had eaten the gate underneath it.
-
-    Every mark spans the road plus its kerb, and sits at `half_thick` along the
-    direction of travel, so it crosses the whole drivable width at a right angle
-    wherever it lands.
+    Gates sit at fractions `i / (GATES + 1)` for `i` in `1..=GATES`.
+    Boost pads sit at `(i - 0.5) / (GATES + 1)`.
+    Oil slicks sit at `(i - 0.25) / (GATES + 1)` as high-risk hazards.
     """
     step = 1.0 / (GATES + 1)
     across = ROAD_HALF_CELLS + KERB_CELLS
@@ -909,48 +990,88 @@ def standard_marks(boost_at: tuple[int, ...] = (1, 4)) -> list[tuple]:
     for i in boost_at:
         assert 1 <= i <= GATES, f"boost interval {i} is not between two gates"
         marks.append(((i - 0.5) * step, BOOST, ROAD_HALF_CELLS, 1.0))
+    for i in oil_at:
+        assert 1 <= i <= GATES, f"oil interval {i} is not between two gates"
+        marks.append(((i - 0.25) * step, OIL, 1.5, 0.8))
     return marks
 
 
 CIRCUITS = [
     {
         "name": "Hells Bells",
-        "shape": "stadium",
-        "straight_half": 10.0,
-        "radius": 7.0,
+        "shape": "polygon",
+        "vertices": [
+            (18.0, 20.0),
+            (62.0, 20.0),
+            (62.0, 40.0),
+            (50.0, 40.0),
+            (45.0, 52.0),
+            (37.0, 52.0),
+            (32.0, 40.0),
+            (18.0, 40.0),
+        ],
+        "radii": [5.0, 5.0, 4.0, 3.5, 3.5, 3.5, 4.0, 5.0],
+        "shortcuts": ["M 50.0 40.0 L 32.0 40.0"],
         "runoff": GRAVEL,
-        "marks": standard_marks(),
-        "note": "The easy stage: a short tight oval, ten seconds a lap.",
+        "marks": standard_marks((1, 4), (3,)),
+        "note": "Short technical circuit featuring an aggressive chicane, hairpin, oil hazard, and chicane bypass shortcut.",
     },
     {
         "name": "Copper Gorge",
-        "shape": "stadium",
-        "straight_half": 14.0,
-        "radius": 9.0,
+        "shape": "polygon",
+        "vertices": [
+            (18.0, 16.0),
+            (62.0, 16.0),
+            (62.0, 38.0),
+            (46.0, 38.0),
+            (46.0, 62.0),
+            (18.0, 62.0),
+            (18.0, 38.0),
+            (30.0, 28.0),
+        ],
+        "radii": [5.0, 5.0, 4.0, 4.0, 5.0, 5.0, 4.0, 4.0],
+        "shortcuts": ["M 46.0 38.0 L 18.0 38.0"],
         "runoff": SAND,
-        "marks": standard_marks((2, 5)),
-        "note": "Same shape, wider and looser. About thirteen seconds.",
+        "marks": standard_marks((2, 5), (4,)),
+        "note": "Canyon switchback circuit with sweeping bends, tight dogleg, oil slick, and waist-line canyon shortcut.",
     },
     {
         "name": "Longbow",
-        "shape": "rounded_rect",
-        "half_x": 25.0,
-        "half_y": 11.0,
-        "radius": 7.0,
+        "shape": "polygon",
+        "vertices": [
+            (16.0, 16.0),
+            (64.0, 16.0),
+            (64.0, 62.0),
+            (48.0, 62.0),
+            (44.0, 48.0),
+            (36.0, 48.0),
+            (32.0, 62.0),
+            (16.0, 62.0),
+        ],
+        "radii": [5.0, 6.0, 6.0, 4.0, 3.5, 3.5, 4.0, 5.0],
+        "shortcuts": ["M 48.0 62.0 L 32.0 62.0"],
         "runoff": GRASS,
-        "marks": standard_marks((1, 3, 5)),
-        "note": "Long and thin: two 50-cell straights and two short ones. Sixteen seconds.",
+        "marks": standard_marks((1, 3, 5), (2, 6)),
+        "note": "High-speed circuit with long straights, sweeping carousel, technical chicane with bypass, boost pads and oil slicks.",
     },
     {
         "name": "Amber Mesa",
-        "shape": "rounded_rect",
-        "half_x": 28.0,
-        "half_y": 14.0,
-        "radius": 7,
+        "shape": "polygon",
+        "vertices": [
+            (18.0, 16.0),
+            (62.0, 16.0),
+            (62.0, 36.0),
+            (48.0, 46.0),
+            (62.0, 54.0),
+            (62.0, 64.0),
+            (36.0, 64.0),
+            (18.0, 46.0),
+        ],
+        "radii": [5.0, 5.0, 4.0, 4.0, 4.0, 5.0, 5.0, 5.0],
+        "shortcuts": ["M 62.0 36.0 L 62.0 54.0"],
         "runoff": SAND,
-        "marks": standard_marks((1, 4, 6)),
-        "note": "The largest: four real corners and the longest lap in the "
-                "set. Twenty seconds.",
+        "marks": standard_marks((1, 4, 6), (2, 5)),
+        "note": "Grand Prix championship circuit with high-speed straights, sweeping carousel, technical chicane, chicane bypass shortcut, and boost zones.",
     },
 ]
 
