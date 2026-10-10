@@ -880,10 +880,8 @@ impl ArduracerGame {
         };
 
         let mut player_rank = 1u8;
-        let tx = TrackDef::tile_x_of(self.player.position.x);
-        let ty = TrackDef::tile_y_of(self.player.position.y);
         self.timer.tick();
-        if self.timer.update_player_tile(tx, ty) {
+        if self.timer.update_player_on_track(&self.player, track) {
             // A lap was just scored. Promote this lap's telemetry to
             // the ghost if it is the fastest so far, then start a
             // fresh recording: without this the "ghost" was only ever
