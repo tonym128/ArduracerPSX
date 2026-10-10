@@ -928,7 +928,7 @@ impl ArduracerGame {
     /// display-start word only once the GPU has reached that flag -- so the flip
     /// cannot land on a half-drawn frame.
     #[inline(never)]
-    fn handle_results_screen(&mut self, pad: &psx_pad::PadResponse) {
+    fn handle_results_screen(&mut self, pad: &psx_pad::PadState) {
         self.fb.clear(14, 16, 22);
         self.audio.ui_frame(pad.buttons.bits());
         let mut action: Option<ResultsAction> = None;
@@ -1010,7 +1010,7 @@ impl ArduracerGame {
     }
 
     #[inline(never)]
-    fn handle_victory_screen(&mut self, pad: &psx_pad::PadResponse) {
+    fn handle_victory_screen(&mut self, pad: &psx_pad::PadState) {
         self.fb.clear(14, 16, 22);
         self.audio.ui_frame(pad.buttons.bits());
         let finished = if let (Some(ref mut victory), Some(ref champ)) =
