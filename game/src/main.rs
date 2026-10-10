@@ -50,6 +50,18 @@ pub const SCREEN_HEIGHT: u16 = 240;
 /// Whether AI rivals take part in a race.
 const RIVALS_ENABLED: bool = true;
 
+#[cfg(target_arch = "mips")]
+#[inline]
+fn is_pal_mode() -> bool {
+    psx_io::gpu::gpustat().contains(psx_hw::gpu::GpuStat::VMODE_PAL)
+}
+
+#[cfg(not(target_arch = "mips"))]
+#[inline]
+fn is_pal_mode() -> bool {
+    false
+}
+
 /// Spawns 5 AI rivals on staggered grid positions according to championship grid slots and difficulty.
 fn spawn_rivals(
     start_pos: Vec2,
@@ -97,6 +109,12 @@ pub struct ArduracerGame {
     pub memcard: MemoryCardManager,
     /// Three lights, then GO. The lap clock arms on GO, not at load.
     pub start: StartSequence,
+    /// Fixed-timestep accumulator for 60 Hz simulation updates.
+    pub sim_accumulator: u32,
+    /// Last sampled VBlank counter value for measuring elapsed display periods.
+    pub last_vblank_count: u32,
+    /// Monotonic count of simulation ticks executed.
+    pub sim_tick_counter: u32,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -199,6 +217,9 @@ impl ArduracerGame {
             state_mgr,
             ghost: LapGhostRecorder::new(0),
             start: StartSequence::new(),
+            sim_accumulator: 0,
+            last_vblank_count: 0,
+            sim_tick_counter: 0,
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -297,6 +318,9 @@ impl ArduracerGame {
         self.start = StartSequence::new();
         self.paused = false;
         self.show_hud = true;
+        self.sim_accumulator = 0;
+        self.last_vblank_count = psx_rt::interrupts::vblank_count();
+        self.sim_tick_counter = 0;
     }
 
     /// Draws the five rivals back-to-front by screen row.
@@ -556,6 +580,8 @@ impl ArduracerGame {
                             self.audio.cdda.pause();
                         } else {
                             self.audio.cdda.resume();
+                            self.sim_accumulator = 0;
+                            self.last_vblank_count = psx_rt::interrupts::vblank_count();
                         }
                     }
                     if frame.select_pressed {
@@ -577,6 +603,8 @@ impl ArduracerGame {
                                     self.paused = false;
                                     self.audio.set_paused(false);
                                     self.audio.cdda.resume();
+                                    self.sim_accumulator = 0;
+                                    self.last_vblank_count = psx_rt::interrupts::vblank_count();
                                 }
                                 PauseChoice::RestartRace => {
                                     if let Some(backup) = self.state_mgr.champ_stage_backup {
@@ -643,191 +671,16 @@ impl ArduracerGame {
                         continue;
                     }
 
-                    // Controller input poll (surface known from the previous tick
-                    // so the rumble motors can react to curbs and impacts).
-                    let pre_tx = TrackDef::tile_x_of(self.player.position.x);
-                    let pre_ty = TrackDef::tile_y_of(self.player.position.y);
-                    let pre_surface = track.surface_at(pre_tx, pre_ty);
-                    // Same pad sample the UI saw this frame, so a button press
-                    // cannot open the pause menu and also be missing from the
-                    // car's controls (TASK-1214).
-                    let mut input = {
-                        let _s = prof::span(prof::SIM_PLAYER);
-                        self.input_mgr.update(&pad, &self.player, pre_surface)
-                    };
-
-                    // Profiling builds have no pad, so the car would never
-                    // leave the grid and the camera would never move, which
-                    // is the one thing a texture-streaming profile needs to
-                    // observe. Feed it the AI's line instead. Only the input
-                    // source differs; the physics and every render path below
-                    // are the same ones a player's frame runs.
-                    #[cfg(feature = "profiling")]
-                    self.autopilot
-                        .override_input(track, &self.player, &mut input);
-
-                    // Start sequence: hold the car on the grid, then arm the lap
-                    // clock the instant the lights go out.
-                    self.start.tick();
-                    if self.start.just_started() {
-                        self.timer.start();
-                    }
-                    if !self.start.accepts_input() {
-                        input.throttle = Fixed::ZERO;
-                        input.brake = Fixed::ZERO;
-                        input.steer = Fixed::ZERO;
-                        input.handbrake = false;
-                        input.nitro = false;
-                    }
-
-                    // Recovery: stuck, spun, or wedged with no way out. Drops the
-                    // car on the nearest route node facing down the racing line
-                    // and clears every state that could be pinning it.
-                    if self.input_mgr.controller.respawn_pressed {
-                        let (pos, heading) = track.respawn_point(self.player.position);
-                        self.player.respawn_at(pos, heading);
-                    }
-
-                    // Simulate: physics tick, then resolve track + bounds.
-                    let (hit_wall, surface) = {
-                        let _s = prof::span(prof::SIM_PLAYER);
-                        self.player.tick(input, pre_surface);
-                        let hit_wall = self.player.collide_with_track(track);
-                        let tx = TrackDef::tile_x_of(self.player.position.x);
-                        let ty = TrackDef::tile_y_of(self.player.position.y);
-                        (hit_wall, track.surface_at(tx, ty))
-                    };
-
+                    // Frame-rate agnostic simulation updates:
+                    let ticks_to_run = self.compute_ticks_to_run();
                     let mut player_rank = 1u8;
-                    let tx = TrackDef::tile_x_of(self.player.position.x);
-                    let ty = TrackDef::tile_y_of(self.player.position.y);
-                    self.timer.tick();
-                    if self.timer.update_player_tile(tx, ty) {
-                        // A lap was just scored. Promote this lap's telemetry to
-                        // the ghost if it is the fastest so far, then start a
-                        // fresh recording: without this the "ghost" was only ever
-                        // the opening seconds of lap 1.
-                        let lap_ticks = self.timer.last_completed_lap_ticks;
-                        let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
-                        self.ghost.finish_lap(lap_ticks, is_record);
-                        self.ghost.start_lap();
-                    }
-
-                    let standings;
-                    {
-                        let _s = prof::span(prof::SIM_RIVALS);
-                        // AI rivals tick with dynamic obstacle avoidance
-                        let mut other_positions = [Vec2::ZERO; 6];
-                        other_positions[0] = self.player.position;
-                        for i in 0..5 {
-                            other_positions[i + 1] = self.rivals[i].state.position;
-                        }
-                        if RIVALS_ENABLED
-                            && (self.start.phase() == StartPhase::Racing
-                                || self.start.just_started())
-                        {
-                            // Rivals launch with the player: held on the grid until
-                            // the lights go out, like a standing start.
-                            let frame = self.frame_counter;
-                            for i in 0..5 {
-                                let update_input = self.start.just_started()
-                                    || ((i % 2) == ((frame as usize) % 2));
-                                self.rivals[i].tick_interleaved(
-                                    track,
-                                    &other_positions,
-                                    update_input,
-                                );
-                            }
-                        }
-
-                        // Race standings: player checkpoint progress is compared on
-                        // the same route index the rivals use.
-                        let player_route_node =
-                            self.timer.route_node_index(track.route_len()) as u8;
-                        standings = compute_standings(
-                            self.player.position,
-                            self.timer.current_lap,
-                            player_route_node,
-                            self.timer.is_finished,
-                            &self.rivals,
-                            track,
-                        );
-                        for (place, &competitor_idx) in standings.iter().enumerate() {
-                            if competitor_idx == 0 {
-                                player_rank = (place + 1) as u8;
-                                break;
-                            }
+                    for _ in 0..ticks_to_run {
+                        let (rank, _) = self.tick_racing_simulation(&pad, track);
+                        player_rank = rank;
+                        if self.state_mgr.current != GameState::Racing {
+                            break;
                         }
                     }
-
-                    // Ghost telemetry sample
-                    {
-                        let _s = prof::span(prof::SIM_GHOST);
-                        self.ghost.record_tick(&self.player);
-                    }
-
-                    // Check race completion (5 laps)
-                    if self.timer.is_finished {
-                        let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
-                        self.memcard.record_lap(
-                            self.current_track_idx,
-                            self.timer.best_lap_ticks,
-                            medal as u8,
-                        );
-                        // Every scored lap already promoted itself; this only
-                        // closes out the in-progress final lap.
-                        self.ghost.finish_lap(self.timer.best_lap_ticks, false);
-                        // Persist the record before leaving the race screen.
-                        if self.memcard.is_dirty {
-                            self.memcard.flush();
-                        }
-
-                        let is_gp = self.state_mgr.championship.is_some();
-                        if let Some(ref mut champ) = self.state_mgr.championship {
-                            champ.award_stage_points(standings);
-                        }
-
-                        self.state_mgr.results = Some(ResultsScreen::new(
-                            self.timer.best_lap_ticks,
-                            self.timer.current_lap_ticks,
-                            track,
-                            player_rank,
-                            is_gp,
-                        ));
-                        self.state_mgr.current = GameState::Results;
-                        // Cut before the tick below, which would otherwise run
-                        // once more this frame and re-latch a live engine volume
-                        // over the victory fanfare.
-                        self.audio.leave_race();
-                        self.audio.sync_ui_edges(pad.buttons.bits());
-                        self.audio.cdda.play_track(7);
-                    }
-
-                    let cleared = self.timer.checkpoints_cleared() as u8;
-                    // Audio engine tick (engine RPM synth, tire screech, SFX)
-                    {
-                        let _s = prof::span(prof::AUDIO);
-                        self.audio
-                            .tick(&self.player, input.throttle, surface, hit_wall, cleared);
-                    }
-
-                    // Emit smoke particles and skidmarks during hard turns or drifts
-                    if self.player.is_drifting {
-                        self.particles.emit_smoke(self.player.position);
-                        self.skidmarks
-                            .emit(self.player.position, self.player.visual_angle);
-                    }
-                    // Wall scrape sparks + heavy rumble on a barrier hit.
-                    if hit_wall {
-                        let away = self.player.velocity.scale(Fixed::from_raw(-256));
-                        self.particles.emit_sparks(self.player.position, away);
-                        self.input_mgr.rumble.trigger_impact(200);
-                    }
-                    if self.player.boost_ticks == 29 {
-                        self.input_mgr.rumble.trigger_boost();
-                    }
-                    self.particles.tick();
-                    self.skidmarks.tick();
 
                     // Camera update, clamped to the circuit so the view never leaves the world.
                     {
@@ -916,25 +769,214 @@ impl ArduracerGame {
         }
     }
 
-    /// Ends the frame: closes the GP0 command stream and queues the display flip
-    /// for the next VBlank.
-    ///
-    /// Split out of the loop body because the pause arm `continue`s before
-    /// reaching it, and a frame that is never flipped is never seen. That was
-    /// the whole of the pause menu's disappearance: `draw_frozen_race` and
-    /// `PauseMenu::render` both ran correctly, into a back buffer nothing ever
-    /// presented.
-    ///
-    /// The old loop was a bare `wait_vblank(); fb.swap()`, and
-    /// `FrameBuffer::swap` writes its three GP0 words with no
-    /// `wait_cmd_ready()`. If the 256-word command FIFO was full those words
-    /// were dropped and the draw area stayed pointed at the previous buffer;
-    /// nothing also stopped frame N+1 being submitted while VBlank flipped to
-    /// it, collapsing the double buffer to a one-deep queue (TASK-1201).
-    ///
-    /// GP0(1Fh) closes the command stream, and the VBlank handler applies the
-    /// display-start word only once the GPU has reached that flag -- so the flip
-    /// cannot land on a half-drawn frame.
+    fn compute_ticks_to_run(&mut self) -> u32 {
+        let current_vblank = psx_rt::interrupts::vblank_count();
+        if self.last_vblank_count == 0 {
+            self.last_vblank_count = current_vblank;
+            return 1;
+        }
+        let elapsed_vblanks = current_vblank.wrapping_sub(self.last_vblank_count);
+        self.last_vblank_count = current_vblank;
+        if elapsed_vblanks == 0 {
+            return 1;
+        }
+        let clamped_vblanks = elapsed_vblanks.min(4);
+        const TICK_COST: u32 = 5;
+        let units_per_vblank = if is_pal_mode() { 6 } else { 5 };
+        self.sim_accumulator = self
+            .sim_accumulator
+            .saturating_add(clamped_vblanks * units_per_vblank);
+        let mut ticks = 0u32;
+        while self.sim_accumulator >= TICK_COST && ticks < 4 {
+            self.sim_accumulator -= TICK_COST;
+            ticks += 1;
+        }
+        if ticks >= 4 {
+            self.sim_accumulator = 0;
+        }
+        ticks.max(1)
+    }
+
+    #[inline(never)]
+    fn tick_racing_simulation(
+        &mut self,
+        pad: &psx_pad::PadState,
+        track: &'static TrackDef,
+    ) -> (u8, [usize; 6]) {
+        self.sim_tick_counter = self.sim_tick_counter.wrapping_add(1);
+        let sim_tick = self.sim_tick_counter;
+
+        // Controller input poll (surface known from the previous tick
+        // so the rumble motors can react to curbs and impacts).
+        let pre_surface = track.surface_at(
+            TrackDef::tile_x_of(self.player.position.x),
+            TrackDef::tile_y_of(self.player.position.y),
+        );
+        let mut input = self.input_mgr.update(pad, &self.player, pre_surface);
+
+        #[cfg(feature = "profiling")]
+        self.autopilot
+            .override_input(track, &self.player, &mut input);
+
+        // Start sequence: hold the car on the grid, then arm the lap
+        // clock the instant the lights go out.
+        self.start.tick();
+        if self.start.just_started() {
+            self.timer.start();
+        }
+        if !self.start.accepts_input() {
+            input.throttle = Fixed::ZERO;
+            input.brake = Fixed::ZERO;
+            input.steer = Fixed::ZERO;
+            input.handbrake = false;
+            input.nitro = false;
+        }
+
+        // Recovery: stuck, spun, or wedged with no way out. Drops the
+        // car on the nearest route node facing down the racing line
+        // and clears every state that could be pinning it.
+        if self.input_mgr.controller.respawn_pressed {
+            let (pos, heading) = track.respawn_point(self.player.position);
+            self.player.respawn_at(pos, heading);
+        }
+
+        // Simulate: physics tick, then resolve track + bounds.
+        let (hit_wall, surface) = {
+            let _s = prof::span(prof::SIM_PLAYER);
+            self.player.tick(input, pre_surface);
+            let hit_wall = self.player.collide_with_track(track);
+            let tx = TrackDef::tile_x_of(self.player.position.x);
+            let ty = TrackDef::tile_y_of(self.player.position.y);
+            (hit_wall, track.surface_at(tx, ty))
+        };
+
+        let mut player_rank = 1u8;
+        let tx = TrackDef::tile_x_of(self.player.position.x);
+        let ty = TrackDef::tile_y_of(self.player.position.y);
+        self.timer.tick();
+        if self.timer.update_player_tile(tx, ty) {
+            // A lap was just scored. Promote this lap's telemetry to
+            // the ghost if it is the fastest so far, then start a
+            // fresh recording: without this the "ghost" was only ever
+            // the opening seconds of lap 1.
+            let lap_ticks = self.timer.last_completed_lap_ticks;
+            let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
+            self.ghost.finish_lap(lap_ticks, is_record);
+            self.ghost.start_lap();
+        }
+
+        let standings;
+        {
+            let _s = prof::span(prof::SIM_RIVALS);
+            // AI rivals tick with dynamic obstacle avoidance
+            let mut other_positions = [Vec2::ZERO; 6];
+            other_positions[0] = self.player.position;
+            for i in 0..5 {
+                other_positions[i + 1] = self.rivals[i].state.position;
+            }
+            if RIVALS_ENABLED
+                && (self.start.phase() == StartPhase::Racing || self.start.just_started())
+            {
+                // Rivals launch with the player: held on the grid until
+                // the lights go out, like a standing start.
+                for i in 0..5 {
+                    let update_input =
+                        self.start.just_started() || ((i % 2) == ((sim_tick as usize) % 2));
+                    self.rivals[i].tick_interleaved(track, &other_positions, update_input);
+                }
+            }
+
+            // Race standings: player checkpoint progress is compared on
+            // the same route index the rivals use.
+            let player_route_node = self.timer.route_node_index(track.route_len()) as u8;
+            standings = compute_standings(
+                self.player.position,
+                self.timer.current_lap,
+                player_route_node,
+                self.timer.is_finished,
+                &self.rivals,
+                track,
+            );
+            for (place, &competitor_idx) in standings.iter().enumerate() {
+                if competitor_idx == 0 {
+                    player_rank = (place + 1) as u8;
+                    break;
+                }
+            }
+        }
+
+        // Ghost telemetry sample
+        {
+            let _s = prof::span(prof::SIM_GHOST);
+            self.ghost.record_tick(&self.player);
+        }
+
+        // Check race completion (5 laps)
+        if self.timer.is_finished {
+            let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+            self.memcard.record_lap(
+                self.current_track_idx,
+                self.timer.best_lap_ticks,
+                medal as u8,
+            );
+            // Every scored lap already promoted itself; this only
+            // closes out the in-progress final lap.
+            self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+            // Persist the record before leaving the race screen.
+            if self.memcard.is_dirty {
+                self.memcard.flush();
+            }
+
+            let is_gp = self.state_mgr.championship.is_some();
+            if let Some(ref mut champ) = self.state_mgr.championship {
+                champ.award_stage_points(standings);
+            }
+
+            self.state_mgr.results = Some(ResultsScreen::new(
+                self.timer.best_lap_ticks,
+                self.timer.current_lap_ticks,
+                track,
+                player_rank,
+                is_gp,
+            ));
+            self.state_mgr.current = GameState::Results;
+            // Cut before the tick below, which would otherwise run
+            // once more this frame and re-latch a live engine volume
+            // over the victory fanfare.
+            self.audio.leave_race();
+            self.audio.sync_ui_edges(pad.buttons.bits());
+            self.audio.cdda.play_track(7);
+        }
+
+        let cleared = self.timer.checkpoints_cleared() as u8;
+        // Audio engine tick (engine RPM synth, tire screech, SFX)
+        {
+            let _s = prof::span(prof::AUDIO);
+            self.audio
+                .tick(&self.player, input.throttle, surface, hit_wall, cleared);
+        }
+
+        // Emit smoke particles and skidmarks during hard turns or drifts
+        if self.player.is_drifting {
+            self.particles.emit_smoke(self.player.position);
+            self.skidmarks
+                .emit(self.player.position, self.player.visual_angle);
+        }
+        // Wall scrape sparks + heavy rumble on a barrier hit.
+        if hit_wall {
+            let away = self.player.velocity.scale(Fixed::from_raw(-256));
+            self.particles.emit_sparks(self.player.position, away);
+            self.input_mgr.rumble.trigger_impact(200);
+        }
+        if self.player.boost_ticks == 29 {
+            self.input_mgr.rumble.trigger_boost();
+        }
+        self.particles.tick();
+        self.skidmarks.tick();
+
+        (player_rank, standings)
+    }
+
     #[inline(never)]
     fn handle_results_screen(&mut self, pad: &psx_pad::PadState) {
         self.fb.clear(14, 16, 22);
@@ -1041,6 +1083,25 @@ impl ArduracerGame {
         }
     }
 
+    /// Ends the frame: closes the GP0 command stream and queues the display flip
+    /// for the next VBlank.
+    ///
+    /// Split out of the loop body because the pause arm `continue`s before
+    /// reaching it, and a frame that is never flipped is never seen. That was
+    /// the whole of the pause menu's disappearance: `draw_frozen_race` and
+    /// `PauseMenu::render` both ran correctly, into a back buffer nothing ever
+    /// presented.
+    ///
+    /// The old loop was a bare `wait_vblank(); fb.swap()`, and
+    /// `FrameBuffer::swap` writes its three GP0 words with no
+    /// `wait_cmd_ready()`. If the 256-word command FIFO was full those words
+    /// were dropped and the draw area stayed pointed at the previous buffer;
+    /// nothing also stopped frame N+1 being submitted while VBlank flipped to
+    /// it, collapsing the double buffer to a one-deep queue (TASK-1201).
+    ///
+    /// GP0(1Fh) closes the command stream, and the VBlank handler applies the
+    /// display-start word only once the GPU has reached that flag -- so the flip
+    /// cannot land on a half-drawn frame.
     fn close_frame(&mut self) {
         psx_gpu_mod::signal_draw_done();
         let flip = self.fb.begin_deferred_swap();
