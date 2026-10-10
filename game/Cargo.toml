@@ -24,6 +24,14 @@ lto = true
 # `memcard.rs` textually.
 host-test = []
 
+# Frame-timing instrumentation. Off by default: it reads the emulator's guest
+# cycle port at 0xBF802F08 (an Expansion 2 register, meaningless on real
+# silicon), prints reports over the TTY, and replaces the pad with an AI driver
+# so a headless run can get on circuit. Shipping builds must never enable it.
+#
+#   cargo build --release --features profiling
+profiling = []
+
 [dependencies]
 psx-asset = { path = "../psoxide/sdk/crates/psx-asset" }
 psx-font  = { path = "../psoxide/sdk/crates/psx-font" }

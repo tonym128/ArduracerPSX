@@ -8,6 +8,8 @@
 extern crate psx_rt;
 
 pub mod audio;
+#[cfg(feature = "profiling")]
+pub mod autopilot;
 pub mod cd_fs;
 pub mod dbg;
 pub mod ghost_player;
@@ -15,6 +17,7 @@ pub mod ghost_recorder;
 pub mod gpu;
 pub mod input;
 pub mod memcard;
+pub mod prof;
 pub mod state;
 pub mod ui;
 pub mod video;
@@ -86,6 +89,11 @@ pub struct ArduracerGame {
     pub memcard: MemoryCardManager,
     /// Three lights, then GO. The lap clock arms on GO, not at load.
     pub start: StartSequence,
+    /// Synthetic driver used only by `profiling` builds to get the car on
+    /// circuit without a pad. Absent from shipping builds, so the struct keeps
+    /// no room for it.
+    #[cfg(feature = "profiling")]
+    pub autopilot: autopilot::Autopilot,
 }
 
 impl Default for ArduracerGame {
@@ -105,6 +113,12 @@ impl ArduracerGame {
         dbg::check_faults();
 
         dbg::log_step(3, 9, "Playing attract FMV (INTRO.STR)...");
+        // A profiling run wants frames on circuit, and the attract movie is
+        // 755 sectors of single-speed CD reads before the first one. Skipping
+        // it means the report windows are all racing frames.
+        #[cfg(feature = "profiling")]
+        let intro_res = video::VideoResult::Skipped;
+        #[cfg(not(feature = "profiling"))]
         let intro_res = video::play_video("INTRO.STR");
         dbg::check_faults();
 
@@ -178,6 +192,8 @@ impl ArduracerGame {
             ghost: LapGhostRecorder::new(0),
             start: StartSequence::new(),
             memcard,
+            #[cfg(feature = "profiling")]
+            autopilot: autopilot::Autopilot::new(track),
         };
         dbg::log_step(9, 9, "Baking circuit minimap...");
         bake_minimap(&game.minimap_texture, game.current_track);
@@ -307,26 +323,51 @@ impl ArduracerGame {
         dbg::println("[LOOP] Entering main game loop with VBlank interrupt installed.");
         dbg::check_faults();
 
+        // A profiling run has no pad, so the title/menu/track-select chain is
+        // unreachable: nothing ever presses Cross. Jump straight into the race
+        // on circuit 0 so every report window covers racing frames. Loading
+        // through `load_track` rather than poking the state field keeps the
+        // minimap bake, CD-DA cue and pause-arming identical to a real entry.
+        #[cfg(feature = "profiling")]
+        {
+            self.load_track(0);
+            self.state_mgr.current = GameState::Racing;
+            dbg::println("[PROF] Profiling build: entering Racing on circuit 0");
+        }
+
         let mut first_frame = true;
         loop {
+            // Latch the frame boundary before any timed work, so a dropped
+            // VBlank period is attributed to the frame that lost it.
+            prof::begin_frame();
+
             // 1. Synchronize to 60Hz NTSC VBlank. The handler has now applied
             //    last frame's queued flip, so program the draw target for the
             //    buffer we are about to fill.
-            psx_rt::interrupts::wait_vblank();
+            {
+                let _s = prof::span(prof::VBLANK);
+                psx_rt::interrupts::wait_vblank();
+            }
             self.fb.apply_draw_target();
 
-            self.frame_counter = self.frame_counter.wrapping_add(1);
-            if first_frame {
-                dbg::println("[LOOP] Frame 1 synchronized and rendering!");
-                first_frame = false;
-            } else if self.frame_counter.is_multiple_of(300) {
-                dbg::print("[LOOP] Heartbeat: frame ");
-                dbg::print_dec(self.frame_counter);
-                dbg::println("");
-                dbg::check_faults();
+            {
+                let _s = prof::span(prof::LOOP_OVERHEAD);
+                self.frame_counter = self.frame_counter.wrapping_add(1);
+                if first_frame {
+                    dbg::println("[LOOP] Frame 1 synchronized and rendering!");
+                    first_frame = false;
+                } else if self.frame_counter.is_multiple_of(300) {
+                    dbg::print("[LOOP] Heartbeat: frame ");
+                    dbg::print_dec(self.frame_counter);
+                    dbg::println("");
+                    dbg::check_faults();
+                }
             }
 
-            let pad = psx_pad::poll_port1();
+            let pad = {
+                let _s = prof::span(prof::PAD_POLL);
+                psx_pad::poll_port1()
+            };
 
             match self.state_mgr.current {
                 GameState::Title => {
@@ -508,8 +549,11 @@ impl ArduracerGame {
                             }
                         }
                         // Repaint the frozen world under the pause veil.
-                        self.draw_frozen_race();
-                        self.pause.render();
+                        {
+                            let _s = prof::span(prof::RENDER_TRACK);
+                            self.draw_frozen_race();
+                            self.pause.render();
+                        }
                         // This arm `continue`s, so it has to close its own frame.
                         // Step 5 sits at the bottom of the loop, *after* this
                         // `continue`: without this call the veil was rasterised
@@ -525,7 +569,12 @@ impl ArduracerGame {
                         if let Some(status) = self.memcard.notice() {
                             render_card_notice(status);
                         }
+                        // `prof::end_frame` has to be called on this path too: the
+                        // `continue` below skips the one at the bottom of the
+                        // loop, and skipping it would leave this frame's spans
+                        // unaccounted and poison the rest of the window.
                         self.close_frame();
+                        prof::end_frame();
                         continue;
                     }
 
@@ -537,7 +586,20 @@ impl ArduracerGame {
                     // Same pad sample the UI saw this frame, so a button press
                     // cannot open the pause menu and also be missing from the
                     // car's controls (TASK-1214).
-                    let mut input = self.input_mgr.update(&pad, &self.player, pre_surface);
+                    let mut input = {
+                        let _s = prof::span(prof::SIM_PLAYER);
+                        self.input_mgr.update(&pad, &self.player, pre_surface)
+                    };
+
+                    // Profiling builds have no pad, so the car would never
+                    // leave the grid and the camera would never move, which
+                    // is the one thing a texture-streaming profile needs to
+                    // observe. Feed it the AI's line instead. Only the input
+                    // source differs; the physics and every render path below
+                    // are the same ones a player's frame runs.
+                    #[cfg(feature = "profiling")]
+                    self.autopilot
+                        .override_input(track, &self.player, &mut input);
 
                     // Start sequence: hold the car on the grid, then arm the lap
                     // clock the instant the lights go out.
@@ -562,11 +624,14 @@ impl ArduracerGame {
                     }
 
                     // Simulate: physics tick, then resolve track + bounds.
-                    self.player.tick(input, pre_surface);
-                    let hit_wall = self.player.collide_with_track(track);
-                    let tx = TrackDef::tile_x_of(self.player.position.x);
-                    let ty = TrackDef::tile_y_of(self.player.position.y);
-                    let surface = track.surface_at(tx, ty);
+                    let (hit_wall, surface) = {
+                        let _s = prof::span(prof::SIM_PLAYER);
+                        self.player.tick(input, pre_surface);
+                        let hit_wall = self.player.collide_with_track(track);
+                        let tx = TrackDef::tile_x_of(self.player.position.x);
+                        let ty = TrackDef::tile_y_of(self.player.position.y);
+                        (hit_wall, track.surface_at(tx, ty))
+                    };
 
                     let mut player_rank = 1u8;
                     let tx = TrackDef::tile_x_of(self.player.position.x);
@@ -583,42 +648,51 @@ impl ArduracerGame {
                         self.ghost.start_lap();
                     }
 
-                    // AI rivals tick with dynamic obstacle avoidance
-                    let mut other_positions = [Vec2::ZERO; 6];
-                    other_positions[0] = self.player.position;
-                    for i in 0..5 {
-                        other_positions[i + 1] = self.rivals[i].state.position;
-                    }
-                    if RIVALS_ENABLED
-                        && (self.start.phase() == StartPhase::Racing || self.start.just_started())
+                    let standings;
                     {
-                        // Rivals launch with the player: held on the grid until
-                        // the lights go out, like a standing start.
+                        let _s = prof::span(prof::SIM_RIVALS);
+                        // AI rivals tick with dynamic obstacle avoidance
+                        let mut other_positions = [Vec2::ZERO; 6];
+                        other_positions[0] = self.player.position;
                         for i in 0..5 {
-                            self.rivals[i].tick(track, &other_positions);
+                            other_positions[i + 1] = self.rivals[i].state.position;
                         }
-                    }
+                        if RIVALS_ENABLED
+                            && (self.start.phase() == StartPhase::Racing
+                                || self.start.just_started())
+                        {
+                            // Rivals launch with the player: held on the grid until
+                            // the lights go out, like a standing start.
+                            for i in 0..5 {
+                                self.rivals[i].tick(track, &other_positions);
+                            }
+                        }
 
-                    // Race standings: player checkpoint progress is compared on
-                    // the same route index the rivals use.
-                    let player_route_node = self.timer.route_node_index(track.route_len()) as u8;
-                    let standings = compute_standings(
-                        self.player.position,
-                        self.timer.current_lap,
-                        player_route_node,
-                        self.timer.is_finished,
-                        &self.rivals,
-                        track,
-                    );
-                    for (place, &competitor_idx) in standings.iter().enumerate() {
-                        if competitor_idx == 0 {
-                            player_rank = (place + 1) as u8;
-                            break;
+                        // Race standings: player checkpoint progress is compared on
+                        // the same route index the rivals use.
+                        let player_route_node =
+                            self.timer.route_node_index(track.route_len()) as u8;
+                        standings = compute_standings(
+                            self.player.position,
+                            self.timer.current_lap,
+                            player_route_node,
+                            self.timer.is_finished,
+                            &self.rivals,
+                            track,
+                        );
+                        for (place, &competitor_idx) in standings.iter().enumerate() {
+                            if competitor_idx == 0 {
+                                player_rank = (place + 1) as u8;
+                                break;
+                            }
                         }
                     }
 
                     // Ghost telemetry sample
-                    self.ghost.record_tick(&self.player);
+                    {
+                        let _s = prof::span(prof::SIM_GHOST);
+                        self.ghost.record_tick(&self.player);
+                    }
 
                     // Check race completion (5 laps)
                     if self.timer.is_finished {
@@ -657,8 +731,11 @@ impl ArduracerGame {
 
                     let cleared = self.timer.checkpoints_cleared() as u8;
                     // Audio engine tick (engine RPM synth, tire screech, SFX)
-                    self.audio
-                        .tick(&self.player, input.throttle, surface, hit_wall, cleared);
+                    {
+                        let _s = prof::span(prof::AUDIO);
+                        self.audio
+                            .tick(&self.player, input.throttle, surface, hit_wall, cleared);
+                    }
 
                     // Emit smoke particles and skidmarks during hard turns or drifts
                     if self.player.is_drifting {
@@ -679,34 +756,60 @@ impl ArduracerGame {
                     self.skidmarks.tick();
 
                     // Camera update, clamped to the circuit so the view never leaves the world.
-                    self.camera.update(
-                        self.player.position,
-                        self.player.velocity,
-                        self.player.speed,
-                        track.world_width(),
-                        track.world_height(),
-                    );
+                    {
+                        let _s = prof::span(prof::CAMERA);
+                        self.camera.update(
+                            self.player.position,
+                            self.player.velocity,
+                            self.player.speed,
+                            track.world_width(),
+                            track.world_height(),
+                        );
+                    }
 
                     // Render Pass:
                     // a. Clear background
-                    self.fb.clear(18, 20, 26);
+                    {
+                        let _s = prof::span(prof::CLEAR);
+                        self.fb.clear(18, 20, 26);
+                    }
                     // b. Track visual map
-                    render_track(track, &self.camera);
+                    {
+                        let _s = prof::span(prof::RENDER_TRACK);
+                        render_track(track, &self.camera);
+                    }
                     // c. Skidmarks on track
-                    self.skidmarks.render(&self.camera);
+                    {
+                        let _s = prof::span(prof::SKIDMARKS);
+                        self.skidmarks.render(&self.camera);
+                    }
                     // d. Active ghost car playback
-                    render_active_ghost(&self.ghost, &self.camera, self.timer.current_lap_ticks);
+                    {
+                        let _s = prof::span(prof::GHOST_CAR);
+                        render_active_ghost(
+                            &self.ghost,
+                            &self.camera,
+                            self.timer.current_lap_ticks,
+                        );
+                    }
                     // e. AI Rivals rendering
-                    self.render_rivals_sorted();
                     // f. Player race car (Crimson Red: 220, 25, 45)
-                    render_car(&self.player, &self.camera, false, (220, 25, 45));
+                    {
+                        let _s = prof::span(prof::CARS);
+                        self.render_rivals_sorted();
+                        render_car(&self.player, &self.camera, false, (220, 25, 45));
+                    }
                     // g. Particle effects
-                    self.particles.render(&self.camera);
                     // h. Start lights
-                    render_start_lights(self.start.phase());
+                    {
+                        let _s = prof::span(prof::PARTICLES);
+                        self.particles.render(&self.camera);
+                        render_start_lights(self.start.phase());
+                    }
 
                     // i. In-Game HUD overlay (Select hides it for clean screenshots)
                     if self.show_hud {
+                        let _s = prof::span(prof::HUD);
                         render_hud(
                             &self.player,
                             &self.timer,
@@ -775,6 +878,7 @@ impl ArduracerGame {
 
             // 5. Close the frame and queue the flip for the next VBlank.
             self.close_frame();
+            prof::end_frame();
         }
     }
 

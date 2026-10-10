@@ -301,10 +301,18 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
         let byte_len = entry.byte_len as usize;
         let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
 
+        crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
+        crate::prof::count(crate::prof::C_CD_SECTORS, sector_count as u32);
+        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
         if sector_count <= visual_tex::BLOCK_SECTORS
             && reader.read_sectors(block_lba, sector_count, &mut ram_slot.jpeg_data)
         {
             ram_slot.byte_len = byte_len;
+            // The header parse and the restart index walk are separated from the
+            // sector read because they are different work at different scales:
+            // the read is bounded by the drive, the index walk is a linear scan
+            // of the whole ~160-200 KB entropy-coded segment.
+            let _index = crate::prof::span(crate::prof::TRACK_JPEG_INDEX);
             if let Some(hdr) = JpegHeader::parse(&ram_slot.jpeg_data[..byte_len]) {
                 hdr.index_restarts(
                     &ram_slot.jpeg_data[..byte_len],
@@ -382,7 +390,9 @@ fn step_decode_job(current_frame: u32) {
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
 
+    crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
     if ram_slot.valid && ram_slot.byte_len > 0 {
+        let _s = crate::prof::span(crate::prof::TRACK_JPEG_DECODE);
         decode_tile_row_64x16(
             &ram_slot.jpeg_data[..ram_slot.byte_len],
             &ram_slot.header,
@@ -410,9 +420,13 @@ fn step_decode_job(current_frame: u32) {
     job.next_row += 1;
     if job.next_row >= 4 {
         // All 4 MCU rows (64x64 pixels) complete! Upload to VRAM.
+        crate::prof::count(crate::prof::C_TILE_DECODES, 1);
         let (vx, vy, _, _, _) = texlayout::vram_slot_coords(job.target_slot);
         let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
-        upload_16bpp(rect, scratch);
+        {
+            let _s = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
+            upload_16bpp(rect, scratch);
+        }
 
         let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
         vram_slots[job.target_slot].resident_circuit = job.circuit;
@@ -481,27 +495,33 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     let mut visible_tiles: [(i32, i32, usize, usize, usize, usize); 48] = [(0, 0, 0, 0, 0, 0); 48];
     let mut vis_count = 0;
 
-    for ty in min_ty..=max_ty {
-        for tx in min_tx..=max_tx {
-            let wx0 = tx * tile_wu_x;
-            let wy0 = ty * tile_wu_y;
-            let tx0 = x0.max(wx0);
-            let tx1 = x1.min(wx0 + tile_wu_x);
-            let ty0 = y0.max(wy0);
-            let ty1 = y1.min(wy0 + tile_wu_y);
+    {
+        // Scoped in a block on purpose. A `let _span = ...` bound at function
+        // scope would live until the end of the function, so this row would
+        // silently include phase 1, the decodes and phase 3 as well.
+        let _visible = crate::prof::span(crate::prof::TRACK_VISIBLE_SCAN);
+        for ty in min_ty..=max_ty {
+            for tx in min_tx..=max_tx {
+                let wx0 = tx * tile_wu_x;
+                let wy0 = ty * tile_wu_y;
+                let tx0 = x0.max(wx0);
+                let tx1 = x1.min(wx0 + tile_wu_x);
+                let ty0 = y0.max(wy0);
+                let ty1 = y1.min(wy0 + tile_wu_y);
 
-            if tx0 < tx1 && ty0 < ty1 && vis_count < 48 {
-                let bx = (wx0 / block_wu_x) as usize;
-                let by = (wy0 / block_wu_y) as usize;
-                let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
-                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                    as usize;
-                let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
-                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                    as usize;
+                if tx0 < tx1 && ty0 < ty1 && vis_count < 48 {
+                    let bx = (wx0 / block_wu_x) as usize;
+                    let by = (wy0 / block_wu_y) as usize;
+                    let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
 
-                visible_tiles[vis_count] = (tx, ty, bx, by, sub_tx, sub_ty);
-                vis_count += 1;
+                    visible_tiles[vis_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                    vis_count += 1;
+                }
             }
         }
     }
@@ -510,29 +530,34 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     let mut used_slots = [false; VRAM_SLOT_COUNT];
 
     // Phase 1: Match already-resident 64x64 tiles in VRAM LRU cache
-    for i in 0..vis_count {
-        let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
-        let mut found = None;
+    {
+        let _probe = crate::prof::span(crate::prof::TRACK_CACHE_PROBE);
+        for i in 0..vis_count {
+            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+            let mut found = None;
 
-        for s_idx in 0..VRAM_SLOT_COUNT {
-            let slot = &vram_slots[s_idx];
-            if slot.resident_circuit == active_circuit
-                && slot.resident_block_x == bx
-                && slot.resident_block_y == by
-                && slot.resident_tile_x == sub_tx
-                && slot.resident_tile_y == sub_ty
-            {
-                found = Some(s_idx);
-                break;
+            for s_idx in 0..VRAM_SLOT_COUNT {
+                let slot = &vram_slots[s_idx];
+                if slot.resident_circuit == active_circuit
+                    && slot.resident_block_x == bx
+                    && slot.resident_block_y == by
+                    && slot.resident_tile_x == sub_tx
+                    && slot.resident_tile_y == sub_ty
+                {
+                    found = Some(s_idx);
+                    break;
+                }
+            }
+
+            if let Some(s_idx) = found {
+                slot_for_tile[i] = s_idx;
+                used_slots[s_idx] = true;
+                vram_slots[s_idx].last_used = current_frame;
+                crate::prof::count(crate::prof::C_TILE_HITS, 1);
             }
         }
-
-        if let Some(s_idx) = found {
-            slot_for_tile[i] = s_idx;
-            used_slots[s_idx] = true;
-            vram_slots[s_idx].last_used = current_frame;
-        }
     }
+    crate::prof::set(crate::prof::C_VISIBLE_TILES, vis_count as u32);
 
     // Phase 2: Progress the active time-sliced decode job by 1 MCU row, or schedule the next pending tile.
     let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
@@ -592,9 +617,14 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     }
 
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
+    let _quads = crate::prof::span(crate::prof::TRACK_QUADS);
     for i in 0..vis_count {
         let (tx, ty, _, _, _, _) = visible_tiles[i];
         let s_idx = slot_for_tile[i];
+
+        if s_idx == usize::MAX {
+            crate::prof::count(crate::prof::C_PLACEHOLDERS, 1);
+        }
 
         let wx0 = tx * tile_wu_x;
         let wy0 = ty * tile_wu_y;
