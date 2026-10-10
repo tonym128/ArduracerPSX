@@ -35,7 +35,10 @@ pub mod visual_tex;
 pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
 pub use ai_profiles::{AiProfile, AI_PROFILES};
 pub use capetown::TRACK_CAPETOWN;
-pub use championship::{compute_standings, ChampionshipSession, Competitor, POINTS_TABLE};
+pub use championship::{
+    compute_standings, grid_slot_position, ChampionshipSession, Competitor, Difficulty, CUP_COUNT,
+    CUP_NAMES, GRID_SLOT_OFFSETS, POINTS_TABLE, STAGES_PER_CUP,
+};
 pub use drift::{DriftState, DRIFT_BOOST_LEVEL1_TICKS, DRIFT_BOOST_LEVEL2_TICKS, SPINOUT_TICKS};
 pub use ghost::{
     GhostFrame, GhostPlaybackState, GhostPlayer, GhostRecorder, FLAG_BOOSTING, FLAG_BRAKING,

@@ -20,8 +20,9 @@ pub mod ui;
 pub mod video;
 
 use arduracer_core::{
-    compute_standings, AiRacer, ChampionshipSession, Fixed, LapTimer, StartPhase, StartSequence,
-    TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS,
+    compute_standings, grid_slot_position, AiRacer, ChampionshipSession, Difficulty, Fixed,
+    LapTimer, StartPhase, StartSequence, TrackDef, Vec2, VehicleState, AI_PROFILES, ALL_TRACKS,
+    ALL_TRACK_VISUALS, GRID_SLOT_OFFSETS, STAGES_PER_CUP,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -35,28 +36,34 @@ use memcard::{MemcardStatus, MemoryCardManager};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
 use state::{GameState, StateManager};
 use ui::font::draw_text;
-use ui::{CityInfo, MenuItem, PauseChoice, PauseMenu, ResultsScreen};
+use ui::{
+    CityInfo, GrandPrixSetupAction, MenuItem, PauseChoice, PauseMenu, ResultsAction, ResultsScreen,
+    VictoryScreen,
+};
 
 pub const SCREEN_WIDTH: u16 = 320;
 pub const SCREEN_HEIGHT: u16 = 240;
 
-/// Staggered grid slots behind the pole car, alternating sides of the road.
-const GRID_OFFSETS: [(i32, i32); 5] = [(-48, 16), (-96, -16), (-144, 16), (-192, -16), (-240, 0)];
-
 /// Whether AI rivals take part in a race.
 const RIVALS_ENABLED: bool = true;
 
-/// Spawns 5 AI rivals on staggered grid positions behind the player.
-fn spawn_rivals(start_pos: Vec2, start_heading: u16) -> [AiRacer; 5] {
+/// Spawns 5 AI rivals on staggered grid positions according to championship grid slots and difficulty.
+fn spawn_rivals(
+    start_pos: Vec2,
+    start_heading: u16,
+    champ: Option<&ChampionshipSession>,
+) -> [AiRacer; 5] {
+    let diff = champ.map(|c| c.difficulty).unwrap_or(Difficulty::Medium);
     let mut rivals = [
-        AiRacer::new(start_pos, start_heading, AI_PROFILES[0]),
-        AiRacer::new(start_pos, start_heading, AI_PROFILES[1]),
-        AiRacer::new(start_pos, start_heading, AI_PROFILES[2]),
-        AiRacer::new(start_pos, start_heading, AI_PROFILES[3]),
-        AiRacer::new(start_pos, start_heading, AI_PROFILES[4]),
+        AiRacer::with_difficulty(start_pos, start_heading, AI_PROFILES[0], diff),
+        AiRacer::with_difficulty(start_pos, start_heading, AI_PROFILES[1], diff),
+        AiRacer::with_difficulty(start_pos, start_heading, AI_PROFILES[2], diff),
+        AiRacer::with_difficulty(start_pos, start_heading, AI_PROFILES[3], diff),
+        AiRacer::with_difficulty(start_pos, start_heading, AI_PROFILES[4], diff),
     ];
     for (i, rival) in rivals.iter_mut().enumerate() {
-        let (fwd, lat) = GRID_OFFSETS[i];
+        let slot = champ.map(|c| c.grid_slot_of(i + 1)).unwrap_or(i + 1);
+        let (fwd, lat) = GRID_SLOT_OFFSETS[slot.min(GRID_SLOT_OFFSETS.len() - 1)];
         rival.offset_from_pole(start_pos, start_heading, fwd, lat);
     }
     rivals
@@ -127,7 +134,7 @@ impl ArduracerGame {
         let track = ALL_TRACKS[0];
         let timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
         let player = VehicleState::new(track.start_pos, track.start_heading, Default::default());
-        let rivals = spawn_rivals(track.start_pos, track.start_heading);
+        let rivals = spawn_rivals(track.start_pos, track.start_heading, None);
         let camera = Camera::new(track.start_pos);
 
         dbg::log_step(6, 9, "Probing memory card...");
@@ -237,13 +244,24 @@ impl ArduracerGame {
     pub fn reset_race(&mut self) {
         let track = self.current_track;
         self.timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
+        let player_slot = self
+            .state_mgr
+            .championship
+            .as_ref()
+            .map(|c| c.grid_slot_of(0))
+            .unwrap_or(0);
+        let player_pos = grid_slot_position(track.start_pos, track.start_heading, player_slot);
         self.player = VehicleState::new(
-            track.start_pos,
+            player_pos,
             track.start_heading,
             self.state_mgr.garage.tuning(),
         );
-        self.rivals = spawn_rivals(track.start_pos, track.start_heading);
-        self.camera = Camera::new(track.start_pos);
+        self.rivals = spawn_rivals(
+            track.start_pos,
+            track.start_heading,
+            self.state_mgr.championship.as_ref(),
+        );
+        self.camera = Camera::new(player_pos);
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         self.ghost.start_lap();
@@ -348,9 +366,9 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::GrandPrix => {
-                                self.state_mgr.championship = Some(ChampionshipSession::new(0));
-                                self.state_mgr.track_select.arm_for_entry();
-                                self.state_mgr.current = GameState::TrackSelect;
+                                let has_saved = self.memcard.save_data.has_saved_championship();
+                                self.state_mgr.gp_setup.arm_for_entry(has_saved);
+                                self.state_mgr.current = GameState::GrandPrixSetup;
                             }
                             MenuItem::TuningGarage => {
                                 // Load the active preset from the memory card.
@@ -378,6 +396,37 @@ impl ArduracerGame {
                     }
                     self.fb.clear(15, 18, 25);
                     self.state_mgr.menu.render();
+                }
+                GameState::GrandPrixSetup => {
+                    self.audio.ui_frame(pad.buttons.bits());
+                    if let Some(action) = self.state_mgr.gp_setup.update(&pad) {
+                        match action {
+                            GrandPrixSetupAction::StartNew(cup_idx, diff) => {
+                                let champ = ChampionshipSession::with_difficulty(cup_idx, diff);
+                                self.state_mgr.championship = Some(champ);
+                                self.state_mgr.champ_stage_backup = Some(champ);
+                                self.memcard.save_data.save_championship(&champ);
+                                self.memcard.mark_dirty();
+                                self.memcard.flush();
+                                self.load_track(champ.current_track_idx());
+                                self.state_mgr.current = GameState::Racing;
+                            }
+                            GrandPrixSetupAction::Resume => {
+                                if let Some(champ) = self.memcard.save_data.load_championship() {
+                                    self.state_mgr.championship = Some(champ);
+                                    self.state_mgr.champ_stage_backup = Some(champ);
+                                    self.load_track(champ.current_track_idx());
+                                    self.state_mgr.current = GameState::Racing;
+                                }
+                            }
+                            GrandPrixSetupAction::Back => {
+                                self.state_mgr.current = GameState::MainMenu;
+                            }
+                        }
+                    }
+                    self.fb.clear(15, 18, 25);
+                    let saved_champ = self.memcard.save_data.load_championship();
+                    self.state_mgr.gp_setup.render(saved_champ.as_ref());
                 }
                 GameState::CitySelect => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -477,6 +526,9 @@ impl ArduracerGame {
                                     self.audio.cdda.resume();
                                 }
                                 PauseChoice::RestartRace => {
+                                    if let Some(backup) = self.state_mgr.champ_stage_backup {
+                                        self.state_mgr.championship = Some(backup);
+                                    }
                                     self.reset_race();
                                     self.audio.enter_race();
                                     // Same held-`Start` hazard as `load_track`:
@@ -496,6 +548,7 @@ impl ArduracerGame {
                                 }
                                 PauseChoice::QuitToMenu => {
                                     self.state_mgr.championship = None;
+                                    self.state_mgr.champ_stage_backup = None;
                                     self.state_mgr.current = GameState::MainMenu;
                                     // `self.paused` stays true across this
                                     // transition, so arming here would leak the
@@ -636,6 +689,7 @@ impl ArduracerGame {
                             self.memcard.flush();
                         }
 
+                        let is_gp = self.state_mgr.championship.is_some();
                         if let Some(ref mut champ) = self.state_mgr.championship {
                             champ.award_stage_points(standings);
                         }
@@ -645,6 +699,7 @@ impl ArduracerGame {
                             self.timer.current_lap_ticks,
                             track,
                             player_rank,
+                            is_gp,
                         ));
                         self.state_mgr.current = GameState::Results;
                         // Cut before the tick below, which would otherwise run
@@ -719,44 +774,103 @@ impl ArduracerGame {
                 }
                 GameState::Results => {
                     self.fb.clear(14, 16, 22);
-                    // Already silent via the Racing -> Results transition; this
-                    // is the belt-and-braces path in case a future transition
-                    // reaches Results some other way.
                     self.audio.ui_frame(pad.buttons.bits());
-                    let mut action_cont = false;
-                    let mut action_exit = false;
+                    let mut action: Option<ResultsAction> = None;
                     if let Some(ref mut results) = self.state_mgr.results {
-                        let (cont, exit) = results.update(&pad);
-                        action_cont = cont;
-                        action_exit = exit;
-                        results.render();
+                        action = results.update(&pad);
+                        results.render(self.state_mgr.championship.as_ref());
                     }
-                    if action_cont {
-                        let next_track = if let Some(ref mut champ) = self.state_mgr.championship {
-                            if champ.advance_stage() {
-                                None
+                    match action {
+                        Some(ResultsAction::Continue) => {
+                            let next_step = if let Some(ref mut champ) = self.state_mgr.championship
+                            {
+                                if champ.current_stage >= STAGES_PER_CUP - 1 {
+                                    None
+                                } else {
+                                    champ.advance_stage();
+                                    Some(*champ)
+                                }
                             } else {
-                                Some(champ.current_track_idx())
-                            }
-                        } else {
-                            None
-                        };
+                                None
+                            };
 
-                        if let Some(track_idx) = next_track {
-                            self.load_track(track_idx);
+                            if let Some(champ) = next_step {
+                                self.state_mgr.champ_stage_backup = Some(champ);
+                                self.memcard.save_data.save_championship(&champ);
+                                self.memcard.mark_dirty();
+                                self.memcard.flush();
+                                self.load_track(champ.current_track_idx());
+                                self.state_mgr.current = GameState::Racing;
+                            } else if let Some(ref champ) = self.state_mgr.championship {
+                                // Final stage completed: clear championship from memory card and celebrate!
+                                self.memcard.save_data.clear_championship();
+                                self.memcard.mark_dirty();
+                                self.memcard.flush();
+                                self.state_mgr.victory = Some(VictoryScreen::new(champ));
+                                self.state_mgr.current = GameState::Victory;
+                                self.audio.cdda.play_track(7);
+                            } else {
+                                // Time Trial: replay track
+                                self.load_track(self.current_track_idx);
+                                self.state_mgr.current = GameState::Racing;
+                            }
+                        }
+                        Some(ResultsAction::RestartRace) => {
+                            if let Some(backup) = self.state_mgr.champ_stage_backup {
+                                self.state_mgr.championship = Some(backup);
+                                self.memcard.save_data.save_championship(&backup);
+                                self.memcard.mark_dirty();
+                                self.memcard.flush();
+                            }
+                            self.reset_race();
+                            self.audio.enter_race();
+                            self.pause.arm_for_race_start();
+                            self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
+                            let cdda_track = if self.current_track_idx == 99 {
+                                4
+                            } else {
+                                3 + ((self.current_track_idx / 6) as u8).min(3)
+                            };
+                            self.audio.cdda.play_track(cdda_track);
                             self.state_mgr.current = GameState::Racing;
-                        } else if self.state_mgr.championship.is_some() {
+                        }
+                        Some(ResultsAction::ExitToMenu) => {
+                            if let Some(ref mut champ) = self.state_mgr.championship {
+                                if champ.current_stage >= STAGES_PER_CUP - 1 {
+                                    self.memcard.save_data.clear_championship();
+                                } else {
+                                    champ.advance_stage();
+                                    self.memcard.save_data.save_championship(champ);
+                                }
+                                self.memcard.mark_dirty();
+                                self.memcard.flush();
+                            }
                             self.state_mgr.championship = None;
+                            self.state_mgr.champ_stage_backup = None;
                             self.state_mgr.current = GameState::MainMenu;
                             self.audio.leave_race();
                             self.audio.sync_ui_edges(pad.buttons.bits());
                             self.audio.cdda.play_track(2);
-                        } else {
-                            self.load_track(self.current_track_idx);
-                            self.state_mgr.current = GameState::Racing;
                         }
-                    } else if action_exit {
+                        None => {}
+                    }
+                }
+                GameState::Victory => {
+                    self.fb.clear(14, 16, 22);
+                    self.audio.ui_frame(pad.buttons.bits());
+                    let finished = if let (Some(ref mut victory), Some(ref champ)) =
+                        (&mut self.state_mgr.victory, &self.state_mgr.championship)
+                    {
+                        let cont = victory.update(&pad);
+                        victory.render(champ);
+                        cont
+                    } else {
+                        true
+                    };
+                    if finished {
                         self.state_mgr.championship = None;
+                        self.state_mgr.champ_stage_backup = None;
+                        self.state_mgr.victory = None;
                         self.state_mgr.current = GameState::MainMenu;
                         self.audio.leave_race();
                         self.audio.sync_ui_edges(pad.buttons.bits());
