@@ -370,7 +370,7 @@ impl ArduracerGame {
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self) {
         self.fb.clear(18, 20, 26);
-        render_track(self.current_track, &self.camera);
+        render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
         self.skidmarks.render(&self.camera);
         // Same ordering rule as the live frame: smoke belongs on top of the cars
         // it came from (TASK-1206).
@@ -741,7 +741,21 @@ impl ArduracerGame {
                     // b. Track visual map
                     {
                         let _s = prof::span(prof::RENDER_TRACK);
-                        render_track(track, &self.camera);
+                        let elapsed = psx_rt::interrupts::vblank_count()
+                            .wrapping_sub(self.last_flip_vblank);
+                        let max_decode_rows = if ticks_to_run >= 3 || elapsed >= 2 {
+                            0
+                        } else if ticks_to_run == 2 || elapsed >= 1 {
+                            1
+                        } else {
+                            2
+                        };
+                        render_track(
+                            track,
+                            &self.camera,
+                            self.last_flip_vblank,
+                            max_decode_rows,
+                        );
                     }
                     // c. Skidmarks on track
                     {

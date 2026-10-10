@@ -553,14 +553,125 @@ fn step_decode_job(current_frame: u32) {
 }
 
 /// Draws the visible world window as textured quads, streaming tiles dynamically.
-pub fn render_track(track: &TrackDef, camera: &Camera) {
-    render_track_extents(track.world_width(), track.world_height(), camera);
+pub fn render_track(
+    track: &TrackDef,
+    camera: &Camera,
+    last_flip_vblank: u32,
+    max_decode_rows: usize,
+) {
+    render_track_extents(
+        track.world_width(),
+        track.world_height(),
+        camera,
+        last_flip_vblank,
+        max_decode_rows,
+    );
+}
+
+/// Helper that steps the active MCU row decode job or schedules the next visible un-cached tile.
+/// Returns true if 1 MCU row was decoded, or false if all visible tiles are already resident in VRAM.
+#[inline(always)]
+fn step_or_schedule_decode_row(
+    current_frame: u32,
+    active_circuit: usize,
+    visible_tiles: &[(i32, i32, usize, usize, usize, usize); 48],
+    vis_count: usize,
+    slot_for_tile: &mut [usize; 48],
+    used_slots: &mut [bool; VRAM_SLOT_COUNT],
+    vram_slots: &mut [VramSlot; VRAM_SLOT_COUNT],
+) -> bool {
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+    if !job.active {
+        // No active decode job running: check if any visible tile needs decoding
+        let mut scheduled = false;
+        for i in 0..vis_count {
+            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+            let s = slot_for_tile[i];
+            let is_hit = s != usize::MAX && {
+                let slot = &vram_slots[s];
+                slot.resident_circuit == active_circuit
+                    && slot.resident_block_x == bx
+                    && slot.resident_block_y == by
+                    && slot.resident_tile_x == sub_tx
+                    && slot.resident_tile_y == sub_ty
+            };
+            if is_hit {
+                continue;
+            }
+
+            // Find oldest VRAM slot not currently visible in this frame
+            let mut best_slot = 0;
+            let mut oldest_age = u32::MAX;
+            for s_idx in 0..VRAM_SLOT_COUNT {
+                if !used_slots[s_idx] {
+                    let slot = &vram_slots[s_idx];
+                    if slot.resident_circuit == usize::MAX {
+                        best_slot = s_idx;
+                        break;
+                    }
+                    if slot.last_used < oldest_age {
+                        oldest_age = slot.last_used;
+                        best_slot = s_idx;
+                    }
+                }
+            }
+
+            // Reserve this slot so subsequent decodes in this frame won't evict it
+            used_slots[best_slot] = true;
+
+            // Schedule incremental decode job starting at MCU row 0
+            *job = DecodeJob {
+                active: true,
+                circuit: active_circuit,
+                block_x: bx,
+                block_y: by,
+                tile_x: sub_tx,
+                tile_y: sub_ty,
+                target_slot: best_slot,
+                next_row: 0,
+            };
+            scheduled = true;
+            break;
+        }
+
+        if !scheduled {
+            return false;
+        }
+    }
+
+    let job_bx = job.block_x;
+    let job_by = job.block_y;
+    let job_tx = job.tile_x;
+    let job_ty = job.tile_y;
+    let job_slot = job.target_slot;
+
+    step_decode_job(current_frame);
+
+    // If step_decode_job completed all 4 rows, job.active is now false and the tile
+    // was uploaded to VRAM. Update slot_for_tile so Phase 3 renders it immediately textured without placeholder!
+    if !job.active {
+        for i in 0..vis_count {
+            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+            if bx == job_bx && by == job_by && sub_tx == job_tx && sub_ty == job_ty {
+                slot_for_tile[i] = job_slot;
+                used_slots[job_slot] = true;
+            }
+        }
+    }
+
+    true
 }
 
 /// Renders the world texture clamped to arbitrary world extents (tracks or 10km x 10km cities).
 #[inline(never)]
 #[allow(clippy::needless_range_loop)]
-pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
+pub fn render_track_extents(
+    world_w: i32,
+    world_h: i32,
+    camera: &Camera,
+    last_flip_vblank: u32,
+    max_decode_rows: usize,
+) {
     let (half_w, half_h) = camera.visible_half_extents();
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
@@ -671,61 +782,32 @@ pub fn render_track_extents(world_w: i32, world_h: i32, camera: &Camera) {
     }
     crate::prof::set(crate::prof::C_VISIBLE_TILES, vis_count as u32);
 
-    // Phase 2: Progress the active time-sliced decode job by 1 MCU row, or schedule the next pending tile.
-    let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
-    if job.active {
-        // Continue stepping current 4-frame job (1 MCU row = ~110,000 cycles, ~20% frame budget)
-        step_decode_job(current_frame);
-    } else {
-        // No active decode job running: check if any visible tile needs decoding
-        for i in 0..vis_count {
-            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
-            let s = slot_for_tile[i];
-            let is_hit = s != usize::MAX && {
-                let slot = &vram_slots[s];
-                slot.resident_circuit == active_circuit
-                    && slot.resident_block_x == bx
-                    && slot.resident_block_y == by
-                    && slot.resident_tile_x == sub_tx
-                    && slot.resident_tile_y == sub_ty
-            };
-            if is_hit {
-                continue;
-            }
-
-            // Find oldest VRAM slot not currently visible in this frame
-            let mut best_slot = 0;
-            let mut oldest_age = u32::MAX;
-            for s_idx in 0..VRAM_SLOT_COUNT {
-                if !used_slots[s_idx] {
-                    let slot = &vram_slots[s_idx];
-                    if slot.resident_circuit == usize::MAX {
-                        best_slot = s_idx;
-                        break;
-                    }
-                    if slot.last_used < oldest_age {
-                        oldest_age = slot.last_used;
-                        best_slot = s_idx;
-                    }
-                }
-            }
-
-            // Schedule incremental decode job starting at MCU row 0
-            *job = DecodeJob {
-                active: true,
-                circuit: active_circuit,
-                block_x: bx,
-                block_y: by,
-                tile_x: sub_tx,
-                tile_y: sub_ty,
-                target_slot: best_slot,
-                next_row: 0,
-            };
-
-            // Execute first MCU row immediately in this frame
-            step_decode_job(current_frame);
+    // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
+    // Up to `max_decode_rows` (e.g. 1 or 2) can be processed, provided the frame remains within
+    // the first VBlank period. If VBlank 1 fires during decode or budget is exhausted, stop.
+    let mut rows_decoded = 0;
+    while rows_decoded < max_decode_rows {
+        let elapsed_vblanks = psx_rt::interrupts::vblank_count().wrapping_sub(last_flip_vblank);
+        if rows_decoded > 0 && elapsed_vblanks > 0 {
             break;
         }
+        if elapsed_vblanks >= 2 {
+            break;
+        }
+
+        let did_work = step_or_schedule_decode_row(
+            current_frame,
+            active_circuit,
+            &visible_tiles,
+            vis_count,
+            &mut slot_for_tile,
+            &mut used_slots,
+            vram_slots,
+        );
+        if !did_work {
+            break;
+        }
+        rows_decoded += 1;
     }
 
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
