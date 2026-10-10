@@ -133,6 +133,8 @@ const TILE_NEIGHBOURS: [(i32, i32); 8] = [
 /// Large enough to lose to any positional term, so a racing-surface tile is
 /// always chosen while one is available.
 const OFF_LINE_PENALTY: i64 = 1 << 50;
+/// Ticks between full racing-line tile-walk recomputations for a rival.
+const AIM_CACHE_INTERVAL: u8 = 3;
 
 /// World-space centre of a tile.
 fn tile_centre_world(tx: u8, ty: u8) -> Vec2 {
@@ -208,6 +210,14 @@ pub struct AiRacer {
     pub total_race_ticks: u32,
     /// Difficulty scale applied to top speed and cornering limit (4096 = 1.0x).
     pub speed_scale: Fixed,
+    /// Last generated vehicle input (for interleaved / time-sliced updates).
+    pub last_input: VehicleInput,
+    /// Cached world-space aim point from the racing line walk.
+    pub cached_aim: Vec2,
+    /// Target gate index for which `cached_aim` was computed.
+    pub cached_aim_gate: u8,
+    /// Ticks remaining before `cached_aim` is re-evaluated.
+    pub aim_timer: u8,
 }
 
 impl AiRacer {
@@ -243,6 +253,10 @@ impl AiRacer {
             best_lap_ticks: u32::MAX,
             total_race_ticks: 0,
             speed_scale: Fixed::from_raw(difficulty.speed_scale_raw()),
+            last_input: VehicleInput::default(),
+            cached_aim: Vec2::ZERO,
+            cached_aim_gate: 255,
+            aim_timer: 0,
         }
     }
 
@@ -267,6 +281,10 @@ impl AiRacer {
         self.state.visual_angle = start_heading;
         self.state.velocity = Vec2::ZERO;
         self.state.speed = Fixed::ZERO;
+        self.cached_aim = Vec2::ZERO;
+        self.cached_aim_gate = 255;
+        self.aim_timer = 0;
+        self.last_input = VehicleInput::default();
     }
 
     /// Sets the rival's position directly on the grid facing `heading`.
@@ -276,6 +294,10 @@ impl AiRacer {
         self.state.visual_angle = heading;
         self.state.velocity = Vec2::ZERO;
         self.state.speed = Fixed::ZERO;
+        self.cached_aim = Vec2::ZERO;
+        self.cached_aim_gate = 255;
+        self.aim_timer = 0;
+        self.last_input = VehicleInput::default();
     }
 
     /// Centre of the route node the rival is currently chasing.
@@ -459,6 +481,10 @@ impl AiRacer {
         self.wedged_ticks = 0;
         self.best_gate_distance = i32::MAX;
         self.progress_ticks = 0;
+        self.cached_aim = Vec2::ZERO;
+        self.cached_aim_gate = 255;
+        self.aim_timer = 0;
+        self.last_input = VehicleInput::default();
     }
 
     /// Evaluates navigation and obstacle avoidance to generate vehicle input.
@@ -513,10 +539,27 @@ impl AiRacer {
         self.drive_input(track, other_positions)
     }
 
+    /// Evaluates or reuses the cached racing-line aim point.
+    fn cached_racing_line_point(&mut self, track: &TrackDef) -> Vec2 {
+        if self.aim_timer > 0
+            && self.target_gate_idx == self.cached_aim_gate
+            && self.cached_aim != Vec2::ZERO
+        {
+            self.aim_timer -= 1;
+            self.cached_aim
+        } else {
+            let line = self.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+            self.cached_aim = line;
+            self.cached_aim_gate = self.target_gate_idx;
+            self.aim_timer = AIM_CACHE_INTERVAL;
+            line
+        }
+    }
+
     /// The normal racing input: racing line, corner governor and avoidance.
     fn drive_input(&mut self, track: &TrackDef, other_positions: &[Vec2]) -> VehicleInput {
         let dodge = self.avoidance_offset(other_positions);
-        let line = self.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+        let line = self.cached_racing_line_point(track);
         let aim = if dodge != 0 {
             // Apply the dodge perpendicular to the direction of travel, so it
             // slides the aim point sideways rather than yanking the heading.
@@ -627,6 +670,7 @@ impl AiRacer {
             // A new gate means a new distance to make.
             self.best_gate_distance = i32::MAX;
             self.progress_ticks = 0;
+            self.aim_timer = 0;
         }
 
         // Track checkpoint coverage so rivals can be ranked against the player.
@@ -661,9 +705,23 @@ impl AiRacer {
         self.checkpoint_mask = 0;
     }
 
-    /// Advances the AI vehicle simulation by one tick.
-    pub fn tick(&mut self, track: &TrackDef, other_positions: &[Vec2]) {
-        let input = self.compute_input(track, other_positions);
+    /// Advances the AI vehicle simulation by one tick, optionally updating input decisions.
+    ///
+    /// When `update_input` is false, previous control inputs (`last_input`) are retained
+    /// while vehicle dynamics, track barrier collisions, and route progress continue to integrate.
+    pub fn tick_interleaved(
+        &mut self,
+        track: &TrackDef,
+        other_positions: &[Vec2],
+        update_input: bool,
+    ) {
+        let input = if update_input {
+            let input = self.compute_input(track, other_positions);
+            self.last_input = input;
+            input
+        } else {
+            self.last_input
+        };
         self.state.tick_on_track(input, track);
 
         if !self.is_finished {
@@ -678,6 +736,12 @@ impl AiRacer {
         let ty = TrackDef::tile_y_of(self.state.position.y).min(track.height.saturating_sub(1));
         self.update_route_progress(track, tx, ty);
         self.update_progress(track);
+    }
+
+    /// Advances the AI vehicle simulation by one tick.
+    #[inline]
+    pub fn tick(&mut self, track: &TrackDef, other_positions: &[Vec2]) {
+        self.tick_interleaved(track, other_positions, true);
     }
 
     /// Number of checkpoints the rival has cleared this lap (for HUD + standings).

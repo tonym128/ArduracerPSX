@@ -68,6 +68,7 @@ fn spawn_rivals(
         let slot = champ.map(|c| c.grid_slot_of(i + 1)).unwrap_or(i + 1);
         let (fwd, lat) = GRID_SLOT_OFFSETS[slot.min(GRID_SLOT_OFFSETS.len() - 1)];
         rival.offset_from_pole(start_pos, start_heading, fwd, lat);
+        rival.aim_timer = (i as u8) % 3;
     }
     rivals
 }
@@ -727,8 +728,15 @@ impl ArduracerGame {
                         {
                             // Rivals launch with the player: held on the grid until
                             // the lights go out, like a standing start.
+                            let frame = self.frame_counter;
                             for i in 0..5 {
-                                self.rivals[i].tick(track, &other_positions);
+                                let update_input = self.start.just_started()
+                                    || ((i % 2) == ((frame as usize) % 2));
+                                self.rivals[i].tick_interleaved(
+                                    track,
+                                    &other_positions,
+                                    update_input,
+                                );
                             }
                         }
 
