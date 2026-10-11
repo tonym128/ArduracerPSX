@@ -24,8 +24,10 @@
 //! | 24     | 96   | `best_lap_ticks` (24 × `u32`) |
 //! | 120    | 24   | `medals_earned` |
 //! | 144    | 15   | `tuning_slots` (3 × 5 sliders) |
-//! | 159    | 2    | `texture_format`, `framerate` |
-//! | 161    | 2    | `checksum` (CRC over bytes 0..161) |
+//! | 159    | 12   | `champ_points` (6 × `u16`) |
+//! | 171    | 6    | `champ_grid` (6 × `u8`) |
+//! | 177    | 2    | `texture_format`, `framerate` |
+//! | 179    | 2    | `checksum` (CRC over bytes 0..179) |
 //!
 //! # A valid checksum is not a valid save
 //!
@@ -39,7 +41,10 @@
 //! therefore sanitises every field after the checksum passes -- see
 //! [`SaveData::sanitised`].
 
-use crate::championship::{ChampionshipSession, Difficulty, CUP_COUNT, STAGES_PER_CUP};
+use crate::championship::{
+    ChampionshipSession, Difficulty, COMPETITORS_PER_SESSION, CUP_COUNT, POINTS_TABLE,
+    STAGES_PER_CUP,
+};
 use crate::timing::{Medal, MIN_PLAUSIBLE_LAP_TICKS, NO_BEST_LAP};
 use crate::tuning::CarTuning;
 
@@ -47,12 +52,14 @@ pub const TOTAL_TRACKS: usize = 24;
 pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 /// Payload version.
 ///
-/// Bumped to 2 when the graphics preferences were added: the payload grew by
-/// two bytes ahead of the CRC, so a v1 payload would otherwise be read with
-/// the checksum sitting two bytes earlier than this reader expects. Rejecting
-/// it cleanly (as `FreshProfile`) is better than silently misreading one, and
-/// the two bytes are trailing so no earlier field moves.
-pub const SAVE_VERSION: u16 = 2;
+/// Bumped whenever the payload grows ahead of the CRC, because an older payload
+/// would then be read with the checksum sitting at a different offset -- worse
+/// than rejecting it. Rejecting it cleanly reports `FreshProfile`.
+///
+/// - v2 added the graphics preferences (2 bytes).
+/// - v3 added the championship block (18 bytes): points and grid were being
+///   rebuilt from scratch on resume, so a restored Grand Prix lost all scoring.
+pub const SAVE_VERSION: u16 = 3;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -68,11 +75,11 @@ pub const MAX_VOLUME: u8 = 8;
 
 /// On-card payload length: every field is written explicitly, so this is the
 /// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 163;
+pub const PAYLOAD_SIZE: usize = 181;
 
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 161;
+pub const CHECKSUM_OFFSET: usize = 179;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
 const OFF_BEST_LAPS: usize = 24;
@@ -91,6 +98,14 @@ pub struct SaveData {
     pub best_lap_ticks: [u32; TOTAL_TRACKS],
     pub medals_earned: [u8; TOTAL_TRACKS],
     pub tuning_slots: [CarTuning; TOTAL_TUNING_SLOTS],
+    /// Championship standings after the completed stages of the current cup.
+    ///
+    /// Persisted because these are the only record of how the season went:
+    /// `_reserved0` carries the bracket position, but without the points a
+    /// restored Grand Prix came back with every competitor on zero.
+    pub champ_points: [u16; COMPETITORS_PER_SESSION],
+    /// Grid order for the next stage, as competitor indices.
+    pub champ_grid: [u8; COMPETITORS_PER_SESSION],
     /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG.
     /// Totality lives in `svgtex::TextureFormat::from_saved`, not here.
     pub texture_format: u8,
@@ -113,6 +128,8 @@ impl Default for SaveData {
             best_lap_ticks: [NO_BEST_LAP; TOTAL_TRACKS],
             medals_earned: [0; TOTAL_TRACKS],
             tuning_slots: [CarTuning::default(); TOTAL_TUNING_SLOTS],
+            champ_points: [0; COMPETITORS_PER_SESSION],
+            champ_grid: [0; COMPETITORS_PER_SESSION],
             // Auto format, 60 FPS: the defaults a first-run player gets.
             texture_format: 0,
             framerate: 0,
@@ -156,6 +173,12 @@ impl SaveData {
             out[o + 4] = slot.gearing;
             o += 5;
         }
+        for pts in self.champ_points.iter() {
+            out[o..o + 2].copy_from_slice(&pts.to_le_bytes());
+            o += 2;
+        }
+        out[o..o + COMPETITORS_PER_SESSION].copy_from_slice(&self.champ_grid);
+        o += COMPETITORS_PER_SESSION;
         out[o] = self.texture_format;
         out[o + 1] = self.framerate;
         o += 2;
@@ -217,6 +240,15 @@ impl SaveData {
             o += 5;
         }
 
+        let mut champ_points = [0u16; COMPETITORS_PER_SESSION];
+        for pts in champ_points.iter_mut() {
+            *pts = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
+            o += 2;
+        }
+        let mut champ_grid = [0u8; COMPETITORS_PER_SESSION];
+        champ_grid.copy_from_slice(&bytes[o..o + COMPETITORS_PER_SESSION]);
+        o += COMPETITORS_PER_SESSION;
+
         let texture_format = bytes[o];
         let framerate = bytes[o + 1];
         o += 2;
@@ -235,6 +267,8 @@ impl SaveData {
             rumble_enabled,
             active_tuning_slot,
             _reserved0: reserved,
+            champ_points,
+            champ_grid,
             texture_format,
             framerate,
             best_lap_ticks,
@@ -288,6 +322,16 @@ impl SaveData {
         self.rumble_enabled = u8::from(self.rumble_enabled != 0);
         // Both of these are read back as enum discriminants. Clamping here is
         // what stops a corrupt byte from naming a variant that does not exist.
+        // A corrupt card must not be able to hand the standings board an
+        // impossible score or the grid an out-of-range index. A competitor can
+        // score at most the winner's points in each of the cup's stages.
+        let max_points = POINTS_TABLE[0] as u16 * STAGES_PER_CUP as u16;
+        for pts in self.champ_points.iter_mut() {
+            *pts = (*pts).min(max_points);
+        }
+        for slot in self.champ_grid.iter_mut() {
+            *slot = (*slot).min((COMPETITORS_PER_SESSION - 1) as u8);
+        }
         self.texture_format = self.texture_format.min(3);
         self.framerate = u8::from(self.framerate != 0);
         // _reserved0 stores Grand Prix progression when active.
@@ -436,6 +480,20 @@ impl SaveData {
 
         let mut session = ChampionshipSession::with_difficulty(cup, difficulty);
         session.current_stage = stage;
+
+        // Restore the standings the completed stages produced. `with_difficulty`
+        // randomises the grid from a fixed seed, so overwriting both is what
+        // makes this the same season rather than a fresh one at a later stage.
+        for (competitor, &pts) in session.competitors.iter_mut().zip(self.champ_points.iter()) {
+            competitor.total_points = pts;
+        }
+        for (slot, &grid_idx) in session
+            .grid_positions
+            .iter_mut()
+            .zip(self.champ_grid.iter())
+        {
+            *slot = (grid_idx as usize).min(COMPETITORS_PER_SESSION - 1);
+        }
         Some(session)
     }
 
@@ -446,6 +504,21 @@ impl SaveData {
         let stage = (session.current_stage & 0x07) << 3;
         let diff_code = ((session.difficulty as u8 + 1) & 0x03) << 6;
         self._reserved0 = active | cup | stage | diff_code;
+
+        // The bracket position above is only half the session. Without these the
+        // resumed cup comes back with every competitor on zero points and the
+        // grid re-randomised, which is indistinguishable from starting the cup
+        // over even though the stage counter says otherwise.
+        for (slot, competitor) in self.champ_points.iter_mut().zip(session.competitors.iter()) {
+            *slot = competitor.total_points;
+        }
+        for (slot, &grid_idx) in self
+            .champ_grid
+            .iter_mut()
+            .zip(session.grid_positions.iter())
+        {
+            *slot = grid_idx.min(COMPETITORS_PER_SESSION - 1) as u8;
+        }
         self.checksum = self.compute_checksum();
     }
 
@@ -453,6 +526,10 @@ impl SaveData {
     pub fn clear_championship(&mut self) {
         if self._reserved0 != 0 {
             self._reserved0 = 0;
+            // Standings and grid are left alone here rather than zeroed: the
+            // active flag is what makes them unreadable, and zeroing them would
+            // mean a write on every clear, including the no-op one. They are
+            // overwritten by the next `save_championship`.
             self.checksum = self.compute_checksum();
         }
     }
@@ -805,5 +882,92 @@ mod tests {
         assert!(!cleared.has_saved_championship());
         assert!(cleared.load_championship().is_none());
         assert!(cleared.is_valid());
+    }
+
+    /// The scoring half of the session must survive a save/load round trip.
+    ///
+    /// This is the regression guard for the bug that shipped: the payload stored
+    /// only `cup_index`, `current_stage` and `difficulty`, and `load_championship`
+    /// rebuilt the session from those. A resumed Grand Prix therefore started the
+    /// next stage with every competitor on zero points, which is what "doesn't
+    /// remember the scoring" looked like from the player's side. The test above
+    /// passed throughout, because it only ever checked the three bracket fields.
+    #[test]
+    fn championship_scoring_survives_a_save_load_round_trip() {
+        let mut save = SaveData::default();
+
+        let mut session = ChampionshipSession::with_difficulty(1, Difficulty::Medium);
+        // Two stages run, with a known and deliberately non-symmetric finish.
+        session.award_stage_points([0, 3, 1, 5, 2, 4]);
+        session.advance_stage();
+        session.award_stage_points([2, 0, 1, 3, 4, 5]);
+
+        let expected_points: [u16; COMPETITORS_PER_SESSION] =
+            session.competitors.map(|c| c.total_points);
+        let expected_grid = session.grid_positions;
+        // Guard the fixture itself: a round trip of all zeroes proves nothing.
+        assert!(
+            expected_points.iter().any(|&p| p > 0),
+            "fixture has no scoring"
+        );
+        assert_ne!(expected_grid, [0, 1, 2, 3, 4, 5], "grid must be shuffled");
+
+        save.save_championship(&session);
+
+        let mut block = [0u8; 8192];
+        save.to_block_bytes(&mut block);
+        let loaded = SaveData::from_block_bytes(&block).expect("must parse");
+        let resumed = loaded.load_championship().expect("must load session");
+
+        for (i, (&want, got)) in expected_points
+            .iter()
+            .zip(resumed.competitors.iter())
+            .enumerate()
+        {
+            assert_eq!(
+                got.total_points, want,
+                "competitor {i} lost their points across the round trip"
+            );
+        }
+        assert_eq!(
+            resumed.grid_positions, expected_grid,
+            "the next stage's grid must not be re-randomised"
+        );
+        assert_eq!(resumed.current_stage, session.current_stage);
+    }
+
+    /// A corrupt card must not be able to hand the standings board an impossible
+    /// score or the grid an index past the last competitor.
+    #[test]
+    fn corrupt_championship_state_is_repaired() {
+        let mut save = SaveData::default();
+        save.save_championship(&ChampionshipSession::with_difficulty(0, Difficulty::Easy));
+        save.champ_points = [u16::MAX; COMPETITORS_PER_SESSION];
+        save.champ_grid = [250u8; COMPETITORS_PER_SESSION];
+
+        let repaired = save.sanitised();
+        let max_points = POINTS_TABLE[0] as u16 * STAGES_PER_CUP as u16;
+        for &pts in repaired.champ_points.iter() {
+            assert!(
+                pts <= max_points,
+                "score {pts} exceeds what a cup can award"
+            );
+        }
+        for &idx in repaired.champ_grid.iter() {
+            assert!(
+                (idx as usize) < COMPETITORS_PER_SESSION,
+                "grid index {idx} points outside the field"
+            );
+        }
+        assert!(repaired.is_valid());
+
+        // And the repaired card still loads a usable session.
+        let session = repaired.load_championship().expect("must still load");
+        for competitor in session.competitors.iter() {
+            assert!(competitor.total_points <= max_points);
+        }
+        for &idx in session.grid_positions.iter() {
+            assert!(idx < COMPETITORS_PER_SESSION);
+        }
     }
 }
