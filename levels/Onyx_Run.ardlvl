@@ -1,0 +1,130 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Onyx_Run",
+  "mode": "spline",
+  "nodes": [
+    {
+      "x": 45.4882,
+      "y": 61.2681,
+      "r": 18.4598
+    },
+    {
+      "x": 26.4259,
+      "y": 55.3778,
+      "r": 16.7746
+    },
+    {
+      "x": 22.0376,
+      "y": 33.5136,
+      "r": 27.0017
+    },
+    {
+      "x": 32.0779,
+      "y": 15.9403,
+      "r": 11.9881
+    },
+    {
+      "x": 52.5003,
+      "y": 23.4054,
+      "r": 21.2844
+    },
+    {
+      "x": 60.2888,
+      "y": 50.9198,
+      "r": 12.6957
+    }
+  ],
+  "road_half_cells": 4.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 5,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.125523,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.007
+    },
+    {
+      "kind": "gate",
+      "frac": 0.154812,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.23431,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.292887,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.146
+    },
+    {
+      "kind": "gate",
+      "frac": 0.426778,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.564854,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.615063,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.715481,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.857741,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.920502,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Onyx_Run.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Onyx_Run.svg"
+  }
+}

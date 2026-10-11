@@ -1,0 +1,203 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Copper_Gorge",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 22.9845,
+      "y": 20.5533,
+      "r": 3.5757
+    },
+    {
+      "x": 23.76,
+      "y": 16.9882,
+      "r": 2.4684
+    },
+    {
+      "x": 26.1459,
+      "y": 16.0,
+      "r": 6.4919
+    },
+    {
+      "x": 56.7492,
+      "y": 16.0,
+      "r": 10.9421
+    },
+    {
+      "x": 60.4504,
+      "y": 17.3813,
+      "r": 4.3659
+    },
+    {
+      "x": 61.9774,
+      "y": 20.5247,
+      "r": 7.3479
+    },
+    {
+      "x": 61.7588,
+      "y": 35.3681,
+      "r": 4.2475
+    },
+    {
+      "x": 59.1472,
+      "y": 37.832,
+      "r": 4.6765
+    },
+    {
+      "x": 49.3054,
+      "y": 38.0608,
+      "r": 5.5249
+    },
+    {
+      "x": 46.658,
+      "y": 39.802,
+      "r": 2.9785
+    },
+    {
+      "x": 46.0068,
+      "y": 41.7674,
+      "r": 6.454
+    },
+    {
+      "x": 45.9774,
+      "y": 57.4753,
+      "r": 7.5516
+    },
+    {
+      "x": 44.6187,
+      "y": 60.4504,
+      "r": 4.2301
+    },
+    {
+      "x": 41.0,
+      "y": 62.0,
+      "r": 9.5887
+    },
+    {
+      "x": 22.7621,
+      "y": 61.9943,
+      "r": 8.5259
+    },
+    {
+      "x": 19.5496,
+      "y": 60.6187,
+      "r": 4.5197
+    },
+    {
+      "x": 18.0057,
+      "y": 57.2379,
+      "r": 8.3856
+    },
+    {
+      "x": 18.149,
+      "y": 38.792,
+      "r": 3.9093
+    },
+    {
+      "x": 19.275,
+      "y": 36.9453,
+      "r": 6.5939
+    },
+    {
+      "x": 26.9809,
+      "y": 30.4793,
+      "r": 5.7126
+    },
+    {
+      "x": 28.0525,
+      "y": 28.1491,
+      "r": 3.6115
+    },
+    {
+      "x": 27.3589,
+      "y": 25.4483,
+      "r": 5.7227
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.143066,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.213139,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.286131,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.429197,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.535766,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.572263,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "boost",
+      "frac": 0.643796,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.712409,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.856934,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Copper_Gorge.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Copper_Gorge.svg"
+  }
+}

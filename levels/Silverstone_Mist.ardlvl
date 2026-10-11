@@ -1,0 +1,183 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Silverstone_Mist",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 16.0057,
+      "y": 24.7621,
+      "r": 8.3889
+    },
+    {
+      "x": 17.0697,
+      "y": 21.9092,
+      "r": 3.938
+    },
+    {
+      "x": 20.7621,
+      "y": 20.0057,
+      "r": 8.5618
+    },
+    {
+      "x": 46.563,
+      "y": 20.0058,
+      "r": 7.5171
+    },
+    {
+      "x": 49.0873,
+      "y": 20.9395,
+      "r": 7.5172
+    },
+    {
+      "x": 60.4229,
+      "y": 30.6549,
+      "r": 8.3117
+    },
+    {
+      "x": 61.7499,
+      "y": 32.7381,
+      "r": 4.3332
+    },
+    {
+      "x": 61.9943,
+      "y": 53.2379,
+      "r": 8.1596
+    },
+    {
+      "x": 60.9303,
+      "y": 56.0908,
+      "r": 4.0818
+    },
+    {
+      "x": 57.4753,
+      "y": 57.9774,
+      "r": 7.6383
+    },
+    {
+      "x": 39.2239,
+      "y": 57.8935,
+      "r": 4.4783
+    },
+    {
+      "x": 37.0907,
+      "y": 56.5879,
+      "r": 5.845
+    },
+    {
+      "x": 32.4602,
+      "y": 49.8202,
+      "r": 4.286
+    },
+    {
+      "x": 30.3552,
+      "y": 48.8278,
+      "r": 3.1307
+    },
+    {
+      "x": 27.8989,
+      "y": 49.5106,
+      "r": 4.4158
+    },
+    {
+      "x": 24.2187,
+      "y": 53.5605,
+      "r": 3.3684
+    },
+    {
+      "x": 20.66,
+      "y": 53.0304,
+      "r": 3.1673
+    },
+    {
+      "x": 16.0407,
+      "y": 41.7876,
+      "r": 30.9507
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144481,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.215909,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.285714,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.392857,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.426948,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.498377,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.002
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571429,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.712662,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.016
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855519,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Silverstone_Mist.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Silverstone_Mist.svg"
+  }
+}

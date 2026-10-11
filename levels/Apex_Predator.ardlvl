@@ -1,0 +1,202 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Apex_Predator",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 16.0057,
+      "y": 20.7621,
+      "r": 8.3515
+    },
+    {
+      "x": 17.3813,
+      "y": 17.5496,
+      "r": 4.3646
+    },
+    {
+      "x": 21.0,
+      "y": 16.0,
+      "r": 9.5927
+    },
+    {
+      "x": 59.2379,
+      "y": 16.0057,
+      "r": 8.5224
+    },
+    {
+      "x": 62.4504,
+      "y": 17.3813,
+      "r": 4.6847
+    },
+    {
+      "x": 63.9774,
+      "y": 20.5247,
+      "r": 7.3389
+    },
+    {
+      "x": 63.7625,
+      "y": 34.5856,
+      "r": 3.8545
+    },
+    {
+      "x": 62.0287,
+      "y": 36.6753,
+      "r": 5.4017
+    },
+    {
+      "x": 54.8462,
+      "y": 39.592,
+      "r": 3.5076
+    },
+    {
+      "x": 53.6864,
+      "y": 42.1202,
+      "r": 2.7434
+    },
+    {
+      "x": 55.0401,
+      "y": 44.5501,
+      "r": 3.8789
+    },
+    {
+      "x": 61.8265,
+      "y": 47.2134,
+      "r": 5.9797
+    },
+    {
+      "x": 63.678,
+      "y": 49.1996,
+      "r": 3.6005
+    },
+    {
+      "x": 63.9774,
+      "y": 59.4753,
+      "r": 7.0235
+    },
+    {
+      "x": 62.6187,
+      "y": 62.4504,
+      "r": 4.2301
+    },
+    {
+      "x": 59.0,
+      "y": 64.0,
+      "r": 9.5908
+    },
+    {
+      "x": 34.1674,
+      "y": 63.9944,
+      "r": 8.5534
+    },
+    {
+      "x": 30.8103,
+      "y": 62.4773,
+      "r": 7.4534
+    },
+    {
+      "x": 16.1869,
+      "y": 43.7047,
+      "r": 33.828
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073529,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144385,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.25,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.287433,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.427807,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.002
+    },
+    {
+      "kind": "boost",
+      "frac": 0.501337,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.572193,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "oil",
+      "frac": 0.679144,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.715241,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.786096,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855615,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Apex_Predator.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Apex_Predator.svg"
+  }
+}

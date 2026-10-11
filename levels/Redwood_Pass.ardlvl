@@ -1,0 +1,190 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Redwood_Pass",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 16.0,
+      "y": 23.0,
+      "r": 9.5925
+    },
+    {
+      "x": 17.5496,
+      "y": 19.3813,
+      "r": 4.3646
+    },
+    {
+      "x": 20.7621,
+      "y": 18.0057,
+      "r": 8.5224
+    },
+    {
+      "x": 58.75,
+      "y": 18.0,
+      "r": 10.8018
+    },
+    {
+      "x": 62.6187,
+      "y": 19.5496,
+      "r": 4.2195
+    },
+    {
+      "x": 63.9943,
+      "y": 22.7621,
+      "r": 8.2144
+    },
+    {
+      "x": 63.7568,
+      "y": 39.0524,
+      "r": 3.7047
+    },
+    {
+      "x": 62.184,
+      "y": 41.0299,
+      "r": 6.7228
+    },
+    {
+      "x": 54.1745,
+      "y": 45.6951,
+      "r": 4.3765
+    },
+    {
+      "x": 53.0046,
+      "y": 47.9183,
+      "r": 3.1109
+    },
+    {
+      "x": 53.767,
+      "y": 50.5385,
+      "r": 4.6715
+    },
+    {
+      "x": 58.4859,
+      "y": 54.6715,
+      "r": 2.8086
+    },
+    {
+      "x": 58.7529,
+      "y": 56.7885,
+      "r": 3.2905
+    },
+    {
+      "x": 57.6169,
+      "y": 58.86,
+      "r": 2.6559
+    },
+    {
+      "x": 35.997,
+      "y": 63.9722,
+      "r": 66.4328
+    },
+    {
+      "x": 20.5247,
+      "y": 63.9774,
+      "r": 7.5901
+    },
+    {
+      "x": 17.3813,
+      "y": 62.4504,
+      "r": 4.6847
+    },
+    {
+      "x": 16.0057,
+      "y": 59.2379,
+      "r": 8.5225
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 5,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073713,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144645,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.250348,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.286509,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.428373,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.500695,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.570236,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.67872,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.713491,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855355,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Redwood_Pass.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Redwood_Pass.svg"
+  }
+}

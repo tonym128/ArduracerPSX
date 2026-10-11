@@ -1,0 +1,193 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Whispering_Pines",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.243,
+      "y": 24.0169,
+      "r": 6.448
+    },
+    {
+      "x": 18.3265,
+      "y": 21.6418,
+      "r": 4.6161
+    },
+    {
+      "x": 19.6656,
+      "y": 19.4029,
+      "r": 4.0453
+    },
+    {
+      "x": 22.8986,
+      "y": 18.0058,
+      "r": 8.5178
+    },
+    {
+      "x": 58.7492,
+      "y": 18.0,
+      "r": 10.8054
+    },
+    {
+      "x": 62.6187,
+      "y": 19.5496,
+      "r": 4.2191
+    },
+    {
+      "x": 63.9943,
+      "y": 22.7621,
+      "r": 8.0409
+    },
+    {
+      "x": 63.6975,
+      "y": 35.4675,
+      "r": 13.5452
+    },
+    {
+      "x": 53.6205,
+      "y": 43.4535,
+      "r": 5.3972
+    },
+    {
+      "x": 52.5538,
+      "y": 45.5262,
+      "r": 2.8321
+    },
+    {
+      "x": 53.4532,
+      "y": 48.3777,
+      "r": 5.0682
+    },
+    {
+      "x": 59.1318,
+      "y": 53.0795,
+      "r": 3.1944
+    },
+    {
+      "x": 59.5314,
+      "y": 55.4124,
+      "r": 3.6273
+    },
+    {
+      "x": 58.3766,
+      "y": 57.7367,
+      "r": 3.3575
+    },
+    {
+      "x": 47.4915,
+      "y": 61.9841,
+      "r": 31.0788
+    },
+    {
+      "x": 22.8986,
+      "y": 61.9942,
+      "r": 8.5286
+    },
+    {
+      "x": 19.4971,
+      "y": 60.4264,
+      "r": 3.685
+    },
+    {
+      "x": 18.3265,
+      "y": 58.3582,
+      "r": 4.8568
+    },
+    {
+      "x": 18.243,
+      "y": 55.9831,
+      "r": 6.3741
+    },
+    {
+      "x": 23.7423,
+      "y": 40.1073,
+      "r": 24.4145
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 5,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.143875,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.2151,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.286325,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "oil",
+      "frac": 0.394587,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.428775,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.569801,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.641026,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.710826,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.854701,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Whispering_Pines.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Whispering_Pines.svg"
+  }
+}

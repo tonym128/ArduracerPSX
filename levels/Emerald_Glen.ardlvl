@@ -1,0 +1,193 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Emerald_Glen",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0057,
+      "y": 22.7621,
+      "r": 8.477
+    },
+    {
+      "x": 19.2213,
+      "y": 19.7257,
+      "r": 4.0849
+    },
+    {
+      "x": 23.0,
+      "y": 18.0,
+      "r": 9.5444
+    },
+    {
+      "x": 57.2379,
+      "y": 18.0057,
+      "r": 8.4887
+    },
+    {
+      "x": 60.2743,
+      "y": 19.2213,
+      "r": 4.3845
+    },
+    {
+      "x": 61.9774,
+      "y": 22.5247,
+      "r": 7.1037
+    },
+    {
+      "x": 61.5745,
+      "y": 33.7952,
+      "r": 3.6569
+    },
+    {
+      "x": 58.9225,
+      "y": 35.8922,
+      "r": 5.02
+    },
+    {
+      "x": 51.8558,
+      "y": 36.0293,
+      "r": 4.9411
+    },
+    {
+      "x": 50.0199,
+      "y": 36.8515,
+      "r": 2.6627
+    },
+    {
+      "x": 44.8029,
+      "y": 48.3038,
+      "r": 4.3193
+    },
+    {
+      "x": 45.4693,
+      "y": 51.1674,
+      "r": 4.7444
+    },
+    {
+      "x": 52.0326,
+      "y": 57.1748,
+      "r": 2.9157
+    },
+    {
+      "x": 52.4082,
+      "y": 59.0406,
+      "r": 2.937
+    },
+    {
+      "x": 51.5229,
+      "y": 60.9811,
+      "r": 2.9197
+    },
+    {
+      "x": 49.3904,
+      "y": 61.9911,
+      "r": 5.2518
+    },
+    {
+      "x": 26.4254,
+      "y": 62.0,
+      "r": 11.0627
+    },
+    {
+      "x": 22.878,
+      "y": 60.7608,
+      "r": 4.2334
+    },
+    {
+      "x": 21.302,
+      "y": 58.1292,
+      "r": 8.4085
+    },
+    {
+      "x": 18.0116,
+      "y": 39.9177,
+      "r": 95.9089
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 5,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073314,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.143695,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.28739,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.002
+    },
+    {
+      "kind": "oil",
+      "frac": 0.394428,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.429619,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.501466,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.570381,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.71261,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.854839,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Emerald_Glen.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Emerald_Glen.svg"
+  }
+}

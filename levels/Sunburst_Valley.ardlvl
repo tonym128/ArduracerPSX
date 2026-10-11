@@ -1,0 +1,200 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Sunburst_Valley",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 19.248,
+      "y": 21.7884,
+      "r": 8.1243
+    },
+    {
+      "x": 20.4945,
+      "y": 19.5348,
+      "r": 3.741
+    },
+    {
+      "x": 24.099,
+      "y": 18.0,
+      "r": 9.596
+    },
+    {
+      "x": 56.1377,
+      "y": 18.0056,
+      "r": 8.526
+    },
+    {
+      "x": 59.3374,
+      "y": 19.368,
+      "r": 4.4012
+    },
+    {
+      "x": 60.8039,
+      "y": 22.0194,
+      "r": 9.746
+    },
+    {
+      "x": 62.9644,
+      "y": 32.8551,
+      "r": 7.3602
+    },
+    {
+      "x": 62.6695,
+      "y": 35.2192,
+      "r": 3.2809
+    },
+    {
+      "x": 59.9328,
+      "y": 37.7694,
+      "r": 5.0657
+    },
+    {
+      "x": 53.8558,
+      "y": 38.0293,
+      "r": 5.3479
+    },
+    {
+      "x": 51.8532,
+      "y": 39.0051,
+      "r": 3.0647
+    },
+    {
+      "x": 46.7248,
+      "y": 50.4831,
+      "r": 4.2927
+    },
+    {
+      "x": 47.2364,
+      "y": 53.1393,
+      "r": 4.6961
+    },
+    {
+      "x": 51.7451,
+      "y": 57.9682,
+      "r": 3.2698
+    },
+    {
+      "x": 51.3083,
+      "y": 61.0618,
+      "r": 2.078
+    },
+    {
+      "x": 49.2118,
+      "y": 62.0,
+      "r": 5.3751
+    },
+    {
+      "x": 24.0014,
+      "y": 61.9945,
+      "r": 8.533
+    },
+    {
+      "x": 20.8286,
+      "y": 60.6595,
+      "r": 4.4063
+    },
+    {
+      "x": 19.3476,
+      "y": 58.0521,
+      "r": 8.4016
+    },
+    {
+      "x": 16.0763,
+      "y": 38.2051,
+      "r": 46.7103
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.108793,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.14456,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.216095,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.289121,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.4307,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.004
+    },
+    {
+      "kind": "oil",
+      "frac": 0.536513,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.57228,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.007
+    },
+    {
+      "kind": "boost",
+      "frac": 0.643815,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.71237,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.85693,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Sunburst_Valley.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Sunburst_Valley.svg"
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Dragon's_Spine",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0,
+      "y": 21.0,
+      "r": 9.59
+    },
+    {
+      "x": 19.5496,
+      "y": 17.3813,
+      "r": 4.3646
+    },
+    {
+      "x": 22.7621,
+      "y": 16.0057,
+      "r": 8.5228
+    },
+    {
+      "x": 56.75,
+      "y": 16.0,
+      "r": 10.8013
+    },
+    {
+      "x": 60.6187,
+      "y": 17.5496,
+      "r": 4.086
+    },
+    {
+      "x": 61.9774,
+      "y": 20.5247,
+      "r": 7.1467
+    },
+    {
+      "x": 61.7578,
+      "y": 30.7331,
+      "r": 3.7482
+    },
+    {
+      "x": 60.1914,
+      "y": 32.7088,
+      "r": 5.2704
+    },
+    {
+      "x": 53.6555,
+      "y": 35.713,
+      "r": 4.1882
+    },
+    {
+      "x": 52.3399,
+      "y": 38.366,
+      "r": 3.1714
+    },
+    {
+      "x": 53.5292,
+      "y": 41.078,
+      "r": 4.5747
+    },
+    {
+      "x": 60.376,
+      "y": 45.1034,
+      "r": 5.7322
+    },
+    {
+      "x": 61.7568,
+      "y": 46.9476,
+      "r": 3.5856
+    },
+    {
+      "x": 61.9774,
+      "y": 57.4753,
+      "r": 7.2476
+    },
+    {
+      "x": 60.4504,
+      "y": 60.6187,
+      "r": 4.6847
+    },
+    {
+      "x": 57.2379,
+      "y": 61.9943,
+      "r": 8.1645
+    },
+    {
+      "x": 38.1274,
+      "y": 61.6681,
+      "r": 26.0409
+    },
+    {
+      "x": 19.1751,
+      "y": 45.0282,
+      "r": 6.561
+    },
+    {
+      "x": 18.0055,
+      "y": 42.2176,
+      "r": 7.6242
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144718,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.21563,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.287988,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "oil",
+      "frac": 0.393632,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.429812,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.002
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571635,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.003
+    },
+    {
+      "kind": "boost",
+      "frac": 0.643994,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.714906,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.003
+    },
+    {
+      "kind": "oil",
+      "frac": 0.82055,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855282,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.011
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Dragon's_Spine.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Dragon's_Spine.svg"
+  }
+}

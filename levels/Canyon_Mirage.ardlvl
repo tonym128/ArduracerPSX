@@ -1,0 +1,190 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Canyon_Mirage",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0057,
+      "y": 24.7621,
+      "r": 8.4889
+    },
+    {
+      "x": 19.7257,
+      "y": 21.2213,
+      "r": 4.2301
+    },
+    {
+      "x": 22.7621,
+      "y": 20.0057,
+      "r": 8.4849
+    },
+    {
+      "x": 57.2379,
+      "y": 20.0057,
+      "r": 8.5564
+    },
+    {
+      "x": 60.7787,
+      "y": 21.7257,
+      "r": 4.2301
+    },
+    {
+      "x": 61.9943,
+      "y": 24.7621,
+      "r": 8.4831
+    },
+    {
+      "x": 61.9932,
+      "y": 38.2326,
+      "r": 6.4173
+    },
+    {
+      "x": 61.342,
+      "y": 40.198,
+      "r": 2.9785
+    },
+    {
+      "x": 58.6946,
+      "y": 41.9392,
+      "r": 5.4788
+    },
+    {
+      "x": 48.5557,
+      "y": 42.1298,
+      "r": 4.2967
+    },
+    {
+      "x": 46.0732,
+      "y": 44.7879,
+      "r": 4.461
+    },
+    {
+      "x": 46.2687,
+      "y": 53.3137,
+      "r": 8.4297
+    },
+    {
+      "x": 53.8195,
+      "y": 58.6054,
+      "r": 2.3742
+    },
+    {
+      "x": 54.3076,
+      "y": 60.1264,
+      "r": 1.8939
+    },
+    {
+      "x": 53.5592,
+      "y": 61.5375,
+      "r": 1.3579
+    },
+    {
+      "x": 30.5412,
+      "y": 61.9947,
+      "r": 8.2216
+    },
+    {
+      "x": 26.9361,
+      "y": 60.2082,
+      "r": 6.9006
+    },
+    {
+      "x": 18.0778,
+      "y": 45.5425,
+      "r": 30.9599
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073855,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144756,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.249631,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.288035,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.003
+    },
+    {
+      "kind": "gate",
+      "frac": 0.431315,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.502216,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.57164,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.677991,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.711965,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855244,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Canyon_Mirage.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Canyon_Mirage.svg"
+  }
+}

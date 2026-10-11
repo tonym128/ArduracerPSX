@@ -1,0 +1,188 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Willow_Creek",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 20.0,
+      "y": 22.5,
+      "r": 8.6073
+    },
+    {
+      "x": 21.4889,
+      "y": 19.1558,
+      "r": 3.7651
+    },
+    {
+      "x": 24.2645,
+      "y": 18.0062,
+      "r": 7.5557
+    },
+    {
+      "x": 55.25,
+      "y": 18.0,
+      "r": 9.773
+    },
+    {
+      "x": 58.8442,
+      "y": 19.4889,
+      "r": 3.6267
+    },
+    {
+      "x": 59.9938,
+      "y": 22.2645,
+      "r": 7.1952
+    },
+    {
+      "x": 59.7578,
+      "y": 34.7331,
+      "r": 3.7323
+    },
+    {
+      "x": 58.1914,
+      "y": 36.7088,
+      "r": 5.2704
+    },
+    {
+      "x": 51.6555,
+      "y": 39.713,
+      "r": 4.1882
+    },
+    {
+      "x": 50.3399,
+      "y": 42.366,
+      "r": 3.1714
+    },
+    {
+      "x": 51.5292,
+      "y": 45.078,
+      "r": 4.5747
+    },
+    {
+      "x": 58.376,
+      "y": 49.1034,
+      "r": 5.5949
+    },
+    {
+      "x": 59.6701,
+      "y": 50.7306,
+      "r": 3.1918
+    },
+    {
+      "x": 59.9753,
+      "y": 57.9704,
+      "r": 6.144
+    },
+    {
+      "x": 58.5111,
+      "y": 60.8442,
+      "r": 4.0717
+    },
+    {
+      "x": 55.7355,
+      "y": 61.9938,
+      "r": 7.5557
+    },
+    {
+      "x": 24.75,
+      "y": 62.0,
+      "r": 9.773
+    },
+    {
+      "x": 21.1558,
+      "y": 60.5111,
+      "r": 3.6267
+    },
+    {
+      "x": 20.0062,
+      "y": 57.7355,
+      "r": 7.5552
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 5,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.107872,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144315,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.214286,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.287172,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.430029,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.003
+    },
+    {
+      "kind": "boost",
+      "frac": 0.501458,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571429,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.712828,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855685,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Willow_Creek.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Willow_Creek.svg"
+  }
+}

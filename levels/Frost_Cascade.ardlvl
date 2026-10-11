@@ -1,0 +1,195 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Frost_Cascade",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 62.7685,
+      "y": 45.2972,
+      "r": 12.1617
+    },
+    {
+      "x": 59.9603,
+      "y": 50.8104,
+      "r": 21.7411
+    },
+    {
+      "x": 43.8591,
+      "y": 67.9628,
+      "r": 13.1451
+    },
+    {
+      "x": 40.0339,
+      "y": 70.0037,
+      "r": 8.8862
+    },
+    {
+      "x": 35.6986,
+      "y": 70.0538,
+      "r": 10.3049
+    },
+    {
+      "x": 26.5613,
+      "y": 66.157,
+      "r": 15.0745
+    },
+    {
+      "x": 21.9269,
+      "y": 60.6358,
+      "r": 17.7361
+    },
+    {
+      "x": 15.728,
+      "y": 40.4057,
+      "r": 20.4558
+    },
+    {
+      "x": 15.5071,
+      "y": 35.1607,
+      "r": 27.681
+    },
+    {
+      "x": 16.6815,
+      "y": 27.2282,
+      "r": 15.0172
+    },
+    {
+      "x": 20.2664,
+      "y": 21.7264,
+      "r": 11.8248
+    },
+    {
+      "x": 28.9196,
+      "y": 17.5291,
+      "r": 58.7151
+    },
+    {
+      "x": 38.1378,
+      "y": 14.796,
+      "r": 64.4535
+    },
+    {
+      "x": 45.6628,
+      "y": 13.5049,
+      "r": 15.2472
+    },
+    {
+      "x": 49.2279,
+      "y": 13.731,
+      "r": 8.235
+    },
+    {
+      "x": 54.0287,
+      "y": 16.2947,
+      "r": 17.3137
+    },
+    {
+      "x": 59.0291,
+      "y": 21.4669,
+      "r": 18.2777
+    },
+    {
+      "x": 61.1626,
+      "y": 24.9949,
+      "r": 13.7735
+    },
+    {
+      "x": 62.346,
+      "y": 29.693,
+      "r": 21.9643
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.081448,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144796,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.241327,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.288084,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.306184,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.428356,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.568627,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.714932,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.85822,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.883861,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Frost_Cascade.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Frost_Cascade.svg"
+  }
+}

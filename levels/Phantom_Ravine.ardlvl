@@ -1,0 +1,207 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Phantom_Ravine",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0,
+      "y": 21.0,
+      "r": 9.4964
+    },
+    {
+      "x": 18.6699,
+      "y": 18.5,
+      "r": 4.6185
+    },
+    {
+      "x": 20.2968,
+      "y": 16.7937,
+      "r": 4.6185
+    },
+    {
+      "x": 22.7621,
+      "y": 16.0057,
+      "r": 8.2984
+    },
+    {
+      "x": 57.2379,
+      "y": 16.0057,
+      "r": 8.1987
+    },
+    {
+      "x": 59.5,
+      "y": 16.6699,
+      "r": 4.8591
+    },
+    {
+      "x": 61.2063,
+      "y": 18.2968,
+      "r": 4.8591
+    },
+    {
+      "x": 61.9774,
+      "y": 20.5247,
+      "r": 6.277
+    },
+    {
+      "x": 61.4641,
+      "y": 34.0,
+      "r": 3.404
+    },
+    {
+      "x": 58.6946,
+      "y": 35.9392,
+      "r": 5.6084
+    },
+    {
+      "x": 48.3279,
+      "y": 36.2021,
+      "r": 3.9522
+    },
+    {
+      "x": 46.0326,
+      "y": 39.0234,
+      "r": 4.9367
+    },
+    {
+      "x": 46.2687,
+      "y": 49.3137,
+      "r": 9.3711
+    },
+    {
+      "x": 54.0165,
+      "y": 54.7555,
+      "r": 3.3144
+    },
+    {
+      "x": 54.7595,
+      "y": 56.4714,
+      "r": 2.807
+    },
+    {
+      "x": 54.3252,
+      "y": 58.2901,
+      "r": 2.6295
+    },
+    {
+      "x": 52.6623,
+      "y": 59.5626,
+      "r": 4.6613
+    },
+    {
+      "x": 34.6928,
+      "y": 63.417,
+      "r": 7.5985
+    },
+    {
+      "x": 31.6127,
+      "y": 62.8046,
+      "r": 3.9491
+    },
+    {
+      "x": 18.2082,
+      "y": 43.9344,
+      "r": 36.5174
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.108571,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144286,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.215714,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.287143,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.395714,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.431429,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.501429,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571429,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.019
+    },
+    {
+      "kind": "gate",
+      "frac": 0.712857,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.784286,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855714,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Phantom_Ravine.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Phantom_Ravine.svg"
+  }
+}

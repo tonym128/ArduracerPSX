@@ -1,0 +1,207 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Longbow",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 16.0057,
+      "y": 20.7621,
+      "r": 8.5225
+    },
+    {
+      "x": 17.3813,
+      "y": 17.5496,
+      "r": 4.5197
+    },
+    {
+      "x": 20.7621,
+      "y": 16.0057,
+      "r": 8.5457
+    },
+    {
+      "x": 57.75,
+      "y": 16.0,
+      "r": 12.8419
+    },
+    {
+      "x": 62.1563,
+      "y": 17.6728,
+      "r": 5.5224
+    },
+    {
+      "x": 64.0,
+      "y": 22.0,
+      "r": 11.5157
+    },
+    {
+      "x": 63.9951,
+      "y": 56.2416,
+      "r": 10.4256
+    },
+    {
+      "x": 62.3272,
+      "y": 60.1563,
+      "r": 5.4768
+    },
+    {
+      "x": 58.7232,
+      "y": 61.9563,
+      "r": 7.8209
+    },
+    {
+      "x": 49.2057,
+      "y": 61.5663,
+      "r": 3.3522
+    },
+    {
+      "x": 47.3264,
+      "y": 59.5422,
+      "r": 6.1304
+    },
+    {
+      "x": 44.1119,
+      "y": 49.3374,
+      "r": 3.1219
+    },
+    {
+      "x": 42.2546,
+      "y": 48.1163,
+      "r": 3.9629
+    },
+    {
+      "x": 38.9121,
+      "y": 48.0,
+      "r": 6.3448
+    },
+    {
+      "x": 35.6323,
+      "y": 49.7101,
+      "r": 4.3875
+    },
+    {
+      "x": 32.6736,
+      "y": 59.5422,
+      "r": 5.8638
+    },
+    {
+      "x": 31.0006,
+      "y": 61.4538,
+      "r": 3.0078
+    },
+    {
+      "x": 20.7621,
+      "y": 61.9943,
+      "r": 7.5074
+    },
+    {
+      "x": 17.5496,
+      "y": 60.6187,
+      "r": 4.3646
+    },
+    {
+      "x": 16.0,
+      "y": 57.0,
+      "r": 9.5925
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 5,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073604,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.14467,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.25,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.286802,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.359137,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.430203,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571066,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.640863,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.004
+    },
+    {
+      "kind": "gate",
+      "frac": 0.711929,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "oil",
+      "frac": 0.819797,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.85533,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Longbow.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Longbow.svg"
+  }
+}

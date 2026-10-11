@@ -1,0 +1,193 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Thunder_Basin",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 19.302,
+      "y": 19.8708,
+      "r": 8.0466
+    },
+    {
+      "x": 20.3728,
+      "y": 17.7505,
+      "r": 3.4034
+    },
+    {
+      "x": 24.1729,
+      "y": 16.0,
+      "r": 9.5374
+    },
+    {
+      "x": 56.0668,
+      "y": 16.0057,
+      "r": 8.4852
+    },
+    {
+      "x": 59.122,
+      "y": 17.2392,
+      "r": 4.7208
+    },
+    {
+      "x": 60.7465,
+      "y": 20.1056,
+      "r": 9.7067
+    },
+    {
+      "x": 63.072,
+      "y": 32.9309,
+      "r": 7.3611
+    },
+    {
+      "x": 62.7463,
+      "y": 35.2677,
+      "r": 3.1524
+    },
+    {
+      "x": 59.7877,
+      "y": 37.8426,
+      "r": 5.3859
+    },
+    {
+      "x": 50.5009,
+      "y": 38.0077,
+      "r": 5.9227
+    },
+    {
+      "x": 48.4007,
+      "y": 38.89,
+      "r": 2.4074
+    },
+    {
+      "x": 44.5505,
+      "y": 51.8281,
+      "r": 5.3076
+    },
+    {
+      "x": 45.3724,
+      "y": 54.7752,
+      "r": 4.4369
+    },
+    {
+      "x": 50.8765,
+      "y": 58.8287,
+      "r": 2.1793
+    },
+    {
+      "x": 50.7037,
+      "y": 61.2262,
+      "r": 1.5463
+    },
+    {
+      "x": 49.0773,
+      "y": 62.0,
+      "r": 3.987
+    },
+    {
+      "x": 24.0014,
+      "y": 61.9945,
+      "r": 8.4979
+    },
+    {
+      "x": 21.0038,
+      "y": 60.8151,
+      "r": 4.7335
+    },
+    {
+      "x": 19.3476,
+      "y": 58.0521,
+      "r": 8.4562
+    },
+    {
+      "x": 16.0706,
+      "y": 38.1945,
+      "r": 54.5053
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.142248,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.213371,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.284495,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.391181,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.423898,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.567568,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "boost",
+      "frac": 0.640114,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.711238,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.85633,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Thunder_Basin.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Thunder_Basin.svg"
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Cobalt_Run",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 16.0509,
+      "y": 26.2884,
+      "r": 6.1807
+    },
+    {
+      "x": 17.0697,
+      "y": 23.9092,
+      "r": 4.6095
+    },
+    {
+      "x": 19.3647,
+      "y": 22.275,
+      "r": 4.4585
+    },
+    {
+      "x": 59.2379,
+      "y": 22.0057,
+      "r": 8.2074
+    },
+    {
+      "x": 61.9003,
+      "y": 22.9271,
+      "r": 4.5945
+    },
+    {
+      "x": 63.725,
+      "y": 25.3647,
+      "r": 4.5052
+    },
+    {
+      "x": 63.5745,
+      "y": 41.7952,
+      "r": 3.4386
+    },
+    {
+      "x": 61.1472,
+      "y": 43.832,
+      "r": 4.55
+    },
+    {
+      "x": 54.0638,
+      "y": 44.0302,
+      "r": 5.1468
+    },
+    {
+      "x": 52.0392,
+      "y": 45.0337,
+      "r": 2.8149
+    },
+    {
+      "x": 46.8547,
+      "y": 59.3589,
+      "r": 7.2035
+    },
+    {
+      "x": 44.1391,
+      "y": 61.7824,
+      "r": 4.9378
+    },
+    {
+      "x": 34.6888,
+      "y": 61.9938,
+      "r": 6.9697
+    },
+    {
+      "x": 32.2781,
+      "y": 61.1396,
+      "r": 3.1496
+    },
+    {
+      "x": 24.4593,
+      "y": 45.3146,
+      "r": 4.0142
+    },
+    {
+      "x": 22.6121,
+      "y": 44.1142,
+      "r": 4.5746
+    },
+    {
+      "x": 18.264,
+      "y": 43.6617,
+      "r": 4.0505
+    },
+    {
+      "x": 16.1739,
+      "y": 41.3024,
+      "r": 4.2074
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.074194,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.145161,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.287097,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.358065,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.430645,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.53871,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.574194,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.641935,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.712903,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.858065,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.004
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Cobalt_Run.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Cobalt_Run.svg"
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Lunar_Gorge",
+  "mode": "spline",
+  "nodes": [
+    {
+      "x": 34.7337,
+      "y": 56.812,
+      "r": 10.3694
+    },
+    {
+      "x": 24.8524,
+      "y": 40.9322,
+      "r": 15.2279
+    },
+    {
+      "x": 34.2096,
+      "y": 25.0431,
+      "r": 12.3871
+    },
+    {
+      "x": 53.6439,
+      "y": 29.8221,
+      "r": 11.0412
+    },
+    {
+      "x": 51.3292,
+      "y": 49.218,
+      "r": 16.2591
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 7,
+  "outside": 7,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.148148,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.002
+    },
+    {
+      "kind": "gate",
+      "frac": 0.285714,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.417989,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.529101,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.011
+    },
+    {
+      "kind": "gate",
+      "frac": 0.555556,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.049
+    },
+    {
+      "kind": "boost",
+      "frac": 0.582011,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.698413,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.756614,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.023
+    },
+    {
+      "kind": "boost",
+      "frac": 0.809524,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.846561,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Lunar_Gorge.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Lunar_Gorge.svg"
+  }
+}
