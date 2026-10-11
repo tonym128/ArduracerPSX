@@ -812,18 +812,17 @@ impl ArduracerGame {
                         let _s = prof::span(prof::RENDER_TRACK);
                         let elapsed =
                             psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
-                        // Rows of tile decode admitted this frame. The period is
-                        // the frame's own length, so 60 FPS halves the window and
-                        // the budget tightens with it rather than staying tuned
-                        // for the old 30 FPS lock.
-                        let period = self.framerate.vblanks_per_frame();
-                        let max_decode_rows = if ticks_to_run >= 3 || elapsed + 1 >= period {
-                            0
-                        } else if ticks_to_run == 2 || elapsed >= 1 {
-                            1
-                        } else {
-                            2
-                        };
+                        // Rows of tile decode admitted this frame. The tiering
+                        // lives in `core` because it shipped wrong once and
+                        // cannot be tested where it used to live: `elapsed + 1
+                        // >= period` is true on the first iteration at 60 FPS,
+                        // which admitted nothing and left 68,616 placeholder
+                        // tiles. See `texture_format::decode_row_budget`.
+                        let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
+                            ticks_to_run,
+                            elapsed,
+                            self.framerate.vblanks_per_frame(),
+                        );
                         render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
                     }
                     // c. Skidmarks on track

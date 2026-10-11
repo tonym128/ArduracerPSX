@@ -1114,10 +1114,21 @@ pub fn render_track_extents(
     let period = frame_period();
     while rows_decoded < max_decode_rows {
         let elapsed_vblanks = psx_rt::interrupts::vblank_count().wrapping_sub(last_flip_vblank);
-        // Stop at the end of the frame's own period. This used to be hardcoded
-        // to 2 vblanks, which at 60 FPS would stop decoding before the frame
-        // was half done and starve the tile cache.
-        if elapsed_vblanks >= period || elapsed_vblanks + 1 >= period {
+        // Stop once the frame's own period has run out.
+        //
+        // `last_flip_vblank` is stamped in the frame's step 1, right after the
+        // previous flip is applied, so `elapsed` counts VBlanks *since that
+        // stamp*: the frame body runs at elapsed == 0 and ends when the next
+        // VBlank lands at elapsed == period. The test must therefore be
+        // `elapsed >= period`.
+        //
+        // It was `elapsed >= period || elapsed + 1 >= period`, and the second
+        // clause is the bug: at 60 FPS the period is 1, so `0 + 1 >= 1` was
+        // true on the very first iteration of every frame and the loop never
+        // decoded anything at all. At 30 FPS the clause reduces to
+        // `elapsed >= 1`, which happened to match the old hardcoded behaviour,
+        // which is why only 60 FPS was affected.
+        if elapsed_vblanks >= period {
             break;
         }
 
