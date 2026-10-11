@@ -28,6 +28,7 @@ pub mod route;
 pub mod save;
 pub mod surface;
 pub mod svgtex;
+pub mod texture_format;
 pub mod timing;
 pub mod track;
 pub mod tuning;

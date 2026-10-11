@@ -32,7 +32,8 @@ use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
     bake_minimap, init_track_texture, prewarm_starting_tiles, render_car, render_hud, render_track,
-    Camera, ParticleSystem, SkidmarkBuffer, TextureSlot,
+    reset_texture_caches, set_frame_period, set_texture_format, texture_format, Camera, Framerate,
+    ParticleSystem, SkidmarkBuffer, TextureFormat, TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -41,7 +42,7 @@ use state::{GameState, StateManager};
 use ui::font::draw_text;
 use ui::{
     CityInfo, GrandPrixSetupAction, MenuItem, PauseChoice, PauseMenu, ResultsAction, ResultsScreen,
-    VictoryScreen,
+    SettingsChoice, SettingsInput, SettingsValues, VictoryScreen,
 };
 
 pub const SCREEN_WIDTH: u16 = 320;
@@ -117,6 +118,9 @@ pub struct ArduracerGame {
     pub sim_tick_counter: u32,
     /// VBlank counter value of the last display flip applied (for 30 FPS pacing).
     pub last_flip_vblank: u32,
+    /// Player-selected frame pacing. 30 FPS occupies two VBlank periods per
+    /// frame, 60 occupies one; every pacing decision below reads it.
+    pub framerate: Framerate,
     /// Cached race standings across simulation sub-ticks.
     pub last_standings: [usize; 6],
     /// Cached player rank (1..=6) across simulation sub-ticks.
@@ -203,7 +207,7 @@ impl ArduracerGame {
             dbg::println("[STATE] Intro completed/idle -> starting at Title");
         }
 
-        let game = ArduracerGame {
+        let mut game = ArduracerGame {
             frame_counter: 0,
             player,
             rivals,
@@ -227,12 +231,32 @@ impl ArduracerGame {
             last_vblank_count: 0,
             sim_tick_counter: 0,
             last_flip_vblank: 0,
+            framerate: Framerate::Fps60,
             last_standings: [0, 1, 2, 3, 4, 5],
             last_player_rank: 1,
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
         };
+        // Restore the saved graphics settings before anything renders, so the
+        // first frame already uses the player's chosen format and pacing rather
+        // than the defaults for a frame or two.
+        {
+            let saved = SettingsValues {
+                texture_format: game.memcard.save_data.texture_format,
+                framerate: game.memcard.save_data.framerate,
+            };
+            set_texture_format(TextureFormat::from_saved(saved.texture_format));
+            game.framerate = Framerate::from_saved(saved.framerate);
+            set_frame_period(game.framerate.vblanks_per_frame());
+            prof::set_budget_cycles(game.framerate.budget_cycles());
+            prof::set_expected_vblanks(game.framerate.vblanks_per_frame());
+            dbg::print("[BOOT] graphics: format=");
+            dbg::print(texture_format().label());
+            dbg::print(" framerate=");
+            dbg::println(game.framerate.label());
+        }
+
         dbg::log_step(9, 9, "Baking circuit minimap...");
         bake_minimap(&game.minimap_texture, game.current_track);
         dbg::check_faults();
@@ -504,6 +528,13 @@ impl ArduracerGame {
                                 self.state_mgr.city_select.arm_for_entry();
                                 self.state_mgr.current = GameState::CitySelect;
                             }
+                            MenuItem::Settings => {
+                                // Seed the screen from the settings in force so it
+                                // never shows a stale copy of the truth.
+                                self.state_mgr.settings.set_values(self.current_settings());
+                                self.state_mgr.settings.arm_for_entry();
+                                self.state_mgr.current = GameState::Settings;
+                            }
                         }
                     }
                     self.fb.clear(15, 18, 25);
@@ -551,6 +582,36 @@ impl ArduracerGame {
                     }
                     self.fb.clear(15, 18, 25);
                     self.state_mgr.city_select.render();
+                }
+                GameState::Settings => {
+                    self.audio.ui_frame(pad.buttons.bits());
+                    let b = pad.buttons;
+                    let input = SettingsInput {
+                        cross: b.is_held(psx_pad::button::CROSS),
+                        circle: b.is_held(psx_pad::button::CIRCLE),
+                        triangle: b.is_held(psx_pad::button::TRIANGLE),
+                        up: b.is_held(psx_pad::button::UP),
+                        down: b.is_held(psx_pad::button::DOWN),
+                        left: b.is_held(psx_pad::button::LEFT),
+                        right: b.is_held(psx_pad::button::RIGHT),
+                    };
+                    match self.state_mgr.settings.update(input) {
+                        SettingsChoice::Changed(values) => {
+                            // Apply live: the player should see the format change
+                            // and the new pacing without leaving the screen.
+                            self.apply_settings(values);
+                            self.state_mgr.settings.set_values(self.current_settings());
+                        }
+                        SettingsChoice::Exit => {
+                            self.state_mgr.current = GameState::MainMenu;
+                            // The button that closed the screen is necessarily
+                            // held; arm so it does not re-trigger on the menu.
+                            self.state_mgr.menu.arm_for_entry();
+                        }
+                        SettingsChoice::None => {}
+                    }
+                    self.fb.clear(15, 18, 25);
+                    self.state_mgr.settings.render();
                 }
                 GameState::Garage => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -603,7 +664,9 @@ impl ArduracerGame {
                     // `PauseMenu` owns all button edge state -- the race loop
                     // must not touch it, or the menu sees every frame as
                     // "nothing newly pressed" and cannot be dismissed.
-                    let frame = self.pause.update_from_pad(&pad);
+                    let frame = self
+                        .pause
+                        .update_from_pad_with_values(&pad, self.current_settings());
                     let was_paused = self.paused;
                     if frame.start_pressed {
                         self.paused = !self.paused;
@@ -663,6 +726,9 @@ impl ArduracerGame {
                                         3 + ((self.current_track_idx / 6) as u8).min(3)
                                     };
                                     self.audio.cdda.play_track(cdda_track);
+                                }
+                                PauseChoice::Graphics(values) => {
+                                    self.apply_settings(values);
                                 }
                                 PauseChoice::QuitToMenu => {
                                     self.state_mgr.championship = None;
@@ -740,10 +806,18 @@ impl ArduracerGame {
                     }
                     // b. Track visual map
                     {
+                        set_frame_period(self.framerate.vblanks_per_frame());
+                        prof::set_budget_cycles(self.framerate.budget_cycles());
+                        prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
                         let _s = prof::span(prof::RENDER_TRACK);
                         let elapsed =
                             psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
-                        let max_decode_rows = if ticks_to_run >= 3 || elapsed >= 2 {
+                        // Rows of tile decode admitted this frame. The period is
+                        // the frame's own length, so 60 FPS halves the window and
+                        // the budget tightens with it rather than staying tuned
+                        // for the old 30 FPS lock.
+                        let period = self.framerate.vblanks_per_frame();
+                        let max_decode_rows = if ticks_to_run >= 3 || elapsed + 1 >= period {
                             0
                         } else if ticks_to_run == 2 || elapsed >= 1 {
                             1
@@ -1173,13 +1247,77 @@ impl ArduracerGame {
     /// GP0(1Fh) closes the command stream, and the VBlank handler applies the
     /// display-start word only once the GPU has reached that flag -- so the flip
     /// cannot land on a half-drawn frame.
+    /// The graphics settings currently in force, in persisted form.
+    fn current_settings(&self) -> SettingsValues {
+        SettingsValues {
+            texture_format: texture_format().to_saved(),
+            framerate: self.framerate.to_saved(),
+        }
+    }
+
+    /// Applies a settings change and persists it.
+    ///
+    /// Order matters. The texture format is pushed into the streamer and the
+    /// caches dropped *before* the save is written, so a card write that fails
+    /// still leaves the session in the state the player just chose; the next
+    /// write picks it up. The reverse order could persist a setting and then
+    /// fail to apply it.
+    fn apply_settings(&mut self, values: SettingsValues) {
+        let previous_format = texture_format();
+        let previous_fps = self.framerate;
+
+        let format = TextureFormat::from_saved(values.texture_format);
+        let framerate = Framerate::from_saved(values.framerate);
+
+        if format != previous_format {
+            set_texture_format(format);
+            // Drop every cached tile so the new codec is used for the circuit
+            // already on screen, not just the next one loaded.
+            reset_texture_caches();
+            if self.state_mgr.current == GameState::Racing {
+                let circuit =
+                    ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)];
+                init_track_texture(circuit);
+            }
+        }
+
+        if framerate != previous_fps {
+            self.framerate = framerate;
+            // Re-stamp the pacing counters: the new period is measured against
+            // `last_flip_vblank`, and leaving it from the old mode would make
+            // the first frame after the switch wait for the wrong duration.
+            self.last_flip_vblank = psx_rt::interrupts::vblank_count();
+            self.last_vblank_count = psx_rt::interrupts::vblank_count();
+            self.sim_accumulator = 0;
+            set_frame_period(self.framerate.vblanks_per_frame());
+            prof::set_budget_cycles(self.framerate.budget_cycles());
+            prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
+        }
+
+        dbg::print("[SETTINGS] applied format=");
+        dbg::print(format.label());
+        dbg::print(" framerate=");
+        dbg::println(framerate.label());
+
+        // Persist unconditionally: both values are cheap and a card write is
+        // already the established pattern for settings changes.
+        self.memcard.save_data.texture_format = values.texture_format;
+        self.memcard.save_data.framerate = values.framerate;
+        self.memcard.mark_dirty();
+        self.memcard.flush();
+    }
+
     fn close_frame(&mut self) {
         psx_gpu_mod::signal_draw_done();
         #[cfg(target_arch = "mips")]
         {
-            // Lock to 30 FPS: ensure at least 1 VBlank has elapsed since the previous flip
-            // before queueing this flip, so the deferred swap lands on the 2nd VBlank (30 FPS).
-            while psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank) < 1 {
+            // Pace to the selected mode by holding the flip until a full frame
+            // period has elapsed since the last one. One VBlank period is 60 FPS,
+            // two is the historical 30 FPS lock.
+            let period = self.framerate.vblanks_per_frame();
+            while psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank) + 1
+                < period
+            {
                 psx_rt::interrupts::wait_vblank();
             }
         }
