@@ -95,8 +95,10 @@ pub struct Camera {
     /// previous tick's velocity, so it is not public. Starts pointing up the
     /// screen, which is the standstill default -- a stationary car sits low.
     lead_dir: Vec2,
-    /// True for the Mode 7 behind-the-car view; false for the top-down view.
+    /// True for the Mode 7 behind-the-car view; false for top-down views.
     pub mode7: bool,
+    /// True for the rotating top-down view where the stage rotates under the car.
+    pub rotating: bool,
     /// Smoothed view heading in BAMS (4096 = 360 degrees), 0 = up the screen.
     pub heading: u16,
     /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
@@ -124,6 +126,7 @@ impl Camera {
             zoom: Fixed::from_raw(ZOOM_REST),
             lead_dir: LEAD_DIR_INITIAL,
             mode7: false,
+            rotating: false,
             heading: 0,
             hsin: 0,
             hcos: FP_ONE,
@@ -134,6 +137,14 @@ impl Camera {
     pub fn new_chase(initial_pos: Vec2, heading: u16) -> Self {
         let mut c = Camera::new(initial_pos);
         c.mode7 = true;
+        c.set_heading(heading);
+        c
+    }
+
+    /// A camera in the top-down rotating view, starting aligned to `heading`.
+    pub fn new_rotating(initial_pos: Vec2, heading: u16) -> Self {
+        let mut c = Camera::new(initial_pos);
+        c.rotating = true;
         c.set_heading(heading);
         c
     }
@@ -211,6 +222,12 @@ impl Camera {
     pub fn visible_half_extents(&self) -> (i32, i32) {
         // `zoom` is a plain ratio, so the world extent grows as it shrinks.
         let z = self.zoom.raw().max(1);
+        if self.rotating {
+            // For a rotating 2D viewport, diagonal half-screen radius is sqrt(160^2 + 120^2) = 200 pixels.
+            // With safety margin for rounding, 205 pixels covers all rotations.
+            let rad = div_ceil(205 * FP_ONE, z);
+            return (rad, rad);
+        }
         // Rounded *up*: the tile renderer uses this to choose which tiles to
         // draw, so under-covering would leave a gap of background at the screen
         // edge. One pixel of overdraw is the cheaper error.
@@ -254,8 +271,21 @@ impl Camera {
     /// zoom levels is at most one pixel of jitter.
     pub fn world_offset(&self, world_pos: Vec2) -> (i16, i16) {
         let z = self.zoom.raw() as i64;
-        let dx = (world_pos.x - self.pos.x).raw() as i64 * z;
-        let dy = (world_pos.y - self.pos.y).raw() as i64 * z;
+        let mut dx_raw = (world_pos.x - self.pos.x).raw() as i64;
+        let mut dy_raw = (world_pos.y - self.pos.y).raw() as i64;
+
+        if self.rotating {
+            // Affine rotation by camera heading so car faces up the screen:
+            // screen right = dx*cos(h) + dy*sin(h)
+            // screen forward (up) = dx*sin(h) - dy*cos(h) => screen y offset is -forward
+            let right = (dx_raw * self.hcos as i64 + dy_raw * self.hsin as i64) >> FP_SHIFT;
+            let fwd = (dx_raw * self.hsin as i64 - dy_raw * self.hcos as i64) >> FP_SHIFT;
+            dx_raw = right;
+            dy_raw = -fwd;
+        }
+
+        let dx = dx_raw * z;
+        let dy = dy_raw * z;
         // Symmetric half-pixel rounding before the 24-bit shift eliminates
         // directional subpixel jitter and truncation asymmetry.
         const HALF_PX: i64 = 1 << (FP_SHIFT + FP_SHIFT - 1);
@@ -284,6 +314,34 @@ impl Camera {
             self.pos.x = self.pos.x + diff_x * Fixed::from_raw(M7_POSITION_EASE);
             self.pos.y = self.pos.y + diff_y * Fixed::from_raw(M7_POSITION_EASE);
             let _ = (target_velocity, speed, world_w, world_h);
+            return;
+        }
+
+        if self.rotating {
+            // Top-down rotating view: camera stays centered on the vehicle
+            // with lookahead shifted along the vehicle's forward vector.
+            let speed_ratio = clamp_i32(
+                (speed.raw() as i64 * FP_ONE as i64) / ZOOM_FULL_SPEED as i64,
+                0,
+                FP_ONE,
+            );
+            let lead = LOOKAHEAD_REST + ((LOOKAHEAD_FAST - LOOKAHEAD_REST) * speed_ratio) / FP_ONE;
+            // Lead along car's forward heading vector: sin(h) in X, -cos(h) in Y
+            let lead_x = (self.hsin * lead) >> FP_SHIFT;
+            let lead_y = (-self.hcos * lead) >> FP_SHIFT;
+            let desired_pos = Vec2 {
+                x: target_pos.x + Fixed::from_raw(lead_x << FP_SHIFT),
+                y: target_pos.y + Fixed::from_raw(lead_y << FP_SHIFT),
+            };
+
+            let diff_x = desired_pos.x - self.pos.x;
+            let diff_y = desired_pos.y - self.pos.y;
+            self.pos.x = self.pos.x + diff_x * Fixed::from_raw(POSITION_EASE);
+            self.pos.y = self.pos.y + diff_y * Fixed::from_raw(POSITION_EASE);
+
+            let target_zoom = ZOOM_REST - ((ZOOM_REST - ZOOM_FAST) * speed_ratio) / FP_ONE;
+            let zoom_diff = target_zoom - self.zoom.raw();
+            self.zoom = Fixed::from_raw(self.zoom.raw() + (zoom_diff * ZOOM_EASE) / FP_ONE);
             return;
         }
         // Look-ahead leads along the direction of travel. Driven by heading

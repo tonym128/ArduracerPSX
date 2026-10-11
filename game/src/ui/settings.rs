@@ -19,10 +19,11 @@ pub fn values_to_state(v: SettingsValues) -> (TextureFormat, Framerate) {
 }
 
 /// Maps the enums back into the persisted integers.
-pub fn state_to_values(f: TextureFormat, r: Framerate) -> SettingsValues {
+pub fn state_to_values(f: TextureFormat, r: Framerate, camera_view: u8) -> SettingsValues {
     SettingsValues {
         texture_format: f.to_saved(),
         framerate: r.to_saved(),
+        camera_view,
     }
 }
 
@@ -67,15 +68,22 @@ impl SettingsScreen {
         let (fmt, fps) = values_to_state(self.values());
         let sel = self.selected_row();
 
-        gpu::draw_rect_flat(60, 56, 200, 124, 8, 10, 14);
-        gpu::draw_rect_flat(62, 58, 196, 120, 16, 20, 30);
-        gpu::draw_rect_flat(64, 60, 192, 2, 220, 40, 60);
-        draw_text(112, 64, "GRAPHICS", (200, 210, 235), 1);
+        gpu::draw_rect_flat(60, 48, 200, 142, 8, 10, 14);
+        gpu::draw_rect_flat(62, 50, 196, 138, 16, 20, 30);
+        gpu::draw_rect_flat(64, 52, 192, 2, 220, 40, 60);
+        draw_text(112, 56, "GRAPHICS", (200, 210, 235), 1);
 
-        // Two rows, value between `<` and `>`.
+        let view_label = match self.values().camera_view {
+            0 => "BEHIND",
+            1 => "OVERHEAD",
+            _ => "ROTATING",
+        };
+
+        // Three rows, value between `<` and `>`.
         let rows: [(&str, &str, u16); ROW_COUNT as usize] = [
-            ("TEXTURE", fmt.label(), 96),
-            ("FRAMERATE", fps.label(), 122),
+            ("TEXTURE", fmt.label(), 84),
+            ("FRAMERATE", fps.label(), 108),
+            ("VIEW", view_label, 132),
         ];
         for (i, (label, value, y)) in rows.iter().enumerate() {
             let selected = i as u8 == sel;
@@ -94,11 +102,11 @@ impl SettingsScreen {
 
         draw_text(
             72,
-            158,
+            160,
             "UP/DOWN ROW   LEFT/RIGHT CHANGE",
             (120, 135, 160),
             1,
         );
-        draw_text(72, 168, "CROSS: BACK", (120, 135, 160), 1);
+        draw_text(72, 172, "CROSS: BACK", (120, 135, 160), 1);
     }
 }

@@ -28,6 +28,8 @@ pub struct SettingsValues {
     pub texture_format: u8,
     /// 0 = 60 FPS, 1 = 30 FPS.
     pub framerate: u8,
+    /// 0 = Behind (Mode 7 Chase), 1 = Overhead (Top-down).
+    pub camera_view: u8,
 }
 
 /// What the player chose from the pause menu.
@@ -80,14 +82,15 @@ pub struct PauseMenu {
     values: SettingsValues,
 }
 
-/// Entries, in display order. The two settings rows sit between the race
+/// Entries, in display order. The settings rows sit between the race
 /// actions and the quit, so the destructive option stays last.
 const ITEM_RESUME: u8 = 0;
 const ITEM_RESTART: u8 = 1;
 const ITEM_TEXTURE: u8 = 2;
 const ITEM_FRAMERATE: u8 = 3;
-const ITEM_QUIT: u8 = 4;
-const ITEM_COUNT: u8 = 5;
+const ITEM_VIEW: u8 = 4;
+const ITEM_QUIT: u8 = 5;
+const ITEM_COUNT: u8 = 6;
 
 impl Default for PauseMenu {
     fn default() -> Self {
@@ -102,6 +105,7 @@ impl PauseMenu {
             values: SettingsValues {
                 texture_format: 0,
                 framerate: 0,
+                camera_view: 0,
             },
             prev: PauseInput {
                 start: false,
@@ -126,18 +130,20 @@ impl PauseMenu {
         self.values
     }
 
-    /// Steps the selected row's value, wrapping. Only the two settings rows
+    /// Steps the selected row's value, wrapping. Only the settings rows
     /// have values; the action rows report `false`.
     fn cycle_value(&mut self, dir: i32) -> bool {
         let (cur, span) = match self.selected_idx {
             ITEM_TEXTURE => (self.values.texture_format as i32, 4),
             ITEM_FRAMERATE => (self.values.framerate as i32, 2),
+            ITEM_VIEW => (self.values.camera_view as i32, 3),
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
         match self.selected_idx {
             ITEM_TEXTURE => self.values.texture_format = next,
             ITEM_FRAMERATE => self.values.framerate = next,
+            ITEM_VIEW => self.values.camera_view = next,
             _ => return false,
         }
         next as i32 != cur
@@ -201,7 +207,7 @@ impl PauseMenu {
             match self.selected_idx {
                 ITEM_RESUME => PauseChoice::Resume,
                 ITEM_RESTART => PauseChoice::RestartRace,
-                ITEM_TEXTURE | ITEM_FRAMERATE => {
+                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW => {
                     if changed {
                         PauseChoice::Graphics(self.values)
                     } else {

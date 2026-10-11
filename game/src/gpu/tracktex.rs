@@ -1188,10 +1188,18 @@ pub fn render_track_extents(
 
         let wx0 = tx * tile_wu_x;
         let wy0 = ty * tile_wu_y;
-        let tx0 = x0.max(wx0);
-        let tx1 = x1.min(wx0 + tile_wu_x);
-        let ty0 = y0.max(wy0);
-        let ty1 = y1.min(wy0 + tile_wu_y);
+        let (tx0, tx1, ty0, ty1) = if camera.rotating {
+            // When the viewport rotates, clamping to axis-aligned camera bounding boxes
+            // distorts the rotated quad texture. Use full unclipped tile boundaries.
+            (wx0, wx0 + tile_wu_x, wy0, wy0 + tile_wu_y)
+        } else {
+            (
+                x0.max(wx0),
+                x1.min(wx0 + tile_wu_x),
+                y0.max(wy0),
+                y1.min(wy0 + tile_wu_y),
+            )
+        };
 
         let tl = camera.world_to_screen(Vec2 {
             x: Fixed::from_int(tx0),

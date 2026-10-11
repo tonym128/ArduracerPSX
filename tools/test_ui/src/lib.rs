@@ -129,12 +129,12 @@ mod tests {
             }
             frames.push(held(|i| i.cross = true));
             let out = run(&frames);
-            // The two settings rows are editable in place and report `None`
+            // The three settings rows are editable in place and report `None`
             // until a value actually moves, so only the action rows confirm.
             let expected = match idx {
                 0 => PauseChoice::Resume,
                 1 => PauseChoice::RestartRace,
-                4 => PauseChoice::QuitToMenu,
+                5 => PauseChoice::QuitToMenu,
                 _ => PauseChoice::None,
             };
             assert_eq!(
@@ -454,7 +454,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 5);
+        assert_eq!(PauseMenu::item_count(), 6);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -2801,6 +2801,7 @@ mod graphics_settings {
         SettingsValues {
             texture_format: 0,
             framerate: 0,
+            camera_view: 0,
         }
     }
 
@@ -2840,6 +2841,24 @@ mod graphics_settings {
         assert_eq!(m.values().framerate, 0, "and wraps back to 60 FPS");
     }
 
+    #[test]
+    fn camera_view_cycles_between_the_three_modes() {
+        let mut m = SettingsMenu::new(values());
+        m.update(press(|i| i.down = true)); // move to framerate
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.down = true)); // move to view
+        m.update(SettingsInput::default());
+        assert_eq!(m.selected_row, 2, "row 2 is VIEW");
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().camera_view, 1, "right selects Overhead");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().camera_view, 2, "right selects Rotating");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().camera_view, 0, "and wraps back to Behind");
+    }
+
     /// A held button is one change, not one per frame. Without this the value
     /// would race through every option while the player holds the stick.
     #[test]
@@ -2859,13 +2878,13 @@ mod graphics_settings {
         assert_eq!(m.values().texture_format, 1);
     }
 
-    /// Row selection must stay in range with only two rows.
+    /// Row selection must stay in range with three rows.
     #[test]
-    fn row_selection_wraps_between_the_two_rows() {
+    fn row_selection_wraps_between_the_rows() {
         let mut m = SettingsMenu::new(values());
         assert_eq!(m.selected_row, 0);
         m.update(press(|i| i.up = true));
-        assert_eq!(m.selected_row, 1, "up from the first row wraps to the last");
+        assert_eq!(m.selected_row, 2, "up from the first row wraps to the last (VIEW)");
         m.update(SettingsInput::default());
         m.update(press(|i| i.down = true));
         assert_eq!(m.selected_row, 0, "down from the last wraps to the first");
@@ -2947,7 +2966,7 @@ mod graphics_settings {
     #[test]
     fn each_move_is_reported_once() {
         let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, QUIT.
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, QUIT.
         for _ in 0..3 {
             p.update(PauseInput {
                 down: true,
@@ -2972,6 +2991,43 @@ mod graphics_settings {
         });
         assert!(matches!(second.choice, PauseChoice::Graphics(_)));
         assert_eq!(p.values().framerate, 0, "wraps back to 60 FPS");
+    }
+
+    #[test]
+    fn pause_menu_edits_view_inline() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, QUIT.
+        for _ in 0..4 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 4, "row 4 is VIEW");
+
+        let first = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(first.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().camera_view, 1, "view switched to Overhead");
+
+        p.update(PauseInput::default());
+        let second = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(second.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().camera_view, 2, "view switched to Rotating");
+
+        p.update(PauseInput::default());
+        let third = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(third.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().camera_view, 0, "view wrapped to Behind");
     }
 
     /// Every value the settings screen can produce must be one the save

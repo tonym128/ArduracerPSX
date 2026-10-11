@@ -50,27 +50,33 @@ impl PauseMenu {
 
     /// Renders the dimmed pause panel.
     pub fn render(&self) {
-        // Panel grown to hold five rows plus the footer hint.
-        gpu::draw_rect_flat(60, 46, 200, 160, 8, 10, 14);
-        gpu::draw_rect_flat(62, 48, 196, 156, 16, 20, 30);
-        gpu::draw_rect_flat(64, 50, 192, 152, 26, 30, 42);
-        gpu::draw_rect_flat(64, 50, 192, 2, 220, 40, 60);
+        // Panel grown to hold six rows plus the footer hint.
+        gpu::draw_rect_flat(60, 36, 200, 180, 8, 10, 14);
+        gpu::draw_rect_flat(62, 38, 196, 176, 16, 20, 30);
+        gpu::draw_rect_flat(64, 40, 192, 172, 26, 30, 42);
+        gpu::draw_rect_flat(64, 40, 192, 2, 220, 40, 60);
 
-        draw_text(102, 58, "PAUSED", (255, 220, 0), 2);
+        draw_text(102, 48, "PAUSED", (255, 220, 0), 2);
 
-        // The two settings rows carry their value inline between < and >; the
-        // three action rows are plain labels. Values come from the menu's
+        // The settings rows carry their value inline between < and >; the
+        // action rows are plain labels. Values come from the menu's
         // working copy, so an in-progress edit is visible before it is applied.
         let (fmt, fps) = values_to_state(self.values());
-        let rows: [(&str, Option<&str>); 5] = [
+        let view_label = match self.values().camera_view {
+            0 => "BEHIND",
+            1 => "OVERHEAD",
+            _ => "ROTATING",
+        };
+        let rows: [(&str, Option<&str>); 6] = [
             ("RESUME", None),
             ("RESTART RACE", None),
             ("TEXTURE", Some(fmt.label())),
             ("FRAMERATE", Some(fps.label())),
+            ("VIEW", Some(view_label)),
             ("QUIT TO MENU", None),
         ];
         for (idx, (label, value)) in rows.iter().enumerate() {
-            let y = 86 + (idx as u16) * 20;
+            let y = 74 + (idx as u16) * 19;
             let selected = (idx as u8) == self.selected_idx;
             let color = if selected {
                 (255, 255, 255)
@@ -84,16 +90,16 @@ impl PauseMenu {
             draw_text(96, y, label, color, 1);
             if let Some(v) = value {
                 if selected {
-                    draw_text(180, y, "<", (255, 240, 0), 1);
-                    draw_text(222, y, ">", (255, 240, 0), 1);
+                    draw_text(176, y, "<", (255, 240, 0), 1);
+                    draw_text(226, y, ">", (255, 240, 0), 1);
                 }
-                draw_text(188, y, v, color, 1);
+                draw_text(184, y, v, color, 1);
             }
         }
 
         draw_text(
             70,
-            190,
+            196,
             "L/R CHANGE   CROSS SELECT   START RESUME",
             (110, 130, 155),
             1,

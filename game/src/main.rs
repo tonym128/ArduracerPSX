@@ -125,6 +125,10 @@ pub struct ArduracerGame {
     pub last_standings: [usize; 6],
     /// Cached player rank (1..=6) across simulation sub-ticks.
     pub last_player_rank: u8,
+    /// 0 = Behind (Mode 7 Chase), 1 = Overhead (Top-down).
+    pub camera_view: u8,
+    /// Edge detection state for racing gameplay buttons (e.g. Triangle view toggle).
+    pub prev_pad_racing: psx_pad::ButtonState,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -234,6 +238,8 @@ impl ArduracerGame {
             framerate: Framerate::Fps60,
             last_standings: [0, 1, 2, 3, 4, 5],
             last_player_rank: 1,
+            camera_view: 0,
+            prev_pad_racing: psx_pad::ButtonState::from_bits(0),
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -245,6 +251,7 @@ impl ArduracerGame {
             let saved = SettingsValues {
                 texture_format: game.memcard.save_data.texture_format,
                 framerate: game.memcard.save_data.framerate,
+                camera_view: game.camera_view,
             };
             set_texture_format(TextureFormat::from_saved(saved.texture_format));
             game.framerate = Framerate::from_saved(saved.framerate);
@@ -342,7 +349,11 @@ impl ArduracerGame {
             track.start_heading,
             self.state_mgr.championship.as_ref(),
         );
-        self.camera = Camera::new_chase(player_pos, track.start_heading);
+        self.camera = match self.camera_view {
+            0 => Camera::new_chase(player_pos, track.start_heading),
+            2 => Camera::new_rotating(player_pos, track.start_heading),
+            _ => Camera::new(player_pos),
+        };
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         self.ghost.start_lap();
@@ -774,6 +785,17 @@ impl ArduracerGame {
                         continue;
                     }
 
+                    // In-game camera viewpoint toggle on Triangle press (cycles Behind -> Overhead -> Rotating):
+                    if pad.buttons.pressed_since(self.prev_pad_racing, psx_pad::button::TRIANGLE) {
+                        self.camera_view = (self.camera_view + 1) % 3;
+                        self.camera.mode7 = self.camera_view == 0;
+                        self.camera.rotating = self.camera_view == 2;
+                        if self.camera.mode7 || self.camera.rotating {
+                            self.camera.set_heading(self.player.visual_angle);
+                        }
+                    }
+                    self.prev_pad_racing = pad.buttons;
+
                     // Frame-rate agnostic simulation updates:
                     let ticks_to_run = self.compute_ticks_to_run();
                     let mut player_rank = self.last_player_rank;
@@ -789,7 +811,7 @@ impl ArduracerGame {
                     // Camera update, clamped to the circuit so the view never leaves the world.
                     {
                         let _s = prof::span(prof::CAMERA);
-                        if self.camera.mode7 {
+                        if self.camera.mode7 || self.camera.rotating {
                             self.camera.follow_heading(self.player.visual_angle);
                         }
                         self.camera.update(
@@ -1254,6 +1276,7 @@ impl ArduracerGame {
         SettingsValues {
             texture_format: texture_format().to_saved(),
             framerate: self.framerate.to_saved(),
+            camera_view: self.camera_view,
         }
     }
 
@@ -1270,6 +1293,17 @@ impl ArduracerGame {
 
         let format = TextureFormat::from_saved(values.texture_format);
         let framerate = Framerate::from_saved(values.framerate);
+
+        self.camera_view = values.camera_view;
+        let mode7 = self.camera_view == 0;
+        let rotating = self.camera_view == 2;
+        if self.camera.mode7 != mode7 || self.camera.rotating != rotating {
+            self.camera.mode7 = mode7;
+            self.camera.rotating = rotating;
+            if mode7 || rotating {
+                self.camera.set_heading(self.player.visual_angle);
+            }
+        }
 
         if format != previous_format {
             set_texture_format(format);
@@ -1299,7 +1333,13 @@ impl ArduracerGame {
         dbg::print("[SETTINGS] applied format=");
         dbg::print(format.label());
         dbg::print(" framerate=");
-        dbg::println(framerate.label());
+        dbg::print(framerate.label());
+        dbg::print(" view=");
+        dbg::println(match self.camera_view {
+            0 => "BEHIND",
+            1 => "OVERHEAD",
+            _ => "ROTATING",
+        });
 
         // Persist unconditionally: both values are cheap and a card write is
         // already the established pattern for settings changes.

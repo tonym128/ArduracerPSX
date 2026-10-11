@@ -83,6 +83,9 @@ pub fn render_car(
             cos_raw: (r.cos_raw * scale) >> 12,
             sin_raw: (r.sin_raw * scale) >> 12,
         }
+    } else if camera.rotating {
+        // Heading relative to the view heading so the player's car points up the screen
+        Rot::from_bams(car.visual_angle.wrapping_sub(camera.heading))
     } else {
         Rot::from_bams(car.visual_angle)
     };

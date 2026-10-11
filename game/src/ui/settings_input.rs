@@ -11,9 +11,10 @@
 //! open-ended behaviour.
 
 /// Rows, in display order.
-pub const ROW_COUNT: u8 = 2;
+pub const ROW_COUNT: u8 = 3;
 const ROW_TEXTURE: u8 = 0;
 const ROW_FRAMERATE: u8 = 1;
+const ROW_VIEW: u8 = 2;
 
 /// Raw button state for one frame.
 #[derive(Copy, Clone, Default)]
@@ -122,17 +123,20 @@ impl SettingsMenu {
         let span = match self.selected_row {
             ROW_TEXTURE => MAX_TEXTURE_FORMAT as i32 + 1,
             ROW_FRAMERATE => 2,
+            ROW_VIEW => 3,
             _ => return false,
         };
         let cur = match self.selected_row {
             ROW_TEXTURE => self.values.texture_format as i32,
             ROW_FRAMERATE => self.values.framerate as i32,
+            ROW_VIEW => self.values.camera_view as i32,
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
         match self.selected_row {
             ROW_TEXTURE => self.values.texture_format = next,
             ROW_FRAMERATE => self.values.framerate = next,
+            ROW_VIEW => self.values.camera_view = next,
             _ => return false,
         }
         next != cur as u8
