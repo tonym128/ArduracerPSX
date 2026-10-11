@@ -242,3 +242,83 @@ mod tests {
         );
     }
 }
+
+/// The decode-budget tiers, keyed to VBlanks elapsed since the frame's step-1
+/// stamp.
+///
+/// This is the exact arithmetic that shipped wrong. At 60 FPS the period is 1,
+/// so a condition written as `elapsed + 1 >= period` is true on the first
+/// iteration of every frame and the tier collapses to "admit nothing" -- the
+/// tile cache never fills and every visible tile renders as a placeholder
+/// (measured: 68,616 placeholders at 60 FPS versus 172 once fixed). The same
+/// expression is harmless at 30 FPS, which is why the bug survived a merge.
+///
+/// It lives here, in `core`, for the same reason the codec mapping does: the
+/// real loop is in `game/src/gpu/tracktex.rs`, where nothing can test it.
+pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -> usize {
+    let period = if period == 0 { 1 } else { period };
+    if ticks_to_run >= 3 || elapsed_vblanks >= period {
+        0
+    } else if ticks_to_run == 2 || elapsed_vblanks + 1 >= period {
+        1
+    } else {
+        period as usize
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+
+    /// 60 FPS is the regression: one row must be admitted on the first
+    /// iteration of a frame, which is `elapsed == 0`, `period == 1`.
+    #[test]
+    fn sixty_fps_admits_a_row_at_the_start_of_every_frame() {
+        assert_eq!(decode_row_budget(1, 0, 1), 1, "60 FPS must admit a row");
+    }
+
+    /// Once the frame's single VBlank has elapsed there is no time left.
+    #[test]
+    fn sixty_fps_admits_nothing_once_the_vblank_has_passed() {
+        assert_eq!(decode_row_budget(1, 1, 1), 0);
+    }
+
+    /// 30 FPS keeps exactly the behaviour it had before the generalisation:
+    /// two rows early in the frame, one in its second half, none at the end.
+    #[test]
+    fn thirty_fps_matches_its_original_budget() {
+        assert_eq!(decode_row_budget(1, 0, 2), 2);
+        assert_eq!(decode_row_budget(1, 1, 2), 1);
+        assert_eq!(decode_row_budget(1, 2, 2), 0);
+    }
+
+    /// Simulation pressure overrides pacing: a catch-up frame does no decoding.
+    #[test]
+    fn simulation_pressure_still_wins_over_pacing() {
+        assert_eq!(decode_row_budget(3, 0, 1), 0);
+        assert_eq!(decode_row_budget(4, 0, 2), 0);
+        assert_eq!(decode_row_budget(2, 0, 1), 1);
+        assert_eq!(decode_row_budget(2, 0, 2), 1);
+    }
+
+    /// Whatever the mode, the first iteration of a frame must admit work
+    /// whenever the frame is not already over. This is the invariant whose
+    /// violation produced the 68,616-placeholder build.
+    #[test]
+    fn a_frame_never_starts_admitting_nothing_while_it_has_time() {
+        for period in [1u32, 2] {
+            assert_ne!(
+                decode_row_budget(1, 0, period),
+                0,
+                "period {period} admits nothing at the start of a frame"
+            );
+        }
+    }
+
+    /// A zero period must not divide or panic; it is treated as one VBlank.
+    #[test]
+    fn a_zero_period_degrades_to_one_vblank() {
+        assert_eq!(decode_row_budget(1, 0, 0), 1);
+        assert_eq!(decode_row_budget(1, 1, 0), 0);
+    }
+}
