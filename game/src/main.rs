@@ -178,7 +178,7 @@ impl ArduracerGame {
         let timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
         let player = VehicleState::new(track.start_pos, track.start_heading, Default::default());
         let rivals = spawn_rivals(track.start_pos, track.start_heading, None);
-        let camera = Camera::new(track.start_pos);
+        let camera = Camera::new_chase(track.start_pos, track.start_heading);
 
         dbg::log_step(6, 9, "Probing memory card...");
         let mut memcard = MemoryCardManager::new();
@@ -342,7 +342,7 @@ impl ArduracerGame {
             track.start_heading,
             self.state_mgr.championship.as_ref(),
         );
-        self.camera = Camera::new(player_pos);
+        self.camera = Camera::new_chase(player_pos, track.start_heading);
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         self.ghost.start_lap();
@@ -789,6 +789,9 @@ impl ArduracerGame {
                     // Camera update, clamped to the circuit so the view never leaves the world.
                     {
                         let _s = prof::span(prof::CAMERA);
+                        if self.camera.mode7 {
+                            self.camera.follow_heading(self.player.visual_angle);
+                        }
                         self.camera.update(
                             self.player.position,
                             self.player.velocity,

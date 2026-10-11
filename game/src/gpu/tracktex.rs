@@ -46,7 +46,7 @@ use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
 use crate::cd_fs::DiscReader;
-use crate::gpu::camera::Camera;
+use crate::gpu::camera::{Camera, M7_HORIZON, M7_Z_FAR, M7_Z_NEAR};
 use crate::gpu::texlayout::{
     self, BLOCK_DIM, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
     VRAM_TILE_DIM,
@@ -606,7 +606,11 @@ fn decode_and_upload_full_tile(
 /// Pre-warms the starting grid tiles directly into VRAM so the race starts with 100% texture residency.
 #[inline(never)]
 pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
-    let (half_w, half_h) = camera.visible_half_extents();
+    let (half_w, half_h) = if camera.mode7 {
+        (M7_SCAN_RADIUS, M7_SCAN_RADIUS)
+    } else {
+        camera.visible_half_extents()
+    };
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
 
@@ -644,6 +648,9 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
         for tx in min_tx..=max_tx {
             let wx0 = tx * tile_wu_x;
             let wy0 = ty * tile_wu_y;
+            if camera.mode7 && !m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
+                continue;
+            }
             let bx = (wx0 / block_wu_x) as usize;
             let by = (wy0 / block_wu_y) as usize;
             let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
@@ -997,7 +1004,11 @@ pub fn render_track_extents(
     last_flip_vblank: u32,
     max_decode_rows: usize,
 ) {
-    let (half_w, half_h) = camera.visible_half_extents();
+    let (half_w, half_h) = if camera.mode7 {
+        (M7_SCAN_RADIUS, M7_SCAN_RADIUS)
+    } else {
+        camera.visible_half_extents()
+    };
     let cam_x = camera.pos.x.to_int();
     let cam_y = camera.pos.y.to_int();
 
@@ -1057,7 +1068,11 @@ pub fn render_track_extents(
                 let ty0 = y0.max(wy0);
                 let ty1 = y1.min(wy0 + tile_wu_y);
 
-                if tx0 < tx1 && ty0 < ty1 && vis_count < 48 {
+                if tx0 < tx1
+                    && ty0 < ty1
+                    && vis_count < 48
+                    && (!camera.mode7 || m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y))
+                {
                     let bx = (wx0 / block_wu_x) as usize;
                     let by = (wy0 / block_wu_y) as usize;
                     let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
@@ -1149,12 +1164,26 @@ pub fn render_track_extents(
 
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
     let _quads = crate::prof::span(crate::prof::TRACK_QUADS);
+    if camera.mode7 {
+        draw_m7_backdrop();
+    }
     for i in 0..vis_count {
         let (tx, ty, _, _, _, _) = visible_tiles[i];
         let s_idx = slot_for_tile[i];
 
         if s_idx == usize::MAX {
             crate::prof::count(crate::prof::C_PLACEHOLDERS, 1);
+        }
+
+        if camera.mode7 {
+            draw_tile_m7(
+                camera,
+                (tx, ty),
+                (tile_wu_x, tile_wu_y),
+                (world_w, world_h),
+                s_idx,
+            );
+            continue;
         }
 
         let wx0 = tx * tile_wu_x;
@@ -1204,6 +1233,165 @@ pub fn render_track_extents(
             let material = TextureMaterial::opaque(0, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
             gpu::draw_quad_textured_material(
                 [tl, tr, bl, br],
+                [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
+                material,
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mode 7 chase view
+// ---------------------------------------------------------------------------
+
+/// Half-width of the square of world units scanned for Mode 7 tiles. It must
+/// reach the far corner of the frustum: `M7_Z_FAR` deep and ~1.33x that wide.
+const M7_SCAN_RADIUS: i32 = 440;
+
+/// True if any part of the tile can fall inside the Mode 7 frustum.
+///
+/// A conservative circle-vs-trapezoid test on the tile centre: the tile's
+/// bounding radius pads both the depth range and the lateral edge test
+/// (screen half-width is `1.33 * z`, tested as `5 * lateral <= 7 * z`).
+fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> bool {
+    let cam_qx = camera.pos.x.raw() >> 8;
+    let cam_qy = camera.pos.y.raw() >> 8;
+    let (right, z) =
+        camera.view_from_offset_q4((2 * wx0 + tw) * 8 - cam_qx, (2 * wy0 + th) * 8 - cam_qy);
+    // 0.75 * the larger edge, in Q4 units: bounds the half-diagonal.
+    let rad = tw.max(th) * 12;
+    if z + rad < (M7_Z_NEAR << 4) || z - rad > (M7_Z_FAR << 4) {
+        return false;
+    }
+    (right.abs() - rad) * 5 <= (z + rad).max(0) * 7
+}
+
+/// Sky bands above the horizon and distant haze down to where the tiles start.
+fn draw_m7_backdrop() {
+    let h = M7_HORIZON as i16;
+    gpu::draw_rect_flat(0, 0, 320, 20, 28, 46, 96);
+    gpu::draw_rect_flat(0, 20, 320, 20, 52, 84, 140);
+    gpu::draw_rect_flat(0, 40, 320, (h - 40) as u16, 110, 140, 175);
+    // Distant ground haze, fading into the fogged far tiles.
+    gpu::draw_rect_flat(0, h, 320, 30, 70, 86, 110);
+    gpu::draw_rect_flat(0, h + 30, 320, 240 - (h + 30) as u16, 52, 60, 74);
+}
+
+/// Draws one world tile through the Mode 7 projection.
+///
+/// The GPU maps textures affinely, so a big perspective quad swims. Each
+/// textured tile is therefore a grid of small cells, finer near the camera
+/// (where perspective changes fastest) and coarser far away; neighbouring
+/// cells share projected corners, so the grid has no cracks. Pending tiles
+/// are a single flat quad. Distance fog darkens the texture modulation.
+#[inline(never)]
+fn draw_tile_m7(
+    camera: &Camera,
+    tile: (i32, i32),
+    tile_wu: (i32, i32),
+    world: (i32, i32),
+    s_idx: usize,
+) {
+    let (tx, ty) = tile;
+    let (tw, th) = tile_wu;
+    let wx0 = tx * tw;
+    let wy0 = ty * th;
+    let cw = (wx0 + tw).min(world.0) - wx0;
+    let ch = (wy0 + th).min(world.1) - wy0;
+    if cw <= 0 || ch <= 0 {
+        return;
+    }
+    let cam_qx = camera.pos.x.raw() >> 8;
+    let cam_qy = camera.pos.y.raw() >> 8;
+
+    let textured = s_idx != usize::MAX;
+    let (nx, ny) = if textured {
+        let (_, zc) =
+            camera.view_from_offset_q4((2 * wx0 + cw) * 8 - cam_qx, (2 * wy0 + ch) * 8 - cam_qy);
+        let target = if zc < (150 << 4) {
+            32
+        } else if zc < (210 << 4) {
+            64
+        } else {
+            128
+        };
+        (
+            ((cw + target - 1) / target).clamp(1, 4),
+            ((ch + target - 1) / target).clamp(1, 4),
+        )
+    } else {
+        (1, 1)
+    };
+
+    // Projected grid corners, row stride 9 (max 8 cells + 1).
+    let mut pts = [(0i16, 0i16); 81];
+    let mut pz = [0i32; 81];
+    for j in 0..=ny {
+        for i in 0..=nx {
+            let wx = wx0 + cw * i / nx;
+            let wy = wy0 + ch * j / ny;
+            let (r, z) = camera.view_from_offset_q4(wx * 16 - cam_qx, wy * 16 - cam_qy);
+            let k = (j * 9 + i) as usize;
+            pts[k] = Camera::project_rz(r, z);
+            pz[k] = z;
+        }
+    }
+
+    if !textured {
+        let checker = ((tx ^ ty) & 1) != 0;
+        let (pr, pg, pb) = texlayout::placeholder_tile_colour(true, checker);
+        let (a, b, c, d) = (0usize, nx as usize, (ny * 9) as usize, (ny * 9 + nx) as usize);
+        gpu::draw_quad_flat([pts[a], pts[b], pts[c], pts[d]], pr, pg, pb);
+        return;
+    }
+
+    let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
+    let tpage = TPAGES[tpage_idx];
+    let tpage_word = tpage.uv_tpage_word(0);
+
+    for j in 0..ny {
+        for i in 0..nx {
+            let a = (j * 9 + i) as usize;
+            let b = a + 1;
+            let c = a + 9;
+            let d = c + 1;
+            let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
+            let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
+            if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
+                continue;
+            }
+            let (pa, pb, pc, pd) = (pts[a], pts[b], pts[c], pts[d]);
+            let min_x = pa.0.min(pb.0).min(pc.0).min(pd.0);
+            let max_x = pa.0.max(pb.0).max(pc.0).max(pd.0);
+            let min_y = pa.1.min(pb.1).min(pc.1).min(pd.1);
+            let max_y = pa.1.max(pb.1).max(pc.1).max(pd.1);
+            // Off screen, or too large for the GPU's 1023x511 primitive limit.
+            if max_x < 0 || min_x > 320 || max_y < 0 || min_y > 240 {
+                continue;
+            }
+            if max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500 {
+                continue;
+            }
+
+            let lu0 = ((cw * i / nx) * 64 / tw) as u16;
+            let lu1 = ((cw * (i + 1) / nx) * 64 / tw) as u16;
+            let lv0 = ((ch * j / ny) * 64 / th) as u16;
+            let lv1 = ((ch * (j + 1) / ny) * 64 / th) as u16;
+            let u0 = ((u_base as u16) + lu0).min(255) as u8;
+            let u1 = ((u_base as u16) + lu1).min(255) as u8;
+            let v0 = ((v_base as u16) + lv0).min(255) as u8;
+            let v1 = ((v_base as u16) + lv1).min(255) as u8;
+
+            // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
+            let z_units = (zmax + zmin) >> 5;
+            let shade = if z_units <= 150 {
+                128
+            } else {
+                (128 - (z_units - 150) * 58 / 120).max(70)
+            } as u8;
+            let material = TextureMaterial::opaque(0, tpage_word, (shade, shade, shade));
+            gpu::draw_quad_textured_material(
+                [pa, pb, pc, pd],
                 [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
                 material,
             );

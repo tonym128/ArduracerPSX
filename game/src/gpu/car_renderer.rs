@@ -71,7 +71,21 @@ pub fn render_car(
     }
 
     let layer = CarLayer::of(is_ghost);
-    let rot = Rot::from_bams(car.visual_angle);
+    let rot = if camera.mode7 {
+        // Heading relative to the view, with the rotation matrix scaled by the
+        // perspective factor at the car's depth (1.0 at the pivot).
+        let scale = camera.m7_scale_q12(car.position);
+        if scale == 0 {
+            return;
+        }
+        let r = Rot::from_bams(car.visual_angle.wrapping_sub(camera.heading));
+        Rot {
+            cos_raw: (r.cos_raw * scale) >> 12,
+            sin_raw: (r.sin_raw * scale) >> 12,
+        }
+    } else {
+        Rot::from_bams(car.visual_angle)
+    };
 
     // 1. Dynamic Rotated Drop Shadow (projected +3, +3)
     if !is_ghost {

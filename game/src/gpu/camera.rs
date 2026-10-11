@@ -16,7 +16,10 @@
 //! Hardware-free: depends only on `arduracer-core`, so `tools/test_ui` exercises
 //! it on the host.
 
-use arduracer_core::{Fixed, Vec2, FP_ONE, FP_SHIFT};
+use arduracer_core::{math::cos, math::sin, Fixed, Vec2, FP_ONE, FP_SHIFT};
+
+/// Returned for points a Mode 7 view cannot show; outside every layer's bounds test.
+pub const M7_OFFSCREEN: (i16, i16) = (-2000, -2000);
 
 pub const SCREEN_W: i16 = 320;
 pub const SCREEN_H: i16 = 240;
@@ -51,6 +54,34 @@ const LEAD_DIR_EASE: i32 = 512;
 /// the car is going. Below this the lead direction is held instead of chased.
 const LEAD_DIR_HOLD_SPEED: i32 = 1_200;
 
+// ---------------------------------------------------------------------------
+// Mode 7 chase view
+// ---------------------------------------------------------------------------
+//
+// The ground plane is rotated so the car's heading points up the screen and
+// projected with a pinhole camera behind the car: `y = HORIZON + K / z`,
+// `x = 160 + right * FOCAL / z`, with `z = forward + M7_Z0`. At the car
+// (forward ~ 0) the scale is FOCAL / Z0 = 1 pixel per world unit, so sprites
+// keep their top-down size there and shrink with distance.
+
+/// Screen row of the horizon.
+pub const M7_HORIZON: i32 = 60;
+/// Depth of the camera pivot behind the focus point, in world units.
+pub const M7_Z0: i32 = 120;
+/// Focal length in pixels. `FOCAL == Z0` makes the scale 1.0 at the pivot.
+const M7_FOCAL: i32 = 120;
+/// Camera height times focal length: the ground row at depth z is `HORIZON + K / z`.
+const M7_K: i32 = 15_600;
+/// Nearest depth projected. Clamping here keeps the divide bounded.
+pub const M7_Z_NEAR: i32 = 70;
+/// Farthest depth that is drawn. Bounds the number of streamed tiles.
+pub const M7_Z_FAR: i32 = 270;
+/// The heading eases by 1/this of the remaining angle each tick.
+const M7_HEADING_EASE_DIV: i32 = 6;
+/// Position ease in chase mode. Stiffer than top-down because there is no
+/// look-ahead to hide the lag: the car must stay near its screen anchor.
+const M7_POSITION_EASE: i32 = 1_600;
+
 /// Camera state in world coordinates.
 #[derive(Copy, Clone, Debug)]
 pub struct Camera {
@@ -64,6 +95,13 @@ pub struct Camera {
     /// previous tick's velocity, so it is not public. Starts pointing up the
     /// screen, which is the standstill default -- a stationary car sits low.
     lead_dir: Vec2,
+    /// True for the Mode 7 behind-the-car view; false for the top-down view.
+    pub mode7: bool,
+    /// Smoothed view heading in BAMS (4096 = 360 degrees), 0 = up the screen.
+    pub heading: u16,
+    /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
+    hsin: i32,
+    hcos: i32,
 }
 
 /// The direction the look-ahead starts at: up the screen, so the car renders
@@ -75,11 +113,7 @@ const LEAD_DIR_INITIAL: Vec2 = Vec2 {
 
 impl Default for Camera {
     fn default() -> Self {
-        Camera {
-            pos: Vec2::ZERO,
-            zoom: Fixed::from_raw(ZOOM_REST),
-            lead_dir: LEAD_DIR_INITIAL,
-        }
+        Camera::new(Vec2::ZERO)
     }
 }
 
@@ -89,7 +123,84 @@ impl Camera {
             pos: initial_pos,
             zoom: Fixed::from_raw(ZOOM_REST),
             lead_dir: LEAD_DIR_INITIAL,
+            mode7: false,
+            heading: 0,
+            hsin: 0,
+            hcos: FP_ONE,
         }
+    }
+
+    /// A camera in the Mode 7 chase view, starting aligned to `heading`.
+    pub fn new_chase(initial_pos: Vec2, heading: u16) -> Self {
+        let mut c = Camera::new(initial_pos);
+        c.mode7 = true;
+        c.set_heading(heading);
+        c
+    }
+
+    /// Snaps the view heading (BAMS) and refreshes the cached trig.
+    pub fn set_heading(&mut self, heading: u16) {
+        self.heading = heading & 0x0FFF;
+        self.hsin = sin(self.heading).raw();
+        self.hcos = cos(self.heading).raw();
+    }
+
+    /// Eases the view heading toward `target` (BAMS) the short way round.
+    pub fn follow_heading(&mut self, target: u16) {
+        let mut diff = (target & 0x0FFF) as i32 - self.heading as i32;
+        if diff > 2048 {
+            diff -= 4096;
+        } else if diff < -2048 {
+            diff += 4096;
+        }
+        // Always make progress on a small residual so it cannot stall.
+        let mut step = diff / M7_HEADING_EASE_DIV;
+        if step == 0 {
+            step = diff.signum();
+        }
+        let h = (self.heading as i32 + step) & 0x0FFF;
+        self.set_heading(h as u16);
+    }
+
+    /// Camera-space `(right, depth)` of a world point, both in Q4 world units
+    /// (1/16 unit). Depth includes the pivot offset, so it is the `z` of the
+    /// projection and is not clamped. Offsets are clamped so the `i32`
+    /// products below cannot overflow.
+    #[inline]
+    pub fn view_rq4_zq4(&self, world_pos: Vec2) -> (i32, i32) {
+        let dx = ((world_pos.x.raw() - self.pos.x.raw()) >> 8).clamp(-32_000, 32_000);
+        let dy = ((world_pos.y.raw() - self.pos.y.raw()) >> 8).clamp(-32_000, 32_000);
+        self.view_from_offset_q4(dx, dy)
+    }
+
+    /// As [`Camera::view_rq4_zq4`] but from an offset already in Q4 units.
+    #[inline]
+    pub fn view_from_offset_q4(&self, dx: i32, dy: i32) -> (i32, i32) {
+        // forward = dx*sin(h) - dy*cos(h); right = dx*cos(h) + dy*sin(h)
+        let fwd = (dx * self.hsin - dy * self.hcos) >> 12;
+        let right = (dx * self.hcos + dy * self.hsin) >> 12;
+        (right, fwd + (M7_Z0 << 4))
+    }
+
+    /// Projects a camera-space `(right, depth)` pair (Q4) to a screen pixel.
+    #[inline]
+    pub fn project_rz(right_q4: i32, z_q4: i32) -> (i16, i16) {
+        let z = z_q4.max(M7_Z_NEAR << 4);
+        let sy = M7_HORIZON + (M7_K * 16) / z;
+        let sx = SCREEN_W as i32 / 2 + (right_q4 * M7_FOCAL) / z;
+        (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
+    }
+
+    /// Perspective scale at a world point as Q12 (4096 = 1 pixel per unit).
+    /// Returns 0 for points behind the near plane or beyond the far plane.
+    #[inline]
+    pub fn m7_scale_q12(&self, world_pos: Vec2) -> i32 {
+        let (_, z_q4) = self.view_rq4_zq4(world_pos);
+        if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+            return 0;
+        }
+        // FOCAL * 16 / z_q4 is pixels per unit; scale to Q12.
+        (M7_FOCAL * 16 * 4096) / z_q4
     }
 
     /// Half-extents of the visible world rectangle, in world units, taking the
@@ -121,6 +232,13 @@ impl Camera {
     /// invited a future renderer to honour it and silently double-offset
     /// everything (TASK-1216).
     pub fn world_to_screen(&self, world_pos: Vec2) -> (i16, i16) {
+        if self.mode7 {
+            let (right, z_q4) = self.view_rq4_zq4(world_pos);
+            if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+                return M7_OFFSCREEN;
+            }
+            return Self::project_rz(right, z_q4);
+        }
         let off = self.world_offset(world_pos);
         // Saturating, not wrapping: `world_offset` clamps each axis to `i16`, so
         // a point far off-screen would overflow on the addition to screen centre.
@@ -158,6 +276,16 @@ impl Camera {
         world_w: i32,
         world_h: i32,
     ) {
+        if self.mode7 {
+            // Chase view: sit on the car (it is the pivot of the projection)
+            // and let the perspective supply the look-ahead.
+            let diff_x = target_pos.x - self.pos.x;
+            let diff_y = target_pos.y - self.pos.y;
+            self.pos.x = self.pos.x + diff_x * Fixed::from_raw(M7_POSITION_EASE);
+            self.pos.y = self.pos.y + diff_y * Fixed::from_raw(M7_POSITION_EASE);
+            let _ = (target_velocity, speed, world_w, world_h);
+            return;
+        }
         // Look-ahead leads along the direction of travel. Driven by heading
         // rather than velocity so it survives being slow or pinned against a
         // wall, where a velocity-derived lead collapses to nothing and the car
