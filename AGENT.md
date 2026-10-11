@@ -99,6 +99,46 @@ graph TD
     surface. `make circuits` redraws the images from
     `tools/track_cook/generate_svg_circuit.py`.
 
+### 2.1 Circuit Texture Codecs (JPEG and QOI)
+
+`make atlas` emits **two** disc assets per circuit, and the runtime picks per
+circuit. `gpu::tracktex` streams one 1024x1024 compressed block at a time into a
+single 500 KB RAM buffer, then decodes 64x16 MCU rows from it into VRAM.
+
+| Asset | Codec | Decoder | Notes |
+| --- | --- | --- | --- |
+| `assets/TRACKS.BIN` | Baseline JPEG, `DRI=4` | `arduracer_core::jpeg` | Always present, one 250-sector block per circuit. |
+| `assets/QOITRACKS.BIN` | Segmented QOI | `arduracer_core::qoi` | Present only for circuits whose art fits the 500 KB budget losslessly. |
+
+The `qoi-track-stream` cargo feature (**on by default**) enables QOI. It is a
+pure performance switch: it can never remove content, because
+`codec_for_circuit` falls back to JPEG when the feature is off, when the disc
+has no `QOITRACKS.BIN`, or when a circuit's table entry is empty. The three
+10 km^2 city maps are JPEG-only, since their art is generated procedurally at
+cook time.
+
+**Why QOI is segmented.** Stock QOI is a single linear stream with no random
+access, so it cannot be sliced into MCU rows the way the VRAM streamer needs.
+`tools/track_cook/qoi_codec.py` therefore cuts each image into 1024 independently
+decodable 64x16 segments with a `u32` offset table, restarting QOI state per
+segment. That reproduces the JPEG restart-interval contract exactly — same
+partition, same order, `index = (tile_y * 4 + row) * 16 + tile_x` — so the two
+codecs are interchangeable call sites.
+
+**Why some circuits have no QOI block.** QOI is lossless, so the only way to
+force an over-budget image to fit is to discard detail first. For the one
+circuit whose art currently exceeds the budget (`Amber_Mesa.visual.gen.png`),
+JPEG reaches 486 KB at RMSE 3.7 while forcing QOI to fit needs 1-bit
+quantisation at RMSE 39. `compress_1024_qoi_500kb` returns `None` in that case
+rather than shipping a much worse image to save a decode win, and the runtime
+falls back automatically. Adding a circuit is therefore always safe: if it fits,
+it gets QOI; if not, it keeps JPEG.
+
+Changing the codec requires **no** change to `RamBlock`'s size: both codecs
+share the one 512 KB `block_data` buffer and the same 1024-entry offset array.
+A second per-codec buffer would cost another 512 KB of the 2 MB main RAM and
+would blow the `ci-game` static-RAM ceiling.
+
 ---
 
 ## 3. Git Worktree & Parallel Agent Workflow

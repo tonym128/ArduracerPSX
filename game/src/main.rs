@@ -741,8 +741,8 @@ impl ArduracerGame {
                     // b. Track visual map
                     {
                         let _s = prof::span(prof::RENDER_TRACK);
-                        let elapsed = psx_rt::interrupts::vblank_count()
-                            .wrapping_sub(self.last_flip_vblank);
+                        let elapsed =
+                            psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
                         let max_decode_rows = if ticks_to_run >= 3 || elapsed >= 2 {
                             0
                         } else if ticks_to_run == 2 || elapsed >= 1 {
@@ -750,12 +750,7 @@ impl ArduracerGame {
                         } else {
                             2
                         };
-                        render_track(
-                            track,
-                            &self.camera,
-                            self.last_flip_vblank,
-                            max_decode_rows,
-                        );
+                        render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
                     }
                     // c. Skidmarks on track
                     {

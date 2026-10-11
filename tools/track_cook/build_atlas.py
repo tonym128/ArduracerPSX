@@ -73,6 +73,13 @@ assert _gen_spec is not None and _gen_spec.loader is not None
 gen_svg = importlib.util.module_from_spec(_gen_spec)
 _gen_spec.loader.exec_module(gen_svg)
 
+import qoi_codec
+
+#: Maximum bytes per compressed 1024x1024 block. 500 KiB = 512,000 bytes is
+#: exactly 250 CD sectors, which is what the runtime's single 500 KB RAM buffer
+#: and the `BLOCK_SECTORS` sector-table ceiling are both sized against.
+QOI_TARGET_BYTES = 500 * 1024
+
 #: Visual image size in texels: `GRID * VISUAL_PX`, square.
 VISUAL_SIZE = (gen_svg.SIZE, gen_svg.SIZE)
 TILE_DIM = 256
@@ -312,13 +319,22 @@ def compress_1024_jpeg_500kb(im: Image.Image) -> bytes:
     return best_data
 
 
-def pack_visual(name: str) -> list[bytes]:
-    """Packs one circuit's visual image into a 1024x1024 JPEG block (<= 500 KB) and exports it."""
+def pack_visual(name: str) -> tuple[bytes, bytes | None]:
+    """Packs one circuit's visual image into 1024x1024 blocks and exports them.
+
+    Returns `(jpeg_data, qoi_data)` where `qoi_data` is `None` when the source
+    art does not fit the 500 KB block budget losslessly. QOI is lossless, so
+    unlike JPEG there is no quality knob to turn down: highly detailed art simply
+    does not fit, and that circuit keeps using its JPEG block. This is a real
+    property of the format, not a limitation to work around -- see the
+    `qoi_fits_budget` note in `compress_1024_qoi_500kb`.
+    """
     clean_name = name.replace(" ", "_")
     stem = os.path.join(ROOT, "tracks", clean_name)
     vis_path = stem + ".visual.png"
     gen_path = stem + ".visual.gen.png"
     jpg_path = stem + ".jpg"
+    qoi_path = stem + ".qoi"
 
     # Prioritize visual.gen.png if present, otherwise visual.png, or existing .jpg
     if os.path.exists(gen_path):
@@ -334,6 +350,7 @@ def pack_visual(name: str) -> list[bytes]:
         raise FileNotFoundError(f"No visual image found for {name} ({vis_path} or {gen_path})")
 
     jpeg_data = compress_1024_jpeg_500kb(im)
+    qoi_data = compress_1024_qoi_500kb(im)
 
     # Export to tracks/<Circuit>.jpg
     with open(jpg_path, "wb") as f_jpg:
@@ -346,22 +363,81 @@ def pack_visual(name: str) -> list[bytes]:
     with open(dist_jpg, "wb") as f_dist:
         f_dist.write(jpeg_data)
 
-    print(f"  exported JPEG: {jpg_path} ({len(jpeg_data)} bytes = {len(jpeg_data)/1024:.2f} KB from {src_desc})")
-    return [jpeg_data]
+    print(
+        f"  exported JPEG: {jpg_path} ({len(jpeg_data)} bytes = {len(jpeg_data)/1024:.2f} KB from {src_desc})"
+    )
+
+    if qoi_data is None:
+        # Leave no stale .qoi behind, or the disc would carry a block the table
+        # says is absent and a stale asset would silently shadow a rebuild.
+        if os.path.exists(qoi_path):
+            os.remove(qoi_path)
+        print(
+            f"  QOI skipped: {clean_name} exceeds the 500 KB block budget losslessly"
+            f" (streamed from JPEG instead)"
+        )
+        return jpeg_data, None
+
+    with open(qoi_path, "wb") as f_qoi:
+        f_qoi.write(qoi_data)
+    print(
+        f"  exported QOI:  {qoi_path} ({len(qoi_data)} bytes = {len(qoi_data)/1024:.2f} KB)"
+    )
+    return jpeg_data, qoi_data
 
 
-def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
-    """Writes `assets/TRACKS.BIN` and `crates/arduracer-core/src/visual_tex.rs`.
+def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
+    """Encodes an image as a segmented QOI block, or `None` if it does not fit.
 
-    All 1024x1024 JPEG blocks are written sector-aligned (100 sectors = 200 KB each) into
-    `assets/TRACKS.BIN` on the CD-ROM disc image. `visual_tex.rs` receives the sector index table
-    (offset, sector count, and byte len), completely decoupling runtime textures from static executable size.
+    Returns `None` rather than degrading the image, deliberately. QOI is
+    lossless, so the only way to shrink an over-budget block is to throw away
+    detail beforehand -- quantising, blurring or resampling -- and at the detail
+    levels needed to fit a busy 1024x1024 image the result is visibly worse than
+    the JPEG the game already streams. Measured on the one circuit whose art
+    currently exceeds the budget (`Amber_Mesa.visual.gen.png`): JPEG reaches
+    486 KB at RMSE 3.7 against its source, while forcing QOI to fit needs 1-bit
+    quantisation at RMSE 39. Shipping a much worse image to save a 4x decode win
+    would be the wrong trade, so that circuit keeps its JPEG block and the
+    runtime falls back automatically.
+
+    Callers must treat `None` as "this circuit has no QOI block".
+    """
+    if im.size != (1024, 1024):
+        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+
+    rgb = im.convert("RGB").tobytes()
+    data = qoi_codec.encode_block(rgb, 1024, 1024, 3)
+
+    if len(data) > QOI_TARGET_BYTES:
+        return None
+
+    # Guard against an encoder/decoder disagreement before shipping the block:
+    # a block the game cannot decode would surface as a checkerboard at runtime,
+    # which is far more expensive to diagnose than a failure here.
+    assert qoi_codec.decode_block(data, 3) == rgb, f"QOI roundtrip failed: {len(data)} bytes"
+
+    return data
+
+
+def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> None:
+    """Writes the track texture BINs and `crates/arduracer-core/src/visual_tex.rs`.
+
+    Two assets are produced. `assets/TRACKS.BIN` holds every circuit's JPEG
+    block, sector-aligned at 250 sectors (500 KB) each. `assets/QOITRACKS.BIN`
+    holds the segmented-QOI block for every circuit that fit the budget
+    losslessly, in the same sector-aligned layout; circuits that did not fit get
+    a zeroed, zero-sector table entry that the runtime reads as "no QOI here,
+    use JPEG".
+
+    `visual_tex.rs` receives both sector index tables, decoupling runtime
+    textures from static executable size.
     """
     assert packed_per_circuit, "no circuits to pack a visual for"
     out_rs = os.path.join(ROOT, "crates", "arduracer-core", "src", "visual_tex.rs")
     assets_dir = os.path.join(ROOT, "assets")
     os.makedirs(assets_dir, exist_ok=True)
     out_bin = os.path.join(assets_dir, "TRACKS.BIN")
+    out_qoi_bin = os.path.join(assets_dir, "QOITRACKS.BIN")
 
     n = len(packed_per_circuit)
     SECTOR_SIZE = 2048
@@ -369,30 +445,54 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
     SECTORS_PER_CITY = 100
     BLOCK_MAX_BYTES = 512000
 
-    # Build TRACKS.BIN with sector-aligned blocks
-    current_sector = 0
-    tile_entries: list[tuple[int, int, int]] = []
+    def write_aligned(f_bin, payload: bytes, sector_offset: int) -> int:
+        """Writes one block padded out to its full sector allocation.
 
-    with open(out_bin, "wb") as f_bin:
-        for c, blocks in enumerate(packed_per_circuit):
-            assert len(blocks) >= 1, f"Circuit {c} has no blocks"
-            packed = blocks[0]
-            byte_len = len(packed)
-            sector_count = SECTORS_PER_CIRCUIT
-            tile_entries.append((current_sector, sector_count, byte_len))
-            f_bin.write(packed)
-            pad_len = (sector_count * SECTOR_SIZE) - byte_len
-            if pad_len > 0:
-                f_bin.write(b"\x00" * pad_len)
-            current_sector += sector_count
+        Returns the sector offset just past this block, so callers can chain.
+        """
+        f_bin.write(payload)
+        pad_len = (SECTORS_PER_CIRCUIT * SECTOR_SIZE) - len(payload)
+        assert pad_len >= 0, f"block of {len(payload)} bytes exceeds its sector allocation"
+        if pad_len > 0:
+            f_bin.write(b"\x00" * pad_len)
+        return sector_offset + SECTORS_PER_CIRCUIT
+
+    # Build both BINs with sector-aligned blocks.
+    current_sector = 0
+    qoi_sector = 0
+    tile_entries: list[tuple[int, int, int]] = []
+    qoi_entries: list[tuple[int, int, int]] = []
+
+    with open(out_bin, "wb") as f_bin, open(out_qoi_bin, "wb") as f_qoi:
+        for c, (jpeg_data, qoi_data) in enumerate(packed_per_circuit):
+            tile_entries.append(
+                (current_sector, SECTORS_PER_CIRCUIT, len(jpeg_data))
+            )
+            current_sector = write_aligned(f_bin, jpeg_data, current_sector)
+
+            if qoi_data is None:
+                # Zero-sector entry: the runtime treats this as "no QOI block"
+                # and falls back to JPEG for this circuit.
+                qoi_entries.append((0, 0, 0))
+            else:
+                assert len(qoi_data) <= BLOCK_MAX_BYTES, (
+                    f"circuit {c}: QOI block is {len(qoi_data)} bytes, "
+                    f"over the {BLOCK_MAX_BYTES}-byte budget"
+                )
+                qoi_entries.append(
+                    (qoi_sector, SECTORS_PER_CIRCUIT, len(qoi_data))
+                )
+                qoi_sector = write_aligned(f_qoi, qoi_data, qoi_sector)
 
     total_sectors = current_sector
     total_bin_bytes = total_sectors * SECTOR_SIZE
+    qoi_sectors_total = qoi_sector
+    qoi_count = sum(1 for e in qoi_entries if e[1] > 0)
 
     # Emit visual_tex.rs with block sector index
     with open(out_rs, "w") as f:
         f.write(
-            "//! Per-circuit visual texture metadata and JPEG streaming index.\n"
+            "//! Per-circuit visual texture metadata and streaming indexes.\n"
             "//!\n"
             "//! Generated by `tools/track_cook/build_atlas.py`. Do not edit by hand.\n"
             "\n"
@@ -408,22 +508,28 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
             "pub const TILES_PER_BLOCK_AXIS: usize = 16;\n"
             "/// Total number of 64x64 tiles per 1024x1024 block (256).\n"
             "pub const TILES_PER_BLOCK: usize = 256;\n"
-            "/// Number of authored circuits, one 1024x1024 JPEG block each.\n"
+            "/// Number of authored circuits, one 1024x1024 block each.\n"
             f"pub const COUNT: usize = {n};\n"
-            "/// Maximum bytes per 1024x1024 compressed JPEG block (500 KB = 512,000 bytes).\n"
+            "/// Maximum bytes per 1024x1024 compressed block (500 KB = 512,000 bytes).\n"
             f"pub const BLOCK_MAX_BYTES: usize = {BLOCK_MAX_BYTES};\n"
-            "/// Number of 2048-byte CD sectors allocated per JPEG circuit block (250 sectors = 500 KB).\n"
+            "/// Number of 2048-byte CD sectors allocated per circuit block (250 sectors = 500 KB).\n"
             f"pub const BLOCK_SECTORS: usize = {SECTORS_PER_CIRCUIT};\n"
             "/// Restart marker interval in MCUs (4 MCUs = 64x16 pixels).\n"
             "pub const RESTART_INTERVAL: usize = 4;\n"
             "/// Total restart intervals in one 1024x1024 block.\n"
             "pub const RESTART_INTERVAL_COUNT: usize = 1024;\n"
+            "/// Independently decodable 64x16 QOI segments in one 1024x1024 block.\n"
+            "pub const SEGMENT_COUNT: usize = 1024;\n"
             "/// Raw uncompressed 16-bit BGR555 halfwords per 64x64 tile.\n"
             "pub const RAW_TILE_HALFWORDS: usize = TILE_DIM * TILE_DIM;\n"
             "/// Raw uncompressed byte count per 64x64 tile (8,192 bytes = 8 KB).\n"
             "pub const RAW_TILE_BYTES: usize = RAW_TILE_HALFWORDS * 2;\n"
             "/// Name of the track visual asset file on the CD-ROM disc.\n"
             "pub const TRACKS_BIN_NAME: &[u8] = b\"TRACKS.BIN\";\n"
+            "/// Name of the segmented-QOI track visual asset file on the CD-ROM disc.\n"
+            "pub const QOITRACKS_BIN_NAME: &[u8] = b\"QOITRACKS.BIN\";\n"
+            "/// Number of circuits with a segmented-QOI block on this disc.\n"
+            f"pub const QOI_CIRCUIT_COUNT: usize = {qoi_count};\n"
             "/// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.\n"
             "pub const CAPETOWN_BIN_NAME: &[u8] = b\"CAPETOWN.BIN\";\n"
             "/// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.\n"
@@ -431,14 +537,14 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
             "/// Name of the London 10 km^2 city visual asset file on the CD-ROM disc.\n"
             "pub const LONDON_BIN_NAME: &[u8] = b\"LONDON.BIN\";\n"
             "\n"
-            "/// CD-ROM sector index entry for a compressed 1024x1024 JPEG block in TRACKS.BIN.\n"
+            "/// CD-ROM sector index entry for a compressed 1024x1024 block.\n"
             "#[derive(Copy, Clone, Debug, PartialEq, Eq)]\n"
             "pub struct TileSectorEntry {\n"
-            "    /// 2048-byte sector offset from the start of TRACKS.BIN.\n"
+            "    /// 2048-byte sector offset from the start of the containing BIN.\n"
             "    pub sector_offset: u32,\n"
             "    /// Number of 2048-byte CD sectors allocated for this block.\n"
             "    pub sector_count: u32,\n"
-            "    /// Exact payload length of the compressed JPEG stream in bytes.\n"
+            "    /// Exact payload length of the compressed stream in bytes.\n"
             "    pub byte_len: u32,\n"
             "}\n"
             "\n"
@@ -446,6 +552,23 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
             f"pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [\n"
         )
         for c, (sec_off, sec_cnt, b_len) in enumerate(tile_entries):
+            f.write(
+                f"    TileSectorEntry {{ sector_offset: {sec_off}, "
+                f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
+            )
+        f.write("];\n\n")
+
+        # Segmented-QOI blocks, in the same per-circuit order. A zero
+        # `sector_count` means the cooker could not fit that circuit's art into
+        # the 500 KB budget losslessly, so the runtime uses its JPEG block.
+        f.write(
+            "/// Streaming segmented-QOI 1024x1024 block sector index [circuit].\n"
+            "///\n"
+            "/// A zero `sector_count` marks a circuit with no QOI block; the\n"
+            "/// renderer falls back to `CIRCUIT_BLOCK_SECTORS` for those.\n"
+            f"pub static CIRCUIT_QOI_SECTORS: [TileSectorEntry; COUNT] = [\n"
+        )
+        for c, (sec_off, sec_cnt, b_len) in enumerate(qoi_entries):
             f.write(
                 f"    TileSectorEntry {{ sector_offset: {sec_off}, "
                 f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
@@ -487,7 +610,12 @@ def emit_visual_tex(packed_per_circuit: list[list[bytes]]) -> None:
     fmt_generated(out_rs)
     print(
         f"wrote {out_bin} ({total_sectors} sectors = {total_bin_bytes} bytes) and "
-        f"{out_rs} ({n} circuits x 1024x1024 100KB JPEG blocks)"
+        f"{out_rs} ({n} circuits x 1024x1024 JPEG blocks)"
+    )
+    print(
+        f"wrote {out_qoi_bin} ({qoi_sectors_total} sectors = "
+        f"{qoi_sectors_total * SECTOR_SIZE} bytes) "
+        f"({qoi_count}/{n} circuits x 1024x1024 segmented-QOI blocks)"
     )
 
 
@@ -537,11 +665,13 @@ def main() -> int:
     # in `tracks/`. Nothing reads them -- `build_atlas` iterates
     # `generate_svg_circuit.CIRCUITS` -- so they are dead weight that looks like
     # the source of truth. Removed here, where the irrelevance is provable, rather
-    # than by hand.
+    # than by hand. Cooked blocks are swept too: a circuit that no longer exists
+    # must not leave a `tracks/<Name>.qoi` behind for someone to mistake for a
+    # real asset.
     keep = {n.replace(" ", "_") for n, _, _ in results}
     stale = [f for f in sorted(os.listdir(os.path.join(ROOT, "tracks")))
              if f.endswith((".data.png", ".visual.png", ".visual.gen.png", ".visual.detailed.png",
-                            ".line.json", ".palette.json"))
+                            ".line.json", ".palette.json", ".qoi"))
              and not any(f.startswith(k) for k in keep)]
     if stale:
         print(f"\nremoving {len(stale)} superseded image file(s) for the "
