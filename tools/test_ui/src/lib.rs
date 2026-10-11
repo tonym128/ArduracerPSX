@@ -14,6 +14,9 @@
 
 #![allow(dead_code)]
 
+#[path = "../../../game/src/ui/settings_input.rs"]
+mod settings_input;
+
 #[path = "../../../game/src/ui/pause_input.rs"]
 mod pause_input;
 
@@ -56,6 +59,8 @@ mod tests {
         circle: false,
         up: false,
         down: false,
+        left: false,
+        right: false,
     };
 
     /// Replays a scripted sequence of frames and returns every frame's verdict.
@@ -124,10 +129,13 @@ mod tests {
             }
             frames.push(held(|i| i.cross = true));
             let out = run(&frames);
+            // The two settings rows are editable in place and report `None`
+            // until a value actually moves, so only the action rows confirm.
             let expected = match idx {
                 0 => PauseChoice::Resume,
                 1 => PauseChoice::RestartRace,
-                _ => PauseChoice::QuitToMenu,
+                4 => PauseChoice::QuitToMenu,
+                _ => PauseChoice::None,
             };
             assert_eq!(
                 out.last().expect("frames ran").choice,
@@ -446,7 +454,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 3);
+        assert_eq!(PauseMenu::item_count(), 5);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -1083,6 +1091,8 @@ mod pause_start_arming_tests {
         circle: false,
         up: false,
         down: false,
+        left: false,
+        right: false,
     };
 
     /// A player holding `Start` while navigating to the track select.
@@ -2778,5 +2788,207 @@ mod intro_transition_tests {
             !drive_active,
             "Drive must stop immediately to prevent reading into audio tracks"
         );
+    }
+}
+
+/// Tests for the two graphics settings and the menus that edit them.
+#[cfg(test)]
+mod graphics_settings {
+    use crate::pause_input::{PauseChoice, PauseInput, PauseMenu, SettingsValues};
+    use crate::settings_input::{SettingsChoice, SettingsInput, SettingsMenu};
+
+    fn values() -> SettingsValues {
+        SettingsValues {
+            texture_format: 0,
+            framerate: 0,
+        }
+    }
+
+    fn press(f: impl Fn(&mut SettingsInput)) -> SettingsInput {
+        let mut i = SettingsInput::default();
+        f(&mut i);
+        i
+    }
+
+    /// The texture format must wrap in both directions rather than clamp, so
+    /// the player can reach every option from any other in a single press.
+    #[test]
+    fn texture_format_cycles_through_every_option_and_wraps() {
+        let mut m = SettingsMenu::new(values());
+        let mut seen = vec![m.values().texture_format];
+        for _ in 0..4 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().texture_format);
+        }
+        assert_eq!(seen, vec![0, 1, 2, 3, 0], "right must cycle and wrap");
+
+        // Backwards from Auto lands on JPEG, the last option.
+        m.update(press(|i| i.left = true));
+        assert_eq!(m.values().texture_format, 3, "left must wrap to the end");
+    }
+
+    #[test]
+    fn framerate_toggles_between_the_two_modes() {
+        let mut m = SettingsMenu::new(values());
+        m.update(press(|i| i.down = true)); // move to the framerate row
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().framerate, 1, "right selects 30 FPS");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().framerate, 0, "and wraps back to 60 FPS");
+    }
+
+    /// A held button is one change, not one per frame. Without this the value
+    /// would race through every option while the player holds the stick.
+    #[test]
+    fn a_held_direction_is_a_single_change() {
+        let mut m = SettingsMenu::new(values());
+        let held = press(|i| i.right = true);
+        let mut changes = 0;
+        for _ in 0..6 {
+            if matches!(m.update(held), SettingsChoice::Changed(_)) {
+                changes += 1;
+            }
+        }
+        assert_eq!(
+            changes, 1,
+            "a held direction changed the value {changes} times"
+        );
+        assert_eq!(m.values().texture_format, 1);
+    }
+
+    /// Row selection must stay in range with only two rows.
+    #[test]
+    fn row_selection_wraps_between_the_two_rows() {
+        let mut m = SettingsMenu::new(values());
+        assert_eq!(m.selected_row, 0);
+        m.update(press(|i| i.up = true));
+        assert_eq!(m.selected_row, 1, "up from the first row wraps to the last");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.down = true));
+        assert_eq!(m.selected_row, 0, "down from the last wraps to the first");
+    }
+
+    #[test]
+    fn cross_exits_and_reports_changes_separately() {
+        let mut m = SettingsMenu::new(values());
+        // A change alone must not close the screen.
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(
+                v.texture_format, 1,
+                "a change must report the value it moved to"
+            ),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        assert_eq!(
+            m.update(SettingsInput::default()),
+            SettingsChoice::None,
+            "a value edit must not be mistaken for a confirm"
+        );
+        // Change and confirm in the same frame: apply, then close.
+        let both = SettingsInput {
+            right: true,
+            cross: true,
+            ..SettingsInput::default()
+        };
+        assert!(matches!(m.update(both), SettingsChoice::Changed(_)));
+        // CROSS was already held in that frame, so releasing first is required
+        // before it can read as a new press.
+        assert_eq!(m.update(SettingsInput::default()), SettingsChoice::None);
+        assert_eq!(m.update(press(|i| i.cross = true)), SettingsChoice::Exit);
+    }
+
+    /// Entry must clear the edge baseline, or the button used to leave the
+    /// previous screen immediately acts on this one.
+    #[test]
+    fn arming_on_entry_swallows_the_held_button() {
+        let mut m = SettingsMenu::new(values());
+        m.arm_for_entry();
+        assert_eq!(
+            m.update(press(|i| i.right = true)),
+            SettingsChoice::None,
+            "a button held across entry must not register"
+        );
+    }
+
+    /// The pause menu edits the same values in place.
+    #[test]
+    fn pause_menu_edits_texture_inline() {
+        let mut p = PauseMenu::default();
+        // Row 2 is TEXTURE.
+        for _ in 0..2 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 2);
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(
+            matches!(out.choice, PauseChoice::Graphics(_)),
+            "right on a settings row must report a change, got {:?}",
+            out.choice
+        );
+        assert_eq!(p.values().texture_format, 1);
+        // Editing a value must not move the cursor or activate the row.
+        assert_eq!(p.selected_idx, 2, "the row should stay selected");
+    }
+
+    /// Every press that moves a value reports it, and the value survives the
+    /// round trip through the menu. Writing the card on a no-op frame is the
+    /// thing worth preventing here, so this checks the reporting, not the
+    /// arithmetic.
+    #[test]
+    fn each_move_is_reported_once() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, QUIT.
+        for _ in 0..3 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 3, "row 3 is FRAMERATE");
+
+        let first = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(first.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().framerate, 1);
+
+        // Release, then press again: a second genuine press.
+        p.update(PauseInput::default());
+        let second = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(second.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().framerate, 0, "wraps back to 60 FPS");
+    }
+
+    /// Every value the settings screen can produce must be one the save
+    /// sanitiser accepts, and the screen must never emit a byte the reader
+    /// would clamp. A mismatch here would silently reset the setting on the
+    /// next boot.
+    #[test]
+    fn every_reachable_value_is_persistable() {
+        let mut m = SettingsMenu::new(values());
+        let mut seen = vec![m.values().texture_format];
+        for _ in 0..4 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().texture_format);
+        }
+        for v in seen {
+            assert!(v <= 3, "settings emitted out-of-range texture byte {v}");
+        }
     }
 }

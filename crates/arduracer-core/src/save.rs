@@ -24,7 +24,8 @@
 //! | 24     | 96   | `best_lap_ticks` (24 × `u32`) |
 //! | 120    | 24   | `medals_earned` |
 //! | 144    | 15   | `tuning_slots` (3 × 5 sliders) |
-//! | 159    | 2    | `checksum` (CRC over bytes 0..159) |
+//! | 159    | 2    | `texture_format`, `framerate` |
+//! | 161    | 2    | `checksum` (CRC over bytes 0..161) |
 //!
 //! # A valid checksum is not a valid save
 //!
@@ -44,7 +45,14 @@ use crate::tuning::CarTuning;
 
 pub const TOTAL_TRACKS: usize = 24;
 pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
-pub const SAVE_VERSION: u16 = 1;
+/// Payload version.
+///
+/// Bumped to 2 when the graphics preferences were added: the payload grew by
+/// two bytes ahead of the CRC, so a v1 payload would otherwise be read with
+/// the checksum sitting two bytes earlier than this reader expects. Rejecting
+/// it cleanly (as `FreshProfile`) is better than silently misreading one, and
+/// the two bytes are trailing so no earlier field moves.
+pub const SAVE_VERSION: u16 = 2;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -60,11 +68,11 @@ pub const MAX_VOLUME: u8 = 8;
 
 /// On-card payload length: every field is written explicitly, so this is the
 /// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 161;
+pub const PAYLOAD_SIZE: usize = 163;
 
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 159;
+pub const CHECKSUM_OFFSET: usize = 161;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
 const OFF_BEST_LAPS: usize = 24;
@@ -83,6 +91,11 @@ pub struct SaveData {
     pub best_lap_ticks: [u32; TOTAL_TRACKS],
     pub medals_earned: [u8; TOTAL_TRACKS],
     pub tuning_slots: [CarTuning; TOTAL_TUNING_SLOTS],
+    /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG.
+    /// Totality lives in `svgtex::TextureFormat::from_saved`, not here.
+    pub texture_format: u8,
+    /// Selected framerate: 0 = 60 FPS, 1 = 30 FPS.
+    pub framerate: u8,
     pub checksum: u16,
 }
 
@@ -100,6 +113,9 @@ impl Default for SaveData {
             best_lap_ticks: [NO_BEST_LAP; TOTAL_TRACKS],
             medals_earned: [0; TOTAL_TRACKS],
             tuning_slots: [CarTuning::default(); TOTAL_TUNING_SLOTS],
+            // Auto format, 60 FPS: the defaults a first-run player gets.
+            texture_format: 0,
+            framerate: 0,
             checksum: 0,
         };
         save.checksum = save.compute_checksum();
@@ -140,6 +156,10 @@ impl SaveData {
             out[o + 4] = slot.gearing;
             o += 5;
         }
+        out[o] = self.texture_format;
+        out[o + 1] = self.framerate;
+        o += 2;
+
         // The field offsets are part of the on-card format; a field added to
         // the struct without a matching payload slot must not ship silently.
         debug_assert_eq!(o, CHECKSUM_OFFSET);
@@ -197,6 +217,10 @@ impl SaveData {
             o += 5;
         }
 
+        let texture_format = bytes[o];
+        let framerate = bytes[o + 1];
+        o += 2;
+
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         let checksum = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
         o += 2;
@@ -211,6 +235,8 @@ impl SaveData {
             rumble_enabled,
             active_tuning_slot,
             _reserved0: reserved,
+            texture_format,
+            framerate,
             best_lap_ticks,
             medals_earned,
             tuning_slots,
@@ -260,6 +286,10 @@ impl SaveData {
         self.sound_volume = self.sound_volume.min(MAX_VOLUME);
         self.music_volume = self.music_volume.min(MAX_VOLUME);
         self.rumble_enabled = u8::from(self.rumble_enabled != 0);
+        // Both of these are read back as enum discriminants. Clamping here is
+        // what stops a corrupt byte from naming a variant that does not exist.
+        self.texture_format = self.texture_format.min(3);
+        self.framerate = u8::from(self.framerate != 0);
         // _reserved0 stores Grand Prix progression when active.
         // A valid active championship has:
         // - active flag bit 0 set (0x01)

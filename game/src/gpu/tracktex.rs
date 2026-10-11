@@ -41,6 +41,7 @@
 //! cost another 512 KB of the 2 MB main RAM, which does not fit the static-RAM
 //! ceiling, and only one codec is ever active for a given circuit anyway.
 
+pub use arduracer_core::texture_format::{Codec, Framerate, TextureFormat};
 use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
@@ -65,13 +66,41 @@ const TILE_TEXELS: usize = 64;
 /// Halfwords per 64x64 VRAM tile.
 const TILE_PIXELS: usize = TILE_TEXELS * TILE_TEXELS;
 
-/// Which compressed codec a resident RAM block holds.
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum Codec {
-    Jpeg,
-    Qoi,
-    /// SVG-derived base raster plus a per-surface detail pass.
-    Arsv,
+// The codec enum and the format/pacing policy both live in `arduracer_core`:
+// they are pure decisions, and `core` is where the host tests can reach them.
+
+/// The player's texture-format preference, set from the menus and consulted by
+/// [`codec_for_circuit`].
+static mut TEXTURE_FORMAT: TextureFormat = TextureFormat::Auto;
+
+/// VBlank periods in the current frame, mirrored from the player's framerate
+/// choice.
+///
+/// This is a static rather than a parameter because the decode loop reads it
+/// deep inside `render_track_extents`, behind two call sites that would
+/// otherwise each have to thread a pacing argument they do not otherwise care
+/// about. [`set_frame_period`] is the only writer.
+static mut FRAME_PERIOD_VBLANKS: u32 = 2;
+
+/// Records the current frame's VBlank period so the decode loop can stop before
+/// it overruns the frame.
+///
+/// Called once per frame from the racing loop, before `render_track`. Getting
+/// this wrong in the 60 FPS direction is not fatal (the loop simply admits
+/// fewer rows), but in the other direction it would let decode run into the next
+/// frame and cause the dropped VBlanks the setting exists to avoid.
+pub fn set_frame_period(vblanks: u32) {
+    unsafe { FRAME_PERIOD_VBLANKS = vblanks };
+}
+
+/// The current frame's VBlank period.
+fn frame_period() -> u32 {
+    let p = unsafe { FRAME_PERIOD_VBLANKS };
+    if p == 0 {
+        1
+    } else {
+        p
+    }
 }
 
 /// Both codecs index exactly 1024 independently decodable spans per 1024x1024
@@ -281,7 +310,38 @@ fn codec_for_circuit(circuit: usize) -> Codec {
     // and a shared borrow of a mutable static outlives what it needs to.
     let have_qoi_asset = unsafe { QOITRACKS_BIN_LBA }.is_some();
     let have_svg_asset = unsafe { SVGTRACKS_BIN_LBA }.is_some();
+    let have_jpeg_asset = unsafe { TRACKS_BIN_LBA }.is_some();
     let known = circuit < visual_tex::COUNT;
+
+    // A pinned format is honoured first, but only if this build can actually
+    // decode it and the disc carries it. Pinning something unavailable therefore
+    // degrades to Auto rather than to a broken screen.
+    let pinned = unsafe { TEXTURE_FORMAT };
+    if pinned != TextureFormat::Auto {
+        let ok = match pinned {
+            TextureFormat::Svg => {
+                SVG_ENABLED
+                    && have_svg_asset
+                    && known
+                    && visual_tex::CIRCUIT_ARSV_SECTORS[circuit].sector_count > 0
+            }
+            TextureFormat::Qoi => {
+                QOI_ENABLED
+                    && have_qoi_asset
+                    && known
+                    && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
+            }
+            TextureFormat::Jpeg => {
+                have_jpeg_asset
+                    && known
+                    && visual_tex::CIRCUIT_BLOCK_SECTORS[circuit].sector_count > 0
+            }
+            TextureFormat::Auto => false,
+        };
+        if ok {
+            return pinned.codec();
+        }
+    }
 
     if SVG_ENABLED
         && have_svg_asset
@@ -297,6 +357,45 @@ fn codec_for_circuit(circuit: usize) -> Codec {
         Codec::Qoi
     } else {
         Codec::Jpeg
+    }
+}
+
+/// Sets the texture-format preference.
+///
+/// Takes effect on the next block load; call [`reset_caches`] to make it apply
+/// to the circuit currently on screen.
+pub fn set_texture_format(format: TextureFormat) {
+    unsafe { TEXTURE_FORMAT = format };
+}
+
+/// The current texture-format preference, for rendering the menus.
+pub fn texture_format() -> TextureFormat {
+    unsafe { TEXTURE_FORMAT }
+}
+
+/// Drops every cached tile so a codec change takes effect immediately.
+///
+/// The RAM block holds bytes in whichever codec was read, and each VRAM slot
+/// holds texels decoded from it. Switching format without dropping both would
+/// leave a slot's `block_id` matching while its contents came from the other
+/// decoder, which reads as corrupted geometry rather than as a stale tile.
+pub fn reset_texture_caches() {
+    unsafe {
+        // Raw pointers rather than `iter_mut`: taking a mutable reference to a
+        // mutable static is UB by the reference rules, and this is a single
+        // threaded console.
+        core::ptr::write_bytes(
+            core::ptr::addr_of_mut!(RAM_BLOCKS) as *mut u8,
+            0,
+            core::mem::size_of_val(&*core::ptr::addr_of!(RAM_BLOCKS)),
+        );
+        core::ptr::write_bytes(
+            core::ptr::addr_of_mut!(VRAM_SLOTS) as *mut u8,
+            0,
+            core::mem::size_of_val(&*core::ptr::addr_of!(VRAM_SLOTS)),
+        );
+        ACTIVE_CIRCUIT = 0;
+        FRAME_COUNTER = 0;
     }
 }
 
@@ -1009,15 +1108,16 @@ pub fn render_track_extents(
     crate::prof::set(crate::prof::C_VISIBLE_TILES, vis_count as u32);
 
     // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
-    // Up to `max_decode_rows` (e.g. 1 or 2) can be processed, provided the frame remains within
-    // the first VBlank period. If VBlank 1 fires during decode or budget is exhausted, stop.
+    // Up to `max_decode_rows` can be processed, provided the frame stays inside its own
+    // VBlank period. If the period elapses during decode, or the budget is exhausted, stop.
     let mut rows_decoded = 0;
+    let period = frame_period();
     while rows_decoded < max_decode_rows {
         let elapsed_vblanks = psx_rt::interrupts::vblank_count().wrapping_sub(last_flip_vblank);
-        if rows_decoded > 0 && elapsed_vblanks > 0 {
-            break;
-        }
-        if elapsed_vblanks >= 2 {
+        // Stop at the end of the frame's own period. This used to be hardcoded
+        // to 2 vblanks, which at 60 FPS would stop decoding before the frame
+        // was half done and starve the tile cache.
+        if elapsed_vblanks >= period || elapsed_vblanks + 1 >= period {
             break;
         }
 

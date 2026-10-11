@@ -5,6 +5,10 @@
 //! `psx-pad` adapter and the GPU drawing live in `pause.rs`, and
 //! `tools/test_ui` exercises this file directly.
 //!
+//! It also carries the two inline graphics rows (texture format, framerate)
+//! so the player can change them mid-race without leaving the pause menu; the
+//! same [`SettingsValues`] type is shared with the standalone settings screen.
+//!
 //! Why the split: this logic used to read and write a shared `prev_buttons`
 //! mask that the race loop also wrote to. Because the loop updated the mask
 //! before handing the pad to [`PauseMenu::update`], the menu always compared
@@ -12,6 +16,19 @@
 //! Entering the pause menu was unrecoverable without a power cycle. Owning all
 //! of the edge state here makes that class of bug impossible: there is exactly
 //! one writer, and the caller cannot reach in and clobber it.
+
+/// The graphics values both menus edit.
+///
+/// Defined here rather than in `settings_input.rs` because `pause_input.rs` is
+/// the file `tools/test_ui` includes first, and a re-export would otherwise
+/// give the two include paths two distinct types for the same struct.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct SettingsValues {
+    /// 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG.
+    pub texture_format: u8,
+    /// 0 = 60 FPS, 1 = 30 FPS.
+    pub framerate: u8,
+}
 
 /// What the player chose from the pause menu.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -21,6 +38,8 @@ pub enum PauseChoice {
     None,
     Resume,
     RestartRace,
+    /// Graphics settings changed while paused; the caller applies and persists.
+    Graphics(SettingsValues),
     QuitToMenu,
 }
 
@@ -33,6 +52,9 @@ pub struct PauseInput {
     pub circle: bool,
     pub up: bool,
     pub down: bool,
+    /// Shoulder and D-pad left/right, used only by the inline value rows.
+    pub left: bool,
+    pub right: bool,
 }
 
 /// Everything one racing frame needs to know about pause input.
@@ -53,9 +75,19 @@ pub struct PauseMenu {
     pub selected_idx: u8,
     /// Buttons held on the previous frame; the sole edge-detection state.
     prev: PauseInput,
+    /// Working copy of the graphics settings, committed by reporting a
+    /// [`PauseChoice::Graphics`].
+    values: SettingsValues,
 }
 
-const ITEM_COUNT: u8 = 3;
+/// Entries, in display order. The two settings rows sit between the race
+/// actions and the quit, so the destructive option stays last.
+const ITEM_RESUME: u8 = 0;
+const ITEM_RESTART: u8 = 1;
+const ITEM_TEXTURE: u8 = 2;
+const ITEM_FRAMERATE: u8 = 3;
+const ITEM_QUIT: u8 = 4;
+const ITEM_COUNT: u8 = 5;
 
 impl Default for PauseMenu {
     fn default() -> Self {
@@ -67,6 +99,10 @@ impl PauseMenu {
     pub const fn new() -> Self {
         PauseMenu {
             selected_idx: 0,
+            values: SettingsValues {
+                texture_format: 0,
+                framerate: 0,
+            },
             prev: PauseInput {
                 start: false,
                 select: false,
@@ -74,6 +110,8 @@ impl PauseMenu {
                 circle: false,
                 up: false,
                 down: false,
+                left: false,
+                right: false,
             },
         }
     }
@@ -83,14 +121,46 @@ impl PauseMenu {
         ITEM_COUNT
     }
 
+    /// The settings copy the menu is currently editing, for rendering.
+    pub const fn values(&self) -> SettingsValues {
+        self.values
+    }
+
+    /// Steps the selected row's value, wrapping. Only the two settings rows
+    /// have values; the action rows report `false`.
+    fn cycle_value(&mut self, dir: i32) -> bool {
+        let (cur, span) = match self.selected_idx {
+            ITEM_TEXTURE => (self.values.texture_format as i32, 4),
+            ITEM_FRAMERATE => (self.values.framerate as i32, 2),
+            _ => return false,
+        };
+        let next = (cur + dir).rem_euclid(span) as u8;
+        match self.selected_idx {
+            ITEM_TEXTURE => self.values.texture_format = next,
+            ITEM_FRAMERATE => self.values.framerate = next,
+            _ => return false,
+        }
+        next as i32 != cur
+    }
+
     /// Handles navigation and confirms a selection.
     ///
     /// Call exactly once per rendered frame, whether or not the menu is open:
     /// skipping a frame leaves a stale [`PauseInput`] behind and the next press
     /// reads as a hold instead of an edge.
     pub fn update(&mut self, input: PauseInput) -> PauseFrame {
+        self.update_with_values(input, self.values)
+    }
+
+    /// Handles navigation, inline value editing, and confirmation.
+    ///
+    /// `values` are the settings currently in force; the menu edits a copy and
+    /// reports a [`PauseChoice::Graphics`] only when a value actually moved, so
+    /// holding a shoulder button does not rewrite the save on every frame.
+    pub fn update_with_values(&mut self, input: PauseInput, values: SettingsValues) -> PauseFrame {
         let prev = self.prev;
         self.prev = input;
+        self.values = values;
 
         // Edge detect against the previous frame, not against `input` itself:
         // a button held for many frames is one press, not one per frame.
@@ -100,6 +170,8 @@ impl PauseMenu {
         let select_pressed = input.select && !prev.select;
         let cross_pressed = input.cross && !prev.cross;
         let circle_pressed = input.circle && !prev.circle;
+        let left_pressed = input.left && !prev.left;
+        let right_pressed = input.right && !prev.right;
 
         if up_pressed {
             self.selected_idx = if self.selected_idx == 0 {
@@ -115,14 +187,32 @@ impl PauseMenu {
             };
         }
 
+        // Inline value rows. Left/Right edit in place and never activate the row,
+        // so a player can adjust a setting without leaving the race menu.
+        let mut changed = false;
+        if left_pressed || right_pressed {
+            let dir: i32 = if right_pressed { 1 } else { -1 };
+            changed = self.cycle_value(dir);
+        }
+
         let choice = if start_pressed || circle_pressed {
             PauseChoice::Resume
         } else if cross_pressed {
             match self.selected_idx {
-                0 => PauseChoice::Resume,
-                1 => PauseChoice::RestartRace,
-                _ => PauseChoice::QuitToMenu,
+                ITEM_RESUME => PauseChoice::Resume,
+                ITEM_RESTART => PauseChoice::RestartRace,
+                ITEM_TEXTURE | ITEM_FRAMERATE => {
+                    if changed {
+                        PauseChoice::Graphics(self.values)
+                    } else {
+                        PauseChoice::None
+                    }
+                }
+                ITEM_QUIT => PauseChoice::QuitToMenu,
+                _ => PauseChoice::None,
             }
+        } else if changed {
+            PauseChoice::Graphics(self.values)
         } else {
             PauseChoice::None
         };
@@ -165,6 +255,8 @@ impl PauseMenu {
             circle: true,
             up: true,
             down: true,
+            left: true,
+            right: true,
         };
     }
 }

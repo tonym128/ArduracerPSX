@@ -14,6 +14,7 @@ pub enum MenuItem {
     TuningGarage = 2,
     Records = 3,
     CityFreeDrive = 4,
+    Settings = 5,
 }
 
 pub struct MainMenu {
@@ -42,6 +43,14 @@ impl MainMenu {
     }
 
     /// Handles menu navigation and confirms selection on fresh press.
+    /// Clears the edge baseline so a button held on the previous screen does
+    /// not immediately act on this one.
+    pub fn arm_for_entry(&mut self) {
+        self.prev_up = true;
+        self.prev_down = true;
+        self.prev_confirm = true;
+    }
+
     pub fn update(&mut self, pad: &PadState) -> Option<MenuItem> {
         self.anim_timer = self.anim_timer.wrapping_add(1);
 
@@ -53,10 +62,10 @@ impl MainMenu {
             if self.selected_idx > 0 {
                 self.selected_idx -= 1;
             } else {
-                self.selected_idx = 4;
+                self.selected_idx = 5;
             }
         } else if down && !self.prev_down {
-            if self.selected_idx < 4 {
+            if self.selected_idx < 5 {
                 self.selected_idx += 1;
             } else {
                 self.selected_idx = 0;
@@ -77,6 +86,7 @@ impl MainMenu {
                 2 => Some(MenuItem::TuningGarage),
                 3 => Some(MenuItem::Records),
                 4 => Some(MenuItem::CityFreeDrive),
+                5 => Some(MenuItem::Settings),
                 _ => None,
             }
         } else {
@@ -101,10 +111,11 @@ impl MainMenu {
             "3. TUNING GARAGE",
             "4. RECORDS & MEDALS",
             "5. CITY FREE DRIVE",
+            "6. SETTINGS",
         ];
 
         for (idx, label) in items.iter().enumerate() {
-            let y = 56 + (idx as i16) * 26;
+            let y = 52 + (idx as i16) * 24;
             let is_sel = (idx as u8) == self.selected_idx;
 
             if is_sel {

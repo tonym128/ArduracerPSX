@@ -51,6 +51,33 @@ use crate::dbg;
 /// not as the exact drop threshold.
 pub const BUDGET_CYCLES: u32 = 1_128_960;
 
+/// Cycles available to one frame at the player's selected framerate.
+///
+/// The profiler's own reporting uses [`BUDGET_CYCLES`], which is the 30 FPS
+/// figure. This is what a stage should be judged against instead, and it is set
+/// from the racing loop each frame so the percentages mean something in both
+/// modes -- at 60 FPS a stage that was 5% of the old budget is 10% of this one.
+static mut ACTIVE_BUDGET_CYCLES: u32 = BUDGET_CYCLES;
+
+/// VBlank periods the current frame is expected to occupy. Set alongside the
+/// budget so the missed-VBlank count means the same thing in both modes.
+static mut EXPECTED_VBLANKS_PER_FRAME: u32 = 2;
+
+/// Records the frame's cycle budget for percentage reporting.
+pub fn set_budget_cycles(cycles: u32) {
+    unsafe { ACTIVE_BUDGET_CYCLES = cycles };
+}
+
+/// Records how many VBlank periods a frame now occupies.
+pub fn set_expected_vblanks(period: u32) {
+    unsafe { EXPECTED_VBLANKS_PER_FRAME = if period == 0 { 1 } else { period } };
+}
+
+/// The frame budget currently in force.
+pub fn active_budget_cycles() -> u32 {
+    unsafe { ACTIVE_BUDGET_CYCLES }
+}
+
 /// Frames per report window. 30 frames is one second at the target rate: short
 /// enough to catch a transient, long enough that the report's own TTY traffic
 /// does not distort the window it describes.
@@ -403,6 +430,12 @@ pub fn set(_counter: usize, _n: u32) {}
 ///
 /// Call once per frame, before the first `span`. `C_MISSED_VBLANKS` then
 /// describes the frame that is starting rather than the one just ended.
+///
+/// "Missed" is measured against the frame's own period, not against a fixed
+/// one. A correctly-paced 60 FPS frame advances the VBlank counter by exactly
+/// 1, so the previous hardcoded `delta - 1` would have reported every single
+/// frame as dropping a VBlank, and a correctly-paced 30 FPS frame as dropping
+/// none.
 #[cfg(feature = "profiling")]
 pub fn begin_frame() {
     unsafe {
@@ -418,8 +451,15 @@ pub fn begin_frame() {
         let now = psx_rt::interrupts::vblank_count();
         if FRAME_LATCHED {
             let delta = now.wrapping_sub(PREV_VBLANK);
-            if delta > 1 {
-                let missed = delta - 1;
+            // A frame occupying `period` vblanks advances the counter by that
+            // many; anything beyond it was overrun.
+            let period = if EXPECTED_VBLANKS_PER_FRAME == 0 {
+                1
+            } else {
+                EXPECTED_VBLANKS_PER_FRAME
+            };
+            if delta > period {
+                let missed = delta - period;
                 let slot = &mut *core::ptr::addr_of_mut!(FRAME_COUNTERS);
                 slot[C_MISSED_VBLANKS] = missed;
                 let total = &mut *core::ptr::addr_of_mut!(TOTAL_MISSED_VBLANKS);
@@ -482,7 +522,7 @@ pub fn end_frame() {
             WORST_FRAME_STAGES = frame_stages;
         }
 
-        if total > BUDGET_CYCLES {
+        if total > active_budget_cycles() {
             let w = &mut *core::ptr::addr_of_mut!(WINDOW_COUNTERS);
             w[C_OVER_BUDGET] = w[C_OVER_BUDGET].wrapping_add(1);
             let t = &mut *core::ptr::addr_of_mut!(TOTAL_COUNTERS);
@@ -518,7 +558,7 @@ fn print_row(name: &str, mean: u32, worst: u32) {
     dbg::print(" worst=");
     dbg::print_dec(worst);
     dbg::print(" (");
-    dbg::print_dec(mean * 100 / BUDGET_CYCLES);
+    dbg::print_dec(mean * 100 / active_budget_cycles());
     dbg::print("%)\n");
 }
 
@@ -541,7 +581,7 @@ pub fn report_window() {
         dbg::print(" worst-frame=");
         dbg::print_dec(worst_total);
         dbg::print(" (");
-        dbg::print_dec(worst_total * 100 / BUDGET_CYCLES);
+        dbg::print_dec(worst_total * 100 / active_budget_cycles());
         dbg::print("% of ");
         dbg::print_dec(BUDGET_CYCLES);
         dbg::print(")\n");

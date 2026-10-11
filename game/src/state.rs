@@ -4,8 +4,8 @@
 //! Tuning Garage, Active Racing, and Race Results Ceremonies.
 
 use crate::ui::{
-    CitySelectScreen, GrandPrixSetupScreen, MainMenu, ResultsScreen, TitleScreen,
-    TrackSelectScreen, TuningScreen, VictoryScreen,
+    CitySelectScreen, GrandPrixSetupScreen, MainMenu, ResultsScreen, SettingsScreen,
+    SettingsValues, TitleScreen, TrackSelectScreen, TuningScreen, VictoryScreen,
 };
 use arduracer_core::championship::ChampionshipSession;
 use arduracer_core::tuning::CarTuning;
@@ -15,6 +15,7 @@ pub enum GameState {
     #[default]
     Title,
     MainMenu,
+    Settings,
     GrandPrixSetup,
     TrackSelect,
     CitySelect,
@@ -26,6 +27,8 @@ pub enum GameState {
 
 pub struct StateManager {
     pub current: GameState,
+    /// Graphics settings screen, built on entry.
+    pub settings: SettingsScreen,
     pub title: TitleScreen,
     pub menu: MainMenu,
     pub gp_setup: GrandPrixSetupScreen,
@@ -50,6 +53,10 @@ impl StateManager {
             current: GameState::Title,
             title: TitleScreen::new(),
             menu: MainMenu::new(),
+            settings: SettingsScreen::new(SettingsValues {
+                texture_format: 0,
+                framerate: 0,
+            }),
             gp_setup: GrandPrixSetupScreen::new(false),
             track_select: TrackSelectScreen::new(),
             city_select: CitySelectScreen::new(),
