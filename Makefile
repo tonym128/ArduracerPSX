@@ -219,6 +219,7 @@ ci-disc: disc
 	if [ ! -f "$(ROOT)/assets/INTRO.STR" ]; then echo "ERROR: assets/INTRO.STR missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then echo "ERROR: assets/TRACKS.BIN missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ]; then echo "ERROR: assets/QOITRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then echo "ERROR: assets/SVGTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	cuefile=$$(sed -n 's/^[[:space:]]*FILE[[:space:]]*"\(.*\)".*/\1/p' "$$cue" | head -1); \
 	echo "CUE FILE entry: '$$cuefile'"; \
 	if [ "$$cuefile" != "arduracer.bin" ]; then \
@@ -382,9 +383,11 @@ playtest: require-sdk
 # cooker that used to sit here is gone; nothing reads `ArduRacerFx/Levels/*.csv`
 # any more, and re-adding it would replace the authored circuits rather than
 # build them.
-# Cooks every authored circuit's visual image into both disc codecs: JPEG
-# (`tracks/<Circuit>.jpg`, always) and segmented QOI (`tracks/<Circuit>.qoi`,
-# only where the art fits the 500 KB block losslessly). See AGENT.md 2.1.
+# Cooks every authored circuit's visual image into all three disc formats:
+# JPEG (`tracks/<Circuit>.jpg`, always), segmented QOI
+# (`tracks/<Circuit>.qoi`, where the art fits the 500 KB block losslessly) and
+# SVG-derived ARSV (`tracks/<Circuit>.arsv`, where the circuit has an SVG).
+# See AGENT.md 2.1.
 atlas:
 	@$(MAKE) --no-print-directory require-track-images
 	@python3 tools/track_cook/build_atlas.py
@@ -437,12 +440,14 @@ iso: exe
 		--volume ARDURACER \
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
+		--file $(ROOT)/assets/SVGTRACKS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
 assets:
 	@mkdir -p $(ROOT)/assets/cdda
-	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
+	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
 	@if [ ! -f "$(ROOT)/assets/CAPETOWN.BIN" ]; then \
 		if [ -f "$(DIST)/capetown_10km/CAPETOWN.BIN" ]; then \
 			cp $(DIST)/capetown_10km/CAPETOWN.BIN $(ROOT)/assets/CAPETOWN.BIN; \
@@ -476,6 +481,7 @@ disc: assets exe
 		--file $(ROOT)/assets/INTRO.STR \
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
+		--file $(ROOT)/assets/SVGTRACKS.BIN \
 		--file $(ROOT)/assets/CAPETOWN.BIN \
 		--file $(ROOT)/assets/MELBOURNE.BIN \
 		--file $(ROOT)/assets/LONDON.BIN \

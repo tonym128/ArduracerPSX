@@ -18,6 +18,7 @@ use arduracer_core::jpeg::{
 use arduracer_core::qoi::{
     decode_tile_row_64x16 as qoi_row, index_segments, QoiHeader, SEGMENT_COUNT,
 };
+use arduracer_core::svgtex::{decode_tile_row_64x16 as svg_row, parse_block as parse_svg_block};
 
 const WIDTH: usize = 1024;
 const HEIGHT: usize = 1024;
@@ -87,8 +88,26 @@ fn bench_index_qoi(block: &[u8], reps: usize) -> f64 {
     start.elapsed().as_nanos() as f64 / reps as f64
 }
 
+/// Per-MCU-row cost of the SVG path, which is the QOI base decode plus the
+/// per-surface detail pass and the code-map lookup.
+fn bench_svg(block: &[u8], reps: usize) -> f64 {
+    let parsed = parse_svg_block(block).expect("svg block");
+    let mut scratch = [0u16; TILE_PIXELS];
+    let start = Instant::now();
+    for _ in 0..reps {
+        for ty in 0..TILES_PER_AXIS {
+            for tx in 0..TILES_PER_AXIS {
+                for row in 0..4 {
+                    svg_row(block, &parsed, tx, ty, row, &mut scratch);
+                }
+            }
+        }
+    }
+    start.elapsed().as_nanos() as f64 / (reps * TILES_PER_AXIS * TILES_PER_AXIS * 4) as f64
+}
+
 #[test]
-fn bench_mcu_row_decode_jpeg_vs_qoi() {
+fn bench_mcu_row_decode_all_three_formats() {
     const REPS: usize = 20;
 
     let jpeg_path = "../../tracks/Amber_Mesa.jpg";
@@ -113,15 +132,24 @@ fn bench_mcu_row_decode_jpeg_vs_qoi() {
     let _ = bench_jpeg(&jpeg_block, 1);
     let _ = bench_qoi(&qoi_block, 1);
 
+    let Ok(svg_block) = std::fs::read("tests/data/svg_track.arsv") else {
+        eprintln!("skipping SVG rows: fixture not present");
+        return;
+    };
+
     let j = bench_jpeg(&jpeg_block, REPS);
     let q = bench_qoi(&qoi_block, REPS);
+    let s = bench_svg(&svg_block, REPS);
     let ij = bench_index_jpeg(&jpeg_block, REPS);
     let iq = bench_index_qoi(&qoi_block, REPS);
 
     println!("\nper 64x16 MCU row decode:");
-    println!("  JPEG  {j:>10.0} ns/row");
-    println!("  QOI   {q:>10.0} ns/row");
-    println!("  speedup {:.2}x\n", j / q);
+    println!("  JPEG  {j:>10} ns/row");
+    println!("  QOI   {q:>10} ns/row");
+    println!("  SVG   {s:>10} ns/row   (QOI base + per-surface detail)");
+    println!("  QOI vs JPEG speedup  {:.2}x", j / q);
+    println!("  SVG vs JPEG speedup  {:.2}x", j / s);
+    println!("  SVG vs QOI overhead  {:.2}x\n", s / q);
 
     println!("whole 1024x1024 image (1024 rows):");
     println!("  JPEG  {:>10.2} ms", j * 1024.0 / 1e6);

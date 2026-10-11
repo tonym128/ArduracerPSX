@@ -16,7 +16,15 @@ codegen-units = 1
 lto = true
 
 [features]
-default = ["qoi-track-stream"]
+default = ["svg-track-texture", "qoi-track-stream"]
+
+# SVG-derived circuit textures (the `ARSV` container). On by default, and the
+# preferred format: the authored vector geometry rasterised at 1024, plus a
+# per-surface detail pass synthesised at decode.
+#
+# Turning it off drops every circuit back to QOI, then JPEG. As with the flag
+# below, this can never remove content -- the fallbacks cover every case.
+svg-track-texture = []
 
 # Segmented-QOI circuit textures, on by default.
 #

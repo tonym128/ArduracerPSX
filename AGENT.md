@@ -105,17 +105,42 @@ graph TD
 circuit. `gpu::tracktex` streams one 1024x1024 compressed block at a time into a
 single 500 KB RAM buffer, then decodes 64x16 MCU rows from it into VRAM.
 
-| Asset | Codec | Decoder | Notes |
-| --- | --- | --- | --- |
-| `assets/TRACKS.BIN` | Baseline JPEG, `DRI=4` | `arduracer_core::jpeg` | Always present, one 250-sector block per circuit. |
-| `assets/QOITRACKS.BIN` | Segmented QOI | `arduracer_core::qoi` | Present only for circuits whose art fits the 500 KB budget losslessly. |
+Three formats, chosen per circuit best-first. Each is a separate disc asset and
+a separate feature flag, so any of them can be turned off without losing
+content.
 
-The `qoi-track-stream` cargo feature (**on by default**) enables QOI. It is a
-pure performance switch: it can never remove content, because
-`codec_for_circuit` falls back to JPEG when the feature is off, when the disc
-has no `QOITRACKS.BIN`, or when a circuit's table entry is empty. The three
-10 km^2 city maps are JPEG-only, since their art is generated procedurally at
-cook time.
+| Asset | Codec | Flag | Decoder | Notes |
+| --- | --- | --- | --- | --- |
+| `assets/SVGTRACKS.BIN` | `ARSV`: SVG raster + code map + per-surface detail | `svg-track-texture` | `arduracer_core::svgtex` | Preferred. Straight vector edges, synthesised detail. |
+| `assets/TRACKS.BIN` | Baseline JPEG, `DRI=4` | always | `arduracer_core::jpeg` | Always present; last-resort fallback. |
+| `assets/QOITRACKS.BIN` | Segmented QOI | `qoi-track-stream` | `arduracer_core::qoi` | Lossless copy of the SVG raster, no detail pass. |
+
+`codec_for_circuit` steps down SVG -> QOI -> JPEG. Every step down is a pure
+fallback: the feature off, the disc missing the asset, or the circuit's table
+entry empty all fall through, so no combination of flags can remove content. The
+three 10 km^2 city maps are JPEG-only, since their art is generated procedurally
+at cook time.
+
+### 2.2 The SVG texture path (`ARSV`)
+
+`.visual.png` is painted from the 80x80 code map
+(`generate_svg_circuit.paint_visual`), which quantises geometry to 12.8 px cells
+and adds a per-pixel grain hash. That grain is what makes the old images
+expensive: it was ~325 KB of a 396 KB QOI block, as incompressible noise.
+
+`ARSV` instead stores the SVG rasterised at the full 1024 visual resolution,
+which is smoother *and* about four times cheaper, because the extra pixels are
+smooth runs rather than noise. It stores that raster in a segmented-QOI payload
+(the decoder core is shared with `qoi::decode_segment_rgb`, not reimplemented)
+plus the 80x80 code map packed one nibble per cell.
+
+The detail comes back at decode time instead. `svgtex::detail_delta` picks a
+function from the texel's surface code and evaluates it per texel: tarmac
+aggregate, grass clumps, gravel speckle, sand ripple, oil banding, boost
+chevrons, start-line checks, wall hatching, tunnel ribs, bridge planks, scenery.
+Deliberately integer-only, since the R3000A has no FPU, and deliberately
+evaluated per texel rather than per cell -- quantising detail to the cell would
+reintroduce exactly the blockiness the SVG raster exists to remove.
 
 **Why QOI is segmented.** Stock QOI is a single linear stream with no random
 access, so it cannot be sliced into MCU rows the way the VRAM streamer needs.

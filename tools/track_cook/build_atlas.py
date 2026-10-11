@@ -80,6 +80,16 @@ import qoi_codec
 #: and the `BLOCK_SECTORS` sector-table ceiling are both sized against.
 QOI_TARGET_BYTES = 500 * 1024
 
+# --- ARSV container (SVG raster + surface code map), mirrored in svgtex.rs ---
+ARSV_MAGIC = b"ARSV"
+ARSV_VERSION = 1
+#: magic(4) + version(1) + flags(2) + base_codec(1) + width(4) + height(4)
+#:   + grid_w(2) + grid_h(2) + code_bytes(4) + raster_bytes(4) = 28,
+#: padded to 32 so the code map and the QOI payload stay naturally aligned.
+ARSV_HEADER_BYTES = 32
+#: The base raster is stored as a segmented-QOI payload.
+ARSV_BASE_QOI = 1
+
 #: Visual image size in texels: `GRID * VISUAL_PX`, square.
 VISUAL_SIZE = (gen_svg.SIZE, gen_svg.SIZE)
 TILE_DIM = 256
@@ -319,15 +329,125 @@ def compress_1024_jpeg_500kb(im: Image.Image) -> bytes:
     return best_data
 
 
-def pack_visual(name: str) -> tuple[bytes, bytes | None]:
+def rasterise_svg_visual(name: str):
+    """Rasterises a circuit's authored SVG at full visual resolution.
+
+    Returns `(image, code_map)`. `code_map` is the same 80x80 grid the physics
+    compiles from `tracks/<Circuit>.data.png`, packed as one nibble per cell,
+    which is what lets the decoder pick a per-surface detail function without
+    shipping a colour lookup table.
+
+    This is the source the `.visual.png` used to be. Painting from the code map
+    (`generate_svg_circuit.paint_visual`) quantises geometry to 12.8 px cells
+    and adds per-pixel grain; rasterising the SVG instead keeps the anti-aliased
+    diagonals and drops the grain, which is why the result is both smoother and
+    roughly four times cheaper to store.
+    """
+    clean_name = name.replace(" ", "_")
+    stem = os.path.join(ROOT, "tracks", clean_name)
+    svg_path = stem + ".svg"
+    data_path = stem + ".data.png"
+
+    if not os.path.exists(svg_path):
+        return None, None
+
+    import io as _io
+
+    import cairosvg
+
+    svg_text = open(svg_path, encoding="utf-8").read()
+    png = cairosvg.svg2png(
+        bytestring=svg_text.encode("utf-8"),
+        output_width=VISUAL_SIZE[0],
+        output_height=VISUAL_SIZE[1],
+        background_color="black",
+    )
+    assert png is not None, "cairosvg returned no image"
+    im = Image.open(_io.BytesIO(png)).convert("RGB")
+
+    if not os.path.exists(data_path):
+        return im, None
+
+    # Recover the code map from the data image by exact palette match, the same
+    # way `compile_circuit.load_data` reads it, so the decoder's notion of a
+    # surface is the physics' notion of a surface.
+    data_rgb = np.array(Image.open(data_path).convert("RGB"))
+    codes = np.full(data_rgb.shape[:2], -1, dtype=np.int16)
+    for code, (r, g, b) in gen_svg.RGB_TUPLE.items():
+        codes[(data_rgb[:, :, 0] == r)
+              & (data_rgb[:, :, 1] == g)
+              & (data_rgb[:, :, 2] == b)] = int(code)
+    unknown = int((codes < 0).sum())
+    assert unknown == 0, f"{clean_name}: {unknown} data pixels match no palette colour"
+    assert data_rgb.shape[0] % gen_svg.DATA_PX == 0, f"{clean_name}: data image is not cell-aligned"
+    cell = codes[:: gen_svg.DATA_PX, :: gen_svg.DATA_PX]
+    return im, cell
+
+
+def pack_arsv(name: str) -> bytes | None:
+    """Builds an `ARSV` block: SVG base raster plus its surface code map.
+
+    Returns `None` when the circuit has no SVG or no code map, or when the block
+    would not fit the shared 500 KB RAM buffer.
+    """
+    im, cell = rasterise_svg_visual(name)
+    if im is None or cell is None:
+        return None
+
+    rgb = np.array(im, dtype=np.uint8)
+    h, w = rgb.shape[:2]
+    if (w, h) != VISUAL_SIZE:
+        rgb = np.array(im.resize(VISUAL_SIZE, Image.Resampling.LANCZOS), dtype=np.uint8)
+        w, h = VISUAL_SIZE
+
+    gh, gw = cell.shape
+    flat = cell.astype(np.uint8).reshape(-1)
+    assert int(flat.max(initial=0)) <= 0x0F, "code map has values outside the 4-bit range"
+    if flat.size % 2:
+        flat = np.concatenate([flat, np.zeros(1, dtype=np.uint8)])
+    pairs = flat.reshape(-1, 2)
+    # Low nibble holds the lower cell index, matching `svgtex::code_at`.
+    packed = (pairs[:, 0] & 0x0F) | ((pairs[:, 1] & 0x0F) << 4)
+
+    raster = qoi_codec.encode_block(rgb.tobytes(), w, h, 3)
+    code_bytes = packed.tobytes()
+
+    if len(code_bytes) + len(raster) + ARSV_HEADER_BYTES > QOI_TARGET_BYTES:
+        return None
+
+    out = bytearray()
+    out += ARSV_MAGIC
+    out.append(ARSV_VERSION)
+    out += (0).to_bytes(2, "big")          # flags, reserved
+    out.append(ARSV_BASE_QOI)
+    out += w.to_bytes(4, "big")
+    out += h.to_bytes(4, "big")
+    out += gw.to_bytes(2, "big")
+    out += gh.to_bytes(2, "big")
+    out += len(code_bytes).to_bytes(4, "big")
+    out += len(raster).to_bytes(4, "big")
+    out += (0).to_bytes(4, "big")   # reserved, pads the header to 32
+    assert len(out) == ARSV_HEADER_BYTES, len(out)
+    out += code_bytes
+    out += raster
+    return bytes(out)
+
+
+def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None]:
     """Packs one circuit's visual image into 1024x1024 blocks and exports them.
 
-    Returns `(jpeg_data, qoi_data)` where `qoi_data` is `None` when the source
-    art does not fit the 500 KB block budget losslessly. QOI is lossless, so
-    unlike JPEG there is no quality knob to turn down: highly detailed art simply
-    does not fit, and that circuit keeps using its JPEG block. This is a real
-    property of the format, not a limitation to work around -- see the
-    `qoi_fits_budget` note in `compress_1024_qoi_500kb`.
+    Returns `(jpeg_data, qoi_data, arsv_data)`, the three disc formats:
+
+    - `qoi_data` is `None` when the source art does not fit the 500 KB block
+      budget losslessly. QOI is lossless, so unlike JPEG there is no quality
+      knob to turn down: highly detailed art simply does not fit, and that
+      circuit keeps using its JPEG block. See `compress_1024_qoi_500kb`.
+    - `arsv_data` is `None` when the circuit has no SVG to rasterise.
+
+    The `.visual.gen.png` override still wins for the bitmap formats: it is
+    hand-authored detail that no rasteriser can reproduce. Where it is absent,
+    the SVG raster is the source, which is both smoother and cheaper than the
+    blocky `.visual.png` it replaces.
     """
     clean_name = name.replace(" ", "_")
     stem = os.path.join(ROOT, "tracks", clean_name)
@@ -335,11 +455,17 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None]:
     gen_path = stem + ".visual.gen.png"
     jpg_path = stem + ".jpg"
     qoi_path = stem + ".qoi"
+    arsv_path = stem + ".arsv"
 
-    # Prioritize visual.gen.png if present, otherwise visual.png, or existing .jpg
+    # Prioritize visual.gen.png if present, otherwise the SVG raster, then the
+    # legacy blocky visual.png, then an existing .jpg.
+    svg_im, _ = rasterise_svg_visual(name)
     if os.path.exists(gen_path):
         im = Image.open(gen_path).convert("RGB")
         src_desc = f"tracks/{clean_name}.visual.gen.png"
+    elif svg_im is not None:
+        im = svg_im
+        src_desc = f"tracks/{clean_name}.svg (rasterised at {VISUAL_SIZE[0]}px)"
     elif os.path.exists(vis_path):
         im = Image.open(vis_path).convert("RGB")
         src_desc = f"tracks/{clean_name}.visual.png"
@@ -351,6 +477,7 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None]:
 
     jpeg_data = compress_1024_jpeg_500kb(im)
     qoi_data = compress_1024_qoi_500kb(im)
+    arsv_data = pack_arsv(name)
 
     # Export to tracks/<Circuit>.jpg
     with open(jpg_path, "wb") as f_jpg:
@@ -367,23 +494,31 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None]:
         f"  exported JPEG: {jpg_path} ({len(jpeg_data)} bytes = {len(jpeg_data)/1024:.2f} KB from {src_desc})"
     )
 
-    if qoi_data is None:
-        # Leave no stale .qoi behind, or the disc would carry a block the table
-        # says is absent and a stale asset would silently shadow a rebuild.
-        if os.path.exists(qoi_path):
-            os.remove(qoi_path)
+    # Stale-block cleanup is done the same way for every optional format: a file
+    # the table says is absent must not survive on disk, or a rebuild silently
+    # ships a block the renderer will never read.
+    for path, blob, label in (
+        (qoi_path, qoi_data, "QOI"),
+        (arsv_path, arsv_data, "ARSV"),
+    ):
+        if blob is None:
+            if os.path.exists(path):
+                os.remove(path)
+            if label == "QOI":
+                print(
+                    f"  QOI skipped:  {clean_name} exceeds the 500 KB block budget"
+                    f" losslessly (streamed from JPEG instead)"
+                )
+            else:
+                print(f"  ARSV skipped: {clean_name} has no rasterisable SVG")
+            continue
+        with open(path, "wb") as f_out:
+            f_out.write(blob)
         print(
-            f"  QOI skipped: {clean_name} exceeds the 500 KB block budget losslessly"
-            f" (streamed from JPEG instead)"
+            f"  exported {label}: {path} ({len(blob)} bytes = {len(blob)/1024:.2f} KB)"
         )
-        return jpeg_data, None
 
-    with open(qoi_path, "wb") as f_qoi:
-        f_qoi.write(qoi_data)
-    print(
-        f"  exported QOI:  {qoi_path} ({len(qoi_data)} bytes = {len(qoi_data)/1024:.2f} KB)"
-    )
-    return jpeg_data, qoi_data
+    return jpeg_data, qoi_data, arsv_data
 
 
 def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
@@ -419,7 +554,9 @@ def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
     return data
 
 
-def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> None:
+def emit_visual_tex(
+    packed_per_circuit: list[tuple[bytes, bytes | None, bytes | None]]
+) -> None:
     """Writes the track texture BINs and `crates/arduracer-core/src/visual_tex.rs`.
 
     Two assets are produced. `assets/TRACKS.BIN` holds every circuit's JPEG
@@ -438,6 +575,7 @@ def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> Non
     os.makedirs(assets_dir, exist_ok=True)
     out_bin = os.path.join(assets_dir, "TRACKS.BIN")
     out_qoi_bin = os.path.join(assets_dir, "QOITRACKS.BIN")
+    out_arsv_bin = os.path.join(assets_dir, "SVGTRACKS.BIN")
 
     n = len(packed_per_circuit)
     SECTOR_SIZE = 2048
@@ -460,11 +598,14 @@ def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> Non
     # Build both BINs with sector-aligned blocks.
     current_sector = 0
     qoi_sector = 0
+    arsv_sector = 0
     tile_entries: list[tuple[int, int, int]] = []
     qoi_entries: list[tuple[int, int, int]] = []
+    arsv_entries: list[tuple[int, int, int]] = []
 
-    with open(out_bin, "wb") as f_bin, open(out_qoi_bin, "wb") as f_qoi:
-        for c, (jpeg_data, qoi_data) in enumerate(packed_per_circuit):
+    with open(out_bin, "wb") as f_bin, open(out_qoi_bin, "wb") as f_qoi, \
+            open(out_arsv_bin, "wb") as f_arsv:
+        for c, (jpeg_data, qoi_data, arsv_data) in enumerate(packed_per_circuit):
             tile_entries.append(
                 (current_sector, SECTORS_PER_CIRCUIT, len(jpeg_data))
             )
@@ -484,10 +625,24 @@ def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> Non
                 )
                 qoi_sector = write_aligned(f_qoi, qoi_data, qoi_sector)
 
+            if arsv_data is None:
+                arsv_entries.append((0, 0, 0))
+            else:
+                assert len(arsv_data) <= BLOCK_MAX_BYTES, (
+                    f"circuit {c}: ARSV block is {len(arsv_data)} bytes, "
+                    f"over the {BLOCK_MAX_BYTES}-byte budget"
+                )
+                arsv_entries.append(
+                    (arsv_sector, SECTORS_PER_CIRCUIT, len(arsv_data))
+                )
+                arsv_sector = write_aligned(f_arsv, arsv_data, arsv_sector)
+
     total_sectors = current_sector
     total_bin_bytes = total_sectors * SECTOR_SIZE
     qoi_sectors_total = qoi_sector
     qoi_count = sum(1 for e in qoi_entries if e[1] > 0)
+    arsv_sectors_total = arsv_sector
+    arsv_count = sum(1 for e in arsv_entries if e[1] > 0)
 
     # Emit visual_tex.rs with block sector index
     with open(out_rs, "w") as f:
@@ -530,6 +685,10 @@ def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> Non
             "pub const QOITRACKS_BIN_NAME: &[u8] = b\"QOITRACKS.BIN\";\n"
             "/// Number of circuits with a segmented-QOI block on this disc.\n"
             f"pub const QOI_CIRCUIT_COUNT: usize = {qoi_count};\n"
+            "/// Name of the SVG-derived track visual asset file on the CD-ROM disc.\n"
+            "pub const SVGTRACKS_BIN_NAME: &[u8] = b\"SVGTRACKS.BIN\";\n"
+            "/// Number of circuits with an ARSV block on this disc.\n"
+            f"pub const ARSV_CIRCUIT_COUNT: usize = {arsv_count};\n"
             "/// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.\n"
             "pub const CAPETOWN_BIN_NAME: &[u8] = b\"CAPETOWN.BIN\";\n"
             "/// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.\n"
@@ -569,6 +728,23 @@ def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> Non
             f"pub static CIRCUIT_QOI_SECTORS: [TileSectorEntry; COUNT] = [\n"
         )
         for c, (sec_off, sec_cnt, b_len) in enumerate(qoi_entries):
+            f.write(
+                f"    TileSectorEntry {{ sector_offset: {sec_off}, "
+                f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
+            )
+        f.write("];\n\n")
+
+        # SVG-derived blocks: the SVG raster plus its surface code map, decoded
+        # with a per-surface detail pass. Same zero-sector fallback as QOI.
+        f.write(
+            "/// Streaming SVG-derived (`ARSV`) block sector index [circuit].\n"
+            "///\n"
+            "/// A zero `sector_count` marks a circuit with no ARSV block; the\n"
+            "/// renderer falls back to `CIRCUIT_QOI_SECTORS` then\n"
+            "/// `CIRCUIT_BLOCK_SECTORS`.\n"
+            f"pub static CIRCUIT_ARSV_SECTORS: [TileSectorEntry; COUNT] = [\n"
+        )
+        for c, (sec_off, sec_cnt, b_len) in enumerate(arsv_entries):
             f.write(
                 f"    TileSectorEntry {{ sector_offset: {sec_off}, "
                 f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
@@ -616,6 +792,11 @@ def emit_visual_tex(packed_per_circuit: list[tuple[bytes, bytes | None]]) -> Non
         f"wrote {out_qoi_bin} ({qoi_sectors_total} sectors = "
         f"{qoi_sectors_total * SECTOR_SIZE} bytes) "
         f"({qoi_count}/{n} circuits x 1024x1024 segmented-QOI blocks)"
+    )
+    print(
+        f"wrote {out_arsv_bin} ({arsv_sectors_total} sectors = "
+        f"{arsv_sectors_total * SECTOR_SIZE} bytes) "
+        f"({arsv_count}/{n} circuits x 1024x1024 SVG-raster ARSV blocks)"
     )
 
 

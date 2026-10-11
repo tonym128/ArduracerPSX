@@ -70,6 +70,8 @@ const TILE_PIXELS: usize = TILE_TEXELS * TILE_TEXELS;
 enum Codec {
     Jpeg,
     Qoi,
+    /// SVG-derived base raster plus a per-surface detail pass.
+    Arsv,
 }
 
 /// Both codecs index exactly 1024 independently decodable spans per 1024x1024
@@ -117,6 +119,8 @@ struct RamBlock {
     offsets: [u32; BLOCK_SPANS],
     jpeg_header: arduracer_core::jpeg::JpegHeader,
     qoi_header: arduracer_core::qoi::QoiHeader,
+    /// Parsed `ARSV` header and base-raster segment index.
+    arsv_block: arduracer_core::svgtex::SvgBlock,
     block_data: [u8; visual_tex::BLOCK_MAX_BYTES],
     byte_len: usize,
     valid: bool,
@@ -148,6 +152,7 @@ impl RamBlock {
                 segment_width: 0,
                 segment_height: 0,
             },
+            arsv_block: arduracer_core::svgtex::SvgBlock::empty(),
             block_data: [0u8; visual_tex::BLOCK_MAX_BYTES],
             byte_len: 0,
             valid: false,
@@ -233,6 +238,11 @@ static mut TRACKS_PROBED: bool = false;
 /// non-fatal and the JPEG table is used instead.
 static mut QOITRACKS_BIN_LBA: Option<u32> = None;
 
+/// LBA of the SVG-derived circuit asset. Optional for the same reason as
+/// [`QOITRACKS_BIN_LBA`]: an older disc, or one cooked before this format
+/// existed, simply has no such file and every circuit falls back.
+static mut SVGTRACKS_BIN_LBA: Option<u32> = None;
+
 static mut CAPETOWN_BIN_LBA: Option<u32> = None;
 static mut MELBOURNE_BIN_LBA: Option<u32> = None;
 static mut LONDON_BIN_LBA: Option<u32> = None;
@@ -244,22 +254,44 @@ const QOI_ENABLED: bool = true;
 #[cfg(not(feature = "qoi-track-stream"))]
 const QOI_ENABLED: bool = false;
 
-/// Chooses the codec for a circuit.
+/// Whether the SVG-derived texture path is compiled in for this build.
+#[cfg(feature = "svg-track-texture")]
+const SVG_ENABLED: bool = true;
+#[cfg(not(feature = "svg-track-texture"))]
+const SVG_ENABLED: bool = false;
+
+/// Chooses the codec for a circuit, best available first.
 ///
-/// QOI wins when the feature flag is on, the disc actually carries the QOI
-/// asset, and the cooked table actually has a QOI entry for this circuit. Any
-/// of those failing falls back to JPEG, so a disc or an atlas built without
-/// QOI still renders.
+/// Three formats, in descending order of what they give the player:
+///
+/// 1. **SVG** (`ARSV`): the authored vector geometry rasterised at full 1024,
+///    with a per-surface detail pass synthesised at decode. Smoothest edges and
+///    the only format that adds texture rather than reproducing a stored one.
+/// 2. **QOI**: lossless copy of the same raster, no detail pass.
+/// 3. **JPEG**: lossy, and the only option for circuits whose art is too
+///    detailed to fit the 500 KB block losslessly.
+///
+/// Every step down is a pure fallback: the feature flag off, the disc missing
+/// the asset, or the circuit's table entry empty all fall through to the next.
+/// A disc cooked before this format existed therefore still renders.
 #[inline]
 fn codec_for_circuit(circuit: usize) -> Codec {
     // Copied out of the static rather than read through a shared reference:
-    // the LBA is written during the one-shot probe in `init_track_texture`,
+    // the LBAs are written during the one-shot probe in `init_track_texture`,
     // and a shared borrow of a mutable static outlives what it needs to.
     let have_qoi_asset = unsafe { QOITRACKS_BIN_LBA }.is_some();
+    let have_svg_asset = unsafe { SVGTRACKS_BIN_LBA }.is_some();
+    let known = circuit < visual_tex::COUNT;
 
-    if QOI_ENABLED
+    if SVG_ENABLED
+        && have_svg_asset
+        && known
+        && visual_tex::CIRCUIT_ARSV_SECTORS[circuit].sector_count > 0
+    {
+        Codec::Arsv
+    } else if QOI_ENABLED
         && have_qoi_asset
-        && circuit < visual_tex::COUNT
+        && known
         && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
     {
         Codec::Qoi
@@ -299,6 +331,7 @@ pub fn init_track_texture(circuit: usize) {
             );
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
             QOITRACKS_BIN_LBA = reader.find_file_lba(visual_tex::QOITRACKS_BIN_NAME);
+            SVGTRACKS_BIN_LBA = reader.find_file_lba(visual_tex::SVGTRACKS_BIN_NAME);
             CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
             MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
             LONDON_BIN_LBA = reader.find_file_lba(visual_tex::LONDON_BIN_NAME);
@@ -335,6 +368,12 @@ pub fn init_track_texture(circuit: usize) {
             } else {
                 crate::dbg::print("NONE");
             }
+            crate::dbg::print("  SVGTRACKS: 0x");
+            if let Some(lba) = SVGTRACKS_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
             crate::dbg::println("");
             TRACKS_PROBED = true;
         }
@@ -353,6 +392,7 @@ pub fn init_track_texture(circuit: usize) {
         crate::dbg::print_dec(circuit as u32);
         crate::dbg::print(" codec=");
         match codec_for_circuit(circuit) {
+            Codec::Arsv => crate::dbg::print("svg"),
             Codec::Qoi => crate::dbg::print("qoi"),
             Codec::Jpeg => crate::dbg::print("jpeg"),
         }
@@ -405,6 +445,14 @@ fn decode_row(
             );
             true
         }
+        Codec::Arsv => arduracer_core::svgtex::decode_tile_row_64x16(
+            data,
+            &ram_slot.arsv_block,
+            tile_x,
+            tile_y,
+            row,
+            scratch,
+        ),
     }
 }
 
@@ -527,7 +575,8 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
 
     // City blocks (Cape Town / Melbourne / London) are shipped as JPEG only;
     // their 10 km^2 art is procedurally generated at cook time and has no
-    // segmented-QOI counterpart, so they always take the JPEG table.
+    // SVG or QOI counterpart, so they always take the JPEG table.
+    let use_arsv = codec == Codec::Arsv && city == 0;
     let use_qoi = codec == Codec::Qoi && city == 0;
 
     let (bin_lba, entry) = match city {
@@ -554,7 +603,12 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
         }
         _ => {
             let c = circuit % visual_tex::COUNT;
-            if use_qoi {
+            if use_arsv {
+                (
+                    unsafe { SVGTRACKS_BIN_LBA },
+                    visual_tex::CIRCUIT_ARSV_SECTORS[c],
+                )
+            } else if use_qoi {
                 (
                     unsafe { QOITRACKS_BIN_LBA },
                     visual_tex::CIRCUIT_QOI_SECTORS[c],
@@ -583,7 +637,13 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
             && reader.read_sectors(block_lba, sector_count, &mut ram_slot.block_data)
         {
             ram_slot.byte_len = byte_len;
-            ram_slot.codec = if use_qoi { Codec::Qoi } else { Codec::Jpeg };
+            ram_slot.codec = if use_arsv {
+                Codec::Arsv
+            } else if use_qoi {
+                Codec::Qoi
+            } else {
+                Codec::Jpeg
+            };
 
             // The header parse and the index walk are separated from the sector
             // read because they are different work at different scales: the
@@ -593,7 +653,16 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
             let _index = crate::prof::span(crate::prof::TRACK_BLOCK_INDEX);
             let block = &ram_slot.block_data[..byte_len];
 
-            if use_qoi {
+            if use_arsv {
+                // `parse_block` does the header parse and the base-raster
+                // segment index together; both are once-per-CD-load work, same
+                // as the JPEG restart scan, so they share one profiled span.
+                if let Some(svg_block) = arduracer_core::svgtex::parse_block(block) {
+                    debug_assert_eq!(svg_block.offsets.len(), BLOCK_SPANS);
+                    ram_slot.arsv_block = svg_block;
+                    loaded = true;
+                }
+            } else if use_qoi {
                 if let Some(header) = arduracer_core::qoi::QoiHeader::parse(block) {
                     debug_assert_eq!(header.segment_count as usize, BLOCK_SPANS);
                     arduracer_core::qoi::index_segments(block, &header, &mut ram_slot.offsets);

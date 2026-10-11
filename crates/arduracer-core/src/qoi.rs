@@ -210,25 +210,25 @@ fn color_hash(r: u8, g: u8, b: u8, a: u8) -> usize {
 /// Decodes one 64x16 MCU row (`row` 0..4) within a 64x64 tile from a segmented
 /// QOI block.
 ///
-/// Mirrors [`crate::jpeg::decode_tile_row_64x16`] exactly in shape, so the two
-/// codecs are interchangeable call sites. Emits 1024 BGR555 texels directly
-/// into `out_bgr555` at scanlines `row * 16 .. row * 16 + 16`.
+/// Decodes one 64x16 segment to flat 8-bit RGB, with no colour transform.
+///
+/// This is the shared core of every QOI-consuming decode path:
+/// [`decode_tile_row_64x16`] applies the Bayer dither and quantises to 15bpp,
+/// while [`crate::svgtex`] reuses the same base pixels and then adds its
+/// per-surface detail pass. Keeping it in one place is what stops the SVG path
+/// becoming a second, subtly different QOI decoder.
+///
+/// `out_rgb` is exactly `SEGMENT_PIXELS * 3` bytes; the tail of a truncated or
+/// malformed segment is left zeroed rather than read past.
 #[inline(never)]
 #[allow(clippy::needless_range_loop)]
-pub fn decode_tile_row_64x16(
+pub fn decode_segment_rgb(
     block_data: &[u8],
     header: &QoiHeader,
     segment_offsets: &[u32; SEGMENT_COUNT],
-    tile_x: usize,
-    tile_y: usize,
-    row: usize,
-    out_bgr555: &mut [u16; TILE_PIXELS],
+    segment_idx: usize,
+    out_rgb: &mut [u8; SEGMENT_PIXELS * 3],
 ) {
-    if tile_x >= SEGMENTS_PER_AXIS || tile_y >= SEGMENTS_PER_AXIS || row >= ROWS_PER_TILE {
-        return;
-    }
-
-    let segment_idx = (tile_y * ROWS_PER_TILE + row) * SEGMENTS_PER_AXIS + tile_x;
     if segment_idx >= SEGMENT_COUNT {
         return;
     }
@@ -242,17 +242,9 @@ pub fn decode_tile_row_64x16(
     let mut px_b: u8 = 0;
     let px_a: u8 = 255;
 
-    let channels = header.channels;
-    let has_alpha = channels == 4;
-
+    let has_alpha = header.channels == 4;
     let mut pos = segment_offsets[segment_idx] as usize;
     let limit = block_data.len();
-    let base_py = row * SEGMENT_HEIGHT;
-
-    // Decode into a local RGB row buffer first, then convert to BGR555. QOI's
-    // output is already RGB, so there is no colour transform, only the 8->5 bit
-    // ordered dither the GPU needs.
-    let mut rgb = [0u8; SEGMENT_PIXELS * 3];
     let mut produced = 0usize;
 
     while produced < SEGMENT_PIXELS {
@@ -287,8 +279,8 @@ pub fn decode_tile_row_64x16(
             px_g = e[1];
             px_b = e[2];
         } else if (b1 & MASK_2) == OP_DIFF {
-            px_r = px_r.wrapping_add((((b1 >> 4) & 0x03) as i32 - 2) as u8);
-            px_g = px_g.wrapping_add((((b1 >> 2) & 0x03) as i32 - 2) as u8);
+            px_r = px_r.wrapping_add(((b1 >> 4) & 0x03).wrapping_sub(2));
+            px_g = px_g.wrapping_add(((b1 >> 2) & 0x03).wrapping_sub(2));
             px_b = px_b.wrapping_add((b1 & 0x03).wrapping_sub(2));
         } else if (b1 & MASK_2) == OP_LUMA {
             if pos >= limit {
@@ -296,7 +288,7 @@ pub fn decode_tile_row_64x16(
             }
             let b2 = block_data[pos];
             pos += 1;
-            let vg = ((b1 & 0x3F) as i32 - 32) as u8;
+            let vg = (b1 & 0x3F).wrapping_sub(32);
             px_r = px_r.wrapping_add(vg.wrapping_sub(8).wrapping_add((b2 >> 4) & 0x0F));
             px_g = px_g.wrapping_add(vg);
             px_b = px_b.wrapping_add(vg.wrapping_sub(8).wrapping_add(b2 & 0x0F));
@@ -310,9 +302,9 @@ pub fn decode_tile_row_64x16(
                     break;
                 }
                 let o = produced * 3;
-                rgb[o] = px_r;
-                rgb[o + 1] = px_g;
-                rgb[o + 2] = px_b;
+                out_rgb[o] = px_r;
+                out_rgb[o + 1] = px_g;
+                out_rgb[o + 2] = px_b;
                 produced += 1;
             }
             continue;
@@ -327,11 +319,40 @@ pub fn decode_tile_row_64x16(
         slot[2] = px_b;
 
         let o = produced * 3;
-        rgb[o] = px_r;
-        rgb[o + 1] = px_g;
-        rgb[o + 2] = px_b;
+        out_rgb[o] = px_r;
+        out_rgb[o + 1] = px_g;
+        out_rgb[o + 2] = px_b;
         produced += 1;
     }
+}
+
+/// Decodes one 64x16 MCU row (`row` 0..4) within a 64x64 tile from a segmented
+/// QOI block, emitting 1024 BGR555 texels into `out_bgr555` at scanlines
+/// `row * 16 .. row * 16 + 16`.
+///
+/// Mirrors [`crate::jpeg::decode_tile_row_64x16`] exactly in shape, so the
+/// codecs are interchangeable call sites.
+#[inline(never)]
+pub fn decode_tile_row_64x16(
+    block_data: &[u8],
+    header: &QoiHeader,
+    segment_offsets: &[u32; SEGMENT_COUNT],
+    tile_x: usize,
+    tile_y: usize,
+    row: usize,
+    out_bgr555: &mut [u16; TILE_PIXELS],
+) {
+    if tile_x >= SEGMENTS_PER_AXIS || tile_y >= SEGMENTS_PER_AXIS || row >= ROWS_PER_TILE {
+        return;
+    }
+
+    let segment_idx = (tile_y * ROWS_PER_TILE + row) * SEGMENTS_PER_AXIS + tile_x;
+    if segment_idx >= SEGMENT_COUNT {
+        return;
+    }
+
+    let mut rgb = [0u8; SEGMENT_PIXELS * 3];
+    decode_segment_rgb(block_data, header, segment_offsets, segment_idx, &mut rgb);
 
     // 8-bit RGB -> 15bpp BGR555 with the same 16x16 Bayer dither the JPEG path
     // uses, so equivalent colour lands on the same texel values.
@@ -341,7 +362,7 @@ pub fn decode_tile_row_64x16(
     // MCU: `out_x % 16 == px % 16` because both bases are multiples of 16.
     #[allow(clippy::needless_range_loop)]
     for py in 0..SEGMENT_HEIGHT {
-        let out_y = base_py + py;
+        let out_y = row * SEGMENT_HEIGHT + py;
         let bayer_row = &BAYER16[py];
         for px in 0..SEGMENT_WIDTH {
             let src = (py * SEGMENT_WIDTH + px) * 3;
