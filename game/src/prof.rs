@@ -119,18 +119,20 @@ pub const TRACK_CACHE_PROBE: usize = 11;
 /// on this row is worth several frames on its own.
 pub const TRACK_CD_READ: usize = 12;
 
-/// JPEG header parse plus `index_restarts` for a freshly streamed block.
+/// Header parse plus segment/restart indexing for a freshly streamed block.
 ///
-/// A full linear walk of the ~160-200 KB entropy-coded scan hunting for `FF Dn`
-/// markers, so it is O(block size) on every block load even though the result
-/// stays valid for the block's whole residency.
-pub const TRACK_JPEG_INDEX: usize = 13;
+/// Codec-dependent: JPEG walks the whole ~160-500 KB entropy-coded scan hunting
+/// for `FF Dn` markers, so it is O(block size) on every block load; QOI reads a
+/// 4 KB offset table, so it is O(segments). The result stays valid for the
+/// block's whole residency either way.
+pub const TRACK_BLOCK_INDEX: usize = 13;
 
-/// `decode_tile_64x64`: Huffman, IDCT, chroma upsample, colour convert.
+/// One 64x16 MCU row decode: colour run/index/diff decode for QOI, or Huffman +
+/// IDCT + chroma upsample + colour convert for JPEG.
 ///
-/// 96 8x8 IDCTs per 64x64 tile. This times the work the per-frame decode
-/// budget admits, not the work the visible window wants.
-pub const TRACK_JPEG_DECODE: usize = 14;
+/// This times the work the per-frame decode budget admits, not the work the
+/// visible window wants.
+pub const TRACK_DECODE: usize = 14;
 
 /// `upload_16bpp`: 8 KB per tile streamed out through GP0(A0h).
 pub const TRACK_VRAM_UPLOAD: usize = 15;
@@ -217,8 +219,8 @@ const fn is_nested_in_render_track(stage: usize) -> bool {
         TRACK_VISIBLE_SCAN
             | TRACK_CACHE_PROBE
             | TRACK_CD_READ
-            | TRACK_JPEG_INDEX
-            | TRACK_JPEG_DECODE
+            | TRACK_BLOCK_INDEX
+            | TRACK_DECODE
             | TRACK_VRAM_UPLOAD
             | TRACK_QUADS
     )
@@ -240,8 +242,8 @@ static STAGE_NAMES: [&str; STAGE_COUNT] = [
     "track:visible",
     "track:probe",
     "track:cd-read",
-    "track:jpeg-index",
-    "track:jpeg-decode",
+    "track:block-index",
+    "track:decode",
     "track:vram-upload",
     "track:quads",
     "skidmarks",

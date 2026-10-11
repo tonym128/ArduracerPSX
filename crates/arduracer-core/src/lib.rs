@@ -23,6 +23,7 @@ pub mod levels;
 pub mod london;
 pub mod math;
 pub mod melbourne;
+pub mod qoi;
 pub mod route;
 pub mod save;
 pub mod surface;

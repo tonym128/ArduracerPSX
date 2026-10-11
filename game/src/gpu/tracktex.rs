@@ -1,31 +1,46 @@
-//! JPEG-Streamed Track Texture Renderer with Hierarchical RAM and VRAM LRU Caching.
+//! Streamed Track Texture Renderer with Hierarchical RAM and VRAM LRU Caching.
 //!
 //! # Architecture
 //!
-//! 1. **RAM Block Cache (1024x1024 blocks @ ~100 KB each):**
-//!    Main PSX RAM maintains an LRU cache of 3 resident 1024x1024 JPEG blocks
-//!    (~300 KB total). Blocks are streamed from CD-ROM (`TRACKS.BIN`) only when
-//!    crossing large 1024-texel geographic boundaries.
+//! 1. **RAM Block Cache (1024x1024 blocks @ <= 500 KB each):**
+//!    Main PSX RAM maintains a single resident 1024x1024 compressed block.
+//!    Blocks are streamed from CD-ROM only when crossing large 1024-texel
+//!    geographic boundaries.
 //!
 //! 2. **VRAM Tile Cache (64x64 blocks @ 8 KB each):**
 //!    PSX VRAM maintains a 64-slot LRU cache across 4 texture pages (16 slots of
 //!    64x64 per 256x256 Tpage = 64 slots total = 512 KB VRAM pool).
 //!
 //! 3. **CD-ROM Decoupling & Audio Continuity:**
-//!    64x64 tiles are decompressed on-demand directly from the in-memory JPEG blocks
-//!    in RAM into VRAM using our freestanding integer JPEG decoder (`arduracer_core::jpeg`).
-//!    This decompression NEVER touches the CD-ROM drive during active gameplay,
-//!    guaranteeing that CD-DA Redbook audio plays with zero interruptions, zero head seeks,
-//!    and zero audio stutter.
+//!    64x64 tiles are decompressed on-demand directly from the in-memory block
+//!    in RAM into VRAM. This NEVER touches the CD-ROM drive during active
+//!    gameplay, guaranteeing that CD-DA Redbook audio plays with zero
+//!    interruptions, zero head seeks, and zero audio stutter.
 //!
 //! 4. **Massive Playfield Scalability:**
-//!    The coordinate addressing maps arbitrary world extents to an unbounded 2D grid
-//!    of 1024x1024 blocks. Both RAM and VRAM memory consumption remain strictly constant
-//!    and bounded regardless of world size.
+//!    The coordinate addressing maps arbitrary world extents to an unbounded 2D
+//!    grid of 1024x1024 blocks. Both RAM and VRAM consumption stay strictly
+//!    constant and bounded regardless of world size.
+//!
+//! # Codecs
+//!
+//! Two codecs are supported, selected per circuit by the generated table in
+//! [`arduracer_core::visual_tex`]:
+//!
+//! - **QOI** (`arduracer_core::qoi`): segmented Quite OK Image blocks. Roughly 4x
+//!   cheaper per MCU row than JPEG, because decoding a colour run needs no
+//!   Huffman symbol decode and no inverse DCT, and the per-CD-load segment
+//!   index is O(segments) rather than a linear scan of the whole entropy stream.
+//!
+//! - **JPEG** (`arduracer_core::jpeg`): baseline blocks with DRI=4 restart
+//!   markers. Still the fallback for any circuit whose art does not fit the
+//!   500 KB block budget losslessly, which QOI cannot do for highly detailed
+//!   imagery.
+//!
+//! Both share one 500 KB RAM buffer. A second buffer for the other codec would
+//! cost another 512 KB of the 2 MB main RAM, which does not fit the static-RAM
+//! ceiling, and only one codec is ever active for a given circuit anyway.
 
-use arduracer_core::jpeg::{
-    decode_tile_row_64x16, JpegHeader, RESTART_INTERVAL_COUNT, TILE_PIXELS, TILE_TEXELS,
-};
 use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
@@ -39,11 +54,30 @@ use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
 use psx_vram::{upload_16bpp, TexDepth, Tpage, VramRect};
 
-/// Capacity of the in-RAM JPEG block cache (1 unified block of 1024x1024 @ 500 KB).
+/// Capacity of the in-RAM compressed block cache (one 1024x1024 block, <= 500 KB).
 pub const RAM_CACHE_BLOCKS: usize = 1;
 
 /// Maximum number of 64x64 tiles decompressed per frame (staggers decoding to eliminate frame drops).
 pub const MAX_DECODES_PER_FRAME: usize = 1;
+
+/// Texels per 64x64 VRAM tile.
+const TILE_TEXELS: usize = 64;
+/// Halfwords per 64x64 VRAM tile.
+const TILE_PIXELS: usize = TILE_TEXELS * TILE_TEXELS;
+
+/// Which compressed codec a resident RAM block holds.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Codec {
+    Jpeg,
+    Qoi,
+}
+
+/// Both codecs index exactly 1024 independently decodable spans per 1024x1024
+/// block: JPEG restart intervals (DRI=4) and QOI segments are the same
+/// partition of the image, visited in the same order. One array therefore
+/// serves either codec, and switching codecs cannot leave a stale index behind
+/// because the entry is rebuilt on every block load.
+const BLOCK_SPANS: usize = 1024;
 
 /// Precomputed Tpage descriptors for each of the 4 allocated 256x256 VRAM regions.
 const TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
@@ -69,15 +103,21 @@ const TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
     ),
 ];
 
-/// An in-RAM resident 1024x1024 JPEG image block.
+/// An in-RAM resident 1024x1024 compressed image block.
+///
+/// `block_data` is shared by both codecs: only one is loaded per circuit, and
+/// holding a second 512 KB buffer would exceed the static-RAM ceiling.
 struct RamBlock {
     resident_circuit: usize,
     resident_block_x: usize,
     resident_block_y: usize,
     last_used: u32,
-    header: JpegHeader,
-    restart_offsets: [u32; RESTART_INTERVAL_COUNT],
-    jpeg_data: [u8; visual_tex::BLOCK_MAX_BYTES],
+    codec: Codec,
+    /// Restart-interval (JPEG) or segment (QOI) offsets. See [`BLOCK_SPANS`].
+    offsets: [u32; BLOCK_SPANS],
+    jpeg_header: arduracer_core::jpeg::JpegHeader,
+    qoi_header: arduracer_core::qoi::QoiHeader,
+    block_data: [u8; visual_tex::BLOCK_MAX_BYTES],
     byte_len: usize,
     valid: bool,
 }
@@ -89,7 +129,9 @@ impl RamBlock {
             resident_block_x: 0,
             resident_block_y: 0,
             last_used: 0,
-            header: JpegHeader {
+            codec: Codec::Jpeg,
+            offsets: [0; BLOCK_SPANS],
+            jpeg_header: arduracer_core::jpeg::JpegHeader {
                 width: 0,
                 height: 0,
                 restart_interval: 0,
@@ -98,8 +140,15 @@ impl RamBlock {
                 ac_huffman: [arduracer_core::jpeg::HuffTable::empty(); 2],
                 scan_offset: 0,
             },
-            restart_offsets: [0; RESTART_INTERVAL_COUNT],
-            jpeg_data: [0u8; visual_tex::BLOCK_MAX_BYTES],
+            qoi_header: arduracer_core::qoi::QoiHeader {
+                width: 0,
+                height: 0,
+                channels: 0,
+                segment_count: 0,
+                segment_width: 0,
+                segment_height: 0,
+            },
+            block_data: [0u8; visual_tex::BLOCK_MAX_BYTES],
             byte_len: 0,
             valid: false,
         }
@@ -158,7 +207,7 @@ impl DecodeJob {
     }
 }
 
-/// 1-slot unified RAM block holding the 1024x1024 JPEG map (<= 500 KB).
+/// 1-slot unified RAM block holding the 1024x1024 compressed map (<= 500 KB).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
 /// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
@@ -177,10 +226,47 @@ static mut DISC_READER: DiscReader = DiscReader::new();
 static mut TRACKS_BIN_LBA: Option<u32> = None;
 static mut TRACKS_PROBED: bool = false;
 
+/// LBA of the segmented-QOI circuit table, when the disc carries one.
+///
+/// Optional on purpose: a disc mastered before this feature, or one where the
+/// QOI asset failed to fit, simply has no such file. Probing is therefore
+/// non-fatal and the JPEG table is used instead.
+static mut QOITRACKS_BIN_LBA: Option<u32> = None;
+
 static mut CAPETOWN_BIN_LBA: Option<u32> = None;
 static mut MELBOURNE_BIN_LBA: Option<u32> = None;
 static mut LONDON_BIN_LBA: Option<u32> = None;
 static mut ACTIVE_CITY: usize = 0; // 0 = standard circuits, 99 = Cape Town, 98 = Melbourne, 97 = London
+
+/// Whether QOI streaming is compiled in for this build.
+#[cfg(feature = "qoi-track-stream")]
+const QOI_ENABLED: bool = true;
+#[cfg(not(feature = "qoi-track-stream"))]
+const QOI_ENABLED: bool = false;
+
+/// Chooses the codec for a circuit.
+///
+/// QOI wins when the feature flag is on, the disc actually carries the QOI
+/// asset, and the cooked table actually has a QOI entry for this circuit. Any
+/// of those failing falls back to JPEG, so a disc or an atlas built without
+/// QOI still renders.
+#[inline]
+fn codec_for_circuit(circuit: usize) -> Codec {
+    // Copied out of the static rather than read through a shared reference:
+    // the LBA is written during the one-shot probe in `init_track_texture`,
+    // and a shared borrow of a mutable static outlives what it needs to.
+    let have_qoi_asset = unsafe { QOITRACKS_BIN_LBA }.is_some();
+
+    if QOI_ENABLED
+        && have_qoi_asset
+        && circuit < visual_tex::COUNT
+        && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
+    {
+        Codec::Qoi
+    } else {
+        Codec::Jpeg
+    }
+}
 
 /// Prepares the track texture streaming cache for a new circuit or city.
 #[allow(clippy::needless_range_loop)]
@@ -212,6 +298,7 @@ pub fn init_track_texture(circuit: usize) {
                 "[TRACKTEX] Probing disc for TRACKS.BIN, CAPETOWN.BIN, MELBOURNE.BIN, LONDON.BIN...",
             );
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
+            QOITRACKS_BIN_LBA = reader.find_file_lba(visual_tex::QOITRACKS_BIN_NAME);
             CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
             MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
             LONDON_BIN_LBA = reader.find_file_lba(visual_tex::LONDON_BIN_NAME);
@@ -239,6 +326,15 @@ pub fn init_track_texture(circuit: usize) {
             } else {
                 crate::dbg::print("NONE");
             }
+            // Reported last because it is the one that decides the codec: a
+            // disc without it (or a build with the flag off) silently streams
+            // every circuit from JPEG, and this line is how that shows up.
+            crate::dbg::print("  QOITRACKS: 0x");
+            if let Some(lba) = QOITRACKS_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
             crate::dbg::println("");
             TRACKS_PROBED = true;
         }
@@ -253,7 +349,78 @@ pub fn init_track_texture(circuit: usize) {
             97 => (1, 1),
             _ => (0, 0),
         };
+        crate::dbg::print("[TRACKTEX] circuit ");
+        crate::dbg::print_dec(circuit as u32);
+        crate::dbg::print(" codec=");
+        match codec_for_circuit(circuit) {
+            Codec::Qoi => crate::dbg::print("qoi"),
+            Codec::Jpeg => crate::dbg::print("jpeg"),
+        }
+        crate::dbg::println("");
         load_block_into_ram(circuit, init_bx, init_by, 0);
+    }
+}
+
+/// Decodes one 64x16 MCU row of a resident block into `scratch`, dispatching on
+/// the block's codec.
+///
+/// Both codecs address the same segment of the same tile, so this is the only
+/// place the two differ. Anything other than a healthy block leaves `scratch`
+/// untouched and returns false, and the caller paints its fallback pattern.
+#[inline(always)]
+fn decode_row(
+    ram_slot: &RamBlock,
+    tile_x: usize,
+    tile_y: usize,
+    row: usize,
+    scratch: &mut [u16; TILE_PIXELS],
+) -> bool {
+    if !ram_slot.valid || ram_slot.byte_len == 0 {
+        return false;
+    }
+    let data = &ram_slot.block_data[..ram_slot.byte_len];
+
+    match ram_slot.codec {
+        Codec::Jpeg => {
+            arduracer_core::jpeg::decode_tile_row_64x16(
+                data,
+                &ram_slot.jpeg_header,
+                &ram_slot.offsets,
+                tile_x,
+                tile_y,
+                row,
+                scratch,
+            );
+            true
+        }
+        Codec::Qoi => {
+            arduracer_core::qoi::decode_tile_row_64x16(
+                data,
+                &ram_slot.qoi_header,
+                &ram_slot.offsets,
+                tile_x,
+                tile_y,
+                row,
+                scratch,
+            );
+            true
+        }
+    }
+}
+
+/// Paints the procedural placeholder used when a block could not be decoded, so
+/// the tile still renders as something rather than garbage.
+#[inline(always)]
+fn paint_fallback_row(start_y: usize, scratch: &mut [u16; TILE_PIXELS]) {
+    for y in start_y..start_y + 16 {
+        for x in 0..TILE_TEXELS {
+            let c = if ((x >> 3) ^ (y >> 3)) & 1 == 0 {
+                0x1CE7
+            } else {
+                0x2108
+            };
+            scratch[y * TILE_TEXELS + x] = c;
+        }
     }
 }
 
@@ -270,28 +437,9 @@ fn decode_and_upload_full_tile(
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
 
-    if ram_slot.valid && ram_slot.byte_len > 0 {
-        for row in 0..4 {
-            decode_tile_row_64x16(
-                &ram_slot.jpeg_data[..ram_slot.byte_len],
-                &ram_slot.header,
-                &ram_slot.restart_offsets,
-                sub_tx,
-                sub_ty,
-                row,
-                scratch,
-            );
-        }
-    } else {
-        for y in 0..64 {
-            for x in 0..TILE_TEXELS {
-                let c = if ((x >> 3) ^ (y >> 3)) & 1 == 0 {
-                    0x1CE7
-                } else {
-                    0x2108
-                };
-                scratch[y * TILE_TEXELS + x] = c;
-            }
+    for row in 0..4 {
+        if !decode_row(ram_slot, sub_tx, sub_ty, row, scratch) {
+            paint_fallback_row(row * 16, scratch);
         }
     }
 
@@ -370,10 +518,18 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     }
 }
 
-/// Streams a 1024x1024 JPEG block (~100-200 KB) from CD-ROM into the specified RAM cache slot.
+/// Streams a 1024x1024 compressed block (<= 500 KB) from CD-ROM into the
+/// specified RAM cache slot.
 #[inline(never)]
 fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) {
     let city = unsafe { ACTIVE_CITY };
+    let codec = codec_for_circuit(circuit);
+
+    // City blocks (Cape Town / Melbourne / London) are shipped as JPEG only;
+    // their 10 km^2 art is procedurally generated at cook time and has no
+    // segmented-QOI counterpart, so they always take the JPEG table.
+    let use_qoi = codec == Codec::Qoi && city == 0;
+
     let (bin_lba, entry) = match city {
         99 => {
             let b_idx = (block_y * 3 + block_x).min(8);
@@ -398,10 +554,17 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
         }
         _ => {
             let c = circuit % visual_tex::COUNT;
-            (
-                unsafe { TRACKS_BIN_LBA },
-                visual_tex::CIRCUIT_BLOCK_SECTORS[c],
-            )
+            if use_qoi {
+                (
+                    unsafe { QOITRACKS_BIN_LBA },
+                    visual_tex::CIRCUIT_QOI_SECTORS[c],
+                )
+            } else {
+                (
+                    unsafe { TRACKS_BIN_LBA },
+                    visual_tex::CIRCUIT_BLOCK_SECTORS[c],
+                )
+            }
         }
     };
     let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
@@ -417,25 +580,37 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
         crate::prof::count(crate::prof::C_CD_SECTORS, sector_count as u32);
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
         if sector_count <= visual_tex::BLOCK_SECTORS
-            && reader.read_sectors(block_lba, sector_count, &mut ram_slot.jpeg_data)
+            && reader.read_sectors(block_lba, sector_count, &mut ram_slot.block_data)
         {
             ram_slot.byte_len = byte_len;
-            // The header parse and the restart index walk are separated from the
-            // sector read because they are different work at different scales:
-            // the read is bounded by the drive, the index walk is a linear scan
-            // of the whole ~160-200 KB entropy-coded segment.
-            let _index = crate::prof::span(crate::prof::TRACK_JPEG_INDEX);
-            if let Some(hdr) = JpegHeader::parse(&ram_slot.jpeg_data[..byte_len]) {
-                hdr.index_restarts(
-                    &ram_slot.jpeg_data[..byte_len],
-                    &mut ram_slot.restart_offsets,
-                );
-                ram_slot.header = hdr;
+            ram_slot.codec = if use_qoi { Codec::Qoi } else { Codec::Jpeg };
+
+            // The header parse and the index walk are separated from the sector
+            // read because they are different work at different scales: the
+            // read is bounded by the drive, the index walk is CPU work over the
+            // whole compressed block. QOI's index is O(segments); JPEG's is a
+            // linear scan of the entire entropy-coded segment.
+            let _index = crate::prof::span(crate::prof::TRACK_BLOCK_INDEX);
+            let block = &ram_slot.block_data[..byte_len];
+
+            if use_qoi {
+                if let Some(header) = arduracer_core::qoi::QoiHeader::parse(block) {
+                    debug_assert_eq!(header.segment_count as usize, BLOCK_SPANS);
+                    arduracer_core::qoi::index_segments(block, &header, &mut ram_slot.offsets);
+                    ram_slot.qoi_header = header;
+                    loaded = true;
+                }
+            } else if let Some(header) = arduracer_core::jpeg::JpegHeader::parse(block) {
+                header.index_restarts(block, &mut ram_slot.offsets);
+                ram_slot.jpeg_header = header;
+                loaded = true;
+            }
+
+            if loaded {
                 ram_slot.resident_circuit = circuit;
                 ram_slot.resident_block_x = block_x;
                 ram_slot.resident_block_y = block_y;
                 ram_slot.valid = true;
-                loaded = true;
             }
         }
     }
@@ -488,8 +663,8 @@ fn ensure_ram_block(circuit: usize, block_x: usize, block_y: usize, current_fram
 
 /// Advances the active time-sliced decode job by 1 MCU row (64x16 pixels).
 ///
-/// Running 1 MCU row takes ~110,000 cycles (~20% of the 564,480-cycle frame budget),
-/// completely eliminating frame drops and stutter while streaming new terrain tiles.
+/// Time-slicing keeps each frame's decode cost bounded regardless of codec:
+/// the JPEG path spends ~20% of the frame budget on a row, QOI noticeably less.
 /// When row 3 finishes, the full 64x64 tile is uploaded to VRAM and marked resident.
 #[inline(never)]
 fn step_decode_job(current_frame: u32) {
@@ -503,29 +678,11 @@ fn step_decode_job(current_frame: u32) {
     let scratch = unsafe { &mut *core::ptr::addr_of_mut!(TILE_SCRATCH) };
 
     crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-    if ram_slot.valid && ram_slot.byte_len > 0 {
-        let _s = crate::prof::span(crate::prof::TRACK_JPEG_DECODE);
-        decode_tile_row_64x16(
-            &ram_slot.jpeg_data[..ram_slot.byte_len],
-            &ram_slot.header,
-            &ram_slot.restart_offsets,
-            job.tile_x,
-            job.tile_y,
-            job.next_row,
-            scratch,
-        );
-    } else {
-        // Fallback procedural checkerboard pattern if JPEG data missing
-        let start_y = job.next_row * 16;
-        for y in start_y..start_y + 16 {
-            for x in 0..TILE_TEXELS {
-                let c = if ((x >> 3) ^ (y >> 3)) & 1 == 0 {
-                    0x1CE7
-                } else {
-                    0x2108
-                };
-                scratch[y * TILE_TEXELS + x] = c;
-            }
+    {
+        let _s = crate::prof::span(crate::prof::TRACK_DECODE);
+        if !decode_row(ram_slot, job.tile_x, job.tile_y, job.next_row, scratch) {
+            // Block missing or undecodable: paint the fallback pattern for this row.
+            paint_fallback_row(job.next_row * 16, scratch);
         }
     }
 

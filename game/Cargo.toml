@@ -16,6 +16,21 @@ codegen-units = 1
 lto = true
 
 [features]
+default = ["qoi-track-stream"]
+
+# Segmented-QOI circuit textures, on by default.
+#
+# QOI blocks stream from `QOITRACKS.BIN` instead of `TRACKS.BIN` for any
+# circuit the cooker could fit losslessly into the 500 KB block budget, and
+# decode roughly 4x cheaper per MCU row than the JPEG path. Circuits whose art
+# is too detailed to fit (and the three 10 km^2 city maps, which are JPEG-only)
+# fall back to JPEG automatically, so disabling this flag loses no content --
+# it only returns every circuit to the JPEG streamer.
+#
+#   cargo build --release                          # QOI where available
+#   cargo build --release --no-default-features    # JPEG everywhere
+qoi-track-stream = []
+
 # Declared only so `cfg(feature = "host-test")` in `memcard.rs` resolves
 # instead of warning as an unexpected cfg. DO NOT BUILD THE GAME WITH IT: it
 # compiles the SIO0 wrappers out, and `main.rs` calls `probe()` / `flush()`.
