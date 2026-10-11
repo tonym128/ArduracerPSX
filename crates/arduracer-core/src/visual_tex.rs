@@ -128,57 +128,57 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 3250,
         sector_count: 250,
-        byte_len: 134625,
+        byte_len: 138683,
     },
     TileSectorEntry {
         sector_offset: 3500,
         sector_count: 250,
-        byte_len: 138683,
+        byte_len: 147333,
     },
     TileSectorEntry {
         sector_offset: 3750,
         sector_count: 250,
-        byte_len: 147333,
+        byte_len: 135584,
     },
     TileSectorEntry {
         sector_offset: 4000,
         sector_count: 250,
-        byte_len: 135584,
+        byte_len: 146550,
     },
     TileSectorEntry {
         sector_offset: 4250,
         sector_count: 250,
-        byte_len: 145065,
+        byte_len: 129078,
     },
     TileSectorEntry {
         sector_offset: 4500,
         sector_count: 250,
-        byte_len: 146550,
+        byte_len: 135145,
     },
     TileSectorEntry {
         sector_offset: 4750,
         sector_count: 250,
-        byte_len: 129078,
+        byte_len: 119784,
     },
     TileSectorEntry {
         sector_offset: 5000,
         sector_count: 250,
-        byte_len: 135145,
+        byte_len: 149272,
     },
     TileSectorEntry {
         sector_offset: 5250,
         sector_count: 250,
-        byte_len: 119784,
+        byte_len: 169588,
     },
     TileSectorEntry {
         sector_offset: 5500,
         sector_count: 250,
-        byte_len: 149272,
+        byte_len: 116907,
     },
     TileSectorEntry {
         sector_offset: 5750,
         sector_count: 250,
-        byte_len: 148064,
+        byte_len: 146371,
     },
 ];
 
@@ -255,57 +255,57 @@ pub static CIRCUIT_QOI_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 3000,
         sector_count: 250,
-        byte_len: 96816,
+        byte_len: 101132,
     },
     TileSectorEntry {
         sector_offset: 3250,
         sector_count: 250,
-        byte_len: 101132,
+        byte_len: 112357,
     },
     TileSectorEntry {
         sector_offset: 3500,
         sector_count: 250,
-        byte_len: 112357,
+        byte_len: 100473,
     },
     TileSectorEntry {
         sector_offset: 3750,
         sector_count: 250,
-        byte_len: 100473,
+        byte_len: 107826,
     },
     TileSectorEntry {
         sector_offset: 4000,
         sector_count: 250,
-        byte_len: 104219,
+        byte_len: 98463,
     },
     TileSectorEntry {
         sector_offset: 4250,
         sector_count: 250,
-        byte_len: 107826,
+        byte_len: 104381,
     },
     TileSectorEntry {
         sector_offset: 4500,
         sector_count: 250,
-        byte_len: 98463,
+        byte_len: 86671,
     },
     TileSectorEntry {
         sector_offset: 4750,
         sector_count: 250,
-        byte_len: 104381,
+        byte_len: 114166,
     },
     TileSectorEntry {
         sector_offset: 5000,
         sector_count: 250,
-        byte_len: 86671,
+        byte_len: 145603,
     },
     TileSectorEntry {
         sector_offset: 5250,
         sector_count: 250,
-        byte_len: 114166,
+        byte_len: 101725,
     },
     TileSectorEntry {
         sector_offset: 5500,
         sector_count: 250,
-        byte_len: 107708,
+        byte_len: 124576,
     },
 ];
 
@@ -383,57 +383,57 @@ pub static CIRCUIT_ARSV_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 3250,
         sector_count: 250,
-        byte_len: 100048,
+        byte_len: 104364,
     },
     TileSectorEntry {
         sector_offset: 3500,
         sector_count: 250,
-        byte_len: 104364,
+        byte_len: 115589,
     },
     TileSectorEntry {
         sector_offset: 3750,
         sector_count: 250,
-        byte_len: 115589,
+        byte_len: 103705,
     },
     TileSectorEntry {
         sector_offset: 4000,
         sector_count: 250,
-        byte_len: 103705,
+        byte_len: 111058,
     },
     TileSectorEntry {
         sector_offset: 4250,
         sector_count: 250,
-        byte_len: 107451,
+        byte_len: 101695,
     },
     TileSectorEntry {
         sector_offset: 4500,
         sector_count: 250,
-        byte_len: 111058,
+        byte_len: 107613,
     },
     TileSectorEntry {
         sector_offset: 4750,
         sector_count: 250,
-        byte_len: 101695,
+        byte_len: 89903,
     },
     TileSectorEntry {
         sector_offset: 5000,
         sector_count: 250,
-        byte_len: 107613,
+        byte_len: 117398,
     },
     TileSectorEntry {
         sector_offset: 5250,
         sector_count: 250,
-        byte_len: 89903,
+        byte_len: 148835,
     },
     TileSectorEntry {
         sector_offset: 5500,
         sector_count: 250,
-        byte_len: 117398,
+        byte_len: 104957,
     },
     TileSectorEntry {
         sector_offset: 5750,
         sector_count: 250,
-        byte_len: 110940,
+        byte_len: 127808,
     },
 ];
 

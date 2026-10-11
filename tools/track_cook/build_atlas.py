@@ -103,7 +103,14 @@ TILE_COUNT = TILES_X * TILES_Y
 #: indexes the same CLUT and the GPU needs one upload of it per track load.
 CLUT_RGB = [tuple(int(v) for v in gen_svg.RGB_TUPLE[i]) for i in range(16)]
 
-TILE_SIZE = 64
+# There used to be a `TILE_SIZE = 64` here, a third copy of the cell size,
+# left behind when the cell shrank to 32. Nothing failed for as long as it was
+# unused; the moment `discover_circuits` used it to convert a road half-width
+# from cells to world units, every road in the game compiled half as wide as it
+# was drawn, and `half_width` is a number in a struct literal that nothing
+# cross-checks. It is gone rather than corrected: a definition nothing needs is
+# a definition that can only be wrong. The cell size is `cc.TILE_SIZE`, read out
+# of `arduracer_core::track`, and `main` asserts it against the generator's.
 
 #: Slots in `ALL_TRACKS`. Fixed by the game's positional indexing, not by how
 #: many circuits are authored.
@@ -123,6 +130,98 @@ ROUTE_NODES = 96
 
 #: Where `playtest --calibrate` writes measured lap times.
 PAR_CALIBRATION = os.path.join(HERE, "par_calibration.json")
+
+#: Sidecar written by the level editor (`tools/level_editor`) next to a circuit's
+#: SVG. Its presence is what marks a circuit in `tracks/` as editor-authored, and
+#: `road_half_cells` in it is what lets one level be a wide circuit and the next
+#: a narrow one.
+#:
+#: The road half-width used to be a module constant shared by every circuit,
+#: because every circuit came from one hard-coded table in
+#: `generate_svg_circuit.CIRCUITS`. A level drawn elsewhere has no entry in that
+#: table, and reading its width out of the drawn SVG instead of a descriptor
+#: would mean parsing the tarmac stroke back out of a file whose whole contract
+#: is "exact palette colours and document order". So the editor writes the width
+#: down, once, beside the drawing, and this is where it is picked up.
+LEVEL_SIDECAR_SUFFIX = ".level.json"
+
+
+def discover_circuits() -> list[tuple[str, float]]:
+    """Every circuit to compile: the generator's table, then editor levels.
+
+    Returns `(name, road_half_cells)` pairs. The width is in cells and comes from
+    the generator's global constant for a table circuit, or from the level's own
+    sidecar for an editor one.
+
+    Order matters and is not alphabetical: `gen.CIRCUITS` first, in its authored
+    order, so the twenty-four shipped circuits keep the track-select slots,
+    their cup placement and their calibrated par times. Editor levels are
+    appended after, and are meant to *replace* slots only by being published
+    deliberately -- putting them ahead would silently reshuffle a championship.
+    """
+    import generate_svg_circuit as gen
+
+    tracks_dir = os.path.join(ROOT, "tracks")
+    # `cc.TILE_SIZE`, read out of the Rust engine, is the only cell size that
+    # may be used to convert a half-width into `TrackDef.half_width`. The
+    # generator's `WORLD_PER_CELL` says the same thing and `main` asserts they
+    # agree, but the engine is the one that has to be right.
+    default_half = gen.ROAD_HALF_WORLD / cc.TILE_SIZE
+
+    def compiled(stem: str) -> bool:
+        return os.path.exists(os.path.join(tracks_dir, stem + ".data.png"))
+
+    def drawn(stem: str) -> bool:
+        return os.path.exists(os.path.join(tracks_dir, stem + ".svg"))
+
+    out: list[tuple[str, float]] = []
+    seen: set[str] = set()
+    for spec in gen.CIRCUITS:
+        stem = spec["name"].replace(" ", "_")
+        if stem in seen:
+            continue
+        if not compiled(stem):
+            # `tracks/` is the source of truth for what is in the game: this
+            # script compiles what is there and `make circuits` draws it. A
+            # generator circuit with a drawing but no compiled images was
+            # published-then-deleted, or half-copied, and is worth saying so --
+            # the alternative is a level silently vanishing from the game's
+            # track list, which is exactly the failure this note exists to
+            # prevent. With no drawing either, it has simply never been built.
+            if drawn(stem):
+                print(f"  note: {stem}.svg is present but {stem}.data.png is "
+                      f"not; skipping it. Run 'make circuits' to rebuild it.",
+                      file=sys.stderr)
+            continue
+        seen.add(stem)
+        out.append((spec["name"], default_half))
+
+    if not os.path.isdir(tracks_dir):
+        return out
+    for fname in sorted(os.listdir(tracks_dir)):
+        if not fname.endswith(LEVEL_SIDECAR_SUFFIX):
+            continue
+        stem = fname[: -len(LEVEL_SIDECAR_SUFFIX)]
+        if stem in seen:
+            continue
+        if not compiled(stem):
+            # A sidecar with no compiled images is a level that has been
+            # unpublished. That is a normal state for an editor level -- the
+            # store is meant to hold far more circuits than the game has slots
+            # for -- so it is skipped quietly rather than shouted about.
+            continue
+        seen.add(stem)
+        side = os.path.join(tracks_dir, fname)
+        try:
+            with open(side, encoding="utf-8") as f:
+                meta = json.load(f)
+            half = float(meta.get("road_half_cells", default_half))
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            print(f"  note: {stem} sidecar unreadable ({exc}); using the "
+                  f"default road width", file=sys.stderr)
+            half = default_half
+        out.append((stem.replace("_", " "), half))
+    return out
 
 #: Fallback par times, in ticks, when a circuit has no measurement. 3600 ticks is
 #: 60 seconds at 60 Hz -- generous on purpose, since an uncalibrated par should
@@ -807,10 +906,11 @@ def main() -> int:
     # exists.
     import generate_svg_circuit as gen
 
+    circuits = discover_circuits()
+
     results = []
     failures = []
-    for spec_ in gen.CIRCUITS:
-        name = spec_["name"]
+    for name, half_cells in circuits:
         data, errors = build_one(name)
         if errors:
             failures.append((name, errors))
@@ -819,9 +919,9 @@ def main() -> int:
                 print(f"     {e}", file=sys.stderr)
             continue
         grid, centre = data
-        results.append((name, grid, centre))
+        results.append((name, grid, centre, half_cells))
         print(f"  {name:16} {grid.shape[1]}x{grid.shape[0]} cells, "
-              f"centreline {len(centre)}")
+              f"centreline {len(centre)}, road {int(half_cells * 2)} cells wide")
 
     if failures:
         print(f"\n{len(failures)} circuit(s) failed validation; not emitting",
@@ -840,6 +940,20 @@ def main() -> int:
     if len(results) > TRACK_SLOTS:
         print(f"\n{len(results)} circuits authored but only {TRACK_SLOTS} "
               f"slots exist; not emitting", file=sys.stderr)
+        extra = [n for n, _, _, _ in results[len(TRACK_SLOTS):]]
+        if extra:
+            # Name the overflow. `ALL_TRACKS` is filled round-robin, so the
+            # circuits past the slot count would appear in slots 0..n and
+            # nowhere else -- silently, and only visible in the track-select
+            # carousel as a missing circuit. Naming them here is the difference
+            # between "you have too many levels" and "the level editor ate my
+            # championship".
+            print(f"  past the {TRACK_SLOTS}th slot: "
+                  f"{', '.join(extra)}", file=sys.stderr)
+            print("  Remove one with "
+                  "`python3 tools/level_editor/level_editor_cli.py unpublish "
+                  "<Stem>`, or raise TRACK_SLOTS if the runtime indexing has "
+                  "room for it.", file=sys.stderr)
         return 1
 
     # The 23 superseded image sets from the parametric pipeline are still tracked
@@ -849,7 +963,7 @@ def main() -> int:
     # than by hand. Cooked blocks are swept too: a circuit that no longer exists
     # must not leave a `tracks/<Name>.qoi` behind for someone to mistake for a
     # real asset.
-    keep = {n.replace(" ", "_") for n, _, _ in results}
+    keep = {n.replace(" ", "_") for n, _, _, _ in results}
     stale = [f for f in sorted(os.listdir(os.path.join(ROOT, "tracks")))
              if f.endswith((".data.png", ".visual.png", ".visual.gen.png", ".visual.detailed.png",
                             ".line.json", ".palette.json", ".qoi"))
@@ -859,7 +973,7 @@ def main() -> int:
               f"circuits that no longer exist", file=sys.stderr)
         git(["rm", "-q", "--"] + [f"tracks/{f}" for f in stale])
 
-    idents = ["TRACK_" + "".join(c if c.isalnum() else "_" for c in n).upper() for n, _, _ in results]
+    idents = ["TRACK_" + "".join(c if c.isalnum() else "_" for c in n).upper() for n, _, _, _ in results]
     code = [
         "//! Racetrack definitions for Arduracer PSX.",
         "//!",
@@ -873,7 +987,7 @@ def main() -> int:
         "const EMPTY_GATE: CheckpointGate = CheckpointGate { x: 0, y: 0, width: 0, height: 0 };",
         "",
     ]
-    for (name, grid, centre), ident in zip(results, idents):
+    for (name, grid, centre, half_cells), ident in zip(results, idents):
         code.append(f"static {ident}_TILES: "
                     f"[TrackTile; {grid.shape[1] * grid.shape[0]}] = [")
         flat = []
@@ -891,21 +1005,32 @@ def main() -> int:
         # than a cell collapse onto a shared tile centre -- see
         # `compile_circuit.control_points`.
         par = calibrated_par(name)
-        # The road half-width is specified in world units by the generator and
-        # converted here, rather than left as a cell count. The cell size has
-        # already changed once (64 -> 32 world units); a cell count baked into
-        # this call would have halved the width of every road in the game the
-        # next time it did, with nothing failing -- `half_width` is just a number
-        # in a struct literal.
+        # The road half-width is specified in world units by whoever drew the
+        # circuit and converted here, rather than left as a cell count. The cell
+        # size has already changed once (64 -> 32 world units); a cell count
+        # baked into this call would have halved the width of every road in the
+        # game the next time it did, with nothing failing -- `half_width` is just
+        # a number in a struct literal.
+        #
+        # It is per circuit now, not global: `discover_circuits` takes it from
+        # each level's own sidecar. `cc.TILE_SIZE` rather than the generator's
+        # `WORLD_PER_CELL` is the conversion that matters, and the two are
+        # asserted equal below.
         code.append(cc.emit_rust(
             name.replace(" ", "_"), grid, centre, ident=ident,
             checkpoints=CHECKPOINTS, par=par, route_nodes=ROUTE_NODES,
-            half_width_cells=gen.ROAD_HALF_WORLD / cc.TILE_SIZE))
+            half_width_cells=half_cells))
         code.append("")
     assert int(gen.ROAD_HALF_WORLD / cc.TILE_SIZE * cc.TILE_SIZE) == gen.ROAD_HALF_WORLD, (
         "ROAD_HALF_WORLD is not a whole number of cells wide at the current "
         "TILE_SIZE; the compiled road would be narrower than authored"
     )
+    for name, _grid, _centre, half_cells in results:
+        assert abs(half_cells * cc.TILE_SIZE - round(half_cells * cc.TILE_SIZE)) < 1e-9, (
+            f"{name} was drawn {2 * half_cells:g} cells wide, which is not a "
+            f"whole number of {cc.TILE_SIZE}-world-unit cells; TrackDef.half_width "
+            f"could not state it and the compiled road would be narrower than drawn"
+        )
     # The generator sizes its shapes in cells; the compiler sizes the world. If
     # those two definitions of a cell disagree, every circuit silently changes
     # size and nothing downstream can tell -- the images still validate and the
@@ -968,7 +1093,7 @@ def main() -> int:
     out = os.path.join(ROOT, "crates", "arduracer-core", "src", "levels.rs")
     with open(out, "w") as f:
         f.write("\n".join(code))
-    emit_visual_tex([pack_visual(n) for n, _, _ in results])
+    emit_visual_tex([pack_visual(n) for n, _, _, _ in results])
     # Last, so it covers both generated files. `visual_tex.rs` in particular is
     # one 200 KB byte array, which `rustfmt` reflows -- emitting it unformatted and
     # formatting only `levels.rs` left the other one failing `fmt-check`.
@@ -979,7 +1104,7 @@ def main() -> int:
     # the wrong circuit. Reported in `CIRCUITS` order so it lines up with the
     # table `generate_svg_circuit.py` printed.
     uncalibrated = []
-    for name, _, _ in results:
+    for name, _, _, _ in results:
         par = calibrated_par(name)
         if par == FALLBACK_PAR:
             uncalibrated.append(name)
