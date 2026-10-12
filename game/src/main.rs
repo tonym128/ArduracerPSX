@@ -1332,6 +1332,27 @@ impl ArduracerGame {
                 let circuit =
                     ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)];
                 init_track_texture(circuit);
+                // Prewarm, exactly as `load_track` does, and this is the whole
+                // fix for the stutter on switching format mid-race.
+                //
+                // `reset_texture_caches` above just emptied all 64 VRAM slots, so
+                // every visible tile is now a cache miss. Without this the
+                // renderer draws placeholders and refills the cache at the
+                // decode budget -- one MCU row per frame. A 320x240 view is
+                // ~48 tiles at four rows each, so unpausing straight into that
+                // is seconds of track visibly repainting itself, at speed, in
+                // front of the car. Pausing does not hide it either: the frozen
+                // frame admits one row per frame too, and the player changes the
+                // setting and unpauses long before that finishes.
+                //
+                // Paying the same decode here moves the cost to a moment when
+                // the simulation is already stopped, which is where `load_track`
+                // has always paid it.
+                prewarm_starting_tiles(
+                    self.current_track.world_width(),
+                    self.current_track.world_height(),
+                    &self.camera,
+                );
             }
         }
 
