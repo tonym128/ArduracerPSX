@@ -227,6 +227,10 @@ fn main() {
         test_circuits_are_wide_and_have_long_straights
     );
     run_test!(
+        "The published circuits stay at the wide design width",
+        test_the_published_circuits_stay_wide
+    );
+    run_test!(
         "The whole corridor is drivable",
         test_the_whole_corridor_is_drivable
     );
@@ -994,28 +998,28 @@ fn longest_straight(route: &Route) -> u32 {
     best
 }
 
-/// "Wide roads" and "long straights", checked rather than asserted.
+/// "Wide enough to drive" and "long straights", checked rather than asserted.
 ///
 /// Every circuit used to be derived from `ArduRacerFx/Levels/*.csv` gates, which
 /// gave a two-tile road and whatever straight the gate spacing left over. Both
-/// are now authored, and these two bounds are what stop a future re-tune quietly
+/// are now authored, and these bounds are what stop a future re-tune quietly
 /// narrowing the game back to a strip.
 fn test_circuits_are_wide_and_have_long_straights() {
-    /// A road narrower than this reads as a two-tile strip again. The old
-    /// derived geometry was 1.05 tiles (34 px).
+    /// The narrowest road the game will ship, in world units: one lane.
     ///
-    /// Recalibrated when the road was narrowed from 160 to 96 world units for the
-    /// "drowning in the space" complaint. The floor used to be 128, which was two
-    /// tiles at the time `TILE_SIZE` was 64 -- after the cell halved to 32 the
-    /// same 128 had quietly become *four* cells, and the authored road was 160,
-    /// so the check had stopped saying anything at all: it passed by 32.
+    /// This used to be 96 (three cells of half-width, a six-cell road), on the
+    /// reasoning that a narrower road "reads as a two-tile strip again". That
+    /// argument is about *the shipped circuits being wide*, which is a taste
+    /// question about the existing 24, not about what the engine can drive.
+    /// Enforcing it as a floor made one- and two-lane circuits un-authorable at
+    /// all: the editor drew and validated them perfectly, and the only thing
+    /// that said no was this constant.
     ///
-    /// 96 is three cells, which is the authored width: wide enough for two cars
-    /// abreast plus a car's margin each side, narrow enough that a sloppy line
-    /// puts a wheel in the gravel. The point of the floor is still the same -- do
-    /// not go back to a corridor -- and the margin above the old derived strip is
-    /// now 2.8x rather than 1.9x.
-    const MIN_HALF_WIDTH: u16 = 96; // 3.0 tiles
+    /// So the floor is now what the *engine* can actually drive --
+    /// [`MIN_ROAD_HALF_WIDTH`], the width a single car fits in -- and the width
+    /// the shipped circuits actually use is asserted separately below. Narrow
+    /// circuits are a design choice; an undrivable one is a defect.
+    const MIN_HALF_WIDTH: u16 = MIN_ROAD_HALF_WIDTH as u16;
     /// The longest straight must be a meaningful fraction of the lap. Below this
     /// the circuit is a technical park with no place to use a wide road.
     const MIN_STRAIGHT_SAMPLES: u32 = 24;
@@ -1034,10 +1038,12 @@ fn test_circuits_are_wide_and_have_long_straights() {
     for track in ALL_TRACKS.iter() {
         assert!(
             track.half_width >= MIN_HALF_WIDTH,
-            "{}: road half-width is {} px ({:.2} tiles); the floor is {} px",
+            "{}: road half-width is {} px ({:.2} tiles, {} lanes); the floor is \
+             one lane ({} px)",
             track.name,
             track.half_width,
             track.half_width as f64 / TILE_SIZE as f64,
+            track.lane_count(),
             MIN_HALF_WIDTH,
         );
         let route = Route::from_track(track);
@@ -1053,17 +1059,48 @@ fn test_circuits_are_wide_and_have_long_straights() {
     }
 }
 
+/// The published circuits keep the wide, flowing character they were designed
+/// with, *without* making that a floor on what the engine accepts.
+///
+/// Split out from `test_circuits_are_wide_and_have_long_straights` when that
+/// floor dropped to one lane, because the two are different claims and merging
+/// them is how the wide fleet and the narrow-capable engine got confused in the
+/// first place. This one is a statement about the shipped 24; a new one-lane
+/// circuit is a deliberate act by someone who knows they are leaving the pack.
+fn test_the_published_circuits_stay_wide() {
+    /// Half-width the shipped circuits were all authored at.
+    const PUBLISHED_HALF_WIDTH: u16 = 96;
+    for track in ALL_TRACKS.iter() {
+        assert!(
+            track.half_width >= PUBLISHED_HALF_WIDTH,
+            "{}: the published fleet is a {} at {} px half-width; the design width \
+             is {PUBLISHED_HALF_WIDTH} px. A narrower circuit is legal in the \
+             engine -- author it in the level editor and publish it deliberately.",
+            track.name,
+            track.lane_count(),
+            track.half_width,
+        );
+    }
+}
+
 /// A wide road has to be drivable wide, not just painted wide: the surface under
 /// the full corridor has to be tarmac or curb, not off-road.
 fn test_the_whole_corridor_is_drivable() {
     for track in ALL_TRACKS.iter() {
         let route = Route::from_track(track);
+        // Probe at the road edge, not a third of the way in. The old probe was
+        // `half_width / 3`, which on a three-lane road only ever reached a third
+        // of the way across it -- so the outer two thirds were never checked --
+        // and on a one-lane road collapsed to 10 world units, less than a third
+        // of a cell, making the test pass vacuously. The edge is the only probe
+        // that can fail.
+        let half = track.road_half_width();
         for i in 0..route.len() {
             let p = route.point(i);
             // Sample the centreline and both shoulders of the corridor.
             for offset in [-1i32, 0, 1] {
                 let probe = Vec2::new(
-                    Fixed::from_raw(p.x.raw() + offset * (track.half_width as i32 / 3) * 4096),
+                    Fixed::from_raw(p.x.raw() + offset * (half as i32) * 4096),
                     p.y,
                 );
                 let tx = TrackDef::tile_x_of(probe.x);

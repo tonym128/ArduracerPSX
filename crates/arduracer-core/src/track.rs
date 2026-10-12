@@ -13,6 +13,33 @@ use crate::math::{Fixed, Vec2};
 use crate::surface::SurfaceType;
 use crate::timing::{CheckpointGate, ParTimes};
 
+/// World units of drivable road one racing lane occupies.
+///
+/// A car body is 14 units wide (`contact::CAR_BODY_RADIUS`), so a lane is
+/// roughly four and a half car widths: one car with room to place it anywhere
+/// across the corridor without a wheel crossing the white line, which is what
+/// makes a *lane* rather than a groove. Two cells wide, so every legal road
+/// half-width is a whole number of cells and the collision grid can represent
+/// it exactly.
+///
+/// This is the unit the width floor, the AI's swerve budget and the starting
+/// grid are all expressed in, so a circuit can be authored as "one lane" or
+/// "two lanes" and every one of those readers agrees what that means.
+pub const LANE_WIDTH: i32 = 2 * TILE_SIZE;
+
+/// Half the width of the narrowest publishable road: one lane.
+///
+/// A road narrower than this is narrower than a single car can be placed in
+/// without a wheel hanging over the kerb, so it is a decoration, not a circuit.
+pub const MIN_ROAD_HALF_WIDTH: i32 = LANE_WIDTH / 2;
+
+/// Widest publishable road half-width, in world units.
+///
+/// Half the grid, less the outer barrier band, rounded down to a whole cell.
+/// A road wider than this cannot have its kerbs and barrier inside the grid, so
+/// the circuit runs off the edge of the map rather than being wide.
+pub const MAX_ROAD_HALF_WIDTH: i32 = (MAX_TRACK_DIM as i32 / 2 - 1) * TILE_SIZE;
+
 /// Maximum checkpoints per track.
 /// Checkpoint slots per circuit. Longer circuits need proportionally more split
 /// points so a straight is not one long blind gate.
@@ -140,12 +167,81 @@ pub struct TrackDef {
     /// Empty means "derive a fallback from the gates" (test fixtures only).
     pub route: &'static [Vec2],
     /// Half-width of the drivable corridor in world units. Runoff beyond it is
-    /// open ground. Zero means "unknown", which the fallback treats as a whole
-    /// tile wide.
+    /// open ground. Zero means "unknown", which [`Self::road_half_width`] treats
+    /// as a single lane -- see that method for why the floor exists.
     pub half_width: u16,
 }
 
+/// How wide the car is, in world units, for anything that has to fit a car
+/// across a corridor.
+///
+/// Half the drawn body plus a margin: the drawn body is 14 units wide and the
+/// wheels reach 18, and a rival that puts its aim point within half a body of
+/// the road edge is aiming at the kerb rather than at the racing line.
+pub const CAR_HALF_WIDTH: i32 = 9;
+
 impl TrackDef {
+    /// Half-width of the drivable corridor in world units, with a floor.
+    ///
+    /// [`TrackDef::half_width`] is authored data and nothing constructs a
+    /// `TrackDef`, so it can be zero -- hand-written test fixtures set it that
+    /// way, and a cooker that forgot the field would emit zero for a real
+    /// circuit. Zero used to mean "as wide as a whole tile" in the field's own
+    /// doc comment while no such fallback existed anywhere, so every reader
+    /// quietly invented its own behaviour for the same circuit. This is the one
+    /// reader, and it reads a zero as the narrowest legal road.
+    ///
+    /// The floor is [`MIN_ROAD_HALF_WIDTH`], one lane. Reading the field as a
+    /// floor rather than a value is what lets a circuit be one or two lanes
+    /// wide: a caller asks how much room there is, and a narrow circuit answers
+    /// "less", instead of every caller assuming the width of the old wide roads.
+    #[inline]
+    pub fn road_half_width(&self) -> i32 {
+        let authored = self.half_width as i32;
+        if authored < MIN_ROAD_HALF_WIDTH {
+            MIN_ROAD_HALF_WIDTH
+        } else {
+            authored
+        }
+    }
+
+    /// How many lanes wide the corridor is, rounded down.
+    ///
+    /// The whole design vocabulary is lanes: `lane_count() == 1` is a single
+    /// file technical circuit, `2` leaves room to pass. Fractional lanes are
+    /// floored because a road cannot be *partly* a lane -- a car either fits
+    /// across the corridor or it does not.
+    #[inline]
+    pub fn lane_count(&self) -> u8 {
+        let lanes = self.road_half_width() * 2 / LANE_WIDTH;
+        if lanes < 1 {
+            1
+        } else {
+            lanes.min(u8::MAX as i32) as u8
+        }
+    }
+
+    /// How far off the centreline a car may be placed and still be fully on the
+    /// racing surface, in world units.
+    ///
+    /// This is the budget every lateral move in the game is clamped to: the
+    /// AI's swerve, the starting grid's stagger. Clamping to it rather than to
+    /// [`Self::road_half_width`] is the difference between a rival dodging into
+    /// the kerb and a rival dodging down the road.
+    ///
+    /// Floors at zero, so a corridor too narrow to hold a car reports "there is
+    /// no room" rather than a negative budget that callers would have to
+    /// special-case.
+    #[inline]
+    pub fn lateral_room(&self) -> i32 {
+        let room = self.road_half_width() - CAR_HALF_WIDTH;
+        if room < 0 {
+            0
+        } else {
+            room
+        }
+    }
+
     /// Whether the grid dimensions fit inside the `u8` tile API and the
     /// [`MAX_TRACK_DIM`] ceiling. Never enforced by the accessors (they stay
     /// total either way) but it is what every cooker and level integrity check
@@ -156,6 +252,31 @@ impl TrackDef {
             && self.height >= 1
             && (self.width as usize) <= MAX_TRACK_DIM
             && (self.height as usize) <= MAX_TRACK_DIM
+    }
+
+    /// Whether the authored road half-width is one the engine can represent.
+    ///
+    /// Three checks, all of which have been violated by authoring rather than by
+    /// a code defect, and none of which the compiler can catch: `half_width` is
+    /// a world-unit count, so a fractional cell width compiles to a road a
+    /// fraction of a cell narrower than the one that was rasterised; a width
+    /// under [`MIN_ROAD_HALF_WIDTH`] is narrower than a car can sit in; and one
+    /// over [`MAX_ROAD_HALF_WIDTH`] has its kerbs off the edge of the grid.
+    ///
+    /// Zero is *not* an error here. It is the documented "unknown" value that
+    /// [`Self::road_half_width`] floors, and the hand-written test fixtures set
+    /// it. Use [`Self::road_width_is_legal`] to decide whether a *cooked* circuit
+    /// is publishable.
+    #[inline]
+    pub fn road_width_is_legal(&self) -> bool {
+        self.half_width == 0 || self.half_width_is_legal()
+    }
+
+    /// See [`Self::road_width_is_legal`], for a width that is known to be set.
+    #[inline]
+    pub fn half_width_is_legal(&self) -> bool {
+        let hw = self.half_width as i32;
+        hw % TILE_SIZE == 0 && (MIN_ROAD_HALF_WIDTH..=MAX_ROAD_HALF_WIDTH).contains(&hw)
     }
 
     /// Total world-space width of the circuit in world units.
@@ -696,6 +817,140 @@ mod tests {
             assert!(track.max_inside_x() < track.world_width());
             assert!(track.max_inside_y() < track.world_height());
             assert!(track.max_inside_x() >= 0);
+        }
+    }
+
+    // --- road width, in lanes ------------------------------------------------
+
+    #[test]
+    fn a_lane_is_a_whole_number_of_cells() {
+        // Everything downstream -- the collision grid, the cooker, the editor --
+        // quantises the road to cells, so a lane that is not a whole number of
+        // cells would be a half-cell road that no two of them agree on.
+        assert_eq!(LANE_WIDTH % TILE_SIZE, 0);
+        assert_eq!(MIN_ROAD_HALF_WIDTH % TILE_SIZE, 0);
+        assert_eq!(MIN_ROAD_HALF_WIDTH * 2, LANE_WIDTH);
+    }
+
+    #[test]
+    fn road_half_width_floors_at_one_lane() {
+        // Zero is the "unknown" value the field documents, and every reader has
+        // to agree on what it means. It means the narrowest legal road.
+        for zero in [0u16, 1, 16, (MIN_ROAD_HALF_WIDTH - 1) as u16] {
+            let mut track = scratch_track(4);
+            track.half_width = zero;
+            assert_eq!(
+                track.road_half_width(),
+                MIN_ROAD_HALF_WIDTH,
+                "half_width {zero}"
+            );
+        }
+        // ...and a real width is passed through untouched, one lane and up.
+        for lanes in 1..=4u8 {
+            let mut track = scratch_track(4);
+            track.half_width = (LANE_WIDTH * lanes as i32 / 2) as u16;
+            assert_eq!(track.road_half_width(), LANE_WIDTH * lanes as i32 / 2);
+            assert_eq!(track.lane_count(), lanes);
+        }
+    }
+
+    #[test]
+    fn lane_count_is_never_below_one() {
+        for zero in [0u16, 8, (MIN_ROAD_HALF_WIDTH - 1) as u16] {
+            let mut track = scratch_track(4);
+            track.half_width = zero;
+            assert_eq!(track.lane_count(), 1, "half_width {zero}");
+        }
+    }
+
+    #[test]
+    fn lateral_room_leaves_the_car_on_the_road() {
+        // The point of the accessor: whatever the road is, a swerve clamped to
+        // this budget leaves the car on the racing surface.
+        for lanes in 1..=4u8 {
+            let mut track = scratch_track(4);
+            let half = LANE_WIDTH * lanes as i32 / 2;
+            track.half_width = half as u16;
+            let room = track.lateral_room();
+            assert_eq!(room, half - CAR_HALF_WIDTH, "{lanes} lanes");
+            assert!(
+                room + CAR_HALF_WIDTH <= half,
+                "{lanes} lanes: the car overhangs the road"
+            );
+            // A one-lane road is the tight case and must still be positive.
+            assert!(room > 0, "{lanes} lanes has no room to manoeuvre");
+        }
+    }
+
+    #[test]
+    fn lateral_room_never_goes_negative() {
+        // A road narrower than a car is a room of zero, not a negative budget
+        // every caller would have to special-case.
+        let mut track = scratch_track(4);
+        track.half_width = (CAR_HALF_WIDTH as u16) / 2;
+        assert_eq!(track.road_half_width(), MIN_ROAD_HALF_WIDTH);
+        assert!(track.lateral_room() >= 0);
+    }
+
+    #[test]
+    fn half_width_legality_rejects_what_the_cooker_cannot_represent() {
+        let mut track = scratch_track(4);
+        // Whole cells only.
+        for good in [
+            MIN_ROAD_HALF_WIDTH as u16,
+            (LANE_WIDTH * 3 / 2) as u16,
+            MAX_ROAD_HALF_WIDTH as u16,
+        ] {
+            track.half_width = good;
+            assert!(track.half_width_is_legal(), "{good} should be legal");
+            assert!(track.road_width_is_legal());
+        }
+        for bad in [
+            1u16,                            // sub-cell
+            (MIN_ROAD_HALF_WIDTH + 1) as u16, // sub-cell, just above the floor
+            (MIN_ROAD_HALF_WIDTH - 1) as u16, // narrower than one lane
+            (MAX_ROAD_HALF_WIDTH + TILE_SIZE) as u16, // wider than the grid
+            u16::MAX,
+        ] {
+            track.half_width = bad;
+            assert!(!track.half_width_is_legal(), "{bad} should be rejected");
+            // ...but zero stays acceptable through the unknown-value door.
+            assert_eq!(track.road_width_is_legal(), bad == 0);
+        }
+    }
+
+    #[test]
+    fn every_shipped_track_is_a_legal_road_width() {
+        for track in ALL_TRACKS.iter() {
+            assert!(
+                track.road_width_is_legal(),
+                "{}: half_width {} is not a whole-cell width in [{}, {}]",
+                track.name,
+                track.half_width,
+                MIN_ROAD_HALF_WIDTH,
+                MAX_ROAD_HALF_WIDTH,
+            );
+            assert!(
+                track.lane_count() >= 1,
+                "{}: reports {} lanes",
+                track.name,
+                track.lane_count()
+            );
+            assert!(track.lateral_room() > 0, "{}: no room to manoeuvre", track.name);
+        }
+    }
+
+    #[test]
+    fn every_shipped_track_is_at_least_as_wide_as_one_lane() {
+        // The one bound that has to hold for every published circuit, whatever
+        // its design intent: you cannot sell a circuit a car cannot drive.
+        for track in ALL_TRACKS.iter() {
+            assert!(
+                track.half_width >= MIN_ROAD_HALF_WIDTH as u16,
+                "{}: {} lanes is below the one-lane floor",
+                track.name,
+                track.road_half_width() / LANE_WIDTH * 2,
+            );
         }
     }
 

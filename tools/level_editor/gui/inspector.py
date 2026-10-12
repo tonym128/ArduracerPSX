@@ -62,10 +62,7 @@ class LevelPanel(QWidget):
 
         self.road = QComboBox()
         for v in C.ROAD_HALF_CHOICES:
-            width = int(v * 2)
-            self.road.addItem(
-                f"{width} cells  ({v:g} half)", v
-            )
+            self.road.addItem(C.road_half_label(v), v)
         self.road.currentIndexChanged.connect(self._on_road)
         form.addRow("Road width", self.road)
 
@@ -140,7 +137,11 @@ class LevelPanel(QWidget):
         self._loading = True
         self.name.setText(level.name)
         self.mode.setCurrentIndex(max(0, self.mode.findData(level.mode)))
-        self.road.setCurrentIndex(max(0, self.road.findData(level.road_half_cells)))
+        # -1 means "not one of the choices" -- legal to author, since only a whole
+        # number of cells is required, but with no name in the combo. Clamping it
+        # to 0 displayed the *narrowest* road while the model held the real one,
+        # so the panel lied about what you were editing. Show no selection.
+        self.road.setCurrentIndex(self.road.findData(level.road_half_cells))
         self.runoff.setCurrentIndex(max(0, self.runoff.findData(level.runoff)))
         self.outside.setCurrentIndex(max(0, self.outside.findData(level.outside)))
         self.kerb.setValue(level.kerb_cells)
@@ -190,7 +191,21 @@ class LevelPanel(QWidget):
 
     def _on_road(self) -> None:
         if self.level is not None:
-            self.level.road_half_cells = float(self.road.currentData())
+            width = self.road.currentData()
+            if width is None:
+                return
+            width = float(width)
+            self.level.road_half_cells = width
+            # Re-fit, because the width decides how much grid the cross-section
+            # needs: `max_extent` shrinks by a cell for every cell of widening, so
+            # a circuit authored at two lanes and widened to four immediately
+            # overflows and has to be scaled back by hand. `scale_to_fit` takes
+            # the width explicitly for exactly this.
+            #
+            # Only ever *shrinks*. Widening a road should not silently shrink the
+            # circuit -- that is a shape change the author did not ask for -- and
+            # `scale_to_fit` is a no-op when nothing overflows.
+            self.level.scale_to_fit(width)
             self._emit()
 
     def _on_runoff(self) -> None:

@@ -54,6 +54,12 @@ impl Difficulty {
 /// Competitors in a championship: the player plus five rivals.
 pub const COMPETITORS_PER_SESSION: usize = 6;
 /// Staggered grid slots for 6 competitors (slot 0 is pole position, slots 1..5 follow).
+///
+/// The lateral column is the widest stagger the grid will use. It is a *budget*,
+/// not a placement: [`grid_slot_position_on`] scales it to the road, so a
+/// three-lane circuit gets the full stagger while a one-lane circuit gets a
+/// single-file grid. A fixed ±16 on a one-lane road is not a stagger, it is two
+/// cars parked on opposite kerbs.
 pub const GRID_SLOT_OFFSETS: [(i32, i32); COMPETITORS_PER_SESSION] = [
     (0, 0),
     (-48, 16),
@@ -65,21 +71,77 @@ pub const GRID_SLOT_OFFSETS: [(i32, i32); COMPETITORS_PER_SESSION] = [
 
 /// Calculates the world-space position for a given grid slot (0..5) relative to pole.
 pub fn grid_slot_position(start_pos: Vec2, start_heading: u16, slot: usize) -> Vec2 {
+    grid_offset(slot).to_position(start_pos, start_heading)
+}
+
+/// A grid slot as (forward, lateral) world-unit offsets from pole.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct GridSlotOffset {
+    pub forward: i32,
+    pub lateral: i32,
+}
+
+impl GridSlotOffset {
+    /// Places the offset in world space relative to a pole position and heading.
+    pub fn to_position(self, start_pos: Vec2, start_heading: u16) -> Vec2 {
+        if self.forward == 0 && self.lateral == 0 {
+            return start_pos;
+        }
+        let fx = crate::math::sin(start_heading);
+        let fy = -crate::math::cos(start_heading);
+        let lx = crate::math::cos(start_heading);
+        let ly = crate::math::sin(start_heading);
+        start_pos
+            + Vec2::new(
+                fx * crate::math::Fixed::from_int(self.forward)
+                    + lx * crate::math::Fixed::from_int(self.lateral),
+                fy * crate::math::Fixed::from_int(self.forward)
+                    + ly * crate::math::Fixed::from_int(self.lateral),
+            )
+    }
+}
+
+/// The unconstrained grid slot `slot`, clamped to the slot array.
+pub fn grid_offset(slot: usize) -> GridSlotOffset {
     let slot_idx = slot.min(COMPETITORS_PER_SESSION - 1);
     let (forward, lateral) = GRID_SLOT_OFFSETS[slot_idx];
-    if forward == 0 && lateral == 0 {
-        return start_pos;
-    }
-    let fx = crate::math::sin(start_heading);
-    let fy = -crate::math::cos(start_heading);
-    let lx = crate::math::cos(start_heading);
-    let ly = crate::math::sin(start_heading);
-    start_pos
-        + Vec2::new(
-            fx * crate::math::Fixed::from_int(forward) + lx * crate::math::Fixed::from_int(lateral),
-            fy * crate::math::Fixed::from_int(forward) + ly * crate::math::Fixed::from_int(lateral),
-        )
+    GridSlotOffset { forward, lateral }
 }
+
+/// Grid slot `slot` on `track`, with the lateral stagger scaled to its road.
+///
+/// On a three-lane circuit this is [`grid_offset`] unchanged. On a one-lane
+/// circuit there is no room to stagger at all, so the grid becomes single file:
+/// every car sits on the centreline, which is both the only legal placement and
+/// the one that means a one-lane start is a queue rather than a car park.
+///
+/// Total: `slot` is clamped to the slot array and `lateral_room` is a floor at
+/// zero, so the products cannot overflow or invert for any input.
+pub fn grid_slot_offset_on(track: &crate::track::TrackDef, slot: usize) -> GridSlotOffset {
+    let offset = grid_offset(slot);
+    let room = track.lateral_room() as i64;
+    let lateral = if room > 0 {
+        let wide = offset.lateral as i64;
+        // Keep the sign, shrink the magnitude: a ±16 stagger on a road with 9
+        // units of room becomes ±9, not ±(16 * 9 / 16).
+        (wide * room / GRID_SLOT_MAX_LATERAL as i64).clamp(-room, room) as i32
+    } else {
+        0
+    };
+    GridSlotOffset {
+        forward: offset.forward,
+        lateral,
+    }
+}
+
+/// [`grid_slot_offset_on`] resolved to a world position on `track`.
+pub fn grid_slot_position_on(track: &crate::track::TrackDef, slot: usize) -> Vec2 {
+    grid_slot_offset_on(track, slot).to_position(track.start_pos, track.start_heading)
+}
+
+/// Largest lateral magnitude any [`GRID_SLOT_OFFSETS`] entry asks for, in world
+/// units. The denominator that scales the stagger down to a narrower road.
+pub const GRID_SLOT_MAX_LATERAL: i32 = 16;
 /// Races in each cup.
 pub const STAGES_PER_CUP: u8 = 6;
 /// Cups in the championship.

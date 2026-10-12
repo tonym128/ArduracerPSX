@@ -226,6 +226,7 @@ def _corner_nodes(pts: list[tuple[float, float]], corners: int,
 
 def _with_straight_nodes(
     corners: list[tuple[float, float]],
+    road_half_cells: float = C.DEFAULT_ROAD_HALF_CELLS,
 ) -> list[tuple[float, float]]:
     """Corners plus collinear nodes along each edge, for spline mode.
 
@@ -237,7 +238,14 @@ def _with_straight_nodes(
     neighbours give a tangent along the line. Four or more inserted nodes per
     edge leaves the middle of it exactly straight and bends only where the
     corners are, which is also where the circuit should be bending.
+
+    The spacing floors at one road width. A fixed four cells is two full road
+    widths on a two-cell circuit, which means the spline's curvature between
+    control points is high *relative to the corridor it has to fit in* -- a
+    corner that is comfortable at six cells wide pinches the inside edge at
+    two, and the road rasterises as a lens rather than a road.
     """
+    spacing = max(STRAIGHT_NODE_SPACING, 2.0 * road_half_cells)
     n = len(corners)
     out: list[tuple[float, float]] = []
     for i in range(n):
@@ -245,7 +253,7 @@ def _with_straight_nodes(
         b = corners[(i + 1) % n]
         out.append(a)
         length = math.dist(a, b)
-        extra = max(int(length // STRAIGHT_NODE_SPACING), MIN_STRAIGHT_NODES - 2)
+        extra = max(int(length // spacing), MIN_STRAIGHT_NODES - 2)
         for k in range(1, extra + 1):
             t = k / (extra + 1)
             out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
@@ -289,6 +297,7 @@ def _fit_perimeter(
     centre: tuple[float, float],
     reach: float,
     target: float,
+    road_half_cells: float = C.DEFAULT_ROAD_HALF_CELLS,
 ) -> list[tuple[float, float]]:
     """Uniformly scale the ring so its centreline is `target` cells long.
 
@@ -313,7 +322,8 @@ def _fit_perimeter(
     ]
 
 
-def _fit_centreline(pts, radii, mode, centre, reach, target):
+def _fit_centreline(pts, radii, mode, centre, reach, target,
+                    road_half_cells: float = C.DEFAULT_ROAD_HALF_CELLS):
     """Scale the node ring so its *drawn centreline* is `target` cells long.
 
     Two passes, because the mapping from nodes to length depends on the mode:
@@ -331,7 +341,7 @@ def _fit_centreline(pts, radii, mode, centre, reach, target):
     the map or one that quietly ignores the difficulty setting.
     """
     for _ in range(2):
-        length = _centreline_length(pts, radii, mode)
+        length = _centreline_length(pts, radii, mode, road_half_cells)
         if length < 1e-6:
             return pts
         want = target / length
@@ -350,9 +360,10 @@ def _fit_centreline(pts, radii, mode, centre, reach, target):
     return pts
 
 
-def _centreline_length(pts, radii, mode) -> float:
+def _centreline_length(pts, radii, mode, road_half_cells: float = C.DEFAULT_ROAD_HALF_CELLS) -> float:
     try:
-        return G.path_length(G.shape_path(pts, radii, mode)[1])
+        min_r = road_half_cells + C.KERB_CELLS
+        return G.path_length(G.shape_path(pts, radii, mode, G.DEFAULT_STEP, min_r)[1])
     except (ValueError, ZeroDivisionError):
         return 0.0
 
@@ -383,7 +394,7 @@ def generate(params: GenParams | None = None, *, avoid: set[str] | None = None) 
     if len(corners) < 3:
         corners = pts
     if p.mode == "spline":
-        placed = _with_straight_nodes(corners)
+        placed = _with_straight_nodes(corners, p.road_half_cells)
         radii = [0.0] * len(placed)
     else:
         placed = corners
@@ -395,7 +406,7 @@ def generate(params: GenParams | None = None, *, avoid: set[str] | None = None) 
     # `MIN_LAP` floor as well as a straight floor, so "a bit under the target"
     # is a failing circuit rather than a small one.
     placed = _fit_centreline(placed, radii, p.mode, centre, reach,
-                             float(cfg["perimeter"]))
+                             float(cfg["perimeter"]), p.road_half_cells)
 
     level = Level(
         name=name,
@@ -432,24 +443,35 @@ def _lay_out_marks(level: Level, p: GenParams, rng: random.Random) -> None:
         marks.append(Mark(kind="gate", frac=f))
 
     sectors = len(fracs) + 1
+    # Keep hazards clear of the gate cells by more than the one-cell exclusion
+    # box `validate_gates` uses. As a fraction of the lap, 0.015 of a ~78-cell
+    # lap is 1.2 cells -- *inside* the box, so on a narrow road a pad was
+    # generated onto a gate and then failed validation, and on a wide road it
+    # was only just clear. 0.03 puts it two cells out at any road width.
+    clearance = 0.03
+    # Lateral boost offsets are a fraction of the road's half-width, not an
+    # absolute cell count. At a fixed ±0.55 they meant "two pads side by side"
+    # on a six-cell road and "a pad hanging off the tarmac into the kerb" on a
+    # two-cell one, because the pad's own half-width is already the full road.
+    side = 0.45 * p.road_half_cells
     for k in range(int(p.boost_pads)):
         sec = rng.randrange(sectors)
         lo = fracs[sec - 1] if sec > 0 else 0.0
         hi = fracs[sec] if sec < len(fracs) else 1.0
-        if hi - lo < 0.04:
+        if hi - lo < 0.04 + 2 * clearance:
             continue
         marks.append(Mark(
             kind="boost",
-            frac=rng.uniform(lo + 0.015, hi - 0.015),
-            offset=rng.choice((-0.55, 0.0, 0.55)) if rng.random() < 0.4 else 0.0,
+            frac=rng.uniform(lo + clearance, hi - clearance),
+            offset=rng.choice((-side, 0.0, side)) if rng.random() < 0.4 else 0.0,
         ))
     for k in range(int(p.oil_slicks)):
         sec = rng.randrange(sectors)
         lo = fracs[sec - 1] if sec > 0 else 0.0
         hi = fracs[sec] if sec < len(fracs) else 1.0
-        if hi - lo < 0.04:
+        if hi - lo < 0.04 + 2 * clearance:
             continue
-        marks.append(Mark(kind="oil", frac=rng.uniform(lo + 0.01, hi - 0.01)))
+        marks.append(Mark(kind="oil", frac=rng.uniform(lo + clearance, hi - clearance)))
 
     level.marks = marks
     level.meta["boost_pads"] = sum(1 for m in marks if m.kind == "boost")

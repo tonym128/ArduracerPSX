@@ -96,13 +96,21 @@ def dedupe(points: Iterable[Point], eps: float = 1e-6) -> list[Point]:
 
 
 def fillet_geometry(
-    nodes: Sequence[Point], radii: Sequence[float]
+    nodes: Sequence[Point],
+    radii: Sequence[float],
+    min_corner_radius_cells: float | None = None,
 ) -> tuple[list[dict], list[float]]:
     """Per-vertex fillet solution for a closed filleted polygon.
 
     Returns the per-vertex records and the incoming edge lengths. Kept separate
     from path emission so both the `poly` writer and the radius estimator can
     use it.
+
+    `min_corner_radius_cells` is the smallest fillet radius the *road* can be
+    drawn on: the road half-width plus its kerb, below which the inside edge of
+    the corner folds through the centre of curvature. Pass it whenever the road
+    width is known -- see the clamp below. `None` means "unknown", which is the
+    pre-existing behaviour.
     """
     pts = dedupe(nodes)
     n = len(pts)
@@ -154,6 +162,24 @@ def fillet_geometry(
         # hits. Clamping is the same rule the generator uses, for the same
         # reason.
         max_t = min(lengths[(i - 1) % n], lengths[i]) * 0.48
+        # ...and to a radius the road can actually be drawn on.
+        #
+        # A fillet of radius `r` sweeps an arc whose *inner* edge has radius
+        # `r - (road_half + kerb)`. When that goes negative the inner edge folds
+        # through the centre of curvature: the road outline self-intersects and
+        # the car hits a cusp it can see coming. Nothing enforced the lower
+        # bound, and the edge-length clamp above only makes it *more* likely on a
+        # short edge -- so on a narrow road, where the radius needed is already
+        # small, corners folded through their own insides.
+        #
+        # `min_corner_radius_cells` is None for callers that do not know the road
+        # width (SVG import, before the width is recovered), which keeps the old
+        # behaviour rather than guessing a width.
+        if min_corner_radius_cells is not None:
+            r_min = min_corner_radius_cells
+            if r < r_min:
+                r = r_min
+                t_dist = r * tan_half
         if t_dist > max_t:
             t_dist = max_t
             r = t_dist / max(1e-4, tan_half)
@@ -214,15 +240,25 @@ def _line_samples(a: Point, b: Point, step: float, out: list[Point]) -> None:
 
 
 def poly_path(
-    nodes: Sequence[Point], radii: Sequence[float], step: float = DEFAULT_STEP
+    nodes: Sequence[Point],
+    radii: Sequence[float],
+    step: float = DEFAULT_STEP,
+    min_corner_radius_cells: float | None = None,
 ) -> tuple[str, list[Point]]:
     """Closed filleted polygon -> (SVG `d`, dense centreline samples).
 
     The `d` is exactly the grammar the shipped circuits use: `M`, one `A` per
     active fillet, `L` to the next fillet's start, `Z`.
+
+    `min_corner_radius_cells` is forwarded to [`fillet_geometry`]; see there for
+    why a corner tighter than the road is not a corner.
     """
     pts = dedupe(nodes)
-    fillets, _ = fillet_geometry(pts, list(radii) + [0.0] * max(0, len(pts) - len(radii)))
+    fillets, _ = fillet_geometry(
+        pts,
+        list(radii) + [0.0] * max(0, len(pts) - len(radii)),
+        min_corner_radius_cells,
+    )
     n = len(pts)
 
     cmds = [f"M {fillets[0]['p_start'][0]:.4f} {fillets[0]['p_start'][1]:.4f}"]
@@ -461,7 +497,8 @@ def _bezier_flatness(p0: Point, c1: Point, c2: Point, p1: Point) -> float:
 
 def shape_path(
     nodes: Sequence[Point], radii: Sequence[float], mode: str,
-    step: float = DEFAULT_STEP
+    step: float = DEFAULT_STEP,
+    min_corner_radius_cells: float | None = None,
 ) -> tuple[str, list[Point]]:
     """Dispatch for the two shape modes. The only place `mode` is branched on.
 
@@ -470,11 +507,14 @@ def shape_path(
     from every arc-length sum, so a mark placed at fraction 0.99 lands short
     and a resampled route is a fraction of a cell short of closing. The
     compiler pops the trailing duplicate back off (`emit_rust`).
+
+    `min_corner_radius_cells` applies to `poly` mode only: a spline has no
+    fillets, and its curvature is already whatever the control points make it.
     """
     if mode == "spline":
         d, samples = spline_path(nodes, step)
     elif mode == "poly":
-        d, samples = poly_path(nodes, radii, step)
+        d, samples = poly_path(nodes, radii, step, min_corner_radius_cells)
     else:
         raise ValueError(
             f"unknown centreline mode {mode!r} (expected 'poly' or 'spline')"

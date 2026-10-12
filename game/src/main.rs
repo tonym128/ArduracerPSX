@@ -23,9 +23,9 @@ pub mod ui;
 pub mod video;
 
 use arduracer_core::{
-    compute_standings, grid_slot_position, resolve_field, AiRacer, ChampionshipSession, Difficulty,
-    Fixed, LapTimer, StartPhase, StartSequence, TrackDef, Vec2, VehicleState, AI_PROFILES,
-    ALL_TRACKS, ALL_TRACK_VISUALS, GRID_SLOT_OFFSETS, STAGES_PER_CUP,
+    compute_standings, grid_slot_offset_on, grid_slot_position_on, resolve_field, AiRacer,
+    ChampionshipSession, Difficulty, Fixed, LapTimer, StartPhase, StartSequence, TrackDef, Vec2,
+    VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS, STAGES_PER_CUP,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -64,11 +64,17 @@ fn is_pal_mode() -> bool {
 }
 
 /// Spawns 5 AI rivals on staggered grid positions according to championship grid slots and difficulty.
+///
+/// The lateral stagger is scaled to the road by [`grid_offset`]: a three-lane
+/// circuit gets the full two-column grid, a one-lane circuit gets a single
+/// file, because a fixed ±16 on a one-lane road is not a stagger but two cars
+/// parked on opposite kerbs.
 fn spawn_rivals(
-    start_pos: Vec2,
-    start_heading: u16,
+    track: &TrackDef,
     champ: Option<&ChampionshipSession>,
 ) -> [AiRacer; 5] {
+    let start_pos = track.start_pos;
+    let start_heading = track.start_heading;
     let diff = champ.map(|c| c.difficulty).unwrap_or(Difficulty::Medium);
     let mut rivals = [
         AiRacer::with_difficulty(start_pos, start_heading, AI_PROFILES[0], diff),
@@ -79,8 +85,8 @@ fn spawn_rivals(
     ];
     for (i, rival) in rivals.iter_mut().enumerate() {
         let slot = champ.map(|c| c.grid_slot_of(i + 1)).unwrap_or(i + 1);
-        let (fwd, lat) = GRID_SLOT_OFFSETS[slot.min(GRID_SLOT_OFFSETS.len() - 1)];
-        rival.offset_from_pole(start_pos, start_heading, fwd, lat);
+        let scaled = grid_slot_offset_on(track, slot);
+        rival.offset_from_pole(start_pos, start_heading, scaled.forward, scaled.lateral);
         rival.aim_timer = (i as u8) % 3;
     }
     rivals
@@ -181,7 +187,7 @@ impl ArduracerGame {
         let track = ALL_TRACKS[0];
         let timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
         let player = VehicleState::new(track.start_pos, track.start_heading, Default::default());
-        let rivals = spawn_rivals(track.start_pos, track.start_heading, None);
+        let rivals = spawn_rivals(track, None);
         let camera = Camera::new_chase(track.start_pos, track.start_heading);
 
         dbg::log_step(6, 9, "Probing memory card...");
@@ -338,17 +344,13 @@ impl ArduracerGame {
             .as_ref()
             .map(|c| c.grid_slot_of(0))
             .unwrap_or(0);
-        let player_pos = grid_slot_position(track.start_pos, track.start_heading, player_slot);
+        let player_pos = grid_slot_position_on(track, player_slot);
         self.player = VehicleState::new(
             player_pos,
             track.start_heading,
             self.state_mgr.garage.tuning(),
         );
-        self.rivals = spawn_rivals(
-            track.start_pos,
-            track.start_heading,
-            self.state_mgr.championship.as_ref(),
-        );
+        self.rivals = spawn_rivals(track, self.state_mgr.championship.as_ref());
         self.camera = match self.camera_view {
             0 => Camera::new_chase(player_pos, track.start_heading),
             2 => Camera::new_rotating(player_pos, track.start_heading),

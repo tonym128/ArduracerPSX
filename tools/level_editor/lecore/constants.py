@@ -107,36 +107,62 @@ RGB_TUPLE = {
 # stroke is centred. The bands are stacked outside each other and painted back
 # to front: SVG has no z-buffer, so paint order is the format.
 
-#: Default tarmac half-width in world units. A level may override it with
-#: `Level.road_half_cells`, but it must stay a whole number of cells -- see
-#: `road_half_cells_legal`, and the assertion `build_atlas` makes.
+#: Default tarmac half-width in world units, i.e. three lanes. A level may
+#: override it with `Level.road_half_cells`, but it must stay a whole number of
+#: cells -- see `road_half_cells_legal`, and the assertion `build_atlas` makes.
+#:
+#: This is the *default for a new level*, not the floor: `DEFAULT_ROAD_HALF_CELLS`
+#: is the same number in cells, and the floor is `min_half_width()`.
 ROAD_HALF_WORLD = 96
 
 KERB_CELLS = 0.7           # rumble band outside the tarmac
 RUNOFF_CELLS = 2.4         # gravel band outside the kerb
 WALL_CELLS = 1.0           # barrier band outside the runoff
 
-#: Everything between the centreline and the outside of the barrier. The single
-#: number circuit sizing has to fit inside the grid.
-BORDER_CELLS = 3.0 + KERB_CELLS + RUNOFF_CELLS + WALL_CELLS  # 7.1
-
 INFIELD = GRASS
 OUTSIDE = GRASS
 
-#: Road half-widths a level may use, in cells. The engine floors
-#: `half_width` at `MIN_HALF_WIDTH`, and `build_atlas` requires a whole number
-#: of cells, so the legal set is integral. 4 is a wide, flowing circuit and is
-#: publishable; 1 and 2 are narrower than the engine will accept and are
-#: offered for drafting only -- `validate_level` says so, and `publish` refuses.
+#: Road half-widths a level may use, in cells. The engine floors `half_width` at
+#: `MIN_ROAD_HALF_WIDTH` (one lane) and `build_atlas` requires a whole number of
+#: cells, so the legal set is integral.
+#:
+#: 1 is one lane -- a single-car technical circuit, a go-kart track. 2 is two
+#: lanes, enough to pass. 3 is the width the shipped circuits were designed at
+#: and what every one of them uses. 4 is a wide, flowing circuit.
+#:
+#: All four are publishable. They were not always: 1 and 2 were offered by every
+#: chooser and then refused downstream, because the floor lived in a *test*
+#: constant (`MIN_HALF_WIDTH` in `tools/test_game_logic`) that encoded a taste
+#: decision about the shipped 24 rather than a limit of the engine. That floor is
+#: now the engine's own one-lane floor, so the widths this module offers and the
+#: widths the game accepts are the same set.
 ROAD_HALF_CHOICES = (1.0, 2.0, 3.0, 4.0)
+
+#: Human-readable name for each road half-width, used by the width choosers.
+#:
+#: Lanes are the vocabulary the rest of the game uses -- `TrackDef::lane_count`,
+#: the AI's swerve budget, the starting grid -- so the editor should speak it
+#: too, rather than making an author work out that "2 cells" means one lane.
+ROAD_HALF_LABELS = {
+    1.0: "1 lane  (2 cells)",
+    2.0: "2 lanes  (4 cells)",
+    3.0: "3 lanes  (6 cells)",
+    4.0: "4 lanes  (8 cells)",
+}
+
+#: Half-width the shipped circuits were authored at, in cells. The default for a
+#: new level, and the width the level editor's generate dialog opens at.
+DEFAULT_ROAD_HALF_CELLS = 3.0
 
 #: Narrowest road the game will accept, in world units, and the matching
 #: straight and lap-length floors. These are `MIN_HALF_WIDTH`,
 #: `MIN_STRAIGHT_SAMPLES` and `MIN_LAP` in `tools/test_game_logic`, and
 #: `make test` fails on any track below them. Read out of that file rather than
 #: restated here -- see `engine_floors`.
-#: Fallback only if `tools/test_game_logic` cannot be found.
-DEFAULT_MIN_HALF_WIDTH = 96
+#: Fallback only if `tools/test_game_logic` cannot be found. One lane, which is
+#: `MIN_ROAD_HALF_WIDTH` in `arduracer_core::track` -- the engine's own floor,
+#: and the number this must agree with.
+DEFAULT_MIN_HALF_WIDTH = 32
 
 #: The other two floors `test_circuits_are_wide_and_have_long_straights`
 #: enforces, read from the same place. A circuit below any of them compiles,
@@ -180,10 +206,24 @@ def min_half_width() -> int:
 def publishable_road_halves() -> tuple[float, ...]:
     """Road half-widths in cells that `make test` will accept."""
     floor = min_half_width() / WORLD_PER_CELL
-    return tuple(
+    legal = tuple(
         v for v in ROAD_HALF_CHOICES
         if v * WORLD_PER_CELL >= min_half_width() - 1e-9
-    ) or ROAD_HALF_CHOICES
+    )
+    # The `or ROAD_HALF_CHOICES` this used to fall back to was a lie in the one
+    # case it could fire: a floor above the widest choice reports *every* width
+    # as publishable, when in fact none of them is. Say so instead.
+    return legal or ()
+
+
+def road_half_label(cells: float) -> str:
+    """Chooser label for a road half-width, in lanes.
+
+    Falls back to cells for a width outside [`ROAD_HALF_CHOICES`], which is
+    legal to author (`road_half_cells_legal` only demands a whole number of
+    cells) but has no lane name.
+    """
+    return ROAD_HALF_LABELS.get(round(float(cells), 3), f"{cells:g}-cell half-width")
 
 
 #: Kerb dash period, in cells, for the red/white alternation.

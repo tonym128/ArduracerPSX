@@ -488,7 +488,7 @@ def load_svg(path: str, name: str | None = None) -> Level:
     level.meta["source_svg"] = os.path.abspath(path)
     level.meta["imported"] = True
     level.meta["notes"] = _svg_note(root)
-    level.marks = _recover_marks(centreline, polygons)
+    level.marks = _recover_marks(centreline, polygons, road_half)
     if not level.marks:
         level.add_standard_marks()
     return level
@@ -577,18 +577,27 @@ def _unit(v: G.Point) -> G.Point:
 
 
 def _recover_marks(
-    centreline: Sequence[G.Point], polygons: list[tuple[str, G.Point]]
+    centreline: Sequence[G.Point],
+    polygons: list[tuple[str, G.Point]],
+    road_half_cells: float,
 ) -> list[Mark]:
     """Turn drawn feature polygons back into marks on the lap.
 
     Matched by position along the centreline rather than by absolute
     coordinates, so a mark stays the same mark after the level is moved or
-    scaled. A polygon that lands more than half a road-width off the centreline
-    was drawn on a curb or in the runoff and is dropped: keeping it would put a
-    boost pad in the gravel with a warning nobody reads.
+    scaled. A polygon that lands outside the road-and-kerb band is dropped:
+    keeping it would put a boost pad in the gravel with a warning nobody reads.
+
+    `road_half_cells` is the width recovered from the drawing, which is what the
+    band is measured against. It used to be a fixed `8.0` cells, which bears no
+    relation to any road: on a six-cell road it kept marks in the gravel, and on
+    a two-cell road it was six cells *wider* than the road it was supposedly
+    bounded by. The docstring already described the rule in road widths; the code
+    never implemented it.
     """
     if not centreline:
         return []
+    reach = road_half_cells + C.KERB_CELLS
     marks: list[Mark] = []
     for fill, pt in polygons:
         code = C.RGB_CODE.get(fill)
@@ -596,7 +605,7 @@ def _recover_marks(
         if kind is None:
             continue
         frac, dist = G.nearest_fraction(centreline, pt)
-        if dist > 8.0:
+        if dist > reach:
             continue
         at, tangent = G.point_at_fraction(centreline, frac)
         lateral = (pt[0] - at[0]) * -tangent[1] + (pt[1] - at[1]) * tangent[0]

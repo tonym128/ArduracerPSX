@@ -40,7 +40,8 @@ pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
 pub use ai_profiles::{AiProfile, AI_PROFILES};
 pub use capetown::TRACK_CAPETOWN;
 pub use championship::{
-    compute_standings, grid_slot_position, ChampionshipSession, Competitor, Difficulty, CUP_COUNT,
+    compute_standings, grid_offset, grid_slot_offset_on, grid_slot_position,
+    grid_slot_position_on, ChampionshipSession, Competitor, Difficulty, GridSlotOffset, CUP_COUNT,
     CUP_NAMES, GRID_SLOT_OFFSETS, POINTS_TABLE, STAGES_PER_CUP,
 };
 pub use contact::{
@@ -64,7 +65,10 @@ pub use timing::{
     CheckpointGate, LapTimer, Medal, ParTimes, StartPhase, StartSequence, COUNTDOWN_GO_TICKS,
     COUNTDOWN_LIGHTS, COUNTDOWN_LIGHT_TICKS, TICKS_PER_SECOND, TOTAL_LAPS,
 };
-pub use track::{TrackDef, TrackTile, MAX_TRACK_CHECKPOINTS, MAX_TRACK_DIM, TILE_SIZE};
+pub use track::{
+    TrackDef, TrackTile, CAR_HALF_WIDTH, LANE_WIDTH, MAX_ROAD_HALF_WIDTH, MAX_TRACK_CHECKPOINTS,
+    MAX_TRACK_DIM, MIN_ROAD_HALF_WIDTH, TILE_SIZE,
+};
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
 pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};
 

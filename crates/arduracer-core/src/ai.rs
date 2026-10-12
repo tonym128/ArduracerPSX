@@ -167,7 +167,14 @@ fn tile_centre_world(tx: u8, ty: u8) -> Vec2 {
 /// avoidance behaves identically at any cell size; `AVOIDANCE_BOX` is asserted
 /// to be at least a car width in `tests`.
 const AVOIDANCE_BOX: i32 = 64;
-/// Lateral offset used to dodge an obstacle, in world units.
+/// Lateral offset used to dodge an obstacle, in world units, on a road wide
+/// enough to have it.
+///
+/// This is the *budget* for the swerve, not the swerve itself: a circuit one
+/// lane wide cannot spend 64 units sideways, because 64 units off the centreline
+/// of a one-lane road is the far kerb. `avoidance_offset` scales the actual
+/// dodge down to whatever [`TrackDef::lateral_room`] allows, so this stays the
+/// wide-road behaviour and narrow roads get a proportionally smaller one.
 const AVOIDANCE_OFFSET_UNITS: i32 = 64;
 /// Distance beyond which an obstacle is ignored entirely (world units).
 const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_BOX * 2;
@@ -390,7 +397,23 @@ impl AiRacer {
             }
             let (nx, ny, best_n_idx) = match best {
                 Some(next) => next,
-                None => break,
+                // The walk ran out of forward drivable tiles. On a wide road this
+                // is a dead end in scenery and `from` is a usable aim point
+                // behind us. On a one-lane road it is the *normal* case at every
+                // corner: the corridor turns and the tile diagonally past the
+                // turn is barrier, so the walk stops having barely moved.
+                //
+                // Returning `from` there is what made narrow-road rivals saw at
+                // the corner: an aim point one tile away and 90 degrees off the
+                // nose saturates the steering lock and drives them into the
+                // outside wall. Falling back to the gate being chased keeps the
+                // aim point *ahead along the road*, which is the direction a
+                // one-lane rival has to be pointed anyway.
+                None => {
+                    return TrackDef::gate_centre(&track.route_node(
+                        (self.target_gate_idx as usize) % route,
+                    ));
+                }
             };
             let centre = tile_centre_world(nx, ny);
             let step = if step_idx == 0 {
@@ -423,8 +446,20 @@ impl AiRacer {
     /// The box is sized in world units (`AVOIDANCE_BOX`), because the old
     /// `ox.abs() < 14 && oy.abs() < 20` world-delta test was a 14x20 unit box --
     /// smaller than a single tile -- so rivals drove through each other.
-    fn avoidance_offset(&self, other_positions: &[Vec2]) -> i32 {
+    ///
+    /// The *dodge* is scaled to the road. A fixed 64-unit offset is a full road
+    /// width on the wide circuits it was tuned for, but on a one-lane road it
+    /// aims the car at the opposite kerb -- which is worse than not dodging at
+    /// all, because a rival that swerves off-line then hits the wall, loses the
+    /// corner and joins the pile-up it was trying to avoid. So the per-rival
+    /// offset is the lesser of the wide-road value and the room actually left
+    /// by the road edge once the car itself is accounted for, and the total is
+    /// clamped to that same room: two rivals on opposite sides of a narrow road
+    /// cancel out rather than winding the aim point out through the scenery.
+    fn avoidance_offset(&self, track: &TrackDef, other_positions: &[Vec2]) -> i32 {
         let half = AVOIDANCE_BOX;
+        let room = track.lateral_room();
+        let step = AVOIDANCE_OFFSET_UNITS.min(room);
         let mut offset = 0i32;
         for other_pos in other_positions {
             let dx = (other_pos.x - self.state.position.x).to_int();
@@ -436,14 +471,15 @@ impl AiRacer {
                 continue;
             }
             if dx.abs() < half && dy.abs() < half {
-                offset += if dx >= 0 {
-                    -AVOIDANCE_OFFSET_UNITS
-                } else {
-                    AVOIDANCE_OFFSET_UNITS
-                };
+                offset += if dx >= 0 { -step } else { step };
             }
         }
-        offset.clamp(-2 * AVOIDANCE_OFFSET_UNITS, 2 * AVOIDANCE_OFFSET_UNITS)
+        // The cap is the road, not a multiple of the per-rival step: on a
+        // two-lane road two rivals in a pack can legitimately ask for more
+        // correction than there is road to apply it in, and the correct answer
+        // is "all of it", not "some of it and then keep going through the
+        // barrier".
+        offset.clamp(-room, room)
     }
 
     /// Corner severity between the current target and the one after it, in BAMs.
@@ -579,7 +615,7 @@ impl AiRacer {
 
     /// The normal racing input: racing line, corner governor and avoidance.
     fn drive_input(&mut self, track: &TrackDef, other_positions: &[Vec2]) -> VehicleInput {
-        let dodge = self.avoidance_offset(other_positions);
+        let dodge = self.avoidance_offset(track, other_positions);
         let line = self.cached_racing_line_point(track);
         let aim = if dodge != 0 {
             // Apply the dodge perpendicular to the direction of travel, so it
@@ -776,6 +812,8 @@ mod tests {
     use super::*;
     use crate::ai_profiles::AI_PROFILES;
     use crate::levels::ALL_TRACKS;
+    use crate::timing::CheckpointGate;
+    use crate::track::{TrackTile, MAX_TRACK_CHECKPOINTS, MIN_ROAD_HALF_WIDTH};
 
     /// Fraction of the centre-line a rival must actually drive to prove it is not
     /// cutting the circuit.
@@ -1182,18 +1220,18 @@ mod tests {
 
         // Inside the box -> dodge.
         let inside = racer.state.position + Vec2::new(Fixed::from_int(half - 8), Fixed::ZERO);
-        assert_ne!(racer.avoidance_offset(&[inside]), 0);
+        assert_ne!(racer.avoidance_offset(track, &[inside]), 0);
 
         // Two tiles away laterally -> ignored.
         let outside = racer.state.position + Vec2::new(Fixed::from_int(2 * TILE_SIZE), Fixed::ZERO);
-        assert_eq!(racer.avoidance_offset(&[outside]), 0);
+        assert_eq!(racer.avoidance_offset(track, &[outside]), 0);
 
         // Dead astern at long range -> ignored.
         let far = racer.state.position + Vec2::new(Fixed::ZERO, Fixed::from_int(8 * TILE_SIZE));
-        assert_eq!(racer.avoidance_offset(&[far]), 0);
+        assert_eq!(racer.avoidance_offset(track, &[far]), 0);
 
         // Coincident -> no divide-by-zero, no dodge.
-        assert_eq!(racer.avoidance_offset(&[racer.state.position]), 0);
+        assert_eq!(racer.avoidance_offset(track, &[racer.state.position]), 0);
     }
 
     #[test]
@@ -1207,11 +1245,288 @@ mod tests {
             racer.state.position,
             Vec2::ZERO,
         ];
-        let offset = racer.avoidance_offset(&fleet);
+        let offset = racer.avoidance_offset(track, &fleet);
+        // The bound is the road, so the total is clamped to the lateral room
+        // rather than to a multiple of the per-rival step. That is *smaller*
+        // than the old `2 * AVOIDANCE_OFFSET_UNITS` on every circuit, which is
+        // the point: a pack of rivals used to be able to wind the aim point off
+        // a road that is only three lanes wide.
         assert!(
-            offset.abs() <= 2 * AVOIDANCE_OFFSET_UNITS,
-            "offset {offset}"
+            offset.abs() <= track.lateral_room(),
+            "offset {offset} exceeds the room {} of {}",
+            track.lateral_room(),
+            track.name
         );
+        assert!(offset.abs() <= 2 * AVOIDANCE_OFFSET_UNITS);
+    }
+
+    /// The swerve budget is the road, so a one-lane circuit gets a smaller dodge
+    /// than a three-lane one -- and never a dodge that lands on the far kerb.
+    ///
+    /// This is the defect that made narrow circuits unplayable by the AI: a fixed
+    /// 64-unit dodge is a whole road width on a one-lane road, so a rival that
+    /// merely *saw* traffic steered itself into the opposite barrier.
+    // ========================================================================
+    // narrow roads: one lane, and the two-lane case
+    // ========================================================================
+
+    /// A closed ring circuit whose road is `half_width` wide, for driving the AI
+    /// on a road narrower than the shipped fleet.
+    ///
+    /// Rounded corners, not a square. That is not decoration: the level editor
+    /// fills every authored corner to a radius (`fillet_geometry`), so a sharp
+    /// 90-degree corner is not a circuit anything can produce -- and it is not
+    /// drivable on a one-lane road either, since the outer kerb of a zero-radius
+    /// corner folds through the inside of the turn. A square fixture therefore
+    /// tested the AI's ability to do something impossible and reported it as
+    /// "the AI cannot drive one lane".
+    ///
+    /// Leaks its tiles and route via `Box::leak`, which is what every other
+    /// `TrackDef` fixture in this file does -- a `TrackDef` is `&'static` by
+    /// construction, so there is no other way to build one.
+    fn narrow_ring(half_width: i32) -> TrackDef {
+        const GRID: usize = 40;
+        let road_cells = (2 * half_width) / TILE_SIZE;
+        // Centreline: a rounded rectangle inset from the grid edge.
+        let lo = 7i32;
+        let hi = 32i32;
+        let radius = 9i32; // Centreline corner radius, in cells.
+        let mid = (lo + hi) / 2;
+
+        // Cells within `road_cells/2` of the centreline path are road. Walking
+        // the centreline and measuring distance to it is what makes the band
+        // the same width on the straight and through the corner, which painting
+        // two rectangles cannot do.
+        let mut tiles = [TrackTile::OffRoad; GRID * GRID];
+        let reach = road_cells / 2;
+        for cy in 0..GRID as i32 {
+            for cx in 0..GRID as i32 {
+                let d = distance_to_ring(cx as f32, cy as f32, lo, hi, radius);
+                if d <= reach as f32 {
+                    tiles[cy as usize * GRID + cx as usize] = TrackTile::Tarmac;
+                }
+            }
+        }
+
+        // Cells within `road_cells/2` of the centreline path are road. Walking
+        // the centreline and measuring distance to it is what makes the band
+        // the same width on the straight and through the corner, which painting
+        // two rectangles cannot do.
+        // Gates on the four straights, on the centreline.
+        let gates = [
+            CheckpointGate { x: mid as u8, y: lo as u8, width: 1, height: 1 },
+            CheckpointGate { x: hi as u8, y: mid as u8, width: 1, height: 1 },
+            CheckpointGate { x: mid as u8, y: hi as u8, width: 1, height: 1 },
+            CheckpointGate { x: lo as u8, y: mid as u8, width: 1, height: 1 },
+        ];
+        let mut checkpoints = [CheckpointGate::default(); MAX_TRACK_CHECKPOINTS];
+        checkpoints[..4].copy_from_slice(&gates);
+
+        let start_pos = Vec2::new(TrackDef::tile_centre(mid as u8), TrackDef::tile_centre(lo as u8));
+        TrackDef {
+            name: "NARROW RING",
+            width: GRID as u8,
+            height: GRID as u8,
+            start_pos,
+            start_heading: 1024, // Facing +X along the top straight.
+            start_gate: checkpoints[0],
+            par_times: crate::timing::ParTimes::default(),
+            checkpoint_count: 4,
+            checkpoints,
+            tiles: Box::leak(Box::new(tiles)),
+            // No authored centreline: exercises the gate-derived fallback, which
+            // is what the other narrow-road fixtures here use too.
+            route: &[],
+            half_width: half_width as u16,
+        }
+    }
+
+    /// Distance from `(x, y)` to a rounded-rectangle centreline, in cells.
+    ///
+    /// The rectangle spans `[lo, hi]` on both axes with corners rounded to
+    /// `radius`, measured to the nearest point on it -- which is what makes the
+    /// painted band a constant width rather than the two-rectangle approximation
+    /// that is fat on the straights and pinched through the corners.
+    fn distance_to_ring(x: f32, y: f32, lo: i32, hi: i32, radius: i32) -> f32 {
+        // The rounded rectangle is the Minkowski sum of an inner box with a
+        // disc, so the distance to it is the distance to the inner box minus the
+        // radius. Clamped at zero inside.
+        let cx = x.clamp((lo + radius) as f32, (hi - radius) as f32);
+        let cy = y.clamp((lo + radius) as f32, (hi - radius) as f32);
+        let dx = x - cx;
+        let dy = y - cy;
+        (dx * dx + dy * dy).sqrt() - radius as f32
+    }
+
+    /// A rival must be able to drive a one-lane circuit: reach every gate,
+    /// complete the lap, and stay on the racing surface.
+    ///
+    /// This is the test that says "one lane is a circuit" rather than "one lane
+    /// is a legal number". A one-lane road is where every width-blind constant
+    /// in the AI shows itself: a 64-unit dodge that is two road-widths, a
+    /// racing-line walk that dead-ends at the first corner and leaves the aim
+    /// point behind the car, and a corner governor with no idea how little room
+    /// there is. None of those fail a unit assertion about one function; all of
+    /// them fail here.
+    #[test]
+    fn a_rival_drives_a_one_lane_circuit() {
+        let track = narrow_ring(MIN_ROAD_HALF_WIDTH);
+        assert_eq!(track.lane_count(), 1, "the fixture must be one lane");
+        assert!(track.lateral_room() > 0);
+
+        for profile in AI_PROFILES.iter() {
+            let mut racer = AiRacer::new(track.start_pos, track.start_heading, *profile);
+            let mut on_road = 0u32;
+            let mut total = 0u32;
+            let mut ticks = 0u32;
+            while ticks < 4_000 && racer.current_lap < 2 {
+                racer.tick(&track, &[]);
+                ticks += 1;
+                if racer.is_finished {
+                    break;
+                }
+                let tx = TrackDef::tile_x_of(racer.state.position.x);
+                let ty = TrackDef::tile_y_of(racer.state.position.y);
+                if track.is_road_at(tx, ty) {
+                    on_road += 1;
+                }
+                total += 1;
+            }
+            assert!(
+                racer.current_lap >= 2,
+                "{}: {} never completed a one-lane lap in {ticks} ticks (gate {}, \
+                 wedged for {} ticks)",
+                track.name,
+                profile.name,
+                racer.target_gate_idx,
+                racer.wedged_total_ticks,
+            );
+            assert!(total > 60, "{}: never got going", profile.name);
+            assert!(
+                on_road * 10 >= total * 7,
+                "{}: {} was off the one-lane road for {}/{} ticks",
+                profile.name,
+                profile.name,
+                total - on_road,
+                total,
+            );
+        }
+    }
+
+    /// The same, on a two-lane road, and with traffic.
+    ///
+    /// Traffic is the point: avoidance is the mechanism that scales with road
+    /// width, so a two-lane circuit *with rivals in the array* is the case that
+    /// would have thrown a rival into the outside wall.
+    #[test]
+    fn a_rival_drives_a_two_lane_circuit_through_traffic() {
+        let track = narrow_ring(crate::track::LANE_WIDTH);
+        assert_eq!(track.lane_count(), 2, "the fixture must be two lanes");
+
+        for profile in AI_PROFILES.iter() {
+            let mut racer = AiRacer::new(track.start_pos, track.start_heading, *profile);
+            let mut on_road = 0u32;
+            let mut total = 0u32;
+            let mut ticks = 0u32;
+            while ticks < 4_000 && racer.current_lap < 2 {
+                // A stationary rival just off the racing line, in the near field.
+                // Off to one side, inside the road, so it is a real obstacle on
+                // the racing surface rather than scenery the AI ignores.
+                let here = racer.state.position;
+                let ahead = here + racer.state.forward_dir().scale(Fixed::from_int(20));
+                let rivals = [ahead + Vec2::new(Fixed::from_int(6), Fixed::ZERO)];
+                racer.tick(&track, &rivals);
+                ticks += 1;
+                if racer.is_finished {
+                    break;
+                }
+                let tx = TrackDef::tile_x_of(racer.state.position.x);
+                let ty = TrackDef::tile_y_of(racer.state.position.y);
+                if track.is_road_at(tx, ty) {
+                    on_road += 1;
+                }
+                total += 1;
+            }
+            assert!(
+                racer.current_lap >= 2,
+                "{}: {} never completed a two-lane lap in {ticks} ticks (gate {}, \
+                 wedged for {} ticks)",
+                profile.name,
+                profile.name,
+                racer.target_gate_idx,
+                racer.wedged_total_ticks,
+            );
+            assert!(
+                on_road * 10 >= total * 7,
+                "{}: {} was off the two-lane road for {}/{} ticks",
+                profile.name,
+                profile.name,
+                total - on_road,
+                total,
+            );
+        }
+    }
+
+    /// A narrower road must not give a rival a *larger* dodge.
+    ///
+    /// The regression in one line: `avoidance_offset` grew with the number of
+    /// rivals and ignored the road, so a one-lane circuit -- where the useful
+    /// lateral budget is about 23 world units -- handed the steering a 64-unit
+    /// nudge, two full road-widths, aimed at the opposite barrier.
+    #[test]
+    fn a_narrower_road_never_yields_a_larger_dodge() {
+        let wide = narrow_ring(96);
+        let two = narrow_ring(crate::track::LANE_WIDTH);
+        let one = narrow_ring(MIN_ROAD_HALF_WIDTH);
+        assert!(one.lateral_room() < two.lateral_room());
+        assert!(two.lateral_room() < wide.lateral_room());
+
+        let start = one.start_pos;
+        for track in [wide, two, one] {
+            let racer = AiRacer::new(start, track.start_heading, AI_PROFILES[0]);
+            let pack = [
+                racer.state.position + Vec2::new(Fixed::from_int(10), Fixed::ZERO),
+                racer.state.position + Vec2::new(Fixed::from_int(20), Fixed::ZERO),
+                racer.state.position + Vec2::new(Fixed::from_int(30), Fixed::ZERO),
+            ];
+            let offset = racer.avoidance_offset(&track, &pack).abs();
+            assert!(
+                offset <= track.lateral_room(),
+                "a {} -lane road has {} units of room but the dodge was {offset}",
+                track.lane_count(),
+                track.lateral_room(),
+            );
+        }
+    }
+
+    #[test]
+    fn the_avoidance_dodge_never_leaves_the_road() {
+        for track in ALL_TRACKS.iter() {
+            let racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
+            let room = track.lateral_room();
+            // A pack straddling the car, all inside the detection box, is the
+            // worst case: every rival asks for correction in the same direction.
+            let pack: [Vec2; 5] = [
+                racer.state.position + Vec2::new(Fixed::from_int(8), Fixed::ZERO),
+                racer.state.position + Vec2::new(Fixed::from_int(16), Fixed::from_int(8)),
+                racer.state.position + Vec2::new(Fixed::from_int(20), Fixed::from_int(-8)),
+                racer.state.position + Vec2::new(Fixed::from_int(12), Fixed::from_int(12)),
+                racer.state.position + Vec2::new(Fixed::from_int(24), Fixed::ZERO),
+            ];
+            let offset = racer.avoidance_offset(track, &pack);
+            assert!(
+                offset.abs() <= room,
+                "{}: a pack dodged {offset} units on a {}-lane road with {room} \
+                 units of room",
+                track.name,
+                track.lane_count(),
+            );
+            assert!(
+                offset.abs() < track.road_half_width(),
+                "{}: dodge {offset} reaches past the road edge",
+                track.name
+            );
+        }
     }
 
     #[test]

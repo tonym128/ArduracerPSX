@@ -16,6 +16,13 @@ from lecore import constants as C
 from lecore import generate as gen
 from lecore.project import LevelStore
 
+#: Road half-widths the batch "mix" cycles through, in cells.
+#:
+#: Derived from the label next to it rather than the other way round: the two
+#: were separate literals, so a change to the list left the label promising a
+#: cycle the generator did not perform.
+BATCH_WIDTH_MIX = (2.0, 3.0, 3.0, 4.0)
+
 
 class GenerateDialog(QDialog):
     """One random circuit, or a batch of them."""
@@ -45,7 +52,15 @@ class GenerateDialog(QDialog):
 
         self.one_width = QComboBox()
         for v in C.ROAD_HALF_CHOICES:
-            self.one_width.addItem(f"{int(v * 2)} cells wide", v)
+            self.one_width.addItem(C.road_half_label(v), v)
+        # Select the design width explicitly. A `QComboBox` opens on index 0,
+        # and index 0 is now the *narrowest* legal road -- so a user who opened
+        # Generate, typed a name and pressed OK used to get a two-cell circuit
+        # that immediately failed validation. Defaulting to the width every
+        # shipped circuit uses is what the dialog has always meant.
+        self.one_width.setCurrentIndex(
+            max(0, self.one_width.findData(C.DEFAULT_ROAD_HALF_CELLS))
+        )
         f1.addRow("Road width", self.one_width)
 
         self.one_mode = QComboBox()
@@ -88,9 +103,9 @@ class GenerateDialog(QDialog):
         f2.addRow("Difficulty", self.batch_difficulties)
 
         self.batch_widths = QComboBox()
-        self.batch_widths.addItem("cycle 2 / 3 / 3 / 4", "mix")
+        self.batch_widths.addItem(f"cycle {' / '.join(f'{int(v)}' for v in BATCH_WIDTH_MIX)}", "mix")
         for v in C.ROAD_HALF_CHOICES:
-            self.batch_widths.addItem(f"{int(v * 2)} cells", v)
+            self.batch_widths.addItem(C.road_half_label(v), v)
         f2.addRow("Road width", self.batch_widths)
 
         self.batch_prefix = QLineEdit()
@@ -163,7 +178,7 @@ class GenerateDialog(QDialog):
         want = self.batch_difficulties.currentData()
         pool = [want] if want else list(gen.DIFFICULTIES)
         w = self.batch_widths.currentData()
-        widths = [2.0, 3.0, 3.0, 4.0] if w == "mix" else [float(w)]
+        widths = list(BATCH_WIDTH_MIX) if w == "mix" else [float(w)]
         self.progress.setVisible(True)
         self.progress.setRange(0, self.batch_count.value())
         self.result_levels = gen.generate_batch(

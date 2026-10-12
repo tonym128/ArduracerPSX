@@ -144,9 +144,32 @@ class Level:
     def radii(self) -> list[float]:
         return [n.r for n in self.nodes]
 
+    def min_corner_radius_cells(self) -> float:
+        """Smallest fillet radius the road can be drawn on, in cells.
+
+        A corner of radius `r` sweeps an arc whose inside edge sits `r` minus the
+        half-width of road-and-kerb from the centre of curvature. Once that
+        passes through zero the inside edge folds back on itself: the outline
+        self-intersects and the car meets a cusp.
+
+        Floored at the kerb width so a level with the kerb turned off still gets
+        a positive radius rather than a divide-by-zero downstream.
+        """
+        return max(
+            self.road_half_cells + self.kerb_cells,
+            self.kerb_cells,
+            0.5,
+        )
+
     def path_and_centre(self) -> tuple[str, list[G.Point]]:
         """The centreline as an SVG `d`, and the dense samples it produces."""
-        return G.shape_path(self.points(), self.radii(), self.mode)
+        return G.shape_path(
+            self.points(),
+            self.radii(),
+            self.mode,
+            G.DEFAULT_STEP,
+            self.min_corner_radius_cells(),
+        )
 
     def centreline(self) -> list[G.Point]:
         return self.path_and_centre()[1]
@@ -194,7 +217,14 @@ class Level:
         code, _, spans_kerb = C.MARK_KINDS[mark.kind]
         hw = self.half_widths()
         if mark.kind == "oil":
-            return 1.5
+            # Narrower than the full road, because a slick across every lane is
+            # a wall rather than a hazard. The `1.5` is an absolute cell count,
+            # so it was written for the three-lane circuits and meant "half the
+            # road". On a one-lane road it means the opposite: three cells across
+            # a two-cell road, spilling half a cell onto each kerb -- and because
+            # the kerb is drivable the hazard check does not catch it, so the
+            # slick is simply painted in the wrong place.
+            return min(1.5, hw["road"])
         return hw["kerb"] if spans_kerb else hw["road"]
 
     def mark_half_thick(self, mark: Mark) -> float:

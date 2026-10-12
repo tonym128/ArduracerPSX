@@ -53,6 +53,13 @@ GATE_NEIGHBOURS = tuple(
     (dx, dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
 )
 
+#: How far the road-width measurement will walk from the centreline before it
+#: gives up, in cells. A cap rather than an unbounded walk because a road that
+#: folds back on itself is an infinite run of road cells, and this is a
+#: measurement rather than a proof -- the single-ring check is what catches the
+#: fold.
+MAX_MEASURED_ROAD_CELLS = 24
+
 
 def gate_cells(level: Level, centreline: list) -> list[tuple[int, int]]:
     """The gate cells the *compiler* will emit, not the ones the drawing shows.
@@ -190,21 +197,56 @@ def validate_grid(grid: np.ndarray) -> Report:
     r.info["road_cells"] = len(main)
     r.info["road_components"] = len(road_regions)
 
-    # Road width: the run of drivable cells to the right of each road cell.
+    # Road width: the run of *road* cells through the centreline, measured in
+    # both directions.
+    #
+    # This used to count any drivable surface to the right of each road cell,
+    # capped the count at five, and warned above a median of eight. All three were
+    # wrong together: runoff (grass/gravel/sand) is in `SURFACE` and always
+    # surrounds the road, so the count was always the cap; the cap of five made
+    # the threshold of eight unreachable; and looking only rightwards missed any
+    # road that happened to be asymmetric. It reported the same meaningless 5 for
+    # a two-cell road and a six-cell one.
+    #
+    # Now it measures what it claims to: the width of the racing surface itself,
+    # symmetric about the centreline, compared against the width the author asked
+    # for. That is the check worth having once one- and two-lane roads are
+    # authorable -- it is what catches a road that came out narrower than the
+    # level says it is.
     main_set = set(main)
     widths = []
-    for (cx, cy) in sorted(main)[:: max(1, len(main) // 60)]:
-        widths.append(
-            sum(1 for k in (1, 2, 3, 4, 5)
-                if (cx + k, cy) in main_set or _in_surface(grid, cx + k, cy))
-        )
+    sample = max(1, len(main) // 60)
+    for (cx, cy) in sorted(main)[::sample]:
+        if grid[cy, cx] not in ROAD:
+            continue
+        # Walk out in each direction until the road run ends.
+        for step in range(1, MAX_MEASURED_ROAD_CELLS):
+            nx = cx + step
+            if (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
+                break
+        left = step - 1
+        for step in range(1, MAX_MEASURED_ROAD_CELLS):
+            nx = cx - step
+            if nx < 0 or (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
+                break
+        right = step - 1
+        widths.append(left + right + 1)
     if widths:
         med = sorted(widths)[len(widths) // 2]
         r.info["median_road_width_cells"] = med
-        if med > 8:
+        want = int(round(level.road_half_cells * 2))
+        if med < want:
+            r.errors.append(
+                f"road rasterised ~{med} cells wide but the level says "
+                f"{want} ({C.road_half_label(level.road_half_cells)}). The tarmac "
+                f"came out narrower than it was drawn -- a corner is folding "
+                f"through the inside, or the centreline doubles back on itself "
+                f"closer than the road is wide."
+            )
+        elif med > want + 1:
             r.warnings.append(
-                f"road is ~{med} cells wide; the design says 2 to 4, and wider "
-                f"reads as a car park"
+                f"road rasterised ~{med} cells wide, wider than the {want} the "
+                f"level asks for; the corners are overlapping each other."
             )
 
     # Hazards must sit on something drivable.
@@ -268,18 +310,22 @@ def validate_level(level: Level, grid: np.ndarray | None = None) -> Report:
         )
     elif level.road_half_cells * C.WORLD_PER_CELL < C.min_half_width():
         # The editor will draw a road this narrow, and it will validate, rasterise
-        # and pack into ARSV perfectly. `make test` is what refuses: the engine's
-        # road-width floor lives in `tools/test_game_logic` as `MIN_HALF_WIDTH`,
-        # and a track below it fails the suite. Said here so it is found while
-        # drawing rather than by a failing build with a level name in it.
+        # and pack into ARSV perfectly. `make test` is what refuses: the road-width
+        # floor lives in `tools/test_game_logic` as `MIN_HALF_WIDTH`, and a track
+        # below it fails the suite. Said here so it is found while drawing rather
+        # than by a failing build with a level name in it.
+        #
+        # This is the *engine's* floor, not a taste decision about the shipped
+        # fleet: it matches `MIN_ROAD_HALF_WIDTH` in `arduracer_core::track`, the
+        # width a single car fits in. Anything narrower is a decoration.
         floor = C.min_half_width()
         r.errors.append(
-            f"road is {int(level.road_half_cells * 2)} cells wide, below the "
-            f"game's floor of {floor / C.WORLD_PER_CELL:g}-cell half-width "
-            f"({floor} world units, `MIN_HALF_WIDTH` in tools/test_game_logic). "
-            f"It draws and rasterises fine; `make test` fails on it. Publishable "
+            f"road is {int(level.road_half_cells * 2)} cells wide, narrower than "
+            f"the one-lane floor of {floor} world units "
+            f"(`MIN_HALF_WIDTH` in tools/test_game_logic, `MIN_ROAD_HALF_WIDTH` in "
+            f"arduracer_core::track). A car cannot fit across it. Publishable "
             f"widths are "
-            f"{', '.join(f'{int(v * 2)} cells' for v in C.publishable_road_halves())}."
+            f"{', '.join(C.road_half_label(v) for v in C.publishable_road_halves())}."
         )
     elif level.road_half_cells not in C.ROAD_HALF_CHOICES:
         r.warnings.append(
@@ -351,11 +397,6 @@ def validate_level(level: Level, grid: np.ndarray | None = None) -> Report:
                 f"the edge between them runs straight; in spline mode, add nodes "
                 f"in a straight line along one edge."
             )
-        r.warnings.append(
-            f"two nodes are {shortest:.2f} cells apart. The fillet clamps to under "
-            f"half the shorter edge, so the corner between them is not the one "
-            f"you drew -- drag them apart."
-        )
 
     gates = len(level.gate_marks())
     if gates < C.GATES:

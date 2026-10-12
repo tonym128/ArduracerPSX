@@ -90,7 +90,12 @@ fn synthetic_track(tiles: &'static [TrackTile]) -> TrackDef {
         tiles,
         // No authored centreline: exercises the gate-derived fallback.
         route: &[],
-        half_width: 0,
+        // The synthetic straight is an *entire grid* of tarmac, so it is the
+        // widest road a fixture can describe. It used to say 0, which was
+        // harmless while nothing read the field -- and became a one-lane road the
+        // moment avoidance started scaling its dodge to the road, quietly making
+        // these wide-road tests measure narrow-road behaviour.
+        half_width: WIDE_HALF_WIDTH,
     }
 }
 
@@ -234,6 +239,15 @@ const AVOIDANCE_BOX: i32 = 64;
 const AVOIDANCE_OFFSET_UNITS: i32 = 64;
 const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_BOX * 2;
 const AVOID_HALF: i32 = AVOIDANCE_BOX;
+
+/// Road half-width of the synthetic straight, in world units.
+///
+/// The wide design width the shipped circuits use, not a lane. These fixtures
+/// exist to pin *wide-road* avoidance behaviour -- the dodge size, the
+/// accumulation across a pack, the saturation clamp -- and the dodge is now
+/// scaled to the road, so a fixture that declared no width at all would measure
+/// a one-lane road and quietly fail for the wrong reason.
+const WIDE_HALF_WIDTH: u16 = 96;
 
 /// World position of the straight test circuit's start cell.
 fn ai_start_pos() -> Vec2 {

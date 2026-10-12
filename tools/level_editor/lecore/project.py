@@ -222,12 +222,14 @@ class LevelStore:
         if level.road_half_cells * C.WORLD_PER_CELL < floor:
             raise LevelNotPublishable(
                 f"'{level.name}' is {int(level.road_half_cells * 2)} cells "
-                f"across; the game requires at least "
-                f"{int(floor // C.WORLD_PER_CELL * 2)} "
-                f"(`MIN_HALF_WIDTH` = {floor} world units of half-width, in "
-                f"tools/test_game_logic). It draws and rasterises perfectly, "
-                f"but `make test` fails on any track narrower than that. Widen "
-                f"the road, or keep the level in the store."
+                f"across; a car cannot fit across a road narrower than "
+                f"{floor} world units of half-width "
+                f"(`MIN_HALF_WIDTH` in tools/test_game_logic, "
+                f"`MIN_ROAD_HALF_WIDTH` in arduracer_core::track -- one lane). "
+                f"It draws and rasterises perfectly, but `make test` fails on "
+                f"any track narrower than that. Widen the road to at least "
+                f"{C.road_half_label(floor / C.WORLD_PER_CELL)}, or keep the level "
+                f"in the store."
             )
         report = V.validate_level(level)
         if not report.ok:

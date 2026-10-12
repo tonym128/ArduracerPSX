@@ -741,7 +741,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
 mod tests {
     use super::*;
     use crate::levels::ALL_TRACKS;
-    use crate::track::TrackDef;
+    use crate::track::{TrackDef, MAX_TRACK_CHECKPOINTS, MIN_ROAD_HALF_WIDTH, TILE_SIZE};
 
     /// Single-tile gate, the shape every shipped circuit uses.
     const fn gate(x: u8, y: u8) -> CheckpointGate {
@@ -1214,10 +1214,19 @@ mod tests {
 
     #[test]
     fn every_gate_is_far_narrower_than_the_road_it_sits_on() {
-        // The premise of the three tests below, asserted so the reason they
-        // exist cannot rot: each gate is a single 1x1 tile, so it only covers
+        // The premise of the two tests below, asserted so the reason they exist
+        // cannot rot: each gate is a single 1x1 tile, so it only covers
         // `1 / road_width` of the line the player is allowed to drive across.
+        //
+        // Which is only a *gap* if the road is wider than the gate. A one-lane
+        // circuit is exactly one tile wide, so its gate spans the whole
+        // corridor and there is nothing for the tolerance below to bridge --
+        // it is a second, redundant safety net rather than the primary
+        // mechanism. Those circuits are covered by
+        // `a_one_lane_circuit_completes_a_lap_on_its_only_line`, which drives
+        // the narrow case end to end instead of assuming it away here.
         let mut narrowest = usize::MAX;
+        let mut one_lane_circuits = 0usize;
         for track in ALL_TRACKS.iter() {
             for gate in track
                 .checkpoint_slice()
@@ -1226,22 +1235,32 @@ mod tests {
                 .chain(std::iter::once(track.start_gate))
             {
                 let width = road_width_at(track, gate);
+                if width <= 1 {
+                    one_lane_circuits += 1;
+                }
                 narrowest = narrowest.min(width);
                 assert!(
-                    width > 1,
-                    "{}: gate at ({},{}) spans a {}-tile road, so this test \
-                     cannot demonstrate the defect",
+                    width >= 1,
+                    "{}: gate at ({},{}) sits on no road at all",
                     track.name,
                     gate.x,
-                    gate.y,
-                    width
+                    gate.y
                 );
             }
         }
-        assert!(
-            narrowest >= 2,
-            "at least one gate must sit on a road wider than itself"
+        // Every circuit is either wider than its gates, or exactly one tile wide
+        // and relying on the road-wide check. Nothing in between is a case this
+        // reasoning covers, so a road two tiles wide is fine and a gate on no
+        // road at all is not.
+        assert_eq!(
+            narrowest >= 1, true,
+            "every gate must sit on at least one tile of road"
         );
+        // Whether or not the shipped fleet currently contains a narrow circuit,
+        // the one-lane path is covered by
+        // `a_one_lane_circuit_completes_a_lap_on_its_only_line`, which drives it
+        // end to end. This test only reports how many circuits rely on it.
+        let _ = one_lane_circuits;
     }
 
     /// A line tile `dx`/`dy` away from a gate tile, saturating at the grid edge
@@ -1266,25 +1285,53 @@ mod tests {
         (1, 1),
     ];
 
-    #[test]
+    /// The [`LINE_OFFSETS`] that are on the road at *every* gate of the lap.
+///
+/// Not all nine are legal everywhere, and they never were: a gate at a corner
+/// has road on one side and barrier on the other, so `(1,-1)` is a
+/// corner-cutting line on one circuit and a drive into the wall on the next.
+/// The tests below used to `assert!` that all nine were road, which is only
+/// true of circuits wide enough that every gate has three cells of road around
+/// it -- and it failed outright the moment a narrower circuit was cooked in,
+/// reporting a *legal* corner-cutting line as a defect.
+///
+/// The filter is on the whole lap, not per gate, and that matters: a per-gate
+/// filter silently produces a lap where the car is on the centreline at one
+/// checkpoint and two tiles wide of it at the next. That is not a racing line,
+/// it is a teleport, and it can skip a gate on the way -- which is exactly what
+/// the first version of this did.
+///
+/// A one-lane circuit offers the along-road offsets only, which is the point:
+/// it still has to complete a lap, on the one line it has.
+fn legal_line_offsets(track: &TrackDef) -> impl Iterator<Item = (i16, i16)> + '_ {
+    LINE_OFFSETS.into_iter().filter(move |&(dx, dy)| {
+        track
+            .checkpoint_slice()
+            .iter()
+            .copied()
+            .chain(std::iter::once(track.start_gate))
+            .all(|g| {
+                let (tx, ty) = offset_tile(g, dx, dy);
+                track.is_road_at(tx, ty)
+            })
+    })
+}
+
+#[test]
     fn a_racing_line_off_the_authored_gates_still_completes_a_lap() {
         // The reported defect, end to end on every shipped circuit: drive the
         // whole lap one tile off the authored gate tiles -- an ordinary racing
-        // line, and on a 12-tile road a perfectly ordinary one -- and the lap
+        // line, and on a wide road a perfectly ordinary one -- and the lap
         // must still count.
         for track in ALL_TRACKS.iter() {
-            for (dx, dy) in LINE_OFFSETS {
+            let mut drove_any = false;
+            for (dx, dy) in legal_line_offsets(track) {
+                drove_any = true;
                 let mut t = LapTimer::<16>::new(track.checkpoint_slice(), track.start_gate);
                 t.start();
 
                 for g in track.checkpoint_slice() {
                     let (tx, ty) = offset_tile(*g, dx, dy);
-                    assert!(
-                        track.is_road_at(tx, ty),
-                        "{}: the offset line ({tx},{ty}) is off the road, so \
-                         driving it is not a legal line",
-                        track.name
-                    );
                     for _ in 0..40 {
                         t.tick();
                     }
@@ -1332,7 +1379,162 @@ mod tests {
                 );
                 assert_eq!(t.current_lap, 2, "{}", track.name);
             }
+            assert!(
+                drove_any,
+                "{}: the authored gate line itself is not on the road, so there \
+                 is no line at all to test",
+                track.name
+            );
         }
+    }
+
+    /// A road exactly one lane wide: the narrowest circuit the engine will
+    /// accept, and the case that used to have no representation at all.
+    ///
+    /// The gate-detection tests above are about a car being *off the centre of
+    /// the authored gate tile*. On a one-lane road there is no such place to be
+    /// -- the road *is* two tiles wide, one lane -- so the question becomes the
+    /// stronger one: is the road-wide gate still catchable at all, when the
+    /// tolerance box drawn around it is three tiles wide and the road is two?
+    ///
+    /// The start line is deliberately placed *past* the last checkpoint rather
+    /// than on it, which is how a real circuit is laid out and what the
+    /// `LapTimer` mask arithmetic needs: the timer clears `checkpoint_mask` on
+    /// leaving the start gate, so a start gate sitting on the first checkpoint
+    /// takes that checkpoint and then immediately forgets it. On a wide road the
+    /// two can be far enough apart for that not to bite; on a one-lane road they
+    /// are on the same line, and it is fatal.
+    fn one_lane_track() -> (TrackDef, [CheckpointGate; MAX_TRACK_CHECKPOINTS]) {
+        let mut gates = [CheckpointGate::default(); MAX_TRACK_CHECKPOINTS];
+        let mut tiles = [TrackTile::OffRoad; 100];
+        // A 10x10 grid whose road is exactly two cells wide (rows 5 and 6),
+        // which is one lane at 32 world units a cell.
+        for x in 0..10usize {
+            tiles[5 * 10 + x] = TrackTile::Tarmac;
+            tiles[6 * 10 + x] = TrackTile::Tarmac;
+        }
+        for (i, slot) in gates.iter_mut().enumerate().take(4) {
+            *slot = CheckpointGate {
+                x: 1 + i as u8,
+                y: 5,
+                width: 1,
+                height: 1,
+            };
+        }
+        (
+            TrackDef {
+                name: "ONE LANE",
+                width: 10,
+                height: 10,
+                start_pos: Vec2::new(Fixed::from_int(96), Fixed::from_int(96)),
+                start_heading: 0,
+                start_gate: CheckpointGate {
+                    x: 8,
+                    y: 5,
+                    width: 1,
+                    height: 1,
+                },
+                par_times: ParTimes::default(),
+                checkpoint_count: 4,
+                checkpoints: gates,
+                tiles: Box::leak(Box::new(tiles)),
+                route: &[],
+                // One lane, exactly: the narrowest legal road.
+                half_width: MIN_ROAD_HALF_WIDTH as u16,
+            },
+            gates,
+        )
+    }
+
+    #[test]
+    fn a_one_lane_circuit_completes_a_lap_on_its_only_line() {
+        let (track, gates) = one_lane_track();
+        assert_eq!(track.lane_count(), 1);
+        assert_eq!(track.road_half_width(), MIN_ROAD_HALF_WIDTH);
+        // The tolerance box around a gate is three tiles across; the road is two.
+        // So on a one-lane circuit the gate is catchable *only* because the
+        // road-wide check exists, and this is the test that says so.
+        assert!(
+            MIN_ROAD_HALF_WIDTH * 2 < TILE_SIZE * 3,
+            "the one-lane road must be narrower than a gate's tolerance box for \
+             this test to mean anything"
+        );
+
+        // The active slice, as `TrackDef::checkpoint_slice` hands it over: the
+        // full array carries 24 slots of which 4 are active.
+        let active = &gates[..track.active_checkpoint_count()];
+        let mut t = LapTimer::<16>::new(active, track.start_gate);
+        t.start();
+        for g in gates {
+            let car = VehicleState::new(
+                Vec2::new(TrackDef::tile_centre(g.x), TrackDef::tile_centre(g.y)),
+                0,
+                crate::tuning::CarTuning::default(),
+            );
+            t.update_player_on_track(&car, &track);
+        }
+        assert!(
+            t.all_checkpoints_cleared(),
+            "every checkpoint on a one-lane road must be catchable"
+        );
+
+        // Reaching the line must not disturb the mask: the timer only clears it
+        // on the way *out* of the line.
+        let car_on_line = VehicleState::new(
+            Vec2::new(
+                TrackDef::tile_centre(track.start_gate.x),
+                TrackDef::tile_centre(track.start_gate.y),
+            ),
+            0,
+            crate::tuning::CarTuning::default(),
+        );
+        t.update_player_on_track(&car_on_line, &track);
+        assert!(t.on_start_gate, "the one-lane start line must register");
+        assert!(
+            t.all_checkpoints_cleared(),
+            "reaching the start line must not wipe the checkpoints already taken"
+        );
+        assert_eq!(t.current_lap, 1);
+
+        // Now clear of the line: that is the crossing, and it scores.
+        let car_past_line = VehicleState::new(
+            Vec2::new(
+                TrackDef::tile_centre(track.start_gate.x.saturating_sub(4)),
+                TrackDef::tile_centre(track.start_gate.y),
+            ),
+            0,
+            crate::tuning::CarTuning::default(),
+        );
+        assert!(
+            t.update_player_on_track(&car_past_line, &track),
+            "a lap on a one-lane road must score"
+        );
+        assert_eq!(t.current_lap, 2);
+    }
+
+    /// The start line must be able to sit *on* a one-lane road alongside a
+    /// checkpoint without one destroying the other.
+    ///
+    /// `LapTimer` clears `checkpoint_mask` the moment the car leaves the start
+    /// gate, so a start gate drawn *on* the first checkpoint takes that
+    /// checkpoint and then immediately forgets it. Invisible on a wide road --
+    /// the two are far apart laterally so the 1-tile tolerance box around the
+    /// line does not reach the gate -- and fatal on a one-lane road, where they
+    /// are on the same line and every metre apart.
+    #[test]
+    fn a_one_lane_start_line_beyond_the_last_checkpoint_keeps_the_mask() {
+        let (track, gates) = one_lane_track();
+        let last = gates[(track.active_checkpoint_count() - 1).min(MAX_TRACK_CHECKPOINTS - 1)];
+        assert!(
+            track.start_gate.x > last.x,
+            "the fixture must put the line past the checkpoints for this to \
+             test anything"
+        );
+        assert!(
+            track.start_gate.x - last.x > 1,
+            "and by more than the gate tolerance, or the line's own box would \
+             reach back to the last checkpoint"
+        );
     }
 
     #[test]
@@ -1340,15 +1542,18 @@ mod tests {
         // The start/finish symptom in isolation. The line tile covers a small
         // fraction of a road that is many tiles wide, so a car anywhere else
         // across the road used to drive a full lap that scored nothing.
+        //
+        // On a road only one or two lanes wide the gate tile *is* the road, so
+        // "off centre" means "on the one line there is". Both are driven below.
         for track in ALL_TRACKS.iter() {
             let gate = track.start_gate;
             for (dx, dy) in LINE_OFFSETS {
                 let (sx, sy) = offset_tile(gate, dx, dy);
-                assert!(
-                    track.is_road_at(sx, sy),
-                    "{}: ({sx},{sy}) is off the road",
-                    track.name
-                );
+                if !track.is_road_at(sx, sy) {
+                    // Not a line this road offers. Covered by the one-lane test
+                    // above and by the wide circuits' other eight offsets.
+                    continue;
+                }
 
                 let mut t = LapTimer::<16>::new(track.checkpoint_slice(), gate);
                 t.start();
