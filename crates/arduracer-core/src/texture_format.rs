@@ -13,12 +13,20 @@
 /// it is the only one that carries the authored vector geometry and synthesises
 /// detail at decode; QOI is the lossless copy of the same raster; JPEG is the
 /// always-present fallback for art too detailed to fit the 500 KB block.
+///
+/// TIM is deliberately *not* in the `Auto` order. It is lossless and needs no
+/// decode at all, which sounds strictly better, but it is four times the disc
+/// footprint and it reads four sectors per VRAM tile instead of one 500 KB
+/// block per 256 tiles, so it loses badly on drive contention -- which is
+/// audible as CD-DA stutter. It is offered as a deliberate player choice, on
+/// the same footing as the other pins, and never chosen for them.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum TextureFormat {
     #[default]
     Auto,
     Svg,
     Qoi,
+    Tim,
     Jpeg,
 }
 
@@ -33,16 +41,28 @@ pub enum Codec {
     Qoi,
     /// SVG-derived base raster plus a per-surface detail pass.
     Arsv,
+    /// Uncompressed 15bpp tile, DMA'd from RAM straight into VRAM.
+    Tim,
 }
 
 impl TextureFormat {
-    /// Cycles to the next option, wrapping. Used by both menus.
+    /// Cycles to the next option, wrapping.
+    ///
+    /// Walks the persisted bytes in numeric order, and must stay that way.
+    /// Both menus cycle `texture_format` as a raw byte rather than going through
+    /// this function, so a "nicer" order here would be a second, invisible
+    /// source of truth describing a cycle the player never sees -- and the only
+    /// way to notice the two had drifted would be to read both files.
+    ///
+    /// Note this is *display* order, not the `Auto` preference order above;
+    /// they are unrelated and both deliberate.
     pub fn next(self) -> Self {
         match self {
             Self::Auto => Self::Svg,
             Self::Svg => Self::Qoi,
             Self::Qoi => Self::Jpeg,
-            Self::Jpeg => Self::Auto,
+            Self::Jpeg => Self::Tim,
+            Self::Tim => Self::Auto,
         }
     }
 
@@ -52,6 +72,7 @@ impl TextureFormat {
             Self::Auto => "AUTO",
             Self::Svg => "SVG",
             Self::Qoi => "QOI",
+            Self::Tim => "TIM",
             Self::Jpeg => "JPEG",
         }
     }
@@ -65,17 +86,24 @@ impl TextureFormat {
             1 => Self::Svg,
             2 => Self::Qoi,
             3 => Self::Jpeg,
+            4 => Self::Tim,
             _ => Self::Auto,
         }
     }
 
     /// The byte written to the save file.
+    ///
+    /// TIM took byte 4, appended after JPEG rather than inserted into the
+    /// sequence, so every byte an existing card can already hold keeps its
+    /// meaning. Renumbering would have silently reinterpreted a player's saved
+    /// JPEG choice as TIM, which decodes to garbage rather than failing.
     pub fn to_saved(self) -> u8 {
         match self {
             Self::Auto => 0,
             Self::Svg => 1,
             Self::Qoi => 2,
             Self::Jpeg => 3,
+            Self::Tim => 4,
         }
     }
 
@@ -89,6 +117,7 @@ impl TextureFormat {
         match self {
             Self::Svg => Codec::Arsv,
             Self::Qoi => Codec::Qoi,
+            Self::Tim => Codec::Tim,
             Self::Jpeg | Self::Auto => Codec::Jpeg,
         }
     }
@@ -164,6 +193,7 @@ mod tests {
     fn each_pinned_format_selects_its_own_decoder() {
         assert_eq!(TextureFormat::Svg.codec(), Codec::Arsv);
         assert_eq!(TextureFormat::Qoi.codec(), Codec::Qoi);
+        assert_eq!(TextureFormat::Tim.codec(), Codec::Tim);
         assert_eq!(TextureFormat::Jpeg.codec(), Codec::Jpeg);
     }
 
@@ -172,6 +202,7 @@ mod tests {
         let all = [
             TextureFormat::Svg.codec(),
             TextureFormat::Qoi.codec(),
+            TextureFormat::Tim.codec(),
             TextureFormat::Jpeg.codec(),
         ];
         for i in 0..all.len() {
@@ -187,12 +218,34 @@ mod tests {
             TextureFormat::Auto,
             TextureFormat::Svg,
             TextureFormat::Qoi,
+            TextureFormat::Tim,
             TextureFormat::Jpeg,
         ] {
             assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
         }
-        for b in 4u8..=255 {
+        for b in 5u8..=255 {
             assert_eq!(TextureFormat::from_saved(b), TextureFormat::Auto);
+        }
+    }
+
+    /// TIM was appended as byte 4 rather than inserted into the sequence, so a
+    /// card written before it existed must still read back as what it meant.
+    /// Renumbering would reinterpret a saved JPEG choice as TIM, which decodes
+    /// to garbage rather than failing loudly.
+    #[test]
+    fn adding_tim_did_not_renumber_the_existing_formats() {
+        assert_eq!(TextureFormat::Auto.to_saved(), 0);
+        assert_eq!(TextureFormat::Svg.to_saved(), 1);
+        assert_eq!(TextureFormat::Qoi.to_saved(), 2);
+        assert_eq!(TextureFormat::Jpeg.to_saved(), 3);
+        assert_eq!(TextureFormat::Tim.to_saved(), 4);
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+        ] {
+            assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
         }
     }
 
@@ -226,7 +279,7 @@ mod tests {
     fn cycling_visits_every_option_and_wraps() {
         let mut f = TextureFormat::Auto;
         let mut seen = vec![f];
-        for _ in 0..4 {
+        for _ in 0..5 {
             f = f.next();
             seen.push(f);
         }
@@ -237,8 +290,35 @@ mod tests {
                 TextureFormat::Svg,
                 TextureFormat::Qoi,
                 TextureFormat::Jpeg,
+                TextureFormat::Tim,
                 TextureFormat::Auto,
             ]
+        );
+    }
+
+    /// Both menus cycle the persisted byte with `rem_euclid`, not this
+    /// function, so the two orderings have to agree or the enum's cycle is a
+    /// description of something the player never sees.
+    #[test]
+    fn cycling_visits_the_persisted_bytes_in_order() {
+        let mut f = TextureFormat::Auto;
+        let mut by_cycle = Vec::new();
+        for _ in 0..5 {
+            f = f.next();
+            by_cycle.push(f.to_saved());
+        }
+
+        // Exactly what a menu does: `(byte + 1) % (MAX + 1)`.
+        let mut byte = 0u8;
+        let mut by_byte = Vec::new();
+        for _ in 0..5 {
+            byte = (byte + 1) % 5;
+            by_byte.push(byte);
+        }
+
+        assert_eq!(
+            by_cycle, by_byte,
+            "TextureFormat::next and the menus' byte cycle must be the same order"
         );
     }
 }

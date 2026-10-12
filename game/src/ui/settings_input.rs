@@ -11,10 +11,11 @@
 //! open-ended behaviour.
 
 /// Rows, in display order.
-pub const ROW_COUNT: u8 = 3;
+pub const ROW_COUNT: u8 = 4;
 const ROW_TEXTURE: u8 = 0;
 const ROW_FRAMERATE: u8 = 1;
 const ROW_VIEW: u8 = 2;
+const ROW_CD_AUDIO: u8 = 3;
 
 /// Raw button state for one frame.
 #[derive(Copy, Clone, Default)]
@@ -43,8 +44,10 @@ pub enum SettingsChoice {
     Exit,
 }
 
-/// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
-const MAX_TEXTURE_FORMAT: u8 = 3;
+/// Highest legal `texture_format` value; see `pause_input::MAX_TEXTURE_FORMAT`,
+/// which the pause menu's own copy of the row uses. Both menus cycle the byte
+/// directly, so they share the ceiling rather than each keeping a list.
+const MAX_TEXTURE_FORMAT: u8 = super::pause_input::MAX_TEXTURE_FORMAT;
 
 pub struct SettingsMenu {
     pub selected_row: u8,
@@ -124,12 +127,14 @@ impl SettingsMenu {
             ROW_TEXTURE => MAX_TEXTURE_FORMAT as i32 + 1,
             ROW_FRAMERATE => 2,
             ROW_VIEW => 3,
+            ROW_CD_AUDIO => 2,
             _ => return false,
         };
         let cur = match self.selected_row {
             ROW_TEXTURE => self.values.texture_format as i32,
             ROW_FRAMERATE => self.values.framerate as i32,
             ROW_VIEW => self.values.camera_view as i32,
+            ROW_CD_AUDIO => self.values.cd_audio as i32,
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
@@ -137,6 +142,7 @@ impl SettingsMenu {
             ROW_TEXTURE => self.values.texture_format = next,
             ROW_FRAMERATE => self.values.framerate = next,
             ROW_VIEW => self.values.camera_view = next,
+            ROW_CD_AUDIO => self.values.cd_audio = next,
             _ => return false,
         }
         next != cur as u8

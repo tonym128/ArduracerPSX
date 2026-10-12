@@ -252,16 +252,29 @@ impl ArduracerGame {
                 texture_format: game.memcard.save_data.texture_format,
                 framerate: game.memcard.save_data.framerate,
                 camera_view: game.camera_view,
+                cd_audio: game.memcard.save_data.cd_audio,
             };
             set_texture_format(TextureFormat::from_saved(saved.texture_format));
             game.framerate = Framerate::from_saved(saved.framerate);
             set_frame_period(game.framerate.vblanks_per_frame());
             prof::set_budget_cycles(game.framerate.budget_cycles());
             prof::set_expected_vblanks(game.framerate.vblanks_per_frame());
+            // Applied before anything asks for a track: with TIM pinned and the
+            // music left spinning, every tile read would hand the drive back to
+            // CD-DA and hand it straight back, for the whole boot.
+            game.audio
+                .cdda
+                .set_enabled(game.memcard.save_data.cd_audio != 0);
             dbg::print("[BOOT] graphics: format=");
             dbg::print(texture_format().label());
             dbg::print(" framerate=");
-            dbg::println(game.framerate.label());
+            dbg::print(game.framerate.label());
+            dbg::print(" cd-audio=");
+            dbg::println(if game.audio.cdda.enabled() {
+                "on"
+            } else {
+                "off"
+            });
         }
 
         dbg::log_step(9, 9, "Baking circuit minimap...");
@@ -786,7 +799,10 @@ impl ArduracerGame {
                     }
 
                     // In-game camera viewpoint toggle on Triangle press (cycles Behind -> Overhead -> Rotating):
-                    if pad.buttons.pressed_since(self.prev_pad_racing, psx_pad::button::TRIANGLE) {
+                    if pad
+                        .buttons
+                        .pressed_since(self.prev_pad_racing, psx_pad::button::TRIANGLE)
+                    {
                         self.camera_view = (self.camera_view + 1) % 3;
                         self.camera.mode7 = self.camera_view == 0;
                         self.camera.rotating = self.camera_view == 2;
@@ -1277,6 +1293,7 @@ impl ArduracerGame {
             texture_format: texture_format().to_saved(),
             framerate: self.framerate.to_saved(),
             camera_view: self.camera_view,
+            cd_audio: u8::from(self.audio.cdda.enabled()),
         }
     }
 
@@ -1290,6 +1307,7 @@ impl ArduracerGame {
     fn apply_settings(&mut self, values: SettingsValues) {
         let previous_format = texture_format();
         let previous_fps = self.framerate;
+        let previous_cd_audio = self.audio.cdda.enabled();
 
         let format = TextureFormat::from_saved(values.texture_format);
         let framerate = Framerate::from_saved(values.framerate);
@@ -1330,21 +1348,37 @@ impl ArduracerGame {
             prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
         }
 
+        // Applied before the caches are dropped, so the drive is released before
+        // the next frame starts pulling tiles off it. Turning the music back on
+        // does not restart it here: the next `play_track` for whatever screen
+        // the player is on does that, which keeps this function free of
+        // knowledge about which screen that is.
+        if (values.cd_audio != 0) != previous_cd_audio {
+            self.audio.cdda.set_enabled(values.cd_audio != 0);
+        }
+
         dbg::print("[SETTINGS] applied format=");
         dbg::print(format.label());
         dbg::print(" framerate=");
         dbg::print(framerate.label());
         dbg::print(" view=");
-        dbg::println(match self.camera_view {
+        dbg::print(match self.camera_view {
             0 => "BEHIND",
             1 => "OVERHEAD",
             _ => "ROTATING",
+        });
+        dbg::print(" cd-audio=");
+        dbg::println(if self.audio.cdda.enabled() {
+            "on"
+        } else {
+            "off"
         });
 
         // Persist unconditionally: both values are cheap and a card write is
         // already the established pattern for settings changes.
         self.memcard.save_data.texture_format = values.texture_format;
         self.memcard.save_data.framerate = values.framerate;
+        self.memcard.save_data.cd_audio = values.cd_audio;
         self.memcard.mark_dirty();
         self.memcard.flush();
     }

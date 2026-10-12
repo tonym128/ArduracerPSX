@@ -6,6 +6,8 @@
 use psx_io::cdrom;
 use psx_spu::{self as spu, CdVolume};
 
+use crate::audio::audio_policy::CdAudioPolicy;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CddaState {
     Stopped,
@@ -32,6 +34,9 @@ pub struct CddaController {
     pub current_track: u8,
     pub state: CddaState,
     pub volume: CdVolume,
+    /// Whether the player permits Redbook playback, and which track holds the
+    /// drive. Owns the decision; this type owns the register writes.
+    policy: CdAudioPolicy,
 }
 
 impl Default for CddaController {
@@ -76,6 +81,47 @@ impl CddaController {
             current_track: 2, // Track 1 is game data; Audio tracks start at 2
             state: CddaState::Stopped,
             volume: CdVolume::MAX,
+            policy: CdAudioPolicy::new(),
+        }
+    }
+
+    /// Whether the player currently permits Redbook playback.
+    pub const fn enabled(&self) -> bool {
+        self.policy.enabled()
+    }
+
+    /// Applies the player's CD-audio preference.
+    ///
+    /// Disabling stops playback immediately rather than letting the current
+    /// song finish. The reason is the drive, not the music: with CD-DA running
+    /// the texture streamer has to pause and resume playback around every
+    /// sector read, and the stutter that causes is present for as long as the
+    /// disc is spinning. Leaving it running would leave the interference in
+    /// place after the player asked for it to stop.
+    pub fn set_enabled(&mut self, enabled: bool) {
+        let must_cut = self.policy.set_enabled(enabled);
+        if must_cut {
+            self.halt();
+        }
+    }
+
+    /// Releases the drive and drops out of any playing state.
+    ///
+    /// Used both by [`CddaController::stop`] and by the disable path, because
+    /// "the player turned music off" and "the game stopped the music" want the
+    /// same end state: nothing playing, nothing queued, no pending play
+    /// command left for the next frame to discover.
+    fn halt(&mut self) {
+        cdrom::try_pause_until_complete(50_000);
+        self.state = CddaState::Stopped;
+        // The policy has to be told as well as the state machine. It is what
+        // decides whether the next `play_track` is a repeat (and so is dropped)
+        // or a fresh request; leaving it holding the old track would make a
+        // stop followed by a request for the same track silently do nothing,
+        // which is how the title music went missing after a race.
+        self.policy.clear();
+        unsafe {
+            core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
         }
     }
 
@@ -93,10 +139,14 @@ impl CddaController {
     }
 
     /// Begins playback of a specific 1-based CD-DA audio track (Track 2+).
+    ///
+    /// A no-op when the player has disabled CD-audio, or when the requested
+    /// track is already playing. Both are decided by [`CdAudioPolicy`], so no
+    /// CD-ROM command is issued for a request that will be refused.
     pub fn play_track(&mut self, track: u8) {
-        if self.current_track == track && self.state == CddaState::Playing {
+        let Some(track) = self.policy.request_play(track) else {
             return;
-        }
+        };
         self.current_track = track;
         crate::dbg::print("[CDDA] Requesting play_track ");
         crate::dbg::print_dec(track as u32);
@@ -117,6 +167,7 @@ impl CddaController {
         if self.state == CddaState::Playing {
             cdrom::try_pause(50_000);
             self.state = CddaState::Paused;
+            self.policy.clear();
             unsafe {
                 core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
             }
@@ -125,7 +176,13 @@ impl CddaController {
 
     /// Resumes playback of the paused CD-DA track.
     pub fn resume(&mut self) {
+        // Gated like any other play request: a pause can outlive the player
+        // turning CD-audio off, and resuming would restart the disc behind
+        // their back.
         if self.state == CddaState::Paused {
+            if self.policy.request_play(self.current_track).is_none() {
+                return;
+            }
             cdrom::try_demute(50_000);
             cdrom::try_play_track(self.current_track, 50_000);
             self.state = CddaState::Playing;
@@ -140,11 +197,7 @@ impl CddaController {
 
     /// Stops CD-DA playback completely.
     pub fn stop(&mut self) {
-        cdrom::try_pause_until_complete(50_000);
-        self.state = CddaState::Stopped;
-        unsafe {
-            core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
-        }
+        self.halt();
     }
 
     /// Mutes CD-DA playback.

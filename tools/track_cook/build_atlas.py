@@ -92,6 +92,24 @@ ARSV_BASE_QOI = 1
 
 #: Visual image size in texels: `GRID * VISUAL_PX`, square.
 VISUAL_SIZE = (gen_svg.SIZE, gen_svg.SIZE)
+
+#: Edge of one uncompressed TIM tile, in texels. The runtime DMAs exactly this
+#: into a VRAM slot, so it has to match `visual_tex::TILE_DIM` and the renderer's
+#: `VRAM_TILE_DIM`. Named `TIM_`-prefixed because `TILE_DIM` below is the much
+#: larger 256-texel atlas chunk used by the physics compiler, and the two have
+#: nothing to do with each other.
+TIM_TILE_DIM = 64
+#: TIM tiles along each axis of a 1024x1024 visual block: 16x16 = 256 tiles.
+TIM_TILES_PER_BLOCK_AXIS = 1024 // TIM_TILE_DIM
+#: CD sector size. A TIM tile is 64x64x2 = 8192 bytes = 4 sectors, which is what
+#: lets the runtime read one tile with a single seekless run of `read_sectors`.
+SECTOR_SIZE_TIM = 2048
+#: CD sectors per uncompressed TIM tile.
+TIM_TILE_SECTORS = TIM_TILE_DIM * TIM_TILE_DIM * 2 // SECTOR_SIZE_TIM
+#: Sectors per uncompressed TIM block: 256 tiles of 4 sectors.
+TIM_BLOCK_SECTORS = TIM_TILES_PER_BLOCK_AXIS * TIM_TILES_PER_BLOCK_AXIS * TIM_TILE_SECTORS
+assert TIM_TILE_SECTORS == 4, "a TIM tile must be a whole number of CD sectors"
+assert TIM_BLOCK_SECTORS == 1024, "an uncompressed 15bpp block is exactly 2 MB"
 TILE_DIM = 256
 TILES_X = VISUAL_SIZE[0] // TILE_DIM
 TILES_Y = VISUAL_SIZE[1] // TILE_DIM
@@ -532,16 +550,19 @@ def pack_arsv(name: str) -> bytes | None:
     return bytes(out)
 
 
-def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None]:
+def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None, bytes | None]:
     """Packs one circuit's visual image into 1024x1024 blocks and exports them.
 
-    Returns `(jpeg_data, qoi_data, arsv_data)`, the three disc formats:
+    Returns `(jpeg_data, qoi_data, arsv_data, tim_data)`, the four disc formats:
 
     - `qoi_data` is `None` when the source art does not fit the 500 KB block
       budget losslessly. QOI is lossless, so unlike JPEG there is no quality
       knob to turn down: highly detailed art simply does not fit, and that
       circuit keeps using its JPEG block. See `compress_1024_qoi_500kb`.
     - `arsv_data` is `None` when the circuit has no SVG to rasterise.
+    - `tim_data` is `None` only when `pack_tim_block` itself fails. Unlike the
+      compressed formats it has no size budget to miss: an uncompressed block is
+      a fixed 2 MB for every circuit, or it does not exist at all.
 
     The `.visual.gen.png` override still wins for the bitmap formats: it is
     hand-authored detail that no rasteriser can reproduce. Where it is absent,
@@ -577,6 +598,7 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None]:
     jpeg_data = compress_1024_jpeg_500kb(im)
     qoi_data = compress_1024_qoi_500kb(im)
     arsv_data = pack_arsv(name)
+    tim_data = pack_tim_block(im)
 
     # Export to tracks/<Circuit>.jpg
     with open(jpg_path, "wb") as f_jpg:
@@ -617,7 +639,13 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None]:
             f"  exported {label}: {path} ({len(blob)} bytes = {len(blob)/1024:.2f} KB)"
         )
 
-    return jpeg_data, qoi_data, arsv_data
+    print(
+        f"  TIM: {clean_name} -> uncompressed 15bpp, "
+        f"{len(tim_data)} bytes = {len(tim_data)/1024/1024:.2f} MB "
+        f"({TIM_TILES_PER_BLOCK_AXIS ** 2} tiles of {TIM_TILE_SECTORS} sectors)"
+    )
+
+    return jpeg_data, qoi_data, arsv_data, tim_data
 
 
 def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
@@ -653,19 +681,77 @@ def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
     return data
 
 
+def pack_tim_block(im: Image.Image) -> bytes:
+    """Packs an image as uncompressed 15bpp texels, tiled for direct DMA.
+
+    Returns exactly `TIM_TILE_DIM * TIM_TILE_DIM * 2 *
+    TIM_TILES_PER_BLOCK_AXIS ** 2` bytes: 256 tiles of 64x64, laid out row-major
+    by tile, four 2048-byte CD sectors each. No header and no index -- the
+    runtime computes a tile's sector from its `(tx, ty)` alone, which is the
+    only reason a 2 MB uncompressed block is streamable at all on a 2 MB
+    machine.
+
+    This is deliberately lossless and deliberately format-specific: there is no
+    compression to fall back from, because a tile has to arrive in VRAM
+    byte-identical to how the cooker wrote it or the DMA path would show seams
+    against its neighbours. The compressed formats can hide their quantisation
+    inside a decoder; this one cannot.
+    """
+    if im.size != (1024, 1024):
+        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+
+    rgb = np.array(im.convert("RGB"), dtype=np.uint32)
+
+    # PSX VRAM stores 15bpp as BGR555: bits 0-4 red, 5-9 green, 10-14 blue.
+    # Bit 15 is the semi-transparency flag and stays clear -- these are opaque
+    # circuit surfaces.
+    #
+    # This must stay identical to `texlayout::pack_bgr555`, which packs every
+    # flat-shaded polygon and sprite in the game. If the two drift, streamed
+    # tiles meet flat geometry in visibly different colours and nothing in the
+    # game can report it; `verify_tim.py` compares the two expressions.
+    r5 = (rgb[:, :, 0] >> 3) & 0x1F
+    g5 = (rgb[:, :, 1] >> 3) & 0x1F
+    b5 = (rgb[:, :, 2] >> 3) & 0x1F
+    halfwords = r5 | (g5 << 5) | (b5 << 10)
+
+    tiles = []
+    for ty in range(TIM_TILES_PER_BLOCK_AXIS):
+        for tx in range(TIM_TILES_PER_BLOCK_AXIS):
+            tile = halfwords[
+                ty * TIM_TILE_DIM : (ty + 1) * TIM_TILE_DIM,
+                tx * TIM_TILE_DIM : (tx + 1) * TIM_TILE_DIM,
+            ]
+            # `dtype="<u2"` makes the byte order explicit rather than inherited
+            # from the host. The R3000A is little-endian, but a big-endian cooker
+            # would otherwise ship a silently byte-swapped disc.
+            tiles.append(tile.astype("<u2").tobytes())
+
+    block = b"".join(tiles)
+    expected = TIM_TILE_DIM * TIM_TILE_DIM * 2 * (TIM_TILES_PER_BLOCK_AXIS**2)
+    assert len(block) == expected, f"TIM block is {len(block)} bytes, expected {expected}"
+    # Must land on a CD sector boundary, since the runtime reads whole sectors
+    # into a buffer that holds exactly one tile.
+    assert len(block) % SECTOR_SIZE_TIM == 0, "TIM block is not sector aligned"
+    return block
+
+
 def emit_visual_tex(
-    packed_per_circuit: list[tuple[bytes, bytes | None, bytes | None]]
+    packed_per_circuit: list[tuple[bytes, bytes | None, bytes | None, bytes | None]]
 ) -> None:
     """Writes the track texture BINs and `crates/arduracer-core/src/visual_tex.rs`.
 
-    Two assets are produced. `assets/TRACKS.BIN` holds every circuit's JPEG
+    Four assets are produced. `assets/TRACKS.BIN` holds every circuit's JPEG
     block, sector-aligned at 250 sectors (500 KB) each. `assets/QOITRACKS.BIN`
     holds the segmented-QOI block for every circuit that fit the budget
     losslessly, in the same sector-aligned layout; circuits that did not fit get
     a zeroed, zero-sector table entry that the runtime reads as "no QOI here,
-    use JPEG".
+    use JPEG". `assets/SVGTRACKS.BIN` holds the ARSV blocks, same fallback.
+    `assets/TIMTRACKS.BIN` holds the uncompressed blocks, and is *not* padded to
+    a fixed allocation: a 15bpp 1024x1024 block is exactly 2,097,152 bytes, so
+    every circuit gets the same 1024 sectors and the table is pure arithmetic.
 
-    `visual_tex.rs` receives both sector index tables, decoupling runtime
+    `visual_tex.rs` receives the sector index tables, decoupling runtime
     textures from static executable size.
     """
     assert packed_per_circuit, "no circuits to pack a visual for"
@@ -675,6 +761,7 @@ def emit_visual_tex(
     out_bin = os.path.join(assets_dir, "TRACKS.BIN")
     out_qoi_bin = os.path.join(assets_dir, "QOITRACKS.BIN")
     out_arsv_bin = os.path.join(assets_dir, "SVGTRACKS.BIN")
+    out_tim_bin = os.path.join(assets_dir, "TIMTRACKS.BIN")
 
     n = len(packed_per_circuit)
     SECTOR_SIZE = 2048
@@ -694,17 +781,19 @@ def emit_visual_tex(
             f_bin.write(b"\x00" * pad_len)
         return sector_offset + SECTORS_PER_CIRCUIT
 
-    # Build both BINs with sector-aligned blocks.
+    # Build the BINs with sector-aligned blocks.
     current_sector = 0
     qoi_sector = 0
     arsv_sector = 0
+    tim_sector = 0
     tile_entries: list[tuple[int, int, int]] = []
     qoi_entries: list[tuple[int, int, int]] = []
     arsv_entries: list[tuple[int, int, int]] = []
+    tim_entries: list[tuple[int, int, int]] = []
 
     with open(out_bin, "wb") as f_bin, open(out_qoi_bin, "wb") as f_qoi, \
-            open(out_arsv_bin, "wb") as f_arsv:
-        for c, (jpeg_data, qoi_data, arsv_data) in enumerate(packed_per_circuit):
+            open(out_arsv_bin, "wb") as f_arsv, open(out_tim_bin, "wb") as f_tim:
+        for c, (jpeg_data, qoi_data, arsv_data, tim_data) in enumerate(packed_per_circuit):
             tile_entries.append(
                 (current_sector, SECTORS_PER_CIRCUIT, len(jpeg_data))
             )
@@ -736,12 +825,29 @@ def emit_visual_tex(
                 )
                 arsv_sector = write_aligned(f_arsv, arsv_data, arsv_sector)
 
+            if tim_data is None:
+                tim_entries.append((0, 0, 0))
+            else:
+                # No padding: an uncompressed block is a whole number of
+                # sectors and every circuit's is the same size, so the table
+                # entry is what the runtime needs, not a padding convention.
+                assert len(tim_data) % SECTOR_SIZE == 0, (
+                    f"circuit {c}: TIM block is {len(tim_data)} bytes, not sector aligned"
+                )
+                tim_entries.append(
+                    (tim_sector, len(tim_data) // SECTOR_SIZE, len(tim_data))
+                )
+                f_tim.write(tim_data)
+                tim_sector += len(tim_data) // SECTOR_SIZE
+
     total_sectors = current_sector
     total_bin_bytes = total_sectors * SECTOR_SIZE
     qoi_sectors_total = qoi_sector
     qoi_count = sum(1 for e in qoi_entries if e[1] > 0)
     arsv_sectors_total = arsv_sector
     arsv_count = sum(1 for e in arsv_entries if e[1] > 0)
+    tim_sectors_total = tim_sector
+    tim_count = sum(1 for e in tim_entries if e[1] > 0)
 
     # Emit visual_tex.rs with block sector index
     with open(out_rs, "w") as f:
@@ -774,6 +880,10 @@ def emit_visual_tex(
             "pub const RESTART_INTERVAL_COUNT: usize = 1024;\n"
             "/// Independently decodable 64x16 QOI segments in one 1024x1024 block.\n"
             "pub const SEGMENT_COUNT: usize = 1024;\n"
+            "/// CD sectors per uncompressed 15bpp tile (64x64x2 bytes = 8192 = 4 sectors).\n"
+            f"pub const TIM_TILE_SECTORS: u32 = {TIM_TILE_SECTORS};\n"
+            "/// CD sectors per uncompressed 15bpp block (256 tiles x 4 sectors).\n"
+            f"pub const TIM_BLOCK_SECTORS: u32 = {TIM_BLOCK_SECTORS};\n"
             "/// Raw uncompressed 16-bit BGR555 halfwords per 64x64 tile.\n"
             "pub const RAW_TILE_HALFWORDS: usize = TILE_DIM * TILE_DIM;\n"
             "/// Raw uncompressed byte count per 64x64 tile (8,192 bytes = 8 KB).\n"
@@ -788,6 +898,10 @@ def emit_visual_tex(
             "pub const SVGTRACKS_BIN_NAME: &[u8] = b\"SVGTRACKS.BIN\";\n"
             "/// Number of circuits with an ARSV block on this disc.\n"
             f"pub const ARSV_CIRCUIT_COUNT: usize = {arsv_count};\n"
+            "/// Name of the uncompressed-TIM track visual asset file on the CD-ROM disc.\n"
+            "pub const TIMTRACKS_BIN_NAME: &[u8] = b\"TIMTRACKS.BIN\";\n"
+            "/// Number of circuits with an uncompressed TIM block on this disc.\n"
+            f"pub const TIM_CIRCUIT_COUNT: usize = {tim_count};\n"
             "/// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.\n"
             "pub const CAPETOWN_BIN_NAME: &[u8] = b\"CAPETOWN.BIN\";\n"
             "/// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.\n"
@@ -850,6 +964,29 @@ def emit_visual_tex(
             )
         f.write("];\n\n")
 
+        # Uncompressed 15bpp blocks. Unlike the compressed tables these carry no
+        # per-block compressed length worth speaking of -- the block is exactly
+        # 1024 sectors of texels -- so the entry only says where it starts.
+        # A zero `sector_count` marks a circuit the cooker did not convert, and
+        # the renderer falls back through SVG -> QOI -> JPEG for it.
+        f.write(
+            "/// Uncompressed 15bpp 1024x1024 block sector index [circuit].\n"
+            "///\n"
+            "/// Each block is `TIM_BLOCK_SECTORS` sectors of raw texels, laid out\n"
+            "/// as a 16x16 row-major grid of 64x64 tiles of `TIM_TILE_SECTORS`\n"
+            "/// sectors each. A tile's offset is therefore arithmetic on its\n"
+            "/// coordinates, not a table lookup.\n"
+            "///\n"
+            "/// A zero `sector_count` marks a circuit with no TIM block.\n"
+            f"pub static CIRCUIT_TIM_SECTORS: [TileSectorEntry; COUNT] = [\n"
+        )
+        for c, (sec_off, sec_cnt, b_len) in enumerate(tim_entries):
+            f.write(
+                f"    TileSectorEntry {{ sector_offset: {sec_off}, "
+                f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
+            )
+        f.write("];\n\n")
+
         # Emit city block sector mappings from local tracks/<city>_10km/ blocks
         for city_prefix, var_name, city_title in [
             ("capetown", "CAPETOWN_BLOCK_SECTORS", "Cape Town"),
@@ -896,6 +1033,12 @@ def emit_visual_tex(
         f"wrote {out_arsv_bin} ({arsv_sectors_total} sectors = "
         f"{arsv_sectors_total * SECTOR_SIZE} bytes) "
         f"({arsv_count}/{n} circuits x 1024x1024 SVG-raster ARSV blocks)"
+    )
+    print(
+        f"wrote {out_tim_bin} ({tim_sectors_total} sectors = "
+        f"{tim_sectors_total * SECTOR_SIZE} bytes = "
+        f"{tim_sectors_total * SECTOR_SIZE / 1024 / 1024:.1f} MB) "
+        f"({tim_count}/{n} circuits x uncompressed 15bpp blocks, DMA'd per tile)"
     )
 
 

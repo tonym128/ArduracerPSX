@@ -16,7 +16,7 @@ codegen-units = 1
 lto = true
 
 [features]
-default = ["svg-track-texture", "qoi-track-stream"]
+default = ["svg-track-texture", "qoi-track-stream", "tim-track-stream"]
 
 # SVG-derived circuit textures (the `ARSV` container). On by default, and the
 # preferred format: the authored vector geometry rasterised at 1024, plus a
@@ -38,6 +38,23 @@ svg-track-texture = []
 #   cargo build --release                          # QOI where available
 #   cargo build --release --no-default-features    # JPEG everywhere
 qoi-track-stream = []
+
+# Uncompressed 15bpp circuit textures, streamed tile by tile and DMA'd into
+# VRAM with no decode step (`TIMTRACKS.BIN`).
+#
+# On by default, but -- unlike the two above -- never chosen by `Auto`. It has
+# to be selected explicitly, because it costs four times the disc space and
+# reads four sectors per VRAM tile where the compressed formats read one 500 KB
+# block per 256 tiles. On the single-block track layouts that is enough short
+# reads to hand the drive away from CD-DA playback often enough to be heard as
+# audio stutter, which is why the CD-audio setting exists alongside this one.
+#
+# Turning it off removes the option from the texture menu entirely; every
+# circuit falls back through SVG -> QOI -> JPEG as before.
+#
+#   cargo build --release                                    # TIM selectable
+#   cargo build --release --no-default-features              # JPEG everywhere
+tim-track-stream = []
 
 # Declared only so `cfg(feature = "host-test")` in `memcard.rs` resolves
 # instead of warning as an unexpected cfg. DO NOT BUILD THE GAME WITH IT: it

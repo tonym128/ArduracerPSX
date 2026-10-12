@@ -220,6 +220,7 @@ ci-disc: disc
 	if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then echo "ERROR: assets/TRACKS.BIN missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ]; then echo "ERROR: assets/QOITRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then echo "ERROR: assets/SVGTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ]; then echo "ERROR: assets/TIMTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	cuefile=$$(sed -n 's/^[[:space:]]*FILE[[:space:]]*"\(.*\)".*/\1/p' "$$cue" | head -1); \
 	echo "CUE FILE entry: '$$cuefile'"; \
 	if [ "$$cuefile" != "arduracer.bin" ]; then \
@@ -441,13 +442,14 @@ iso: exe
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
 		--file $(ROOT)/assets/SVGTRACKS.BIN \
+		--file $(ROOT)/assets/TIMTRACKS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
 assets:
 	@mkdir -p $(ROOT)/assets/cdda
 	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
-	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
 	@if [ ! -f "$(ROOT)/assets/CAPETOWN.BIN" ]; then \
 		if [ -f "$(DIST)/capetown_10km/CAPETOWN.BIN" ]; then \
 			cp $(DIST)/capetown_10km/CAPETOWN.BIN $(ROOT)/assets/CAPETOWN.BIN; \
@@ -482,6 +484,7 @@ disc: assets exe
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
 		--file $(ROOT)/assets/SVGTRACKS.BIN \
+		--file $(ROOT)/assets/TIMTRACKS.BIN \
 		--file $(ROOT)/assets/CAPETOWN.BIN \
 		--file $(ROOT)/assets/MELBOURNE.BIN \
 		--file $(ROOT)/assets/LONDON.BIN \

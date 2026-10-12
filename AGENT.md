@@ -99,21 +99,18 @@ graph TD
     surface. `make circuits` redraws the images from
     `tools/track_cook/generate_svg_circuit.py`.
 
-### 2.1 Circuit Texture Codecs (JPEG and QOI)
+### 2.1 Circuit Texture Codecs (SVG, QOI, JPEG, TIM)
 
-`make atlas` emits **two** disc assets per circuit, and the runtime picks per
+`make atlas` emits **four** disc assets per circuit, and the runtime picks per
 circuit. `gpu::tracktex` streams one 1024x1024 compressed block at a time into a
 single 500 KB RAM buffer, then decodes 64x16 MCU rows from it into VRAM.
-
-Three formats, chosen per circuit best-first. Each is a separate disc asset and
-a separate feature flag, so any of them can be turned off without losing
-content.
 
 | Asset | Codec | Flag | Decoder | Notes |
 | --- | --- | --- | --- | --- |
 | `assets/SVGTRACKS.BIN` | `ARSV`: SVG raster + code map + per-surface detail | `svg-track-texture` | `arduracer_core::svgtex` | Preferred. Straight vector edges, synthesised detail. |
 | `assets/TRACKS.BIN` | Baseline JPEG, `DRI=4` | always | `arduracer_core::jpeg` | Always present; last-resort fallback. |
 | `assets/QOITRACKS.BIN` | Segmented QOI | `qoi-track-stream` | `arduracer_core::qoi` | Lossless copy of the SVG raster, no detail pass. |
+| `assets/TIMTRACKS.BIN` | Uncompressed 15bpp, DMA'd | `tim-track-stream` | none | No decode at all. Explicitly selected; never chosen by `Auto`. |
 
 `codec_for_circuit` steps down SVG -> QOI -> JPEG. Every step down is a pure
 fallback: the feature off, the disc missing the asset, or the circuit's table
@@ -121,7 +118,44 @@ entry empty all fall through, so no combination of flags can remove content. The
 three 10 km^2 city maps are JPEG-only, since their art is generated procedurally
 at cook time.
 
-### 2.2 The SVG texture path (`ARSV`)
+### 2.2 The TIM texture path (uncompressed, DMA to VRAM)
+
+TIM is the one format with **no decoder**. A 64x64 15bpp tile is 8192 bytes =
+exactly 4 CD sectors, so `upload_tile_dma` reads those four sectors straight
+into the shared 8 KB staging buffer and hands them to the GPU's block-mode DMA.
+No header, no entropy coding, no inverse DCT.
+
+**Why it is not in the `Auto` walk.** A 1024x1024 15bpp block is 2,097,152
+bytes — twice the machine's main RAM. It therefore cannot be streamed as a
+block at all, and `RamBlock`'s 512 KB buffer is not involved. Instead each VRAM
+tile miss becomes its own 4-sector read. On a single-block track layout that is
+1024 short reads where SVG/QOI/JPEG do one 500 KB read to serve 256 tiles, and
+`cd_fs::read_sectors` pauses and resumes CD-DA playback around every one of them.
+That is audible, so TIM is a player choice (`TextureFormat::Tim`) rather than a
+default, and the **CD AUDIO** setting exists alongside it for exactly this case.
+
+**Why the tile grid is arithmetic and not a table.** A block is 256 tiles laid
+out row-major, four sectors each, so a tile's LBA is
+`block_lba + (tile_y * 16 + tile_x) * 4`. No per-tile index is shipped or
+streamed, which is what makes a 2 MB uncompressed block affordable at all.
+`visual_tex::CIRCUIT_TIM_SECTORS` carries only the per-circuit base.
+
+**Why DMA uses BS = 16 words and not one row.** The GPU command FIFO is 64 bytes,
+so a block size wider than 16 words can wedge real hardware (CL2 probe,
+2026-07-31). But block mode advances MADR by *BS words after each block*, so
+laying BS-word blocks back to back walks a contiguous address range for any BS.
+`psx_vram::dma_block_params` therefore clamps BS to the FIFO width and lets BA
+carry the count: a 64x64 tile is BS = 16, BA = 128, moving the same 2048 words as
+the row-shaped BS = 32 / BA = 64 that used to be refused outright. It also falls
+back to the GP0 FIFO path if the channel does not report done, which is the
+documented CL2 failure mode.
+
+`tools/track_cook/verify_tim.py` checks the on-disc bytes against the source
+raster. This exists because the path has no decoder: a swapped channel or a
+host-endian leak ships a disc that boots, renders, and is subtly wrong everywhere,
+and nothing in the game can report it.
+
+### 2.3 The SVG texture path (`ARSV`)
 
 `.visual.png` is painted from the 80x80 code map
 (`generate_svg_circuit.paint_visual`), which quantises geometry to 12.8 px cells

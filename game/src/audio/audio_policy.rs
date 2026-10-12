@@ -209,3 +209,187 @@ impl AudioPolicy {
         self.prev_buttons = buttons;
     }
 }
+
+/// Whether Redbook CD-DA playback is allowed to run, and which track holds the
+/// drive.
+///
+/// This exists because CD-DA and the TIM texture streamer both want the same
+/// physical drive. `cd_fs::read_sectors` pauses playback around every read and
+/// resumes it afterwards, so with TIM selected the player is not hearing a bug,
+/// they are hearing the drive being handed back and forth four sectors at a
+/// time. That is a drive-latency problem, not something the audio path can
+/// mask, which is why the fix is a player setting rather than a mix change.
+///
+/// It lives in `audio_policy.rs`, away from `cdda.rs`, for the same reason
+/// [`AudioPolicy`] does: the decision -- may this request start, must the
+/// running track be cut -- is pure and `tools/test_audio` can drive it, whereas
+/// `CddaController` spends its body in CD-ROM register writes.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct CdAudioPolicy {
+    enabled: bool,
+    /// Track currently holding the drive, 0 when none.
+    active_track: u8,
+}
+
+impl Default for CdAudioPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CdAudioPolicy {
+    pub const fn new() -> Self {
+        Self {
+            enabled: true,
+            active_track: 0,
+        }
+    }
+
+    /// Whether CD-DA playback is currently permitted.
+    pub const fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Which track currently holds the drive, if any.
+    pub const fn active_track(&self) -> Option<u8> {
+        if self.active_track != 0 {
+            Some(self.active_track)
+        } else {
+            None
+        }
+    }
+
+    /// Applies the player's preference.
+    ///
+    /// Returns `true` when a track was playing and the caller must cut it: the
+    /// drive has to be released, not merely stopped accepting new requests.
+    /// Leaving the disc spinning is what produces the delayed, stuttering
+    /// audio a player would blame on the texture streamer instead of on the
+    /// setting they just turned off.
+    ///
+    /// Reports `false` when nothing holds the drive, so an idle toggle does not
+    /// make the caller issue a stop command for a track that never started.
+    pub fn set_enabled(&mut self, enabled: bool) -> bool {
+        self.enabled = enabled;
+        if enabled {
+            return false;
+        }
+        let was_active = self.active_track != 0;
+        self.active_track = 0;
+        was_active
+    }
+
+    /// Decides whether a `play_track(track)` request may reach the drive.
+    ///
+    /// Returns the track to play, or `None` to skip the CD-ROM commands
+    /// entirely. A repeat request for the track already playing is `None` too:
+    /// re-issuing play for it would restart the song from its first sample, so
+    /// a screen that asks every frame would click.
+    pub fn request_play(&mut self, track: u8) -> Option<u8> {
+        if !self.enabled || (self.active_track == track) {
+            return None;
+        }
+        self.active_track = track;
+        Some(track)
+    }
+
+    /// Releases the drive: playback stopped, or paused for a sector read.
+    pub fn clear(&mut self) {
+        self.active_track = 0;
+    }
+}
+
+#[cfg(test)]
+mod cd_audio_tests {
+    use super::CdAudioPolicy;
+
+    #[test]
+    fn a_play_request_is_honoured_by_default() {
+        let mut p = CdAudioPolicy::new();
+        assert_eq!(p.request_play(3), Some(3));
+        assert_eq!(p.active_track(), Some(3));
+    }
+
+    /// The whole point of the setting: with it off, nothing reaches the drive.
+    #[test]
+    fn disabling_suppresses_every_play_request() {
+        let mut p = CdAudioPolicy::new();
+        p.set_enabled(false);
+        for track in 1..=8u8 {
+            assert_eq!(
+                p.request_play(track),
+                None,
+                "track {track} reached the drive"
+            );
+        }
+        assert_eq!(p.active_track(), None);
+    }
+
+    /// Disabling must cut what is already playing, and report that it did, so
+    /// the caller actually releases the drive.
+    #[test]
+    fn disabling_cuts_a_running_track_and_reports_it() {
+        let mut p = CdAudioPolicy::new();
+        assert_eq!(p.request_play(4), Some(4));
+        assert!(
+            p.set_enabled(false),
+            "caller must be told to stop the drive"
+        );
+        assert_eq!(p.active_track(), None);
+    }
+
+    /// Turning it off when nothing is playing is not an error, and must not
+    /// make the caller issue a spurious stop command.
+    #[test]
+    fn disabling_an_idle_drive_reports_nothing_to_cut() {
+        let mut p = CdAudioPolicy::new();
+        assert!(!p.set_enabled(false));
+    }
+
+    #[test]
+    fn re_enabling_lets_playback_resume() {
+        let mut p = CdAudioPolicy::new();
+        p.set_enabled(false);
+        assert!(!p.set_enabled(true), "nothing was playing to cut");
+        assert_eq!(p.request_play(6), Some(6));
+    }
+
+    /// A screen that asks every frame must not restart the song each time.
+    #[test]
+    fn a_repeat_request_for_the_playing_track_is_ignored() {
+        let mut p = CdAudioPolicy::new();
+        assert_eq!(p.request_play(2), Some(2));
+        assert_eq!(p.request_play(2), None);
+        assert_eq!(
+            p.request_play(3),
+            Some(3),
+            "a different track must go through"
+        );
+    }
+
+    /// A sector read parks playback; the next request must be honoured again.
+    #[test]
+    fn clearing_releases_the_drive_without_disabling_it() {
+        let mut p = CdAudioPolicy::new();
+        p.request_play(2);
+        p.clear();
+        assert_eq!(p.active_track(), None);
+        assert!(p.enabled());
+        assert_eq!(p.request_play(2), Some(2));
+    }
+
+    /// `clear` is what a `stop()` calls. If it did not clear, the next request
+    /// for the same track would be mistaken for a repeat and dropped, and the
+    /// screen asking for the theme would get silence.
+    #[test]
+    fn a_track_can_be_played_again_after_being_stopped() {
+        let mut p = CdAudioPolicy::new();
+        assert_eq!(p.request_play(2), Some(2));
+        p.clear(); // CddaController::stop
+        assert_eq!(
+            p.request_play(2),
+            Some(2),
+            "a stop must not mute the theme forever"
+        );
+    }
+}
