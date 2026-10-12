@@ -385,6 +385,27 @@ fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
     Some((lba + entry.sector_offset, entry.sector_count))
 }
 
+/// Whether `circuit` is served by the uncompressed TIM path.
+///
+/// Built from [`selects_tim`] rather than from [`tim_block_for`] alone, and the
+/// difference is the whole bug this replaced.
+///
+/// Asking `tim_block_for(circuit).is_some()` means "does this disc carry a TIM
+/// block for this circuit", which is true for *every* circuit on any disc
+/// mastered with `TIMTRACKS.BIN`. Using it as the decode-path selector meant a
+/// circuit pinned to QOI, JPEG or SVG still took the TIM branch: the RAM block
+/// was loaded and never decoded from, every visible tile miss became a fresh
+/// four-sector CD read, and CD-DA spent the race losing the drive to the
+/// texture streamer. Availability is necessary, not sufficient -- `selects_tim`
+/// asks about the pin too, and keeps that question out of the render loop.
+#[inline]
+fn codec_is_tim(circuit: usize) -> bool {
+    arduracer_core::texture_format::selects_tim(
+        unsafe { TEXTURE_FORMAT },
+        tim_block_for(circuit).is_some(),
+    )
+}
+
 /// Reads `ACTIVE_CITY` without taking a reference to a mutable static.
 ///
 /// `load_block_into_ram` copies the same field out for the same reason.
@@ -447,6 +468,10 @@ fn codec_for_circuit(circuit: usize) -> Codec {
                     && known
                     && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
             }
+            // Availability check, which is the right question here: this arm
+            // *is* the place that decides whether a TIM pin can be honoured.
+            // The decode paths ask `codec_is_tim` instead, because they need to
+            // know what was selected, not what exists.
             TextureFormat::Tim => tim_block_for(circuit).is_some(),
             TextureFormat::Jpeg => {
                 have_jpeg_asset
@@ -625,7 +650,9 @@ pub fn init_track_texture(circuit: usize) {
         // TIM keeps no RAM block, so there is nothing to preload: its tiles come
         // from the disc one 8 KB at a time, on demand. Streaming a compressed
         // block here would read 500 KB of data nothing is going to decode.
-        if codec_for_circuit(circuit) != Codec::Tim {
+        // `codec_is_tim`, not `tim_block_for`: see its note for why the
+        // availability question is the wrong one.
+        if !codec_is_tim(circuit) {
             load_block_into_ram(circuit, init_bx, init_by, 0);
         }
     }
@@ -811,7 +838,11 @@ fn decode_and_upload_full_tile(
     // TIM has no block to decode out of: the tile comes straight off the disc.
     // Its block coordinates are always (0, 0) -- a circuit is one block -- so
     // they are not carried into the sector arithmetic.
-    if tim_block_for(circuit).is_some() {
+    //
+    // `codec_is_tim` rather than `tim_block_for`: testing availability here made
+    // every codec on a TIM-bearing disc take this branch and ignore its RAM
+    // block entirely. See `codec_is_tim`.
+    if codec_is_tim(circuit) {
         if upload_tile_dma(circuit, sub_tx, sub_ty, target_slot, 1) {
             return;
         }
@@ -1108,7 +1139,10 @@ fn step_decode_job(current_frame: u32) {
         return;
     }
 
-    if tim_block_for(job.circuit).is_some() {
+    // `codec_is_tim`, not `tim_block_for`: asking only whether a TIM block exists
+    // sends every codec on a TIM-bearing disc down this path and abandons its
+    // RAM block. See `codec_is_tim`.
+    if codec_is_tim(job.circuit) {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
         crate::prof::count(crate::prof::C_TILE_DECODES, 1);
         // A failed read leaves the slot empty, which renders as the placeholder

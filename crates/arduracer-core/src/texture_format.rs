@@ -323,6 +323,27 @@ mod tests {
     }
 }
 
+/// Whether a circuit is served by the uncompressed TIM path.
+///
+/// Takes the pin and whether the disc actually carries the block, and answers
+/// the question the *renderer* must ask before choosing a decode path.
+///
+/// This exists because asking the availability question alone is wrong, and
+/// was: the decode paths branched on "does a TIM block exist for this circuit",
+/// which is true for every circuit on any disc mastered with `TIMTRACKS.BIN`.
+/// Circuits the player had left on QOI, JPEG or SVG all took the TIM branch
+/// anyway, so the RAM block was loaded and then never decoded from, every tile
+/// miss became a fresh four-sector CD read, and CD-DA lost the drive to it
+/// continuously. Availability is a necessary condition here, not a sufficient
+/// one.
+///
+/// `Auto` is false even when a TIM block exists, which is the whole point: TIM
+/// is never selected on the player's behalf.
+pub const fn selects_tim(pinned: TextureFormat, tim_available: bool) -> bool {
+    // `matches!` rather than `== Codec::Tim`: `PartialEq` is not const.
+    tim_available && matches!(pinned.codec(), Codec::Tim)
+}
+
 /// The decode-budget tiers, keyed to VBlanks elapsed since the frame's step-1
 /// stamp.
 ///
@@ -349,6 +370,61 @@ pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -
 #[cfg(test)]
 mod budget_tests {
     use super::*;
+
+    /// The regression this module's `selects_tim` was added for: a disc that
+    /// carries TIM blocks must not make *every* circuit take the TIM path.
+    ///
+    /// The broken version asked only "is a TIM block available", which is true
+    /// for all of them, and the renderer then streamed raw texels off the disc
+    /// instead of decoding the RAM block it had already loaded.
+    #[test]
+    fn only_the_tim_pin_selects_the_tim_path() {
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+        ] {
+            assert!(
+                !selects_tim(f, true),
+                "{f:?} must not take the TIM path just because TIM exists"
+            );
+            assert!(
+                !selects_tim(f, false),
+                "{f:?} must not take the TIM path without a TIM block either"
+            );
+        }
+    }
+
+    #[test]
+    fn the_tim_pin_takes_the_tim_path_only_when_the_block_is_there() {
+        assert!(selects_tim(TextureFormat::Tim, true));
+        assert!(
+            !selects_tim(TextureFormat::Tim, false),
+            "a pin to TIM on a disc without TIMTRACKS.BIN must fall back, not half-work"
+        );
+    }
+
+    /// Availability must not be load-bearing on its own. Every circuit on a
+    /// TIM-bearing disc reports available, so a predicate reading only that
+    /// answers yes for the whole disc. This is that predicate, stated as the
+    /// contrast: it is true for every pin, `selects_tim` is true for one.
+    #[test]
+    fn availability_alone_answers_yes_for_the_whole_disc() {
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+        ] {
+            let availability_check = true; // "a TIM block exists for this circuit"
+            assert!(availability_check);
+            assert!(
+                !selects_tim(f, availability_check),
+                "{f:?} must not take the TIM path merely because one exists"
+            );
+        }
+    }
 
     /// 60 FPS is the regression: one row must be admitted on the first
     /// iteration of a frame, which is `elapsed == 0`, `period == 1`.
