@@ -48,6 +48,45 @@ pub const ARSV_CIRCUIT_COUNT: usize = 24;
 pub const TIMTRACKS_BIN_NAME: &[u8] = b"TIMTRACKS.BIN";
 /// Number of circuits with an uncompressed TIM block on this disc.
 pub const TIM_CIRCUIT_COUNT: usize = 24;
+/// Name of the uncompressed 4bpp CLUT-indexed track visual asset file.
+pub const TIM4TRACKS_BIN_NAME: &[u8] = b"TIM4TRACKS.BIN";
+/// Number of circuits with an uncompressed 4bpp block on this disc.
+pub const TIM4_CIRCUIT_COUNT: usize = 24;
+/// Texels per 4bpp TIM tile, on each axis.
+pub const TIM4_TILE_DIM: usize = TILE_DIM;
+/// Bytes per 4bpp TIM tile: four indices per halfword.
+pub const TIM4_TILE_BYTES: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / 2;
+/// CD sectors per 4bpp TIM tile. 2048 bytes is exactly one sector,
+/// which is what lets a tile be read with a single `read_sectors`.
+pub const TIM4_TILE_SECTORS: u32 = 1;
+/// Colour entries in a 4bpp TIM palette.
+pub const TIM4_PALETTE_ENTRIES: usize = 16;
+/// Bytes of 15bpp BGR555 palette entries per circuit.
+pub const TIM4_PALETTE_BYTES: usize = TIM4_PALETTE_ENTRIES * 2;
+/// CD sectors holding one circuit's 4bpp palette, padded to a sector.
+///
+/// The palette leads its block so a tile's sector is
+/// `base + TIM4_PALETTE_SECTORS + index`, keeping the offset pure
+/// arithmetic on the tile index and a per-tile table off the disc.
+pub const TIM4_PALETTE_SECTORS: u32 = 1;
+/// CD sectors per uncompressed 4bpp block.
+pub const TIM4_BLOCK_SECTORS: u32 = 257;
+/// Halfwords of VRAM a 64x64 4bpp image occupies.
+///
+/// Quarter of its texel count, because four 4-bit indices share a
+/// 16-bit word -- the same `/2` as `TIM4_TILE_BYTES` but for a
+/// different reason, so it is not interchangeable with it. This is
+/// also the unit `GP0(A0h)` counts in, and it is *not* the texel
+/// width: a 64-texel-wide 4bpp image is 32 halfwords across.
+pub const TIM4_TILE_HALFWORDS: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / 4;
+/// VRAM rows a 64-texel-tall 4bpp image occupies, for the same reason.
+pub const TIM4_TILE_ROWS: usize = TIM4_TILE_DIM / 2;
+/// VRAM halfword columns a 64-texel-wide 4bpp image occupies.
+///
+/// Half the texel width, so the upload rect is square in *halfwords*
+/// even though the image is square in texels. Passing the texel
+/// width here moves twice the tile and overruns the VRAM slot.
+pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / 2;
 /// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.
 pub const CAPETOWN_BIN_NAME: &[u8] = b"CAPETOWN.BIN";
 /// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.
@@ -573,6 +612,138 @@ pub static CIRCUIT_TIM_SECTORS: [TileSectorEntry; COUNT] = [
         sector_offset: 23552,
         sector_count: 1024,
         byte_len: 2097152,
+    },
+];
+
+/// Uncompressed 4bpp block sector index [circuit].
+///
+/// Each block is `TIM4_BLOCK_SECTORS` sectors: sector 0 is the
+/// circuit's 16-entry palette, and sectors 1..=256 are its 256
+/// 64x64 tiles, one sector each, row-major. A tile's sector is
+/// therefore `base + TIM4_PALETTE_SECTORS + tile_y * 16 + tile_x`,
+/// with no per-tile table anywhere.
+///
+/// A zero `sector_count` marks a circuit with no 4bpp block.
+pub static CIRCUIT_TIM4_SECTORS: [TileSectorEntry; COUNT] = [
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 257,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 514,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 771,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1028,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1285,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1542,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1799,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2056,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2313,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2570,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2827,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3084,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3341,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3598,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3855,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4112,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4369,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4626,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4883,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5140,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5397,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5654,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5911,
+        sector_count: 257,
+        byte_len: 526336,
     },
 ];
 

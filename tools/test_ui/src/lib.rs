@@ -2825,16 +2825,16 @@ mod graphics_settings {
     fn texture_format_cycles_through_every_option_and_wraps() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..5 {
+        for _ in 0..6 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
         }
-        assert_eq!(seen, vec![0, 1, 2, 3, 4, 0], "right must cycle and wrap");
+        assert_eq!(seen, vec![0, 1, 2, 3, 4, 5, 0], "right must cycle and wrap");
 
-        // Backwards from Auto lands on TIM, the last option.
+        // Backwards from Auto lands on TIM4, the last option.
         m.update(press(|i| i.left = true));
-        assert_eq!(m.values().texture_format, 4, "left must wrap to the end");
+        assert_eq!(m.values().texture_format, 5, "left must wrap to the end");
     }
 
     #[test]
@@ -3049,7 +3049,7 @@ mod graphics_settings {
     fn every_reachable_value_is_persistable() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..5 {
+        for _ in 0..6 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);

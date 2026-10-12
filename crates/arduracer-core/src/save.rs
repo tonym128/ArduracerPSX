@@ -355,7 +355,7 @@ impl SaveData {
         // 200 into 4 -- which is TIM. A corrupt card would then select a
         // specific texture format rather than falling back. Out of range is
         // Auto, the same answer `from_saved` gives.
-        if self.texture_format > 4 {
+        if self.texture_format > 5 {
             self.texture_format = 0;
         }
         self.framerate = u8::from(self.framerate != 0);
@@ -413,7 +413,7 @@ impl SaveData {
             && self.rumble_enabled <= 1
             && self.framerate <= 1
             && self.cd_audio <= 1
-            && self.texture_format <= 4
+            && self.texture_format <= 5
             && self.medals_earned.iter().all(|&m| m <= MAX_MEDAL)
             && self
                 .best_lap_ticks

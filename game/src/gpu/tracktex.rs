@@ -53,7 +53,7 @@ use crate::gpu::texlayout::{
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
-use psx_vram::{dma_copy_to_vram, upload_16bpp, upload_words, TexDepth, Tpage, VramRect};
+use psx_vram::{dma_copy_to_vram, upload_16bpp, upload_words, Clut, TexDepth, Tpage, VramRect};
 
 /// Capacity of the in-RAM compressed block cache (one 1024x1024 block, <= 500 KB).
 pub const RAM_CACHE_BLOCKS: usize = 1;
@@ -321,6 +321,21 @@ static mut SVGTRACKS_BIN_LBA: Option<u32> = None;
 /// has no such file. Probing is non-fatal and the pin degrades to Auto.
 static mut TIMTRACKS_BIN_LBA: Option<u32> = None;
 
+/// LBA of the uncompressed 4bpp (TIM4) circuit asset.
+///
+/// Optional for the same reason as [`TIMTRACKS_BIN_LBA`], and more so: TIM4 is
+/// the newest format, so a disc mastered before it existed has no such file. A
+/// TIM4 pin degrades to Auto rather than to a blank track.
+static mut TIM4TRACKS_BIN_LBA: Option<u32> = None;
+
+/// Circuit whose 16-colour palette is currently resident in the TIM4 CLUT.
+///
+/// Lets the palette be uploaded once per circuit rather than once per tile, and
+/// makes `reset_texture_caches` able to invalidate it: the palette is VRAM
+/// state, so dropping the tile cache without invalidating this would leave a
+/// palette that no longer matches the tiles being drawn against it.
+static mut TIM4_CLUT_CIRCUIT: usize = usize::MAX;
+
 static mut CAPETOWN_BIN_LBA: Option<u32> = None;
 static mut MELBOURNE_BIN_LBA: Option<u32> = None;
 static mut LONDON_BIN_LBA: Option<u32> = None;
@@ -406,12 +421,209 @@ fn codec_is_tim(circuit: usize) -> bool {
     )
 }
 
+/// Whether `circuit` is served by the uncompressed 4bpp path.
+///
+/// Same rule and same reason as [`codec_is_tim`]: availability alone is not a
+/// selection. A disc carrying `TIM4TRACKS.BIN` reports availability for every
+/// circuit, so a predicate reading only that would send SVG, QOI, JPEG and 15bpp
+/// TIM down the 4bpp path and leave their RAM block undecoded.
+#[inline]
+fn codec_is_tim4(circuit: usize) -> bool {
+    arduracer_core::texture_format::selects_tim4(
+        unsafe { TEXTURE_FORMAT },
+        tim4_block_for(circuit).is_some(),
+    )
+}
+
+/// Whether the uncompressed TIM4 texture path is compiled in for this build.
+#[cfg(feature = "tim4-track-stream")]
+const TIM4_ENABLED: bool = true;
+#[cfg(not(feature = "tim4-track-stream"))]
+const TIM4_ENABLED: bool = false;
+
+/// Sectors per 4bpp tile, from the cooker-generated table. One, by construction:
+/// a 64x64 4bpp tile is 2048 bytes.
+const TIM4_TILE_SECTORS: u32 = visual_tex::TIM4_TILE_SECTORS;
+
+/// The VRAM row holding a circuit's 16-colour TIM4 palette.
+///
+/// One row below the level palette at [`texlayout::TRACK_CLUT_Y`], which is
+/// already occupied, and clear of the minimap above it. A CLUT is addressed as
+/// a row of 16 halfwords at a 16-aligned X, so Y is a VRAM row index and any
+/// free row is a free palette.
+const TIM4_CLUT: Clut = Clut::new(texlayout::TRACK_CLUT_X, texlayout::TRACK_CLUT_Y + 1);
+
+/// 4bpp VRAM rectangle for one 64x64 tile.
+///
+/// **Halfwords, not texels.** `GP0(A0h)` counts width in 16-bit words and
+/// height in VRAM rows, and four 4-bit indices share a word, so a 64x64 *texel*
+/// tile is a 32x32 *rect* of halfwords. Passing 64x64 here would move 8 KB into
+/// a 2 KB slot and write over the neighbouring tiles.
+///
+/// The GPU applies the 4bpp block swizzle as it writes, which is why the disc
+/// payload is plain row-major texels and no pre-swizzling happens here.
+const TIM4_TILE_RECT: (u16, u16) = (
+    visual_tex::TIM4_TILE_HALFWORDS_WIDE as u16,
+    visual_tex::TIM4_TILE_ROWS as u16,
+);
+
+/// Three different divisions of the same 64x64 tile meet here, and they are all
+/// easy to confuse with each other or with the 8bpp case:
+///
+/// * 4096 texels
+/// * 2048 *bytes* (four texels share a halfword)
+/// * 1024 *halfwords* (four texels share a halfword)
+/// * a 32x32 rect of halfwords, because the GPU counts width in words and
+///   height in rows, and 4bpp packs two texel rows into each
+///
+/// These pin the relationship. The halfword count shipped once as 2048 -- the
+/// 8bpp figure -- which would have made the FIFO fallback upload twice the tile
+/// and overrun the slot by 2 KB.
+const _: () = assert!(
+    visual_tex::TIM4_TILE_HALFWORDS == TIM4_TILE_RECT.0 as usize * TIM4_TILE_RECT.1 as usize,
+    "the 4bpp upload rect must hold exactly one tile's halfwords"
+);
+const _: () = assert!(
+    visual_tex::TIM4_TILE_HALFWORDS * 2 == visual_tex::TIM4_TILE_BYTES,
+    "halfword count and byte count must describe the same tile"
+);
+const _: () = assert!(
+    visual_tex::TIM4_TILE_BYTES as u32 == TIM4_TILE_SECTORS * 2048,
+    "a 4bpp tile must be a whole number of CD sectors"
+);
+
+/// Whether `circuit` has a TIM4 block on this disc, and where it starts.
+///
+/// `None` covers every way the path can be unavailable: the feature is off, the
+/// disc has no `TIM4TRACKS.BIN`, the circuit is one of the three 10 km^2 cities
+/// (no art to convert, only a generator to re-run), or the cooker recorded no
+/// block for it.
+#[inline]
+fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
+    if !TIM4_ENABLED {
+        return None;
+    }
+    if active_city() != 0 {
+        return None;
+    }
+    let lba = unsafe { TIM4TRACKS_BIN_LBA }?;
+    if circuit >= visual_tex::COUNT {
+        return None;
+    }
+    let entry = visual_tex::CIRCUIT_TIM4_SECTORS[circuit];
+    if entry.sector_count == 0 {
+        return None;
+    }
+    Some((lba + entry.sector_offset, entry.sector_count))
+}
+
+/// Streaming FIFO of 4bpp tiles, in sectors.
+///
+/// The RAM half of "copy to the RAM buffer, DMA to VRAM from there". A tile is
+/// one sector, so the FIFO holds whole tiles and the CD read that fills it is
+/// contiguous -- a run of horizontally adjacent tiles comes back in one
+/// `read_sectors` call instead of one per tile, which is the only thing that
+/// makes a per-tile format tolerable.
+///
+/// Backed by the shared 8 KB staging buffer, so TIM4 adds no static RAM of its
+/// own. It is only ever live when the active codec is TIM4, which is also when
+/// nothing else is using that buffer.
+struct Tim4Fifo {
+    /// LBA of the first sector held, valid when `len > 0`.
+    start_lba: u32,
+    /// Sectors currently held.
+    len: usize,
+    /// Index of the next sector to consume, relative to `start_lba`.
+    next: usize,
+}
+
+impl Tim4Fifo {
+    const FIFO_SECTORS: usize = 4;
+
+    const fn new() -> Self {
+        Self {
+            start_lba: 0,
+            len: 0,
+            next: 0,
+        }
+    }
+
+    const fn reset(&mut self) {
+        self.start_lba = 0;
+        self.len = 0;
+        self.next = 0;
+    }
+
+    /// Index of `lba` within the held run, if it is still unread.
+    const fn holds(&self, lba: u32) -> Option<usize> {
+        if lba < self.start_lba {
+            return None;
+        }
+        let idx = (lba - self.start_lba) as usize;
+        if idx < self.next || idx >= self.len {
+            None
+        } else {
+            Some(idx)
+        }
+    }
+}
+
+static mut TIM4_FIFO: Tim4Fifo = Tim4Fifo::new();
+
 /// Reads `ACTIVE_CITY` without taking a reference to a mutable static.
 ///
 /// `load_block_into_ram` copies the same field out for the same reason.
 #[inline(always)]
 fn active_city() -> usize {
     unsafe { core::ptr::read_volatile(core::ptr::addr_of!(ACTIVE_CITY)) }
+}
+
+/// Sampling parameters for whichever codec is active.
+///
+/// 15bpp and 4bpp differ in three places and agree everywhere else: the tpage
+/// depth, whether a CLUT is sampled alongside, and how many texels one U unit
+/// spans. Bundling them means the quad emitters -- the flat path and the Mode 7
+/// grid -- stay written once instead of gaining a `match codec` each.
+#[derive(Copy, Clone)]
+struct TrackTexture {
+    tpages: [Tpage; TRACK_TPAGE_COUNT],
+    /// CLUT handle for indexed formats, 0 for 15bpp direct colour.
+    clut_word: u16,
+    /// Texels per U unit. The GPU addresses 4bpp as `X >> 2`, 8bpp and 15bpp as
+    /// `X`, so this is 2 for the CLUT-indexed 4bpp path and 0 otherwise.
+    u_shift: u8,
+}
+
+/// Tpage set for uncompressed 4bpp tiles.
+///
+/// Same origins and same slot geometry as [`TPAGES`]: a 256x256 page holds 16
+/// 64x64 tiles at 15bpp *or* at 4bpp, because halving the bytes-per-texel
+/// doubles the tiles per page and the two layouts coincide. Only the depth
+/// differs. The regions are never live at the same time -- switching codec
+/// drops every cached tile -- so sharing coordinates costs nothing.
+const TIM4_TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
+    Tpage::new(TRACK_VRAM_SLOTS[0].0, TRACK_VRAM_SLOTS[0].1, TexDepth::Bit4),
+    Tpage::new(TRACK_VRAM_SLOTS[1].0, TRACK_VRAM_SLOTS[1].1, TexDepth::Bit4),
+    Tpage::new(TRACK_VRAM_SLOTS[2].0, TRACK_VRAM_SLOTS[2].1, TexDepth::Bit4),
+    Tpage::new(TRACK_VRAM_SLOTS[3].0, TRACK_VRAM_SLOTS[3].1, TexDepth::Bit4),
+];
+
+/// The sampling parameters for the codec currently in force on `circuit`.
+#[inline]
+fn active_texture(circuit: usize) -> TrackTexture {
+    if codec_is_tim4(circuit) {
+        TrackTexture {
+            tpages: TIM4_TPAGES,
+            clut_word: TIM4_CLUT.uv_clut_word(),
+            u_shift: 2,
+        }
+    } else {
+        TrackTexture {
+            tpages: TPAGES,
+            clut_word: 0,
+            u_shift: 0,
+        }
+    }
 }
 
 /// Chooses the codec for a circuit, best available first.
@@ -473,6 +685,7 @@ fn codec_for_circuit(circuit: usize) -> Codec {
             // The decode paths ask `codec_is_tim` instead, because they need to
             // know what was selected, not what exists.
             TextureFormat::Tim => tim_block_for(circuit).is_some(),
+            TextureFormat::Tim4 => tim4_block_for(circuit).is_some(),
             TextureFormat::Jpeg => {
                 have_jpeg_asset
                     && known
@@ -538,6 +751,13 @@ pub fn reset_texture_caches() {
         );
         ACTIVE_CIRCUIT = 0;
         FRAME_COUNTER = 0;
+        // The TIM4 palette is VRAM state that outlives a tile, so dropping the
+        // tiles without invalidating it would leave the next circuit's tiles
+        // being drawn through the previous circuit's colours. Same for the
+        // streaming FIFO: its sectors belong to a circuit that may have changed.
+        TIM4_CLUT_CIRCUIT = usize::MAX;
+        let fifo = &mut *core::ptr::addr_of_mut!(TIM4_FIFO);
+        fifo.reset();
     }
 }
 
@@ -574,6 +794,7 @@ pub fn init_track_texture(circuit: usize) {
             QOITRACKS_BIN_LBA = reader.find_file_lba(visual_tex::QOITRACKS_BIN_NAME);
             SVGTRACKS_BIN_LBA = reader.find_file_lba(visual_tex::SVGTRACKS_BIN_NAME);
             TIMTRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TIMTRACKS_BIN_NAME);
+            TIM4TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TIM4TRACKS_BIN_NAME);
             CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
             MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
             LONDON_BIN_LBA = reader.find_file_lba(visual_tex::LONDON_BIN_NAME);
@@ -622,6 +843,12 @@ pub fn init_track_texture(circuit: usize) {
             } else {
                 crate::dbg::print("NONE");
             }
+            crate::dbg::print("  TIM4TRACKS: 0x");
+            if let Some(lba) = TIM4TRACKS_BIN_LBA {
+                crate::dbg::print_hex(lba);
+            } else {
+                crate::dbg::print("NONE");
+            }
             crate::dbg::println("");
             TRACKS_PROBED = true;
         }
@@ -643,6 +870,7 @@ pub fn init_track_texture(circuit: usize) {
             Codec::Arsv => crate::dbg::print("svg"),
             Codec::Qoi => crate::dbg::print("qoi"),
             Codec::Tim => crate::dbg::print("tim"),
+            Codec::Tim4 => crate::dbg::print("tim4"),
             Codec::Jpeg => crate::dbg::print("jpeg"),
         }
         crate::dbg::println("");
@@ -652,8 +880,25 @@ pub fn init_track_texture(circuit: usize) {
         // block here would read 500 KB of data nothing is going to decode.
         // `codec_is_tim`, not `tim_block_for`: see its note for why the
         // availability question is the wrong one.
-        if !codec_is_tim(circuit) {
+        if !codec_is_tim(circuit) && !codec_is_tim4(circuit) {
             load_block_into_ram(circuit, init_bx, init_by, 0);
+        }
+
+        // The 4bpp path's palette is circuit state, not tile state: it must be
+        // in VRAM before the first tile is drawn against it, and it is not
+        // re-read per tile. If it cannot be read the format is unusable here,
+        // so fall back rather than draw every tile through a stale palette.
+        if codec_is_tim4(circuit) {
+            // Raw pointer rather than a method call on the static: taking a
+            // mutable reference to a mutable static is UB by the reference
+            // rules, and this is single threaded.
+            let fifo = &mut *core::ptr::addr_of_mut!(TIM4_FIFO);
+            fifo.reset();
+            TIM4_CLUT_CIRCUIT = usize::MAX;
+            if !upload_tim4_palette(circuit) {
+                crate::dbg::println("  TIM4 palette unreadable, falling back");
+                set_texture_format(TextureFormat::Auto);
+            }
         }
     }
 }
@@ -717,7 +962,151 @@ fn decode_row(
             scratch,
         ),
         Codec::Tim => false,
+        Codec::Tim4 => false,
     }
+}
+
+/// Reads `circuit`'s 16-colour palette from sector 0 of its TIM4 block and
+/// uploads it to the TIM4 CLUT row.
+///
+/// Runs once per circuit, not once per tile. The disc holds the palette as
+/// BGR555 halfwords already, so it is a straight copy: no decode, no quantise.
+///
+/// Returns false if the read or the upload did not happen, in which case the
+/// caller should refuse the format rather than draw every tile through whatever
+/// the CLUT happened to contain.
+fn upload_tim4_palette(circuit: usize) -> bool {
+    let Some((block_lba, _)) = tim4_block_for(circuit) else {
+        return false;
+    };
+    if unsafe { TIM4_CLUT_CIRCUIT } == circuit {
+        return true;
+    }
+
+    let scratch = unsafe { &mut *scratch() };
+    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+    crate::prof::count(crate::prof::C_CD_SECTORS, 1);
+    let read = {
+        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
+        reader.read_sectors(block_lba, 1, unsafe {
+            core::slice::from_raw_parts_mut(scratch.as_mut_ptr().cast::<u8>(), 2048)
+        })
+    };
+    if !read {
+        return false;
+    }
+
+    // SAFETY: the read above filled 16 halfwords' worth of bytes at the start
+    // of the staging buffer, and `scratch` borrows it for the rest of this
+    // scope. The disc holds the palette as BGR555 halfwords already, so this is
+    // a reinterpretation, not a conversion.
+    let entries = unsafe { core::slice::from_raw_parts(scratch.as_ptr().cast::<u16>(), 16) };
+    let rect = VramRect::new(
+        TIM4_CLUT.x(),
+        TIM4_CLUT.y(),
+        visual_tex::TIM4_PALETTE_ENTRIES as u16,
+        1,
+    );
+    upload_16bpp(rect, entries);
+    unsafe { TIM4_CLUT_CIRCUIT = circuit };
+    true
+}
+
+/// Pulls one 4bpp tile for `circuit` into the FIFO and DMAs it into VRAM slot
+/// `target_slot`.
+///
+/// A FIFO hit costs no CD access at all; a miss refills from the requested
+/// tile's own sector, taking as many following sectors as the buffer holds. The
+/// common case is a horizontal run of visible tiles, whose sectors are
+/// consecutive, so a single read usually serves the next three.
+#[inline(never)]
+fn upload_tile_dma4(
+    circuit: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+    current_frame: u32,
+) -> bool {
+    let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
+        return false;
+    };
+    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
+        return false;
+    }
+
+    // The palette leads the block, so tile N is one sector further on than in
+    // the 15bpp layout.
+    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
+    let tile_lba = block_lba
+        .wrapping_add(visual_tex::TIM4_PALETTE_SECTORS)
+        .wrapping_add(tile_index * TIM4_TILE_SECTORS);
+    let block_end = block_lba + block_sectors;
+    if tile_lba + TIM4_TILE_SECTORS > block_end {
+        return false;
+    }
+
+    let words = scratch_words();
+    let fifo = unsafe { &mut *core::ptr::addr_of_mut!(TIM4_FIFO) };
+
+    let held = match fifo.holds(tile_lba) {
+        Some(idx) => idx,
+        None => {
+            // Refill: this tile first, then as many followers as fit.
+            let want = Tim4Fifo::FIFO_SECTORS;
+            let avail = ((block_end - tile_lba) / TIM4_TILE_SECTORS) as usize;
+            let count = if want < avail { want } else { avail };
+            if count == 0 {
+                return false;
+            }
+            let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+            crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
+            crate::prof::count(crate::prof::C_CD_SECTORS, count as u32);
+            let read = {
+                let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
+                reader.read_sectors(tile_lba, count, unsafe {
+                    core::slice::from_raw_parts_mut(words as *mut u8, count * 2048)
+                })
+            };
+            if !read {
+                fifo.reset();
+                return false;
+            }
+            fifo.start_lba = tile_lba;
+            fifo.len = count;
+            fifo.next = 0;
+            0
+        }
+    };
+
+    // `held` is a sector offset within the FIFO; a tile is one sector, so the
+    // word offset is one sector's worth of words.
+    let src = unsafe { (words as *const u32).add(held * (visual_tex::TIM4_TILE_BYTES / 4)) };
+
+    let (vx, vy, tpage_idx, _, _) = texlayout::vram_slot_coords(target_slot);
+    let rect = VramRect::new(vx, vy, TIM4_TILE_RECT.0, TIM4_TILE_RECT.1);
+    {
+        let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
+        // DMA first, GP0 FIFO if the channel did not report done. The FIFO path
+        // re-emits GP0(A0h) from the rect origin, so it rewrites the whole tile
+        // rather than leaving the aborted transfer's partial result behind.
+        if !dma_copy_to_vram(rect, src) {
+            upload_words(rect, unsafe {
+                core::slice::from_raw_parts(src, visual_tex::TIM4_TILE_HALFWORDS / 2)
+            });
+        }
+    }
+    let _ = tpage_idx;
+
+    fifo.next = held + TIM4_TILE_SECTORS as usize;
+
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[target_slot].resident_circuit = circuit;
+    vram_slots[target_slot].resident_block_x = 0;
+    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_tile_x = tile_x;
+    vram_slots[target_slot].resident_tile_y = tile_y;
+    vram_slots[target_slot].last_used = current_frame;
+    true
 }
 
 /// Streams one 64x64 15bpp tile from `TIMTRACKS.BIN` into VRAM slot
@@ -844,6 +1233,17 @@ fn decode_and_upload_full_tile(
     // block entirely. See `codec_is_tim`.
     if codec_is_tim(circuit) {
         if upload_tile_dma(circuit, sub_tx, sub_ty, target_slot, 1) {
+            return;
+        }
+        let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+        slot[target_slot] = VramSlot::empty();
+        return;
+    }
+
+    // Same rule for the 4bpp path, and a separate branch because the payload is
+    // CLUT-indexed and lands in a different VRAM depth.
+    if codec_is_tim4(circuit) {
+        if upload_tile_dma4(circuit, sub_tx, sub_ty, target_slot, 1) {
             return;
         }
         let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
@@ -1162,6 +1562,23 @@ fn step_decode_job(current_frame: u32) {
         return;
     }
 
+    if codec_is_tim4(job.circuit) {
+        crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
+        crate::prof::count(crate::prof::C_TILE_DECODES, 1);
+        if !upload_tile_dma4(
+            job.circuit,
+            job.tile_x,
+            job.tile_y,
+            job.target_slot,
+            current_frame,
+        ) {
+            let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+            slots[job.target_slot] = VramSlot::empty();
+        }
+        job.active = false;
+        return;
+    }
+
     let ram_slot_idx = ensure_ram_block(job.circuit, job.block_x, job.block_y, current_frame);
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *scratch() };
@@ -1340,6 +1757,10 @@ pub fn render_track_extents(
     }
     let current_frame = unsafe { FRAME_COUNTER };
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
+    // Sampling parameters for whichever codec this circuit selected: tpage
+    // depth, CLUT handle, and how many texels a U unit spans. Bound once here
+    // so both the flat and Mode 7 emitters read the same thing.
+    let tex = active_texture(active_circuit);
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
 
     // Compute exact world units per 64x64 tile along X and Y axes.
@@ -1546,13 +1967,14 @@ pub fn render_track_extents(
             let local_v0 = (((ty0 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
             let local_v1 = (((ty1 - wy0) * (VRAM_TILE_DIM as i32)) / tile_wu_y) as u16;
 
-            let u0 = ((u_base as u16) + local_u0).min(255) as u8;
-            let u1 = ((u_base as u16) + local_u1).min(255) as u8;
-            let v0 = ((v_base as u16) + local_v0).min(255) as u8;
-            let v1 = ((v_base as u16) + local_v1).min(255) as u8;
+            let u0 = (((u_base as u32 + local_u0 as u32) >> tex.u_shift).min(255)) as u8;
+            let u1 = (((u_base as u32 + local_u1 as u32) >> tex.u_shift).min(255)) as u8;
+            let v0 = ((v_base as u32 + local_v0 as u32).min(255)) as u8;
+            let v1 = ((v_base as u32 + local_v1 as u32).min(255)) as u8;
 
-            let tpage = TPAGES[tpage_idx];
-            let material = TextureMaterial::opaque(0, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
+            let tpage = tex.tpages[tpage_idx];
+            let material =
+                TextureMaterial::opaque(tex.clut_word, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
             gpu::draw_quad_textured_material(
                 [tl, tr, bl, br],
                 [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
@@ -1673,8 +2095,11 @@ fn draw_tile_m7(
     }
 
     let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
-    let tpage = TPAGES[tpage_idx];
+    let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
+    let tpage = tex.tpages[tpage_idx];
     let tpage_word = tpage.uv_tpage_word(0);
+    let u_shift = tex.u_shift;
+    let clut_word = tex.clut_word;
 
     for j in 0..ny {
         for i in 0..nx {
@@ -1704,10 +2129,10 @@ fn draw_tile_m7(
             let lu1 = ((cw * (i + 1) / nx) * 64 / tw) as u16;
             let lv0 = ((ch * j / ny) * 64 / th) as u16;
             let lv1 = ((ch * (j + 1) / ny) * 64 / th) as u16;
-            let u0 = ((u_base as u16) + lu0).min(255) as u8;
-            let u1 = ((u_base as u16) + lu1).min(255) as u8;
-            let v0 = ((v_base as u16) + lv0).min(255) as u8;
-            let v1 = ((v_base as u16) + lv1).min(255) as u8;
+            let u0 = (((u_base as u32 + lu0 as u32) >> u_shift).min(255)) as u8;
+            let u1 = (((u_base as u32 + lu1 as u32) >> u_shift).min(255)) as u8;
+            let v0 = ((v_base as u32 + lv0 as u32).min(255)) as u8;
+            let v1 = ((v_base as u32 + lv1 as u32).min(255)) as u8;
 
             // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
             let z_units = (zmax + zmin) >> 5;
@@ -1716,7 +2141,7 @@ fn draw_tile_m7(
             } else {
                 (128 - (z_units - 150) * 58 / 120).max(70)
             } as u8;
-            let material = TextureMaterial::opaque(0, tpage_word, (shade, shade, shade));
+            let material = TextureMaterial::opaque(clut_word, tpage_word, (shade, shade, shade));
             gpu::draw_quad_textured_material(
                 [pa, pb, pc, pd],
                 [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],

@@ -40,6 +40,13 @@ TILE_SECTORS = build_atlas.TIM_TILE_SECTORS
 BLOCK_SECTORS = build_atlas.TIM_BLOCK_SECTORS
 TILE_BYTES = TILE_DIM * TILE_DIM * 2
 
+# --- 4bpp (TIM4) layout, kept beside the 15bpp one it is derived from ----
+TIM4_PALETTE_BYTES = build_atlas.TIM4_PALETTE_BYTES
+TIM4_BLOCK_SECTORS = build_atlas.TIM4_BLOCK_SECTORS
+# Four indices per halfword: a 64x64 tile is 1024 halfwords = 2048 bytes.
+TIM4_TILE_BYTES = TILE_DIM * TILE_DIM // 4 * 2
+assert TIM4_TILE_BYTES == SECTOR_SIZE, "a TIM4 tile must be exactly one sector"
+
 
 def expect_source_555(im):
     """Re-derives the halfwords the cooker should have written."""
@@ -125,6 +132,74 @@ def check_packing_matches_runtime():
     )
 
 
+def check_tim4(circuit: int, name: str, offset: int):
+    """Verify a 4bpp block against a freshly quantised copy of the source."""
+    path = os.path.join(ROOT, "assets", "TIM4TRACKS.BIN")
+    pal_sector_bytes = SECTOR_SIZE
+    want_indices, want_palette = build_atlas.quantise_16(source_image(name))
+
+    with open(path, "rb") as f:
+        # Palette sector.
+        f.seek(offset * SECTOR_SIZE)
+        raw = f.read(pal_sector_bytes)
+        entries = np.frombuffer(raw[: TIM4_PALETTE_BYTES], dtype="<u2")
+        for i, (r, g, b) in enumerate(want_palette):
+            want = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3)
+            if int(entries[i]) != want:
+                raise AssertionError(
+                    f"{name} palette[{i}]: on disc 0x{int(entries[i]):04x}, "
+                    f"expected 0x{want:04x} for RGB({r},{g},{b})"
+                )
+
+        # Sample tiles across the block, including the last one, which is where
+        # an off-by-one in the palette-prefix offset would land.
+        for ty, tx in ((0, 0), (5, 9), (TILES_PER_AXIS - 1, TILES_PER_AXIS - 1)):
+            lba = offset + 1 + (ty * TILES_PER_AXIS + tx)
+            f.seek(lba * SECTOR_SIZE)
+            raw = f.read(TIM4_TILE_BYTES)
+            if len(raw) != TIM4_TILE_BYTES:
+                raise AssertionError(
+                    f"{name} tile ({tx},{ty}) is {len(raw)} bytes, not {TIM4_TILE_BYTES}"
+                )
+
+            halfwords = np.frombuffer(raw, dtype="<u2").reshape(TILE_DIM, TILE_DIM // 4)
+            # Unpack: four nibbles per word, leftmost texel in the low nibble.
+            indices = np.stack(
+                [
+                    halfwords & 0x0F,
+                    (halfwords >> 4) & 0x0F,
+                    (halfwords >> 8) & 0x0F,
+                    (halfwords >> 12) & 0x0F,
+                ],
+                axis=-1,
+            ).reshape(TILE_DIM, TILE_DIM)
+
+            want = want_indices[
+                ty * TILE_DIM : (ty + 1) * TILE_DIM,
+                tx * TILE_DIM : (tx + 1) * TILE_DIM,
+            ]
+            if not np.array_equal(indices, want):
+                bad = int((indices != want).sum())
+                raise AssertionError(
+                    f"{name} tile ({tx},{ty}): {bad}/{TILE_DIM ** 2} indices differ "
+                    f"from the quantised source -- nibble order or tile offset is wrong"
+                )
+
+
+def source_image(name):
+    """The raster the cooker packs for `name`, from the same source it uses."""
+    clean = name.replace(" ", "_")
+    gen = os.path.join(ROOT, "tracks", clean + ".visual.gen.png")
+    if os.path.exists(gen):
+        im = Image.open(gen).convert("RGB")
+    else:
+        im, _ = build_atlas.rasterise_svg_visual(name)
+        assert im is not None, f"{name}: no visual source"
+    if im.size != (1024, 1024):
+        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+    return im
+
+
 def main() -> int:
     path = os.path.join(ROOT, "assets", "TIMTRACKS.BIN")
     if not os.path.exists(path):
@@ -152,6 +227,23 @@ def main() -> int:
     names = build_atlas.discover_circuits()
     only = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
+    # The 4bpp table, read the same way so both layouts are checked against one
+    # circuit ordering.
+    t4 = re.search(r"CIRCUIT_TIM4_SECTORS[^=]*= \[(.*?)\n\];", text, re.S)
+    assert t4 is not None, "CIRCUIT_TIM4_SECTORS not found in visual_tex.rs"
+    tim4_entries = [
+        (int(a), int(b), int(c))
+        for a, b, c in re.findall(
+            r"sector_offset: (\d+),\s*sector_count: (\d+),\s*byte_len: (\d+)", t4.group(1))
+    ]
+    tim4_path = os.path.join(ROOT, "assets", "TIM4TRACKS.BIN")
+    if os.path.exists(tim4_path):
+        tim4_sectors = os.path.getsize(tim4_path) // SECTOR_SIZE
+        assert tim4_sectors == len(tim4_entries) * TIM4_BLOCK_SECTORS, (
+            f"TIM4TRACKS.BIN is {tim4_sectors} sectors, table expects "
+            f"{len(tim4_entries) * TIM4_BLOCK_SECTORS}"
+        )
+
     for idx, (name, _) in enumerate(names):
         off, cnt, blen = entries[idx]
         if cnt != BLOCK_SECTORS or blen != BLOCK_SECTORS * SECTOR_SIZE:
@@ -164,14 +256,28 @@ def main() -> int:
         assert off == idx * BLOCK_SECTORS, (
             f"circuit {idx} ({name}): offset {off}, expected {idx * BLOCK_SECTORS}")
 
+        tim4_off, tim4_cnt, tim4_len = tim4_entries[idx]
+        assert (
+            tim4_cnt == TIM4_BLOCK_SECTORS
+            and tim4_len == TIM4_BLOCK_SECTORS * SECTOR_SIZE
+        ), (
+            f"circuit {idx} ({name}): 4bpp sector_count {tim4_cnt}, byte_len "
+            f"{tim4_len}; expected {TIM4_BLOCK_SECTORS} sectors")
+        assert tim4_off == idx * TIM4_BLOCK_SECTORS, (
+            f"circuit {idx} ({name}): 4bpp offset {tim4_off}, "
+            f"expected {idx * TIM4_BLOCK_SECTORS}")
+
         if only is not None and only != idx:
             continue
 
         check_tiles_against_source(path, name, off, source_halfwords(name))
-        print(f"  ok  {name} (block {idx}, {cnt} sectors)")
+        print(f"  ok  {name} (15bpp block {idx}, {cnt} sectors)")
+        if os.path.exists(tim4_path):
+            check_tim4(idx, name, tim4_off)
+            print(f"  ok  {name} (4bpp block {idx}, {TIM4_BLOCK_SECTORS} sectors)")
 
     checked = len(names) if only is None else 1
-    print(f"TIMTRACKS.BIN verified: {file_sectors} sectors, {checked} circuits checked")
+    print(f"TIM/TIM4 verified: {file_sectors} 15bpp sectors, {checked} circuits checked")
     return 0
 
 
