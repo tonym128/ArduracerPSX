@@ -16,7 +16,7 @@ codegen-units = 1
 lto = true
 
 [features]
-default = ["svg-track-texture", "qoi-track-stream"]
+default = ["svg-track-texture", "qoi-track-stream", "tim-track-stream", "tim4-track-stream"]
 
 # SVG-derived circuit textures (the `ARSV` container). On by default, and the
 # preferred format: the authored vector geometry rasterised at 1024, plus a
@@ -39,6 +39,36 @@ svg-track-texture = []
 #   cargo build --release --no-default-features    # JPEG everywhere
 qoi-track-stream = []
 
+# Uncompressed 15bpp circuit textures, streamed tile by tile and DMA'd into
+# VRAM with no decode step (`TIMTRACKS.BIN`).
+#
+# On by default, but -- unlike the two above -- never chosen by `Auto`. It has
+# to be selected explicitly, because it costs four times the disc space and
+# reads four sectors per VRAM tile where the compressed formats read one 500 KB
+# block per 256 tiles. On the single-block track layouts that is enough short
+# reads to hand the drive away from CD-DA playback often enough to be heard as
+# audio stutter, which is why the CD-audio setting exists alongside this one.
+#
+# Turning it off removes the option from the texture menu entirely; every
+# circuit falls back through SVG -> QOI -> JPEG as before.
+#
+#   cargo build --release                                    # TIM selectable
+#   cargo build --release --no-default-features              # JPEG everywhere
+tim-track-stream = []
+
+# Uncompressed 4bpp CLUT-indexed circuit textures (`TIM4TRACKS.BIN`), 16
+# colours per circuit, DMA'd tile by tile. On by default, but never chosen by
+# `Auto` -- see the notes on the format above.
+#
+# A 64x64 4bpp tile is 2048 bytes, which is *exactly one CD sector*, so a
+# tile miss is a single short read. That is a quarter of the 15bpp path's
+# traffic and the same disc footprint as the compressed formats (512 KB per
+# circuit instead of 2 MB).
+#
+#   cargo build --release                             # TIM4 selectable
+#   cargo build --release --features tim4-track-stream
+tim4-track-stream = []
+
 # Declared only so `cfg(feature = "host-test")` in `memcard.rs` resolves
 # instead of warning as an unexpected cfg. DO NOT BUILD THE GAME WITH IT: it
 # compiles the SIO0 wrappers out, and `main.rs` calls `probe()` / `flush()`.
@@ -54,6 +84,16 @@ host-test = []
 #
 #   cargo build --release --features profiling
 profiling = []
+
+# Pin the texture format for headless A/B/C comparison runs, so a run can be
+# reproduced from its feature list alone instead of depending on which save the
+# memory card happens to hold. Each implies `profiling`; combining them is a
+# compile error (see main.rs) rather than a silent winner.
+#
+#   cargo build --release --features profiling,profile-tim
+profile-tim = ["profiling"]
+profile-tim4 = ["profiling"]
+profile-qoi = ["profiling"]
 
 [dependencies]
 psx-asset = { path = "../psoxide/sdk/crates/psx-asset" }

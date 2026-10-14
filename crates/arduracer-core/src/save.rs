@@ -27,7 +27,8 @@
 //! | 159    | 12   | `champ_points` (6 × `u16`) |
 //! | 171    | 6    | `champ_grid` (6 × `u8`) |
 //! | 177    | 2    | `texture_format`, `framerate` |
-//! | 179    | 2    | `checksum` (CRC over bytes 0..179) |
+//! | 179    | 1    | `cd_audio` |
+//! | 180    | 2    | `checksum` (CRC over bytes 0..180) |
 //!
 //! # A valid checksum is not a valid save
 //!
@@ -59,7 +60,10 @@ pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 /// - v2 added the graphics preferences (2 bytes).
 /// - v3 added the championship block (18 bytes): points and grid were being
 ///   rebuilt from scratch on resume, so a restored Grand Prix lost all scoring.
-pub const SAVE_VERSION: u16 = 3;
+/// - v4 added the CD-audio preference (1 byte). The byte could not be stolen
+///   from anywhere else in the payload: every other slot is either a live
+///   preference or the packed championship progression in `_reserved0`.
+pub const SAVE_VERSION: u16 = 4;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -75,11 +79,11 @@ pub const MAX_VOLUME: u8 = 8;
 
 /// On-card payload length: every field is written explicitly, so this is the
 /// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 181;
+pub const PAYLOAD_SIZE: usize = 182;
 
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 179;
+pub const CHECKSUM_OFFSET: usize = 180;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
 const OFF_BEST_LAPS: usize = 24;
@@ -106,11 +110,19 @@ pub struct SaveData {
     pub champ_points: [u16; COMPETITORS_PER_SESSION],
     /// Grid order for the next stage, as competitor indices.
     pub champ_grid: [u8; COMPETITORS_PER_SESSION],
-    /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG.
-    /// Totality lives in `svgtex::TextureFormat::from_saved`, not here.
+    /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG,
+    /// 4 = TIM. Totality lives in `texture_format::TextureFormat::from_saved`,
+    /// not here.
     pub texture_format: u8,
     /// Selected framerate: 0 = 60 FPS, 1 = 30 FPS.
     pub framerate: u8,
+    /// Whether Redbook CD-DA playback is permitted: 0 = off, 1 = on.
+    ///
+    /// Exists because the TIM texture streamer and CD-DA both contend for the
+    /// one physical drive, and the streamer wins often enough to be heard as
+    /// audio stutter. Sanitised as a flag by the same reasoning as
+    /// `rumble_enabled`.
+    pub cd_audio: u8,
     pub checksum: u16,
 }
 
@@ -130,9 +142,11 @@ impl Default for SaveData {
             tuning_slots: [CarTuning::default(); TOTAL_TUNING_SLOTS],
             champ_points: [0; COMPETITORS_PER_SESSION],
             champ_grid: [0; COMPETITORS_PER_SESSION],
-            // Auto format, 60 FPS: the defaults a first-run player gets.
+            // Auto format, 60 FPS, CD-audio on: the defaults a first-run player
+            // gets.
             texture_format: 0,
             framerate: 0,
+            cd_audio: 1,
             checksum: 0,
         };
         save.checksum = save.compute_checksum();
@@ -182,6 +196,8 @@ impl SaveData {
         out[o] = self.texture_format;
         out[o + 1] = self.framerate;
         o += 2;
+        out[o] = self.cd_audio;
+        o += 1;
 
         // The field offsets are part of the on-card format; a field added to
         // the struct without a matching payload slot must not ship silently.
@@ -252,6 +268,8 @@ impl SaveData {
         let texture_format = bytes[o];
         let framerate = bytes[o + 1];
         o += 2;
+        let cd_audio = bytes[o];
+        o += 1;
 
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         let checksum = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
@@ -271,6 +289,7 @@ impl SaveData {
             champ_grid,
             texture_format,
             framerate,
+            cd_audio,
             best_lap_ticks,
             medals_earned,
             tuning_slots,
@@ -332,8 +351,15 @@ impl SaveData {
         for slot in self.champ_grid.iter_mut() {
             *slot = (*slot).min((COMPETITORS_PER_SESSION - 1) as u8);
         }
-        self.texture_format = self.texture_format.min(3);
+        // Not a `.min()`: the legal range is 0..=4, so clamping would turn a garbage
+        // 200 into 4 -- which is TIM. A corrupt card would then select a
+        // specific texture format rather than falling back. Out of range is
+        // Auto, the same answer `from_saved` gives.
+        if self.texture_format > 5 {
+            self.texture_format = 0;
+        }
         self.framerate = u8::from(self.framerate != 0);
+        self.cd_audio = u8::from(self.cd_audio != 0);
         // _reserved0 stores Grand Prix progression when active.
         // A valid active championship has:
         // - active flag bit 0 set (0x01)
@@ -385,6 +411,9 @@ impl SaveData {
             && self.sound_volume <= MAX_VOLUME
             && self.music_volume <= MAX_VOLUME
             && self.rumble_enabled <= 1
+            && self.framerate <= 1
+            && self.cd_audio <= 1
+            && self.texture_format <= 5
             && self.medals_earned.iter().all(|&m| m <= MAX_MEDAL)
             && self
                 .best_lap_ticks
@@ -687,6 +716,53 @@ mod tests {
         assert_eq!(loaded.sound_volume, 0, "muted is legal");
         assert_eq!(loaded.rumble_enabled, 0);
         assert!(loaded.has_legal_fields());
+    }
+
+    /// The clamp that shipped wrong once already: `texture_format` was capped at
+    /// 3 for years, and TIM taking byte 4 would have been silently rewritten to
+    /// Auto on every load. A player who chose TIM would find it reset on the
+    /// next boot with nothing on screen to say why. The second half is the
+    /// other trap: raising the ceiling to a plain `.min(4)` maps a garbage byte
+    /// onto TIM rather than onto Auto.
+    #[test]
+    fn the_texture_format_ceiling_tracks_the_highest_real_format() {
+        let loaded = load(&corrupt(|s| {
+            s.texture_format = crate::texture_format::TextureFormat::Tim.to_saved()
+        }));
+        assert_eq!(
+            crate::texture_format::TextureFormat::from_saved(loaded.texture_format),
+            crate::texture_format::TextureFormat::Tim,
+            "a saved TIM pin must survive the round trip"
+        );
+
+        let loaded = load(&corrupt(|s| s.texture_format = 200));
+        assert_eq!(
+            crate::texture_format::TextureFormat::from_saved(loaded.texture_format),
+            crate::texture_format::TextureFormat::Auto,
+            "an out-of-range byte must fall back to Auto"
+        );
+        assert!(loaded.has_legal_fields());
+    }
+
+    #[test]
+    fn cd_audio_is_a_flag_that_round_trips() {
+        for stored in [0u8, 1, 200] {
+            let loaded = load(&corrupt(|s| s.cd_audio = stored));
+            assert_eq!(
+                loaded.cd_audio,
+                u8::from(stored != 0),
+                "cd_audio {stored} must sanitise to a flag"
+            );
+            assert!(loaded.has_legal_fields());
+        }
+
+        // Off is a real choice, not a corruption, so it must survive as off
+        // rather than being repaired back to the default.
+        let mut off = SaveData::default();
+        off.cd_audio = 0;
+        off.checksum = off.compute_checksum();
+        let loaded = load(&off);
+        assert_eq!(loaded.cd_audio, 0);
     }
 
     #[test]

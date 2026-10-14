@@ -26,6 +26,10 @@ pub const RESTART_INTERVAL: usize = 4;
 pub const RESTART_INTERVAL_COUNT: usize = 1024;
 /// Independently decodable 64x16 QOI segments in one 1024x1024 block.
 pub const SEGMENT_COUNT: usize = 1024;
+/// CD sectors per uncompressed 15bpp tile (64x64x2 bytes = 8192 = 4 sectors).
+pub const TIM_TILE_SECTORS: u32 = 4;
+/// CD sectors per uncompressed 15bpp block (256 tiles x 4 sectors).
+pub const TIM_BLOCK_SECTORS: u32 = 1024;
 /// Raw uncompressed 16-bit BGR555 halfwords per 64x64 tile.
 pub const RAW_TILE_HALFWORDS: usize = TILE_DIM * TILE_DIM;
 /// Raw uncompressed byte count per 64x64 tile (8,192 bytes = 8 KB).
@@ -40,6 +44,65 @@ pub const QOI_CIRCUIT_COUNT: usize = 23;
 pub const SVGTRACKS_BIN_NAME: &[u8] = b"SVGTRACKS.BIN";
 /// Number of circuits with an ARSV block on this disc.
 pub const ARSV_CIRCUIT_COUNT: usize = 24;
+/// Name of the uncompressed-TIM track visual asset file on the CD-ROM disc.
+pub const TIMTRACKS_BIN_NAME: &[u8] = b"TIMTRACKS.BIN";
+/// Number of circuits with an uncompressed TIM block on this disc.
+pub const TIM_CIRCUIT_COUNT: usize = 24;
+/// Name of the uncompressed 4bpp CLUT-indexed track visual asset file.
+pub const TIM4TRACKS_BIN_NAME: &[u8] = b"TIM4TRACKS.BIN";
+/// Number of circuits with an uncompressed 4bpp block on this disc.
+pub const TIM4_CIRCUIT_COUNT: usize = 24;
+/// Texels per 4bpp TIM tile, on each axis.
+pub const TIM4_TILE_DIM: usize = TILE_DIM;
+/// Bytes per 4bpp TIM tile: four indices per halfword.
+pub const TIM4_TILE_BYTES: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / 2;
+/// CD sectors per 4bpp TIM tile. 2048 bytes is exactly one sector,
+/// which is what lets a tile be read with a single `read_sectors`.
+pub const TIM4_TILE_SECTORS: u32 = 1;
+/// Colour entries in a 4bpp TIM palette.
+pub const TIM4_PALETTE_ENTRIES: usize = 16;
+/// Bytes of 15bpp BGR555 palette entries per circuit.
+pub const TIM4_PALETTE_BYTES: usize = TIM4_PALETTE_ENTRIES * 2;
+/// CD sectors holding one circuit's 4bpp palette, padded to a sector.
+///
+/// The palette leads its block so a tile's sector is
+/// `base + TIM4_PALETTE_SECTORS + index`, keeping the offset pure
+/// arithmetic on the tile index and a per-tile table off the disc.
+pub const TIM4_PALETTE_SECTORS: u32 = 1;
+/// CD sectors per uncompressed 4bpp block.
+pub const TIM4_BLOCK_SECTORS: u32 = 257;
+/// Texels packed into one VRAM halfword at this depth.
+///
+/// Four 4-bit indices per 16-bit word. Every 4bpp conversion below divides by
+/// this, and it is *half* the 8bpp figure -- a 4bpp tile is half the width of
+/// an 8bpp tile of the same texel count. Getting this wrong is invisible in the
+/// area (see the cancel note on [`TIM4_TILE_HALFWORDS`]) and only shows up as a
+/// sheared image, so it is named rather than written as a bare division.
+pub const TIM4_TEXELS_PER_HALFWORD: usize = 4;
+/// Halfwords of VRAM a 64x64 4bpp image occupies.
+///
+/// Quarter of its texel count, because four 4-bit indices share a
+/// 16-bit word -- the same `/2` as `TIM4_TILE_BYTES` but for a
+/// different reason, so it is not interchangeable with it. This is
+/// also the unit `GP0(A0h)` counts in, and it is *not* the texel
+/// width: a 64-texel-wide 4bpp image is 16 halfwords across.
+pub const TIM4_TILE_HALFWORDS: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;
+/// VRAM rows a 64-texel-tall 4bpp image occupies.
+///
+/// One row per texel row: halving lives on the *width* axis at this depth,
+/// because four indices share one 16-bit word. Nothing is lost vertically, so
+/// this is the texel height unchanged. (Halving it to "keep the rect square"
+/// pairs a 32x32 halfword rect with a 16x64 texel tile, and the GPU then reads
+/// each texel row from the wrong halfword column.)
+pub const TIM4_TILE_ROWS: usize = TIM4_TILE_DIM;
+/// VRAM halfword columns a 64-texel-wide 4bpp image occupies.
+///
+/// A quarter of the texel width, so the upload rect is *tall and narrow* in
+/// halfwords (16 across by 64 down) even though the image is square in texels.
+/// Passing the texel width here moves four times the tile; passing half the
+/// texel width -- the 8bpp figure -- moves it as a 32x32 block that does not
+/// match the 16x64 region the GPU later samples.
+pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;
 /// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.
 pub const CAPETOWN_BIN_NAME: &[u8] = b"CAPETOWN.BIN";
 /// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.
@@ -437,6 +500,269 @@ pub static CIRCUIT_ARSV_SECTORS: [TileSectorEntry; COUNT] = [
     },
 ];
 
+/// Uncompressed 15bpp 1024x1024 block sector index [circuit].
+///
+/// Each block is `TIM_BLOCK_SECTORS` sectors of raw texels, laid out
+/// as a 16x16 row-major grid of 64x64 tiles of `TIM_TILE_SECTORS`
+/// sectors each. A tile's offset is therefore arithmetic on its
+/// coordinates, not a table lookup.
+///
+/// A zero `sector_count` marks a circuit with no TIM block.
+pub static CIRCUIT_TIM_SECTORS: [TileSectorEntry; COUNT] = [
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 1024,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 2048,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 3072,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 4096,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 5120,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 6144,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 7168,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 8192,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 9216,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 10240,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 11264,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 12288,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 13312,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 14336,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 15360,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 16384,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 17408,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 18432,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 19456,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 20480,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 21504,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 22528,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 23552,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+];
+
+/// Uncompressed 4bpp block sector index [circuit].
+///
+/// Each block is `TIM4_BLOCK_SECTORS` sectors: sector 0 is the
+/// circuit's 16-entry palette, and sectors 1..=256 are its 256
+/// 64x64 tiles, one sector each, row-major. A tile's sector is
+/// therefore `base + TIM4_PALETTE_SECTORS + tile_y * 16 + tile_x`,
+/// with no per-tile table anywhere.
+///
+/// A zero `sector_count` marks a circuit with no 4bpp block.
+pub static CIRCUIT_TIM4_SECTORS: [TileSectorEntry; COUNT] = [
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 257,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 514,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 771,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1028,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1285,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1542,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 1799,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2056,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2313,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2570,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 2827,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3084,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3341,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3598,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 3855,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4112,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4369,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4626,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 4883,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5140,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5397,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5654,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 5911,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+];
+
 /// Cape Town 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
 pub static CAPETOWN_BLOCK_SECTORS: [TileSectorEntry; 9] = [
     TileSectorEntry {
@@ -606,3 +932,7 @@ pub static CLUT_RGB: [(u8, u8, u8); 16] = [
     (58, 90, 122),
     (255, 46, 136),
 ];
+
+/// Name of the disc asset holding every level's tile grid: row-major, one
+/// `TrackTile` discriminant per cell, in level order with no header.
+pub const LEVELS_BIN_NAME: &[u8] = b"LEVELS.BIN";

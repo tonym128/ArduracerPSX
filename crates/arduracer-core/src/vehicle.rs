@@ -1076,7 +1076,7 @@ mod tests {
             // Pad to the full gate capacity; `checkpoint_count` selects the
             // live ones.
             checkpoints: padded_gates(&gates_src),
-            tiles: Box::leak(Box::new(tiles)),
+            tiles: Some(Box::leak(Box::new(tiles))),
             // No authored centreline: exercises the gate-derived fallback.
             route: &[],
             half_width: 0,
@@ -1361,7 +1361,7 @@ mod tests {
             par_times: ParTimes::default(),
             checkpoint_count: 1,
             checkpoints: [CheckpointGate::default(); crate::track::MAX_TRACK_CHECKPOINTS],
-            tiles: Box::leak(Box::new(tiles)),
+            tiles: Some(Box::leak(Box::new(tiles))),
             // No authored centreline: these tests exercise the wall solver, not
             // the racing line.
             route: &[],
@@ -1901,7 +1901,7 @@ mod tests {
             par_times: ParTimes::default(),
             checkpoint_count: 4,
             checkpoints: gates,
-            tiles: Box::leak(Box::new(tiles)),
+            tiles: Some(Box::leak(Box::new(tiles))),
             // No authored centreline: exercises the gate-derived fallback.
             route: &[],
             half_width: 0,

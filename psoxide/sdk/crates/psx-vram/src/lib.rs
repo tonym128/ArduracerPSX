@@ -62,6 +62,7 @@
 use psx_hw::gpu::{gp0, gp1, pack_xy};
 use psx_io::dma::{self, Channel};
 use psx_io::gpu::{wait_cmd_ready, write_gp0, write_gp1};
+use psx_io::silicon;
 
 /// VRAM framebuffer width in pixels.
 pub const VRAM_WIDTH: u16 = 1024;
@@ -1268,12 +1269,17 @@ pub fn upload_16bpp_stream<F: FnMut(&mut dyn FnMut(u16))>(rect: VramRect, mut pr
 ///
 /// `src` must point at `(rect.w / 2) * rect.h` little-endian words. The
 /// DMA controller is word-addressed, so a non-word-aligned `src` (or an
-/// odd halfword row stride) can't be DMA'd and takes the FIFO path. This
-/// mirrors PsyQ's `LoadImage`: `BS = words-per-row`, `BA = rows`.
-/// Opt-in DMA upload. No longer the default: on real hardware the DMA
-/// controller can wedge a channel busy-forever (CL2 probe, 2026-07-31),
-/// and this function's completion wait would then spin unboundedly.
-/// Callers who opt in accept that risk on their own boot path.
+/// odd halfword row stride) can't be DMA'd and takes the FIFO path. Row width
+/// is *not* a limit: wide rows are transferred as several FIFO-sized blocks,
+/// see [`dma_block_params`]. This mirrors PsyQ's `LoadImage`, which likewise
+/// derives its block count from the whole payload rather than from one row.
+/// Opt-in DMA upload.
+///
+/// On CL1/CL2 silicon the DMA controller can wedge the channel
+/// busy-forever (probe, 2026-07-31). The completion wait is bounded, so a
+/// wedged probe reports failure instead of hanging, the sticky silicon state
+/// is set, and the caller's GP0 FIFO fallback carries the payload. Every
+/// later call returns `false` immediately without re-arming the channel.
 pub fn dma_copy_to_vram(rect: VramRect, src: *const u32) -> bool {
     dma_copy_to_vram_with(rect, src, || {})
 }
@@ -1286,14 +1292,18 @@ pub fn dma_copy_to_vram_with<F: FnMut()>(rect: VramRect, src: *const u32, mut se
     {
         return false;
     }
-    let words_per_row = rect.w / 2;
-    // GPU block-mode DMA's BCR block size must fit the GPU's 16-word
-    // FIFO. Wider rows, such as the combined UI font atlas, can appear to
-    // work in emulators but wedge real hardware; use the GP0 FIFO path
-    // instead of starting an invalid DMA.
-    if words_per_row > 16 {
+    // A channel already convicted of wedging (CL1/CL2) is not re-armed: the
+    // START bit latches and the transfer never completes, so arming it again
+    // only burns another spin budget. The probe decided; the caller's GP0
+    // FIFO fallback is the only way the pixels move.
+    if silicon::gpu_dma_class().known_wedge() {
         return false;
     }
+    let words_per_row = rect.w / 2;
+    let Some((block_size, block_count)) = dma_block_params(words_per_row as usize, rect.h as usize)
+    else {
+        return false;
+    };
 
     copy_to_vram_header(rect);
     // GP1(04h) = 2: route DMA words CPU→GP0. `psx-gpu::init` sets this,
@@ -1301,7 +1311,7 @@ pub fn dma_copy_to_vram_with<F: FnMut()>(rect: VramRect, src: *const u32, mut se
     write_gp1(gp1::dma_direction(2));
     dma::enable_channel(Channel::Gpu);
     dma::set_madr(Channel::Gpu, src as u32);
-    dma::set_bcr_block(Channel::Gpu, words_per_row, rect.h);
+    dma::set_bcr_block(Channel::Gpu, block_size, block_count);
     dma::set_chcr(
         Channel::Gpu,
         dma::CHCR_TO_DEVICE | dma::CHCR_SYNC_BLOCK | dma::CHCR_START,
@@ -1314,12 +1324,70 @@ pub fn dma_copy_to_vram_with<F: FnMut()>(rect: VramRect, src: *const u32, mut se
         }
     }
     if dma::is_busy(Channel::Gpu) {
+        // Convicted: from here on this channel is known-wedge and every
+        // later upload short-circuits to the GP0 FIFO path.
+        silicon::gpu_dma_mark_wedged();
         dma::abort(Channel::Gpu);
         // The GP0(A0) header is already out and the payload did not
         // land, so VRAM holds a partial upload either way; report it.
         return false;
     }
+    // Completed: the channel is known-good (this is the probe when the
+    // state was still Unknown).
+    silicon::gpu_dma_mark_works();
     true
+}
+
+/// Largest block size, in 32-bit words, the GPU's DMA block mode accepts.
+///
+/// The GPU command FIFO is 64 bytes. A block larger than that can appear to
+/// work in an emulator but wedges real hardware (CL2 probe, 2026-07-31), so
+/// wide rows are transferred as several FIFO-sized blocks rather than one.
+const MAX_DMA_BLOCK_WORDS: usize = 16;
+
+/// Splits a CPU→VRAM transfer into GPU block-mode `(BS, BA)` register values.
+///
+/// Returns `None` when the transfer cannot be described in block mode at all,
+/// which is the caller's cue to fall back to the GP0 FIFO path.
+///
+/// This exists because the two constraints are not the same one. BS must fit
+/// the GPU's 16-word FIFO, which rules out *any* transfer wider than 32 VRAM
+/// halfwords -- including every 64x64 track tile -- if BS is set to a row. It
+/// does not rule out those transfers, because block mode advances MADR by
+/// *BS words after each block*: laying BS-word blocks down back to back walks a
+/// contiguous address range for any BS. So BS is clamped to the FIFO width and
+/// BA carries the count, and a row-shaped transfer still ends up contiguous.
+///
+/// For a 64x64 15bpp tile that is BS = 16 words, BA = 128, moving the same
+/// 2048 words as the row-shaped BS = 32 / BA = 64 that was refused before.
+///
+/// Split out from [`dma_copy_to_vram_with`] because the register writes cannot
+/// run on the host, and this is the arithmetic that decides whether a transfer
+/// happens at all.
+fn dma_block_params(words_per_row: usize, height: usize) -> Option<(u16, u16)> {
+    if words_per_row == 0 || height == 0 {
+        return None;
+    }
+    let total_words = words_per_row.checked_mul(height)?;
+    let bs = if words_per_row < MAX_DMA_BLOCK_WORDS {
+        words_per_row
+    } else {
+        MAX_DMA_BLOCK_WORDS
+    };
+    // A partial trailing block cannot be expressed: BA counts whole blocks of
+    // exactly BS words, and there is no remainder field to put the rest in.
+    if total_words % bs != 0 {
+        return None;
+    }
+    let count = total_words / bs;
+    // BA is a 16-bit field, so a transfer needing more than 65535 blocks cannot
+    // be described. Nothing in this SDK uploads that much; failing as "no DMA"
+    // is the safe answer, since the alternative is a truncated, silently wrong
+    // image.
+    if count > u16::MAX as usize {
+        return None;
+    }
+    Some((bs as u16, count as u16))
 }
 
 /// Upload typed [`Color555`] pixels -- sugar over [`upload_16bpp`]
@@ -1740,5 +1808,99 @@ mod tests {
             }
         }
         assert_eq!(count, 2);
+    }
+
+    // --- dma_block_params -------------------------------------------------
+    //
+    // These replace the rule that made every image wider than 32 VRAM
+    // halfwords undma-able, which is what the 64x64 track tiles are.
+
+    /// A narrow row is one block per row: unchanged from before, so every
+    /// upload that already DMA'd still programs the same registers.
+    #[test]
+    fn a_narrow_row_keeps_the_old_row_shaped_blocking() {
+        // 32 VRAM halfwords = 16 words, the widest row the old code allowed.
+        assert_eq!(dma_block_params(16, 64), Some((16, 64)));
+        assert_eq!(dma_block_params(8, 240), Some((8, 240)));
+        assert_eq!(dma_block_params(1, 10), Some((1, 10)));
+    }
+
+    /// The regression this exists for: a 64x64 15bpp tile is a 32-word row,
+    /// which the old `words_per_row > 16` test rejected outright. It must now
+    /// be describable, and must move exactly the same number of words.
+    #[test]
+    fn a_64x64_tile_transfers_in_fifo_sized_blocks() {
+        let words_per_row = 64 / 2;
+        let (bs, ba) = dma_block_params(words_per_row, 64).expect("a track tile must be DMA-able");
+        assert_eq!(
+            bs, MAX_DMA_BLOCK_WORDS as u16,
+            "BS must stay inside the FIFO"
+        );
+        assert_eq!(ba, 128);
+        assert_eq!(
+            bs as usize * ba as usize,
+            words_per_row * 64,
+            "block mode must move the whole tile, not part of it"
+        );
+    }
+
+    /// Contiguity is the property the whole change rests on: block mode steps
+    /// MADR by BS after each block, so the words the walk visits must be exactly
+    /// the words of the image with no gap and no repeat.
+    #[test]
+    fn blocks_tile_the_payload_without_gaps() {
+        // Each of these has a payload that is an exact multiple of 16 words,
+        // i.e. a row count that the clamp can tile. Row widths on both sides
+        // of the 16-word clamp are covered.
+        for (words_per_row, height) in [(16u64, 64u64), (32, 64), (48, 30), (64, 16), (100, 8)] {
+            let (bs, ba) = dma_block_params(words_per_row as usize, height as usize).unwrap();
+            let mut next = 0usize;
+            for _ in 0..ba {
+                assert!(
+                    next + bs as usize <= words_per_row as usize * height as usize,
+                    "{words_per_row}x{height}: block runs past the end of the image"
+                );
+                next += bs as usize;
+            }
+            assert_eq!(
+                next,
+                words_per_row as usize * height as usize,
+                "{words_per_row}x{height}: blocks must exactly cover the payload"
+            );
+        }
+    }
+
+    /// BS can never exceed the FIFO, whatever the row width. A BS that fits is
+    /// the only constraint here that is about the hardware rather than about
+    /// arithmetic.
+    #[test]
+    fn the_block_size_never_exceeds_the_fifo() {
+        for words_per_row in 1..=512usize {
+            let height = 64usize;
+            if let Some((bs, _)) = dma_block_params(words_per_row, height) {
+                assert!(
+                    bs as usize <= MAX_DMA_BLOCK_WORDS,
+                    "row {words_per_row} produced BS {bs}"
+                );
+            }
+        }
+    }
+
+    /// A trailing partial block has nowhere to go -- BA counts whole blocks and
+    /// there is no remainder field. Refuse rather than truncate.
+    #[test]
+    fn a_payload_that_cannot_be_split_exactly_is_refused() {
+        // 17 words per row clamps BS to 16, and 17 * 3 = 51 is not a multiple
+        // of 16.
+        assert_eq!(dma_block_params(17, 3), None);
+        assert_eq!(dma_block_params(20, 1), None);
+    }
+
+    #[test]
+    fn empty_transfers_and_oversized_block_counts_are_refused() {
+        assert_eq!(dma_block_params(0, 64), None);
+        assert_eq!(dma_block_params(16, 0), None);
+        // 16 words per row, 100_000 rows: 1_600_000 blocks, past BA's 16 bits.
+        assert_eq!(dma_block_params(16, 100_000), None);
     }
 }

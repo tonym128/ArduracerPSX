@@ -87,7 +87,7 @@ fn synthetic_track(tiles: &'static [TrackTile]) -> TrackDef {
         },
         checkpoint_count: 1,
         checkpoints,
-        tiles,
+        tiles: Some(tiles),
         // No authored centreline: exercises the gate-derived fallback.
         route: &[],
         // The synthetic straight is an *entire grid* of tarmac, so it is the

@@ -312,6 +312,19 @@ pub fn try_set_loc_lba(lba: u32, spin_limit: u32) -> Option<Response> {
     try_command(CMD_SETLOC, &[minute, second, frame], spin_limit)
 }
 
+/// Seek to an absolute BCD MSF position.
+///
+/// The CD-DA counterpart to [`try_set_loc_lba`]. Resuming playback part-way
+/// through a track has to go through here rather than [`try_play_track`]:
+/// CdlPlay carries a *track number*, so it restarts the song from its first
+/// sample, whereas CdlSetloc carries a position and continues from it.
+///
+/// `minute`, `second` and `frame` must already be BCD -- use
+/// [`bin_to_bcd`] on the `absolute_*` fields of a [`PlayPosition`].
+pub fn try_set_loc_msf(minute: u8, second: u8, frame: u8, spin_limit: u32) -> Option<Response> {
+    try_command(CMD_SETLOC, &[minute, second, frame], spin_limit)
+}
+
 const fn lba_to_bcd_msf(lba: u32) -> [u8; 3] {
     let absolute = lba.saturating_add(150);
     let raw_minute = absolute / (60 * 75);

@@ -1294,7 +1294,7 @@ fn test_all_tracks_have_ordered_route() {
 fn test_super_stages_are_real_circuits() {
     for track in ALL_TRACKS.iter().skip(20).take(4) {
         let (mut road, mut curb, mut boost, mut oil) = (0usize, 0usize, 0usize, 0usize);
-        for t in track.tiles.iter() {
+        for t in track.tile_grid().iter() {
             match t {
                 TrackTile::Tarmac | TrackTile::StartFinish | TrackTile::Checkpoint => road += 1,
                 TrackTile::Curb => curb += 1,
@@ -1809,7 +1809,7 @@ fn test_all_24_tracks_integrity() {
             idx + 1
         );
         assert_eq!(
-            track.tiles.len(),
+            track.tile_grid().len(),
             (track.width as usize) * (track.height as usize),
             "Track {} tile array length mismatch",
             idx + 1

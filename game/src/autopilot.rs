@@ -57,6 +57,9 @@ impl Autopilot {
     /// line it aims for is computed from where the car actually is, not from
     /// where the brain last thought it was.
     ///
+    /// `player` is mutable because the brain's stuck-recovery has to be mirrored
+    /// onto the real car -- see the body.
+    ///
     /// Takes `&mut input` rather than returning a value so the call site can
     /// discard the pad-derived input in profiling builds without the
     /// non-profiling build seeing an unused assignment.
@@ -75,10 +78,34 @@ impl Autopilot {
     pub fn override_input(
         &mut self,
         track: &TrackDef,
-        player: &VehicleState,
+        player: &mut VehicleState,
         input: &mut VehicleInput,
     ) {
+        let before = player.position;
         self.brain.state = *player;
         *input = self.brain.compute_input(track, &[]);
+
+        // Advance the brain's route target and stuck detector. Without this the
+        // car aims at route node 0, reaches it in the first few seconds and then
+        // sits there aiming at the same node for the rest of the run: no camera
+        // motion, no streaming, nothing to measure.
+        self.brain.update_routing(track);
+
+        // Mirror a recovery onto the real car.
+        //
+        // `AiRacer::recover` teleports `brain.state`, and the line above copies
+        // the player's state over `brain.state` every frame -- so a recovery was
+        // silently discarded on the very next frame and the autopilot sat wedged
+        // against whatever it hit for the rest of the run. With no pad there is
+        // nothing to unstick it, which is why this measured "no streaming ever
+        // happens" rather than "the car drove somewhere and stopped": the car
+        // reached its first obstacle in the first few hundred frames and stayed
+        // there, camera fixed, every tile already prewarmed.
+        //
+        // Detected by the position moving inside `compute_input`, which is the
+        // only thing that call can do to the state it was handed.
+        if player.position == before && self.brain.state.position != before {
+            player.respawn_at(self.brain.state.position, self.brain.state.heading);
+        }
     }
 }

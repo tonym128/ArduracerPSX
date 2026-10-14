@@ -50,7 +50,7 @@ impl PauseMenu {
 
     /// Renders the dimmed pause panel.
     pub fn render(&self) {
-        // Panel grown to hold six rows plus the footer hint.
+        // Panel grown to hold seven rows plus the footer hint.
         gpu::draw_rect_flat(60, 36, 200, 180, 8, 10, 14);
         gpu::draw_rect_flat(62, 38, 196, 176, 16, 20, 30);
         gpu::draw_rect_flat(64, 40, 192, 172, 26, 30, 42);
@@ -67,16 +67,22 @@ impl PauseMenu {
             1 => "OVERHEAD",
             _ => "ROTATING",
         };
-        let rows: [(&str, Option<&str>); 6] = [
+        let rows: [(&str, Option<&str>); 7] = [
             ("RESUME", None),
             ("RESTART RACE", None),
             ("TEXTURE", Some(fmt.label())),
             ("FRAMERATE", Some(fps.label())),
             ("VIEW", Some(view_label)),
+            (
+                "CD AUDIO",
+                Some(crate::ui::settings::cd_audio_label(self.values().cd_audio)),
+            ),
             ("QUIT TO MENU", None),
         ];
         for (idx, (label, value)) in rows.iter().enumerate() {
-            let y = 74 + (idx as u16) * 19;
+            // 17 px rather than the 19 a six-row menu used: the seventh row
+            // would otherwise collide with the footer hint at y 196.
+            let y = 74 + (idx as u16) * 17;
             let selected = (idx as u8) == self.selected_idx;
             let color = if selected {
                 (255, 255, 255)

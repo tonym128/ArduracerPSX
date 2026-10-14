@@ -795,6 +795,32 @@ impl AiRacer {
         self.update_progress(track);
     }
 
+    /// Advances only the routing half of a tick: which route node this racer is
+    /// chasing, and whether it is stuck.
+    ///
+    /// [`compute_input`] on its own is not a complete tick. It decides throttle
+    /// and steering for whatever `target_gate_idx` currently holds, but the two
+    /// updates that *move that target forward* -- `update_route_progress` and the
+    /// stuck detector -- live at the tail of [`tick_interleaved`], where the
+    /// racing line and the physics step they assume have already happened.
+    ///
+    /// A driver that calls only `compute_input` therefore drives to route node 0,
+    /// arrives, and then aims at it for ever: the car ends up stationary a few
+    /// seconds into the run with every visible tile already resident, which
+    /// silently turns any streaming measurement into a measurement of nothing.
+    ///
+    /// For a driver whose physics is somebody else's -- the player car under an
+    /// autopilot, say -- this is the missing step, and it reads the state the
+    /// caller has already written into `self.state`.
+    pub fn update_routing(&mut self, track: &TrackDef) {
+        // Same index clamp as `tick_interleaved`: truncating `i32` division
+        // produced negative tile indices for negative world positions.
+        let tx = TrackDef::tile_x_of(self.state.position.x).min(track.width.saturating_sub(1));
+        let ty = TrackDef::tile_y_of(self.state.position.y).min(track.height.saturating_sub(1));
+        self.update_route_progress(track, tx, ty);
+        self.update_progress(track);
+    }
+
     /// Advances the AI vehicle simulation by one tick.
     #[inline]
     pub fn tick(&mut self, track: &TrackDef, other_positions: &[Vec2]) {

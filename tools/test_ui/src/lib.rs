@@ -129,12 +129,15 @@ mod tests {
             }
             frames.push(held(|i| i.cross = true));
             let out = run(&frames);
-            // The three settings rows are editable in place and report `None`
+            // The settings rows are editable in place and report `None`
             // until a value actually moves, so only the action rows confirm.
+            // QUIT is the last entry, so it tracks `item_count() - 1`: hardcoding
+            // its index is how inserting the CD-audio row above it would have
+            // silently turned the destructive option into a no-op.
             let expected = match idx {
                 0 => PauseChoice::Resume,
                 1 => PauseChoice::RestartRace,
-                5 => PauseChoice::QuitToMenu,
+                n if n == PauseMenu::item_count() - 1 => PauseChoice::QuitToMenu,
                 _ => PauseChoice::None,
             };
             assert_eq!(
@@ -454,7 +457,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 6);
+        assert_eq!(PauseMenu::item_count(), 7);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -2794,14 +2797,16 @@ mod intro_transition_tests {
 /// Tests for the two graphics settings and the menus that edit them.
 #[cfg(test)]
 mod graphics_settings {
-    use crate::pause_input::{PauseChoice, PauseInput, PauseMenu, SettingsValues};
+    use crate::pause_input::{self, PauseChoice, PauseInput, PauseMenu, SettingsValues};
     use crate::settings_input::{SettingsChoice, SettingsInput, SettingsMenu};
+    use pause_input::texture_format_is_selectable;
 
     fn values() -> SettingsValues {
         SettingsValues {
             texture_format: 0,
             framerate: 0,
             camera_view: 0,
+            cd_audio: 1,
         }
     }
 
@@ -2813,20 +2818,23 @@ mod graphics_settings {
 
     /// The texture format must wrap in both directions rather than clamp, so
     /// the player can reach every option from any other in a single press.
+    ///
+    /// Five options now: AUTO, SVG, QOI, JPEG, TIM. The cycle is byte-linear,
+    /// matching `TextureFormat::next`, so TIM is reached from JPEG.
     #[test]
     fn texture_format_cycles_through_every_option_and_wraps() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..4 {
+        for _ in 0..6 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
         }
-        assert_eq!(seen, vec![0, 1, 2, 3, 0], "right must cycle and wrap");
+        assert_eq!(seen, vec![0, 1, 2, 3, 4, 5, 0], "right must cycle and wrap");
 
-        // Backwards from Auto lands on JPEG, the last option.
+        // Backwards from Auto lands on TIM4, the last option.
         m.update(press(|i| i.left = true));
-        assert_eq!(m.values().texture_format, 3, "left must wrap to the end");
+        assert_eq!(m.values().texture_format, 5, "left must wrap to the end");
     }
 
     #[test]
@@ -2878,13 +2886,16 @@ mod graphics_settings {
         assert_eq!(m.values().texture_format, 1);
     }
 
-    /// Row selection must stay in range with three rows.
+    /// Row selection must stay in range with four rows.
     #[test]
     fn row_selection_wraps_between_the_rows() {
         let mut m = SettingsMenu::new(values());
         assert_eq!(m.selected_row, 0);
         m.update(press(|i| i.up = true));
-        assert_eq!(m.selected_row, 2, "up from the first row wraps to the last (VIEW)");
+        assert_eq!(
+            m.selected_row, 3,
+            "up from the first row wraps to the last (CD AUDIO)"
+        );
         m.update(SettingsInput::default());
         m.update(press(|i| i.down = true));
         assert_eq!(m.selected_row, 0, "down from the last wraps to the first");
@@ -2966,7 +2977,7 @@ mod graphics_settings {
     #[test]
     fn each_move_is_reported_once() {
         let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, QUIT.
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
         for _ in 0..3 {
             p.update(PauseInput {
                 down: true,
@@ -2996,7 +3007,7 @@ mod graphics_settings {
     #[test]
     fn pause_menu_edits_view_inline() {
         let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, QUIT.
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
         for _ in 0..4 {
             p.update(PauseInput {
                 down: true,
@@ -3038,13 +3049,114 @@ mod graphics_settings {
     fn every_reachable_value_is_persistable() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..4 {
+        for _ in 0..6 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
         }
         for v in seen {
-            assert!(v <= 3, "settings emitted out-of-range texture byte {v}");
+            assert!(
+                texture_format_is_selectable(v),
+                "settings emitted out-of-range texture byte {v}"
+            );
+        }
+    }
+
+    /// The CD-audio row must be reachable on both menus and must reach both
+    /// states, or the player who hits the drive contention has no way to fix it.
+    #[test]
+    fn cd_audio_is_reachable_on_the_settings_screen() {
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..3 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        assert_eq!(m.selected_row, 3, "row 3 is CD AUDIO");
+        assert_eq!(m.values().cd_audio, 1, "on by default");
+
+        match m.update(press(|i| i.left = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "left turns it off"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().cd_audio, 1, "right wraps it back on");
+    }
+
+    #[test]
+    fn cd_audio_is_reachable_in_the_pause_menu() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
+        for _ in 0..5 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 5, "row 5 is CD AUDIO");
+
+        let out = p.update(PauseInput {
+            left: true,
+            ..Default::default()
+        });
+        assert!(
+            matches!(out.choice, PauseChoice::Graphics(_)),
+            "the change must be reported so it gets applied and persisted"
+        );
+        assert_eq!(p.values().cd_audio, 0);
+    }
+
+    /// QUIT must still be the last row and still quit. The CD-audio row was
+    /// inserted before it, and an off-by-one there turns the destructive
+    /// option into a setting or, worse, makes the pause menu unexitable.
+    #[test]
+    fn quit_is_still_the_last_row_and_still_quits() {
+        let mut p = PauseMenu::default();
+        for _ in 0..6 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 6, "row 6 is QUIT TO MENU");
+        assert_eq!(PauseMenu::item_count(), 7);
+
+        let out = p.update(PauseInput {
+            cross: true,
+            ..Default::default()
+        });
+        assert_eq!(out.choice, PauseChoice::QuitToMenu);
+
+        // And it wraps: one more Down from QUIT returns to RESUME.
+        p.update(PauseInput::default());
+        p.update(PauseInput {
+            down: true,
+            ..Default::default()
+        });
+        assert_eq!(p.selected_idx, 0);
+    }
+
+    /// `MAX_TEXTURE_FORMAT` is shared between both menus precisely so a new
+    /// format cannot be added to one and forgotten in the other. Both must
+    /// therefore be able to reach every byte the core enum can name.
+    #[test]
+    fn both_menus_reach_every_texture_format_byte() {
+        for menu_span in [pause_input::MAX_TEXTURE_FORMAT] {
+            for v in 0..=menu_span {
+                let mut m = SettingsMenu::new(values());
+                let mut reached = false;
+                for _ in 0..=menu_span {
+                    if m.values().texture_format == v {
+                        reached = true;
+                        break;
+                    }
+                    m.update(press(|i| i.right = true));
+                    m.update(SettingsInput::default());
+                }
+                assert!(reached, "settings screen could not reach format {v}");
+            }
         }
     }
 }

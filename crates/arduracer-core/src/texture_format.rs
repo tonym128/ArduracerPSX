@@ -13,6 +13,13 @@
 /// it is the only one that carries the authored vector geometry and synthesises
 /// detail at decode; QOI is the lossless copy of the same raster; JPEG is the
 /// always-present fallback for art too detailed to fit the 500 KB block.
+///
+/// TIM is deliberately *not* in the `Auto` order. It is lossless and needs no
+/// decode at all, which sounds strictly better, but it is four times the disc
+/// footprint and it reads four sectors per VRAM tile instead of one 500 KB
+/// block per 256 tiles, so it loses badly on drive contention -- which is
+/// audible as CD-DA stutter. It is offered as a deliberate player choice, on
+/// the same footing as the other pins, and never chosen for them.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum TextureFormat {
     #[default]
@@ -20,6 +27,9 @@ pub enum TextureFormat {
     Svg,
     Qoi,
     Jpeg,
+    Tim,
+    /// Uncompressed 4bpp, CLUT-indexed: a 16-colour palette per circuit.
+    Tim4,
 }
 
 /// Which decoder serves each pinned format.
@@ -33,16 +43,31 @@ pub enum Codec {
     Qoi,
     /// SVG-derived base raster plus a per-surface detail pass.
     Arsv,
+    /// Uncompressed 15bpp tile, DMA'd from RAM straight into VRAM.
+    Tim,
+    /// Uncompressed 4bpp CLUT-indexed tile, DMA'd the same way.
+    Tim4,
 }
 
 impl TextureFormat {
-    /// Cycles to the next option, wrapping. Used by both menus.
+    /// Cycles to the next option, wrapping.
+    ///
+    /// Walks the persisted bytes in numeric order, and must stay that way.
+    /// Both menus cycle `texture_format` as a raw byte rather than going through
+    /// this function, so a "nicer" order here would be a second, invisible
+    /// source of truth describing a cycle the player never sees -- and the only
+    /// way to notice the two had drifted would be to read both files.
+    ///
+    /// Note this is *display* order, not the `Auto` preference order above;
+    /// they are unrelated and both deliberate.
     pub fn next(self) -> Self {
         match self {
             Self::Auto => Self::Svg,
             Self::Svg => Self::Qoi,
             Self::Qoi => Self::Jpeg,
-            Self::Jpeg => Self::Auto,
+            Self::Jpeg => Self::Tim,
+            Self::Tim => Self::Tim4,
+            Self::Tim4 => Self::Auto,
         }
     }
 
@@ -52,6 +77,8 @@ impl TextureFormat {
             Self::Auto => "AUTO",
             Self::Svg => "SVG",
             Self::Qoi => "QOI",
+            Self::Tim => "TIM",
+            Self::Tim4 => "TIM4",
             Self::Jpeg => "JPEG",
         }
     }
@@ -65,17 +92,27 @@ impl TextureFormat {
             1 => Self::Svg,
             2 => Self::Qoi,
             3 => Self::Jpeg,
+            4 => Self::Tim,
+            5 => Self::Tim4,
             _ => Self::Auto,
         }
     }
 
     /// The byte written to the save file.
+    ///
+    /// Each uncompressed format took the next free byte, appended rather than
+    /// inserted into the sequence, so every byte an existing card can already
+    /// hold keeps its meaning. Renumbering would have silently reinterpreted a
+    /// player's saved JPEG choice as a different format, which decodes to
+    /// garbage rather than failing.
     pub fn to_saved(self) -> u8 {
         match self {
             Self::Auto => 0,
             Self::Svg => 1,
             Self::Qoi => 2,
             Self::Jpeg => 3,
+            Self::Tim => 4,
+            Self::Tim4 => 5,
         }
     }
 
@@ -89,6 +126,8 @@ impl TextureFormat {
         match self {
             Self::Svg => Codec::Arsv,
             Self::Qoi => Codec::Qoi,
+            Self::Tim => Codec::Tim,
+            Self::Tim4 => Codec::Tim4,
             Self::Jpeg | Self::Auto => Codec::Jpeg,
         }
     }
@@ -164,6 +203,8 @@ mod tests {
     fn each_pinned_format_selects_its_own_decoder() {
         assert_eq!(TextureFormat::Svg.codec(), Codec::Arsv);
         assert_eq!(TextureFormat::Qoi.codec(), Codec::Qoi);
+        assert_eq!(TextureFormat::Tim.codec(), Codec::Tim);
+        assert_eq!(TextureFormat::Tim4.codec(), Codec::Tim4);
         assert_eq!(TextureFormat::Jpeg.codec(), Codec::Jpeg);
     }
 
@@ -172,6 +213,8 @@ mod tests {
         let all = [
             TextureFormat::Svg.codec(),
             TextureFormat::Qoi.codec(),
+            TextureFormat::Tim.codec(),
+            TextureFormat::Tim4.codec(),
             TextureFormat::Jpeg.codec(),
         ];
         for i in 0..all.len() {
@@ -181,6 +224,57 @@ mod tests {
         }
     }
 
+    /// Adding TIM4 must not renumber anything that came before it, for the same
+    /// reason TIM's byte was appended rather than inserted.
+    #[test]
+    fn adding_tim4_did_not_renumber_the_existing_formats() {
+        assert_eq!(TextureFormat::Auto.to_saved(), 0);
+        assert_eq!(TextureFormat::Svg.to_saved(), 1);
+        assert_eq!(TextureFormat::Qoi.to_saved(), 2);
+        assert_eq!(TextureFormat::Jpeg.to_saved(), 3);
+        assert_eq!(TextureFormat::Tim.to_saved(), 4);
+        assert_eq!(TextureFormat::Tim4.to_saved(), 5);
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+            TextureFormat::Tim,
+        ] {
+            assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
+        }
+    }
+
+    #[test]
+    fn the_tim4_pin_takes_the_tim4_path_only_when_the_block_is_there() {
+        assert!(selects_tim4(TextureFormat::Tim4, true));
+        assert!(
+            !selects_tim4(TextureFormat::Tim4, false),
+            "a pin to TIM4 on a disc without TIM4TRACKS.BIN must fall back"
+        );
+    }
+
+    /// Two uncompressed formats on one disc is the case the availability/selection
+    /// split exists for: a disc can carry both, so "a TIM block exists" and "a
+    /// TIM4 block exists" are both true everywhere and neither identifies which
+    /// path a circuit took.
+    #[test]
+    fn the_two_uncompressed_pins_never_select_each_other() {
+        // Both assets present, which is the normal disc: neither availability
+        // flag distinguishes them, so only the pin can.
+        assert!(
+            !selects_tim4(TextureFormat::Tim, true),
+            "the 15bpp pin must not take the 4bpp path even with both assets present"
+        );
+        assert!(
+            !selects_tim(TextureFormat::Tim4, true),
+            "the 4bpp pin must not take the 15bpp path even with both assets present"
+        );
+        // And each still selects itself.
+        assert!(selects_tim(TextureFormat::Tim, true));
+        assert!(selects_tim4(TextureFormat::Tim4, true));
+    }
+
     #[test]
     fn texture_format_bytes_round_trip_and_default_safely() {
         for f in [
@@ -188,11 +282,34 @@ mod tests {
             TextureFormat::Svg,
             TextureFormat::Qoi,
             TextureFormat::Jpeg,
+            TextureFormat::Tim,
+            TextureFormat::Tim4,
         ] {
             assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
         }
-        for b in 4u8..=255 {
+        for b in 6u8..=255 {
             assert_eq!(TextureFormat::from_saved(b), TextureFormat::Auto);
+        }
+    }
+
+    /// TIM was appended as byte 4 rather than inserted into the sequence, so a
+    /// card written before it existed must still read back as what it meant.
+    /// Renumbering would reinterpret a saved JPEG choice as TIM, which decodes
+    /// to garbage rather than failing loudly.
+    #[test]
+    fn adding_tim_did_not_renumber_the_existing_formats() {
+        assert_eq!(TextureFormat::Auto.to_saved(), 0);
+        assert_eq!(TextureFormat::Svg.to_saved(), 1);
+        assert_eq!(TextureFormat::Qoi.to_saved(), 2);
+        assert_eq!(TextureFormat::Jpeg.to_saved(), 3);
+        assert_eq!(TextureFormat::Tim.to_saved(), 4);
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+        ] {
+            assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
         }
     }
 
@@ -226,7 +343,7 @@ mod tests {
     fn cycling_visits_every_option_and_wraps() {
         let mut f = TextureFormat::Auto;
         let mut seen = vec![f];
-        for _ in 0..4 {
+        for _ in 0..6 {
             f = f.next();
             seen.push(f);
         }
@@ -237,10 +354,79 @@ mod tests {
                 TextureFormat::Svg,
                 TextureFormat::Qoi,
                 TextureFormat::Jpeg,
+                TextureFormat::Tim,
+                TextureFormat::Tim4,
                 TextureFormat::Auto,
             ]
         );
     }
+
+    /// Both menus cycle the persisted byte with `rem_euclid`, not this
+    /// function, so the two orderings have to agree or the enum's cycle is a
+    /// description of something the player never sees.
+    #[test]
+    fn cycling_visits_the_persisted_bytes_in_order() {
+        let mut f = TextureFormat::Auto;
+        let mut by_cycle = Vec::new();
+        for _ in 0..6 {
+            f = f.next();
+            by_cycle.push(f.to_saved());
+        }
+
+        // Exactly what a menu does: `(byte + 1) % (MAX + 1)`.
+        let mut byte = 0u8;
+        let mut by_byte = Vec::new();
+        for _ in 0..6 {
+            byte = (byte + 1) % 6;
+            by_byte.push(byte);
+        }
+
+        assert_eq!(
+            by_cycle, by_byte,
+            "TextureFormat::next and the menus' byte cycle must be the same order"
+        );
+    }
+}
+
+/// Whether a circuit is served by the uncompressed 15bpp (TIM) path.
+///
+/// Takes the pin and whether the disc actually carries the block, and answers
+/// the question the *renderer* must ask before choosing a decode path.
+///
+/// This exists because asking the availability question alone is wrong, and
+/// was: the decode paths branched on "does a TIM block exist for this circuit",
+/// which is true for every circuit on any disc mastered with `TIMTRACKS.BIN`.
+/// Circuits the player had left on QOI, JPEG or SVG all took the TIM branch
+/// anyway, so the RAM block was loaded and then never decoded from, every tile
+/// miss became a fresh four-sector CD read, and CD-DA lost the drive to it
+/// continuously. Availability is a necessary condition here, not a sufficient
+/// one.
+///
+/// `Auto` is false even when a TIM block exists, which is the whole point: TIM
+/// is never selected on the player's behalf.
+pub const fn selects_tim(pinned: TextureFormat, tim_available: bool) -> bool {
+    tim_available && selects_codec(pinned, Codec::Tim)
+}
+
+/// Whether a circuit is served by the uncompressed 4bpp (TIM4) path.
+///
+/// Same rule as [`selects_tim`] with a different decoder, and it exists for the
+/// same reason. TIM and TIM4 are separate assets and separate pins; a disc may
+/// carry one without the other, so each availability flag is its own.
+pub const fn selects_tim4(pinned: TextureFormat, tim4_available: bool) -> bool {
+    tim4_available && selects_codec(pinned, Codec::Tim4)
+}
+
+/// Whether `pinned` names `want`, ignoring availability.
+///
+/// Shared by both uncompressed predicates so "does the pin name this decoder"
+/// has one definition rather than one per format. `matches!` rather than `==`:
+/// `PartialEq` is not const.
+const fn selects_codec(pinned: TextureFormat, want: Codec) -> bool {
+    matches!(
+        (pinned.codec(), want),
+        (Codec::Tim, Codec::Tim) | (Codec::Tim4, Codec::Tim4)
+    )
 }
 
 /// The decode-budget tiers, keyed to VBlanks elapsed since the frame's step-1
@@ -269,6 +455,82 @@ pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -
 #[cfg(test)]
 mod budget_tests {
     use super::*;
+
+    /// The regression this module's `selects_tim` was added for: a disc that
+    /// carries TIM blocks must not make *every* circuit take the TIM path.
+    ///
+    /// The broken version asked only "is a TIM block available", which is true
+    /// for all of them, and the renderer then streamed raw texels off the disc
+    /// instead of decoding the RAM block it had already loaded.
+    #[test]
+    fn only_the_tim_pin_selects_the_tim_path() {
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+            TextureFormat::Tim4,
+        ] {
+            assert!(
+                !selects_tim(f, true),
+                "{f:?} must not take the TIM path just because TIM exists"
+            );
+            assert!(
+                !selects_tim(f, false),
+                "{f:?} must not take the TIM path without a TIM block either"
+            );
+        }
+    }
+
+    #[test]
+    fn only_the_tim4_pin_selects_the_tim4_path() {
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+            TextureFormat::Tim,
+        ] {
+            assert!(
+                !selects_tim4(f, true),
+                "{f:?} must not take the TIM4 path just because TIM4 exists"
+            );
+            assert!(
+                !selects_tim4(f, false),
+                "{f:?} must not take the TIM4 path without a block either"
+            );
+        }
+    }
+
+    #[test]
+    fn the_tim_pin_takes_the_tim_path_only_when_the_block_is_there() {
+        assert!(selects_tim(TextureFormat::Tim, true));
+        assert!(
+            !selects_tim(TextureFormat::Tim, false),
+            "a pin to TIM on a disc without TIMTRACKS.BIN must fall back, not half-work"
+        );
+    }
+
+    /// Availability must not be load-bearing on its own. Every circuit on a
+    /// TIM-bearing disc reports available, so a predicate reading only that
+    /// answers yes for the whole disc. This is that predicate, stated as the
+    /// contrast: it is true for every pin, `selects_tim` is true for one.
+    #[test]
+    fn availability_alone_answers_yes_for_the_whole_disc() {
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+        ] {
+            let availability_check = true; // "a TIM block exists for this circuit"
+            assert!(availability_check);
+            assert!(
+                !selects_tim(f, availability_check),
+                "{f:?} must not take the TIM path merely because one exists"
+            );
+        }
+    }
 
     /// 60 FPS is the regression: one row must be admitted on the first
     /// iteration of a frame, which is `elapsed == 0`, `period == 1`.

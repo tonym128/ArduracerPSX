@@ -16,6 +16,7 @@ pub mod ghost_player;
 pub mod ghost_recorder;
 pub mod gpu;
 pub mod input;
+pub mod level_grid;
 pub mod memcard;
 pub mod prof;
 pub mod state;
@@ -61,6 +62,178 @@ fn is_pal_mode() -> bool {
 #[inline]
 fn is_pal_mode() -> bool {
     false
+}
+
+// VRAM upload-path counters live in `main` so the heartbeat can report them
+// without reaching into the texture module's statics. Diagnostic only: a lost
+// increment would misreport a number, never alter a transfer.
+#[cfg_attr(target_arch = "mips", link_section = ".data")]
+static mut UPLOAD_DMA_COUNT: u32 = 0;
+#[cfg_attr(target_arch = "mips", link_section = ".data")]
+static mut UPLOAD_FIFO_COUNT: u32 = 0;
+
+/// VRAM uploads taken by each path, as `(via_ch2_dma, via_gp0_fifo)`.
+pub fn upload_path_counts() -> (u32, u32) {
+    // SAFETY: written only by the texture module's upload paths, read by the
+    // main loop's heartbeat; single-core, and no IRQ touches these.
+    unsafe { (UPLOAD_DMA_COUNT, UPLOAD_FIFO_COUNT) }
+}
+
+/// Record which path a VRAM upload took. Called once per tile, by whichever
+/// upload path (`upload_tile_dma` for TIM, `upload_tile_dma4` for TIM4) moved it.
+pub fn note_upload_path(via_dma: bool) {
+    // SAFETY: as `upload_path_counts`. Plain `u32` rather than atomics because
+    // this target has `max-atomic-width = 0` and these are diagnostic totals.
+    unsafe {
+        if via_dma {
+            UPLOAD_DMA_COUNT = UPLOAD_DMA_COUNT.wrapping_add(1);
+        } else {
+            UPLOAD_FIFO_COUNT = UPLOAD_FIFO_COUNT.wrapping_add(1);
+        }
+    }
+}
+
+/// One-shot markers: each DMA channel's fallback decision is logged at most
+/// once, independently of the other channel.
+///
+/// Plain `static mut`, not atomic: `mipsel-sony-psx` has `max-atomic-width = 0`,
+/// so `core::sync::atomic` offers nothing on the device. A byte load/store is
+/// all the synchronisation needed -- the R3000 is single-core and the only
+/// other thread of control (the VBlank IRQ) never touches these flags.
+#[cfg_attr(target_arch = "mips", link_section = ".data")]
+static mut SILICON_REPORTED: bool = false;
+#[cfg_attr(target_arch = "mips", link_section = ".data")]
+static mut CD_SILICON_REPORTED: bool = false;
+
+/// Compiling more than one format pin would silently pick one.
+#[cfg(any(
+    all(feature = "profile-tim", feature = "profile-tim4"),
+    all(feature = "profile-tim", feature = "profile-qoi"),
+    all(feature = "profile-tim4", feature = "profile-qoi")
+))]
+compile_error!("enable exactly one of profile-tim / profile-tim4 / profile-qoi");
+
+/// The texture format a headless comparison run is pinned to, if any.
+///
+/// The format normally comes from the memory card, so a headless run always
+/// boots at `AUTO` -> `SVG`, and the TIM/TIM4 DMA upload paths never execute.
+/// That made a format comparison impossible without a save file authored for
+/// each case, so the `profile-tim*` features pin it at build time instead.
+///
+/// Pinning is a *build* choice rather than a runtime one on purpose: it costs
+/// the shipped binary nothing, it cannot be left switched on by a stray runtime
+/// flag, and a comparison run is reproducible from its feature list alone.
+/// With no pin feature -- every build that can reach a player's console -- this
+/// returns `saved` unchanged.
+#[inline]
+fn headless_texture_format(saved: u8) -> TextureFormat {
+    #[cfg(feature = "profile-tim")]
+    {
+        return TextureFormat::Tim;
+    }
+    #[cfg(feature = "profile-tim4")]
+    {
+        return TextureFormat::Tim4;
+    }
+    #[cfg(feature = "profile-qoi")]
+    {
+        return TextureFormat::Qoi;
+    }
+    #[cfg(all(
+        not(feature = "profile-tim"),
+        not(feature = "profile-tim4"),
+        not(feature = "profile-qoi")
+    ))]
+    {
+        TextureFormat::from_saved(saved)
+    }
+}
+
+/// Logs the one-shot silicon-class fallback decision for each channel, once
+/// that channel's probe has decided, plus the live ch3 sector counts.
+///
+/// The counts are the part worth watching while racing: the sticky class says
+/// the probe passed once, the counter says whether sectors are still going over
+/// that channel now. A DMA count that stops climbing while PIO keeps climbing
+/// is a silent regression the one-shot line would never show.
+///
+/// The two probes fire from different transfers and can land in either order:
+/// ch2 on the first RAM->VRAM DMA (the intro FMV's column upload, or the first
+/// TIM/TIM4 prewarm tile if the intro was skipped), ch3 on the first CD sector
+/// read. The decisions are sticky in `psx_io::silicon`, so a channel is
+/// reported whenever a later call observes it decided.
+fn log_silicon_fallback_once() {
+    let (gpu, cd) = psx_io::silicon::silicon_report();
+    let gpu_decided = !matches!(
+        gpu,
+        psx_io::silicon::DmaClass::Unknown | psx_io::silicon::DmaClass::Disabled
+    );
+    let cd_decided = !matches!(cd, psx_io::silicon::DmaClass::Unknown);
+    if !gpu_decided && !cd_decided {
+        // No probe has run yet; a later transfer decides and this reports then.
+        return;
+    }
+    // SAFETY: the game loop is the only caller and no IRQ touches these flags;
+    // the byte read/write is atomic on the single-core R3000.
+    let (log_gpu, log_cd) = unsafe {
+        let gpu_first = !SILICON_REPORTED;
+        if gpu_decided {
+            SILICON_REPORTED = true;
+        }
+        let cd_first = !CD_SILICON_REPORTED;
+        if cd_decided {
+            CD_SILICON_REPORTED = true;
+        }
+        (gpu_first && gpu_decided, cd_first && cd_decided)
+    };
+    // The CD counters are printed on every call, not gated behind the
+    // one-shot flags: they are live totals and the question they answer ("is
+    // ch3 actually moving disc data, or has it gone quiet back to PIO?") is
+    // worth answering repeatedly during a race.
+    let (dma_sectors, pio_sectors) = psx_io::silicon::cd_sector_counts();
+    if dma_sectors != 0 || pio_sectors != 0 {
+        dbg::print("[SILICON]   ch3 sectors: dma=");
+        dbg::print_dec(dma_sectors);
+        dbg::print(" pio=");
+        dbg::print_dec(pio_sectors);
+        dbg::println("");
+    }
+    if log_gpu {
+        dbg::println("[SILICON] DMA silicon probe (per-channel decision):");
+        match gpu {
+            psx_io::silicon::DmaClass::Works => {
+                dbg::println(
+                    "[SILICON]   ch2 (GPU RAM->VRAM): OK -> DMA used for track/FMV uploads",
+                );
+            }
+            psx_io::silicon::DmaClass::Wedges => {
+                dbg::println(
+                    "[SILICON]   ch2 (GPU RAM->VRAM): CL1/CL2 wedge detected -> uploads fall back to GP0 FIFO (sticky)",
+                );
+            }
+            _ => {}
+        }
+    }
+    if log_cd {
+        match cd {
+            psx_io::silicon::DmaClass::Works => {
+                dbg::println(
+                    "[SILICON]   ch3 (CD-ROM->RAM): OK -> CD sectors read via ch3 DMA (free CPU)",
+                );
+            }
+            psx_io::silicon::DmaClass::Wedges => {
+                dbg::println(
+                    "[SILICON]   ch3 (CD-ROM->RAM): CL1/CL2 wedge detected -> CD falls back to byte-FIFO PIO (sticky)",
+                );
+            }
+            psx_io::silicon::DmaClass::Disabled => {
+                dbg::println(
+                    "[SILICON]   ch3 (CD-ROM->RAM): disabled by design -> CD sectors read via byte-FIFO PIO",
+                );
+            }
+            psx_io::silicon::DmaClass::Unknown => {}
+        }
+    }
 }
 
 /// Spawns 5 AI rivals on staggered grid positions according to championship grid slots and difficulty.
@@ -171,6 +344,11 @@ impl ArduracerGame {
         dbg::log_step(4, 9, "Stopping intro audio...");
         audio::stop_intro_audio();
         dbg::check_faults();
+        // The FMV has just run a full CD sector stream (and, if it played, the
+        // GPU column DMA), so both channel probes have had their chance by now.
+        // Report here rather than waiting for the first track load: on a normal
+        // boot that is several menu screens away.
+        log_silicon_fallback_once();
 
         dbg::log_step(
             5,
@@ -258,16 +436,29 @@ impl ArduracerGame {
                 texture_format: game.memcard.save_data.texture_format,
                 framerate: game.memcard.save_data.framerate,
                 camera_view: game.camera_view,
+                cd_audio: game.memcard.save_data.cd_audio,
             };
-            set_texture_format(TextureFormat::from_saved(saved.texture_format));
+            set_texture_format(headless_texture_format(saved.texture_format));
             game.framerate = Framerate::from_saved(saved.framerate);
             set_frame_period(game.framerate.vblanks_per_frame());
             prof::set_budget_cycles(game.framerate.budget_cycles());
             prof::set_expected_vblanks(game.framerate.vblanks_per_frame());
+            // Applied before anything asks for a track: with TIM pinned and the
+            // music left spinning, every tile read would hand the drive back to
+            // CD-DA and hand it straight back, for the whole boot.
+            game.audio
+                .cdda
+                .set_enabled(game.memcard.save_data.cd_audio != 0);
             dbg::print("[BOOT] graphics: format=");
             dbg::print(texture_format().label());
             dbg::print(" framerate=");
-            dbg::println(game.framerate.label());
+            dbg::print(game.framerate.label());
+            dbg::print(" cd-audio=");
+            dbg::println(if game.audio.cdda.enabled() {
+                "on"
+            } else {
+                "off"
+            });
         }
 
         dbg::log_step(9, 9, "Baking circuit minimap...");
@@ -289,11 +480,16 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
+        // After `init_track_texture`: that is what locates `LEVELS.BIN`. Loading
+        // first finds no asset, leaves every tile `Barrier`, and the AI has no
+        // road to follow -- the car sits on the grid doing nothing.
+        gpu::load_level_grid(ALL_TRACK_VISUALS[idx], ALL_TRACKS[idx]);
         prewarm_starting_tiles(
             self.current_track.world_width(),
             self.current_track.world_height(),
             &self.camera,
         );
+        log_silicon_fallback_once();
 
         // Play the CD-DA theme corresponding to the active cup:
         // Cup 1 (Tracks 1-6) -> CD-DA Track 3 ("Asphalt Adrenaline" Eurobeat)
@@ -322,11 +518,13 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(city.track_id);
+        gpu::load_level_grid(city.track_id, city.track);
         prewarm_starting_tiles(
             self.current_track.world_width(),
             self.current_track.world_height(),
             &self.camera,
         );
+        log_silicon_fallback_once();
 
         // CD-DA Track 4: "Coastal Drive" D&B - high tempo street cruise
         self.audio.cdda.play_track(4);
@@ -485,6 +683,30 @@ impl ArduracerGame {
                 } else if self.frame_counter.is_multiple_of(300) {
                     dbg::print("[LOOP] Heartbeat: frame ");
                     dbg::print_dec(self.frame_counter);
+                    dbg::println("");
+                    // Live DMA telemetry on the same cadence as the heartbeat,
+                    // so a fallback is visible while the stutter is happening
+                    // rather than only at boot. Both channels in one line: the
+                    // VRAM side (uploads) and the disc side (sectors).
+                    let (dma_u, fifo_u) = upload_path_counts();
+                    let (cd_dma, cd_pio) = psx_io::silicon::cd_sector_counts();
+                    dbg::print("[LOOP] ch2 uploads dma=");
+                    dbg::print_dec(dma_u);
+                    dbg::print(" fifo=");
+                    dbg::print_dec(fifo_u);
+                    dbg::print(" | ch3 sectors dma=");
+                    dbg::print_dec(cd_dma);
+                    dbg::print(" pio=");
+                    dbg::print_dec(cd_pio);
+                    // Player position, so a run can be *proved* to have driven
+                    // rather than sat on the grid. Streaming counters only mean
+                    // something next to a position that actually changes.
+                    dbg::print(" | pos ");
+                    dbg::print_dec_signed(self.player.position.x.to_int());
+                    dbg::print(",");
+                    dbg::print_dec_signed(self.player.position.y.to_int());
+                    dbg::print(" mph=");
+                    dbg::print_dec(self.player.speed.to_int().unsigned_abs());
                     dbg::println("");
                     dbg::check_faults();
                 }
@@ -788,7 +1010,10 @@ impl ArduracerGame {
                     }
 
                     // In-game camera viewpoint toggle on Triangle press (cycles Behind -> Overhead -> Rotating):
-                    if pad.buttons.pressed_since(self.prev_pad_racing, psx_pad::button::TRIANGLE) {
+                    if pad
+                        .buttons
+                        .pressed_since(self.prev_pad_racing, psx_pad::button::TRIANGLE)
+                    {
                         self.camera_view = (self.camera_view + 1) % 3;
                         self.camera.mode7 = self.camera_view == 0;
                         self.camera.rotating = self.camera_view == 2;
@@ -964,7 +1189,7 @@ impl ArduracerGame {
 
         #[cfg(feature = "profiling")]
         self.autopilot
-            .override_input(track, &self.player, &mut input);
+            .override_input(track, &mut self.player, &mut input);
 
         // Start sequence: hold the car on the grid, then arm the lap
         // clock the instant the lights go out.
@@ -1279,6 +1504,7 @@ impl ArduracerGame {
             texture_format: texture_format().to_saved(),
             framerate: self.framerate.to_saved(),
             camera_view: self.camera_view,
+            cd_audio: u8::from(self.audio.cdda.enabled()),
         }
     }
 
@@ -1292,6 +1518,7 @@ impl ArduracerGame {
     fn apply_settings(&mut self, values: SettingsValues) {
         let previous_format = texture_format();
         let previous_fps = self.framerate;
+        let previous_cd_audio = self.audio.cdda.enabled();
 
         let format = TextureFormat::from_saved(values.texture_format);
         let framerate = Framerate::from_saved(values.framerate);
@@ -1316,6 +1543,28 @@ impl ArduracerGame {
                 let circuit =
                     ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)];
                 init_track_texture(circuit);
+                // Prewarm, exactly as `load_track` does, and this is the whole
+                // fix for the stutter on switching format mid-race.
+                //
+                // `reset_texture_caches` above just emptied all 64 VRAM slots, so
+                // every visible tile is now a cache miss. Without this the
+                // renderer draws placeholders and refills the cache at the
+                // decode budget -- one MCU row per frame. A 320x240 view is
+                // ~48 tiles at four rows each, so unpausing straight into that
+                // is seconds of track visibly repainting itself, at speed, in
+                // front of the car. Pausing does not hide it either: the frozen
+                // frame admits one row per frame too, and the player changes the
+                // setting and unpauses long before that finishes.
+                //
+                // Paying the same decode here moves the cost to a moment when
+                // the simulation is already stopped, which is where `load_track`
+                // has always paid it.
+                prewarm_starting_tiles(
+                    self.current_track.world_width(),
+                    self.current_track.world_height(),
+                    &self.camera,
+                );
+                log_silicon_fallback_once();
             }
         }
 
@@ -1332,21 +1581,37 @@ impl ArduracerGame {
             prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
         }
 
+        // Applied before the caches are dropped, so the drive is released before
+        // the next frame starts pulling tiles off it. Turning the music back on
+        // does not restart it here: the next `play_track` for whatever screen
+        // the player is on does that, which keeps this function free of
+        // knowledge about which screen that is.
+        if (values.cd_audio != 0) != previous_cd_audio {
+            self.audio.cdda.set_enabled(values.cd_audio != 0);
+        }
+
         dbg::print("[SETTINGS] applied format=");
         dbg::print(format.label());
         dbg::print(" framerate=");
         dbg::print(framerate.label());
         dbg::print(" view=");
-        dbg::println(match self.camera_view {
+        dbg::print(match self.camera_view {
             0 => "BEHIND",
             1 => "OVERHEAD",
             _ => "ROTATING",
+        });
+        dbg::print(" cd-audio=");
+        dbg::println(if self.audio.cdda.enabled() {
+            "on"
+        } else {
+            "off"
         });
 
         // Persist unconditionally: both values are cheap and a card write is
         // already the established pattern for settings changes.
         self.memcard.save_data.texture_format = values.texture_format;
         self.memcard.save_data.framerate = values.framerate;
+        self.memcard.save_data.cd_audio = values.cd_audio;
         self.memcard.mark_dirty();
         self.memcard.flush();
     }

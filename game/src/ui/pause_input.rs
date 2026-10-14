@@ -24,12 +24,22 @@
 /// give the two include paths two distinct types for the same struct.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct SettingsValues {
-    /// 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG.
+    /// 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG, 4 = TIM, 5 = TIM4. Totality lives in
+    /// `arduracer_core::texture_format::TextureFormat::from_saved`.
     pub texture_format: u8,
     /// 0 = 60 FPS, 1 = 30 FPS.
     pub framerate: u8,
     /// 0 = Behind (Mode 7 Chase), 1 = Overhead (Top-down).
     pub camera_view: u8,
+    /// 0 = CD-DA music off, 1 = on.
+    ///
+    /// Not merely a mute. The TIM texture streamer and CD-DA both want the one
+    /// physical drive, and `cd_fs::read_sectors` pauses playback around every
+    /// read, so with music on and TIM selected the player hears the drive
+    /// changing hands several times a second. Turning the music off releases
+    /// the drive, which is the only fix -- nothing on the audio side can hide
+    /// it.
+    pub cd_audio: u8,
 }
 
 /// What the player chose from the pause menu.
@@ -89,8 +99,23 @@ const ITEM_RESTART: u8 = 1;
 const ITEM_TEXTURE: u8 = 2;
 const ITEM_FRAMERATE: u8 = 3;
 const ITEM_VIEW: u8 = 4;
-const ITEM_QUIT: u8 = 5;
-const ITEM_COUNT: u8 = 6;
+const ITEM_CD_AUDIO: u8 = 5;
+const ITEM_QUIT: u8 = 6;
+const ITEM_COUNT: u8 = 7;
+
+/// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
+pub const MAX_TEXTURE_FORMAT: u8 = 5;
+
+/// Whether `v` names a selectable texture format.
+///
+/// Both menus need this: they cycle the byte directly rather than going through
+/// the enum, so without a shared ceiling each would keep its own stale copy of
+/// the list. It already went wrong once -- the ceiling was 3 when TIM took byte
+/// 4 -- and the symptom is a format that saves fine and then cannot be reached
+/// again, or a cycle that skips one.
+pub const fn texture_format_is_selectable(v: u8) -> bool {
+    v <= MAX_TEXTURE_FORMAT
+}
 
 impl Default for PauseMenu {
     fn default() -> Self {
@@ -106,6 +131,7 @@ impl PauseMenu {
                 texture_format: 0,
                 framerate: 0,
                 camera_view: 0,
+                cd_audio: 1,
             },
             prev: PauseInput {
                 start: false,
@@ -134,9 +160,13 @@ impl PauseMenu {
     /// have values; the action rows report `false`.
     fn cycle_value(&mut self, dir: i32) -> bool {
         let (cur, span) = match self.selected_idx {
-            ITEM_TEXTURE => (self.values.texture_format as i32, 4),
+            ITEM_TEXTURE => (
+                self.values.texture_format as i32,
+                MAX_TEXTURE_FORMAT as i32 + 1,
+            ),
             ITEM_FRAMERATE => (self.values.framerate as i32, 2),
             ITEM_VIEW => (self.values.camera_view as i32, 3),
+            ITEM_CD_AUDIO => (self.values.cd_audio as i32, 2),
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
@@ -144,6 +174,7 @@ impl PauseMenu {
             ITEM_TEXTURE => self.values.texture_format = next,
             ITEM_FRAMERATE => self.values.framerate = next,
             ITEM_VIEW => self.values.camera_view = next,
+            ITEM_CD_AUDIO => self.values.cd_audio = next,
             _ => return false,
         }
         next as i32 != cur
@@ -207,7 +238,7 @@ impl PauseMenu {
             match self.selected_idx {
                 ITEM_RESUME => PauseChoice::Resume,
                 ITEM_RESTART => PauseChoice::RestartRace,
-                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW => {
+                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO => {
                     if changed {
                         PauseChoice::Graphics(self.values)
                     } else {

@@ -27,6 +27,22 @@ pub fn print_hex(val: u32) {
     let _ = val;
 }
 
+/// Prints `v` with a leading `-` when negative.
+///
+/// World coordinates run negative outside the origin corner, so `print_dec`
+/// (which takes `u32`) would wrap them to four billion and make a position log
+/// unreadable exactly when the camera has left the origin.
+#[inline(never)]
+pub fn print_dec_signed(v: i32) {
+    if v < 0 {
+        tty::print("-");
+        // Negating i32::MIN overflows, so widen before the negation.
+        print_dec((v as i64).unsigned_abs() as u32);
+    } else {
+        print_dec(v as u32);
+    }
+}
+
 #[inline(never)]
 #[allow(unused_mut)]
 pub fn print_dec(mut v: u32) {
