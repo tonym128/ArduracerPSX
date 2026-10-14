@@ -44,7 +44,7 @@ pub static TRACK_LONDON: TrackDef = TrackDef {
         width: 0,
         height: 0,
     }; MAX_TRACK_CHECKPOINTS],
-    tiles: &LONDON_TILES,
+    tiles: Some(&LONDON_TILES),
     route: &[],
     half_width: 32,
 };

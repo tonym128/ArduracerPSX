@@ -62,6 +62,7 @@
 use psx_hw::gpu::{gp0, gp1, pack_xy};
 use psx_io::dma::{self, Channel};
 use psx_io::gpu::{wait_cmd_ready, write_gp0, write_gp1};
+use psx_io::silicon;
 
 /// VRAM framebuffer width in pixels.
 pub const VRAM_WIDTH: u16 = 1024;
@@ -1272,10 +1273,13 @@ pub fn upload_16bpp_stream<F: FnMut(&mut dyn FnMut(u16))>(rect: VramRect, mut pr
 /// is *not* a limit: wide rows are transferred as several FIFO-sized blocks,
 /// see [`dma_block_params`]. This mirrors PsyQ's `LoadImage`, which likewise
 /// derives its block count from the whole payload rather than from one row.
-/// Opt-in DMA upload. No longer the default: on real hardware the DMA
-/// controller can wedge a channel busy-forever (CL2 probe, 2026-07-31),
-/// and this function's completion wait would then spin unboundedly.
-/// Callers who opt in accept that risk on their own boot path.
+/// Opt-in DMA upload.
+///
+/// On CL1/CL2 silicon the DMA controller can wedge the channel
+/// busy-forever (probe, 2026-07-31). The completion wait is bounded, so a
+/// wedged probe reports failure instead of hanging, the sticky silicon state
+/// is set, and the caller's GP0 FIFO fallback carries the payload. Every
+/// later call returns `false` immediately without re-arming the channel.
 pub fn dma_copy_to_vram(rect: VramRect, src: *const u32) -> bool {
     dma_copy_to_vram_with(rect, src, || {})
 }
@@ -1286,6 +1290,13 @@ pub fn dma_copy_to_vram(rect: VramRect, src: *const u32) -> bool {
 pub fn dma_copy_to_vram_with<F: FnMut()>(rect: VramRect, src: *const u32, mut service: F) -> bool {
     if !(src as usize).is_multiple_of(4) || !rect.w.is_multiple_of(2) || rect.w == 0 || rect.h == 0
     {
+        return false;
+    }
+    // A channel already convicted of wedging (CL1/CL2) is not re-armed: the
+    // START bit latches and the transfer never completes, so arming it again
+    // only burns another spin budget. The probe decided; the caller's GP0
+    // FIFO fallback is the only way the pixels move.
+    if silicon::gpu_dma_class().known_wedge() {
         return false;
     }
     let words_per_row = rect.w / 2;
@@ -1313,11 +1324,17 @@ pub fn dma_copy_to_vram_with<F: FnMut()>(rect: VramRect, src: *const u32, mut se
         }
     }
     if dma::is_busy(Channel::Gpu) {
+        // Convicted: from here on this channel is known-wedge and every
+        // later upload short-circuits to the GP0 FIFO path.
+        silicon::gpu_dma_mark_wedged();
         dma::abort(Channel::Gpu);
         // The GP0(A0) header is already out and the payload did not
         // land, so VRAM holds a partial upload either way; report it.
         return false;
     }
+    // Completed: the channel is known-good (this is the probe when the
+    // state was still Unknown).
+    silicon::gpu_dma_mark_works();
     true
 }
 

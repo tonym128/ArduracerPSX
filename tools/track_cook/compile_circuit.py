@@ -519,7 +519,11 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
         out.append("        EMPTY_GATE,")
     out.append("    ],")
 
-    out.append(f"    tiles: &{ident}_TILES,")
+    # `Some(...)`: the grid is a compiled-in literal today. It becomes `None`
+    # once the grids move to the disc and are installed at level load -- see
+    # `TrackDef::tiles`, which is `Option` precisely so that state is
+    # representable.
+    out.append(f"    tiles: Some(&{ident}_TILES),")
     out.append("    route: &[")
     # The runtime samples the spline 8 times per span, so at most
     # `MAX_ROUTE_SAMPLES / 8` control points fit. Resampled to equal arc length

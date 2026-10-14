@@ -44,7 +44,7 @@ pub static TRACK_CAPETOWN: TrackDef = TrackDef {
         width: 0,
         height: 0,
     }; MAX_TRACK_CHECKPOINTS],
-    tiles: &CAPETOWN_TILES,
+    tiles: Some(&CAPETOWN_TILES),
     route: &[],
     half_width: 32,
 };

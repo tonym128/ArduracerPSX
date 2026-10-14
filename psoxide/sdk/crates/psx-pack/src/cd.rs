@@ -129,6 +129,15 @@ const DATA_POLL: u32 = 4_000_000;
 // bounded window as sector polling so a slow emulator cannot leave Pause
 // pending when the next Setloc is issued.
 const CLEANUP_POLL: u32 = DATA_POLL;
+#[cfg(target_arch = "mips")]
+/// Spin budget for one ch3 sector DMA.
+///
+/// A sector is 512 words out of a 16 KiB/s streaming FIFO, so a working
+/// transfer finishes in microseconds; this is orders of magnitude more headroom.
+/// It only has to be long enough that a legitimately slow (or double-speed)
+/// drive is never misread as a wedge -- a false-positive probe conviction is
+/// not a fallback, it is a permanent PIO path.
+const CD_DMA_SPINS: u32 = 200_000;
 
 #[cfg(target_arch = "mips")]
 enum Wait {
@@ -320,17 +329,89 @@ impl SectorReader {
 
     /// Move one sector from the drive's buffer into RAM.
     ///
-    /// This used to be a chopping-burst DMA on channel 3 (the hl-psx
-    /// recipe). The CL1/CL2 silicon probes convicted that path on real
-    /// hardware: the transfer is a state-dependent lottery, and the
-    /// channel can latch its start bit and stay busy forever while
-    /// moving nothing, which read as all-zero sectors everywhere the
-    /// reader is used. PIO is the recipe the same probes proved
-    /// byte-perfect on silicon: arm BFRD, wait until the data FIFO
-    /// actually reports data, then pop all 2048 bytes. ~1.3 ms slower
-    /// per sector than a working DMA, which no SectorReader user
-    /// notices, and it cannot wedge the DMA controller.
+    /// Tries ch3 (CD→RAM) chopping-burst DMA first and falls back to the
+    /// byte-FIFO PIO reader. The class of channel 3 is probed once and sticky
+    /// (`psx_io::silicon`): the first sector either completes inside a bounded
+    /// wait or convicts the channel, after which every later sector goes
+    /// straight to PIO without re-arming a channel that would only burn
+    /// another spin budget.
+    ///
+    /// PIO is the recipe the same probes proved byte-perfect on silicon, and it
+    /// is what a wedge falls back to safely: the documented CL1/CL2 failure is
+    /// "the start bit latches and nothing moves", so a failed DMA leaves the
+    /// data FIFO exactly where PIO expects it, and re-arming BFRD pops the same
+    /// sector cleanly. ~1.3 ms slower per sector than a working DMA, which no
+    /// SectorReader user notices.
     unsafe fn dma_read_sector(&mut self, buffer: *mut u32) {
+        // A channel already convicted of wedging is not re-armed: its start bit
+        // would latch and move nothing, so arming it again only burns another
+        // spin budget. The probe decided; PIO is the only way sectors move.
+        let use_dma = !psx_io::silicon::cd_dma_class().known_wedge();
+        if use_dma && unsafe { self.read_sector_dma(buffer) } {
+            psx_io::silicon::cd_count_sector(true);
+            return;
+        }
+        unsafe { self.read_sector_pio(buffer) };
+        psx_io::silicon::cd_count_sector(false);
+    }
+
+    /// One sector over ch3: chopping-burst DMA, arm BFRD exactly as the PIO
+    /// path does, then start the transfer and wait a bounded time for it.
+    ///
+    /// `true` means the channel completed; `false` means it wedged (sticky
+    /// state set, channel aborted, data FIFO untouched) or the destination is
+    /// not word-addressable, and the caller must use the PIO path.
+    unsafe fn read_sector_dma(&mut self, buffer: *mut u32) -> bool {
+        // The DMA controller is word-addressed and masked to physical RAM.
+        if !buffer.cast::<u8>().addr().is_multiple_of(4) {
+            return false;
+        }
+        unsafe {
+            // Arm the data transfer (BFRD) before the kick: the drive starts
+            // pushing into the FIFO the moment BFRD is set, and a kick issued
+            // first would move nothing (and wedge) against an empty FIFO.
+            self.wr_index(0);
+            psx_io::write8(CD_IRQ, 0x80);
+            self.wr_index(0);
+            // A previous transfer left armed can still be latched busy; the
+            // START bit is ignored while busy, so one stuck kick would poison
+            // every later sector on this channel.
+            if psx_io::dma::is_busy(psx_io::dma::Channel::Cdrom) {
+                psx_io::dma::abort(psx_io::dma::Channel::Cdrom);
+            }
+            psx_io::dma::enable_channel(psx_io::dma::Channel::Cdrom);
+            psx_io::dma::set_madr(psx_io::dma::Channel::Cdrom, buffer as u32);
+            // One 2048-byte sector = 512 words; block mode advances MADR by the
+            // block size after each block, so 1 word x 512 blocks walks the
+            // sector contiguously.
+            psx_io::dma::set_bcr_block(
+                psx_io::dma::Channel::Cdrom,
+                1,
+                u16::try_from(SECTOR_WORDS).unwrap_or(u16::MAX),
+            );
+            // device->RAM (bit 0 clear), step +4 (bit 1 clear), chopping on so
+            // the CPU keeps running, block sync, start.
+            psx_io::dma::set_chcr(
+                psx_io::dma::Channel::Cdrom,
+                psx_io::dma::CHCR_CHOPPING_ENABLE
+                    | psx_io::dma::CHCR_SYNC_BLOCK
+                    | psx_io::dma::CHCR_START,
+            );
+        }
+        if psx_io::dma::wait_done(psx_io::dma::Channel::Cdrom, CD_DMA_SPINS) {
+            // Completed: known-good (this is the probe when still Unknown).
+            psx_io::silicon::cd_dma_mark_works();
+            return true;
+        }
+        // Convicted: every later sector read short-circuits to PIO.
+        psx_io::silicon::cd_dma_mark_wedged();
+        psx_io::dma::abort(psx_io::dma::Channel::Cdrom);
+        false
+    }
+
+    /// Pop one sector out of the drive's data FIFO a byte at a time: arm BFRD,
+    /// wait until the FIFO actually reports data, then read all 2048 bytes.
+    unsafe fn read_sector_pio(&mut self, buffer: *mut u32) {
         unsafe {
             // Arm the data transfer (BFRD).
             self.wr_index(0);

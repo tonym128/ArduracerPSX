@@ -189,7 +189,7 @@ const _: () = assert!(HUD == STAGE_COUNT - 1);
 // ---------------------------------------------------------------------------
 
 /// Number of counter slots. Sized to the highest counter constant plus one.
-pub const COUNTER_COUNT: usize = 9;
+pub const COUNTER_COUNT: usize = 11;
 
 /// 64x64 tiles decompressed from JPEG into VRAM this frame.
 pub const C_TILE_DECODES: usize = 0;
@@ -228,7 +228,23 @@ pub const C_MISSED_VBLANKS: usize = 7;
 /// completing a tile, which is the whole point of the time-sliced job.
 pub const C_DECODE_ROWS: usize = 8;
 
-const _: () = assert!(C_DECODE_ROWS == COUNTER_COUNT - 1);
+/// VRAM uploads that completed over a DMA channel.
+///
+/// One per tile uploaded, so `uploads-dma + uploads-fifo` is the total tile
+/// traffic and the ratio is the fraction of it the DMA controller actually
+/// moved. A run with `uploads-dma` pinned at zero while `uploads-fifo` climbs is
+/// the sticky-wedge signature: the probe convicted ch2 once and every later
+/// upload short-circuits without re-arming it.
+pub const C_UPLOAD_DMA: usize = 9;
+
+/// VRAM uploads that fell back to the GP0 FIFO.
+///
+/// The complement of [`C_UPLOAD_DMA`]: every tile takes exactly one of the two
+/// paths, so these two counters summing to the tile count is the invariant that
+/// proves the fallback is being taken deliberately rather than by accident.
+pub const C_UPLOAD_FIFO: usize = 10;
+
+const _: () = assert!(C_UPLOAD_FIFO == COUNTER_COUNT - 1);
 
 // ---------------------------------------------------------------------------
 // Instrumentation on
@@ -292,6 +308,8 @@ static COUNTER_NAMES: [&str; COUNTER_COUNT] = [
     "over-budget",
     "missed-vblanks",
     "decode-rows",
+    "uploads-dma",
+    "uploads-fifo",
 ];
 
 /// Cycle totals summed over the frames in the current window.

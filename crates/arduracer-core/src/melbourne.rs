@@ -44,7 +44,7 @@ pub static TRACK_MELBOURNE: TrackDef = TrackDef {
         width: 0,
         height: 0,
     }; MAX_TRACK_CHECKPOINTS],
-    tiles: &MELBOURNE_TILES,
+    tiles: Some(&MELBOURNE_TILES),
     route: &[],
     half_width: 32,
 };

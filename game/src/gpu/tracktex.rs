@@ -244,6 +244,9 @@ impl DecodeJob {
 /// 1-slot unified RAM block holding the 1024x1024 compressed map (<= 500 KB).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
+/// RAM half of the TIM4 streaming path.
+static mut TIM4_FIFO: Tim4Fifo = Tim4Fifo::new();
+
 /// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
 static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];
 
@@ -468,7 +471,11 @@ const TIM4_TILE_RECT: (u16, u16) = (
 );
 
 /// Three different divisions of the same 64x64 tile meet here, and they are all
-/// easy to confuse with each other or with the 8bpp case:
+/// easy to confuse with each other or with the 8bpp case. The 8bpp figure is
+/// the trap: 8bpp packs *two* texels per halfword, 4bpp packs *four*, so the
+/// 8bpp conversion produces a 32x32 halfword rect whose *area* is right and
+/// whose shape is not -- which renders as a sheared, striped track rather than
+/// an obvious failure:
 ///
 /// * 4096 texels
 /// * 2048 *bytes* (four texels share a halfword)
@@ -487,35 +494,21 @@ const _: () = assert!(
     visual_tex::TIM4_TILE_HALFWORDS * 2 == visual_tex::TIM4_TILE_BYTES,
     "halfword count and byte count must describe the same tile"
 );
+// The area assert above cannot catch the shape, because halving the width and
+// halving the height cancel: 32x32 and 16x64 are both 1024 halfwords. Only one
+// of them matches where the GPU later samples. These two pin the shape.
+const _: () = assert!(
+    TIM4_TILE_RECT.0 as usize == visual_tex::TIM4_TILE_HALFWORDS_WIDE,
+    "the 4bpp upload rect must be as wide as 4 texels-per-halfword makes it"
+);
+const _: () = assert!(
+    TIM4_TILE_RECT.1 as usize == visual_tex::TIM4_TILE_DIM,
+    "4bpp packing halves the width, never the height"
+);
 const _: () = assert!(
     visual_tex::TIM4_TILE_BYTES as u32 == TIM4_TILE_SECTORS * 2048,
     "a 4bpp tile must be a whole number of CD sectors"
 );
-
-/// Whether `circuit` has a TIM4 block on this disc, and where it starts.
-///
-/// `None` covers every way the path can be unavailable: the feature is off, the
-/// disc has no `TIM4TRACKS.BIN`, the circuit is one of the three 10 km^2 cities
-/// (no art to convert, only a generator to re-run), or the cooker recorded no
-/// block for it.
-#[inline]
-fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
-    if !TIM4_ENABLED {
-        return None;
-    }
-    if active_city() != 0 {
-        return None;
-    }
-    let lba = unsafe { TIM4TRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
-        return None;
-    }
-    let entry = visual_tex::CIRCUIT_TIM4_SECTORS[circuit];
-    if entry.sector_count == 0 {
-        return None;
-    }
-    Some((lba + entry.sector_offset, entry.sector_count))
-}
 
 /// Streaming FIFO of 4bpp tiles, in sectors.
 ///
@@ -568,7 +561,30 @@ impl Tim4Fifo {
     }
 }
 
-static mut TIM4_FIFO: Tim4Fifo = Tim4Fifo::new();
+/// Whether `circuit` has a TIM4 block on this disc, and where it starts.
+///
+/// `None` covers every way the path can be unavailable: the feature is off, the
+/// disc has no `TIM4TRACKS.BIN`, the circuit is one of the three 10 km^2 cities
+/// (no art to convert, only a generator to re-run), or the cooker recorded no
+/// block for it.
+#[inline]
+fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
+    if !TIM4_ENABLED {
+        return None;
+    }
+    if active_city() != 0 {
+        return None;
+    }
+    let lba = unsafe { TIM4TRACKS_BIN_LBA }?;
+    if circuit >= visual_tex::COUNT {
+        return None;
+    }
+    let entry = visual_tex::CIRCUIT_TIM4_SECTORS[circuit];
+    if entry.sector_count == 0 {
+        return None;
+    }
+    Some((lba + entry.sector_offset, entry.sector_count))
+}
 
 /// Reads `ACTIVE_CITY` without taking a reference to a mutable static.
 ///
@@ -589,18 +605,25 @@ struct TrackTexture {
     tpages: [Tpage; TRACK_TPAGE_COUNT],
     /// CLUT handle for indexed formats, 0 for 15bpp direct colour.
     clut_word: u16,
-    /// Texels per U unit. The GPU addresses 4bpp as `X >> 2`, 8bpp and 15bpp as
-    /// `X`, so this is 2 for the CLUT-indexed 4bpp path and 0 otherwise.
+    /// Texels per U unit. Always 0: the GPU performs the depth-specific
+    /// division itself (`X >> 2` at 4bpp, `X` at 15bpp), so the renderer hands
+    /// it texel coordinates at every depth. This is a field rather than a
+    /// constant so a future depth can be added without re-plumbing both
+    /// emitters -- it is currently not that.
     u_shift: u8,
 }
 
 /// Tpage set for uncompressed 4bpp tiles.
 ///
-/// Same origins and same slot geometry as [`TPAGES`]: a 256x256 page holds 16
-/// 64x64 tiles at 15bpp *or* at 4bpp, because halving the bytes-per-texel
-/// doubles the tiles per page and the two layouts coincide. Only the depth
-/// differs. The regions are never live at the same time -- switching codec
-/// drops every cached tile -- so sharing coordinates costs nothing.
+/// Same page *origins* as [`TPAGES`], but the two depths do not share the slot
+/// geometry. A 256x256 page holds 16 64x64 tiles at either depth -- halving the
+/// bytes per texel doubles the tiles per page -- but it fills the page
+/// differently: at 15bpp a tile is 64 halfwords wide, at 4bpp it is 16. So the
+/// 4bpp grid is packed four times as tightly and reads through
+/// [`texlayout::vram_slot_coords_tim4`].
+///
+/// The page regions are never live at the same time -- switching codec drops
+/// every cached tile -- so sharing origins costs nothing.
 const TIM4_TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
     Tpage::new(TRACK_VRAM_SLOTS[0].0, TRACK_VRAM_SLOTS[0].1, TexDepth::Bit4),
     Tpage::new(TRACK_VRAM_SLOTS[1].0, TRACK_VRAM_SLOTS[1].1, TexDepth::Bit4),
@@ -615,7 +638,7 @@ fn active_texture(circuit: usize) -> TrackTexture {
         TrackTexture {
             tpages: TIM4_TPAGES,
             clut_word: TIM4_CLUT.uv_clut_word(),
-            u_shift: 2,
+            u_shift: 0,
         }
     } else {
         TrackTexture {
@@ -1059,7 +1082,6 @@ fn upload_tile_dma4(
                 return false;
             }
             let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-            crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
             crate::prof::count(crate::prof::C_CD_SECTORS, count as u32);
             let read = {
                 let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
@@ -1082,14 +1104,26 @@ fn upload_tile_dma4(
     // word offset is one sector's worth of words.
     let src = unsafe { (words as *const u32).add(held * (visual_tex::TIM4_TILE_BYTES / 4)) };
 
-    let (vx, vy, tpage_idx, _, _) = texlayout::vram_slot_coords(target_slot);
+    // The 4bpp slot origin, not the 15bpp one: at this depth a 64-texel tile is
+    // 16 halfwords across, so the slot grid steps a quarter as far.
+    let (vx, vy, tpage_idx, _, _) = texlayout::vram_slot_coords_tim4(target_slot);
     let rect = VramRect::new(vx, vy, TIM4_TILE_RECT.0, TIM4_TILE_RECT.1);
     {
         let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
         // DMA first, GP0 FIFO if the channel did not report done. The FIFO path
         // re-emits GP0(A0h) from the rect origin, so it rewrites the whole tile
         // rather than leaving the aborted transfer's partial result behind.
-        if !dma_copy_to_vram(rect, src) {
+        let via_dma = dma_copy_to_vram(rect, src);
+        crate::note_upload_path(via_dma);
+        crate::prof::count(
+            if via_dma {
+                crate::prof::C_UPLOAD_DMA
+            } else {
+                crate::prof::C_UPLOAD_FIFO
+            },
+            1,
+        );
+        if !via_dma {
             upload_words(rect, unsafe {
                 core::slice::from_raw_parts(src, visual_tex::TIM4_TILE_HALFWORDS / 2)
             });
@@ -1147,16 +1181,14 @@ fn upload_tile_dma(
         return false;
     }
 
-    // Read into the staging buffer as raw bytes: `read_sectors` copies whole
-    // 2048-byte sectors, and the four of them exactly fill the 8 KB tile with
-    // no partial sector and no repacking.
+    // Four 2048-byte sectors exactly fill the 8 KB tile with no partial
+    // sector and no repacking.
     let tile_bytes = TIM_TILE_SECTORS as usize * 2048;
     if tile_bytes != TILE_PIXELS * 2 {
         return false;
     }
     let words = scratch_words();
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-    crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
     crate::prof::count(crate::prof::C_CD_SECTORS, TIM_TILE_SECTORS);
     let read = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
@@ -1182,7 +1214,20 @@ fn upload_tile_dma(
         // aborts before returning false, and the FIFO path re-emits the
         // GP0(A0) header from the rect origin, so the whole tile is rewritten
         // rather than leaving the partial transfer the aborted one left behind.
-        if !dma_copy_to_vram(rect, words as *const u32) {
+        // Count the path taken, not just the outcome: "the DMA channel wedged"
+        // and "the DMA path is fine but this tile's rect cannot be DMA'd" both
+        // return false, and only the first is a silicon story.
+        let via_dma = dma_copy_to_vram(rect, words as *const u32);
+        crate::note_upload_path(via_dma);
+        crate::prof::count(
+            if via_dma {
+                crate::prof::C_UPLOAD_DMA
+            } else {
+                crate::prof::C_UPLOAD_FIFO
+            },
+            1,
+        );
+        if !via_dma {
             upload_words(rect, unsafe {
                 core::slice::from_raw_parts(words as *const u32, TILE_PIXELS / 2)
             });
@@ -1631,75 +1676,135 @@ pub fn render_track(
     );
 }
 
-/// Helper that steps the active MCU row decode job or schedules the next visible un-cached tile.
-/// Returns true if 1 MCU row was decoded, or false if all visible tiles are already resident in VRAM.
+/// Tile reference tuple: `(tile_x, tile_y, block_x, block_y, sub_tx, sub_ty)`.
+/// Shared by the visible list and the prefetch list so one scheduler can read
+/// either.
+type TileRef = (i32, i32, usize, usize, usize, usize);
+
+/// Hard cap on prefetch candidates held on the stack.
+///
+/// The lookahead is one tile row above and one below the visible rectangle, so
+/// the real count is `2 * tiles-per-row` (a 320-unit-wide window over 160-unit
+/// tiles is ~3). The cap is a hard bound so a wide window (zoomed out, or a
+/// small-tile circuit) degrades to "prefetch fewer" instead of growing the
+/// stack without limit. `visible_tiles` uses the same shape at 48.
+const PREFETCH_MAX: usize = 16;
+
+/// Whether `tile` currently has its pixels resident in a VRAM slot.
+#[inline]
+fn tile_resident(vram_slots: &[VramSlot; VRAM_SLOT_COUNT], circuit: usize, tile: &TileRef) -> bool {
+    let (_, _, bx, by, sub_tx, sub_ty) = *tile;
+    vram_slots.iter().any(|slot| {
+        slot.resident_circuit == circuit
+            && slot.resident_block_x == bx
+            && slot.resident_block_y == by
+            && slot.resident_tile_x == sub_tx
+            && slot.resident_tile_y == sub_ty
+    })
+}
+
+/// Index of the first entry of `list` that is not resident, as `(index, tile)`.
+///
+/// Used for the prefetch list, which has no `slot_for_tile` probe result of its
+/// own. Visible tiles go through `slot_for_tile` instead, so their existing scan
+/// order and slot bookkeeping are untouched.
+fn first_missing_tile(
+    list: &[TileRef],
+    vram_slots: &[VramSlot; VRAM_SLOT_COUNT],
+    circuit: usize,
+) -> Option<(usize, TileRef)> {
+    for (i, tile) in list.iter().enumerate() {
+        if !tile_resident(vram_slots, circuit, tile) {
+            return Some((i, *tile));
+        }
+    }
+    None
+}
+
+/// The tile lists one frame's decode scheduler draws candidates from.
+///
+/// Bundled rather than passed as four loose parameters so the ordering rule
+/// (visible before prefetch) is stated once, in one place.
+struct TileCandidates<'a> {
+    /// Tiles inside the screen rectangle. Phase 3 draws these.
+    visible: &'a [TileRef],
+    visible_count: usize,
+    /// One tile row above and below the visible rectangle. Decode-only.
+    prefetch: &'a [TileRef],
+    prefetch_count: usize,
+}
+
+/// Helper that steps the active MCU row decode job or schedules the next tile
+/// that needs decoding.
+///
+/// Candidates are considered visible-first, prefetch-second, so a tile that is on
+/// screen always outranks one that is a row away: the lookahead can never trade
+/// a placeholder for a prefetch. Returns true if 1 MCU row was decoded, or false
+/// if every visible tile is resident and nothing is left to prefetch.
 #[inline(always)]
 fn step_or_schedule_decode_row(
     current_frame: u32,
     active_circuit: usize,
-    visible_tiles: &[(i32, i32, usize, usize, usize, usize); 48],
-    vis_count: usize,
+    candidates: &TileCandidates<'_>,
     slot_for_tile: &mut [usize; 48],
     used_slots: &mut [bool; VRAM_SLOT_COUNT],
     vram_slots: &mut [VramSlot; VRAM_SLOT_COUNT],
 ) -> bool {
+    let vis_count = candidates.visible_count;
     let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
     if !job.active {
-        // No active decode job running: check if any visible tile needs decoding
-        let mut scheduled = false;
-        for i in 0..vis_count {
-            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
-            let s = slot_for_tile[i];
-            let is_hit = s != usize::MAX && {
-                let slot = &vram_slots[s];
-                slot.resident_circuit == active_circuit
-                    && slot.resident_block_x == bx
-                    && slot.resident_block_y == by
-                    && slot.resident_tile_x == sub_tx
-                    && slot.resident_tile_y == sub_ty
-            };
-            if is_hit {
-                continue;
+        // No active decode job running: pick the next tile that needs one.
+        let visible_miss = (0..vis_count).find(|&i| slot_for_tile[i] == usize::MAX);
+        let candidate = match visible_miss {
+            Some(i) => {
+                let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
+                Some((bx, by, sub_tx, sub_ty))
             }
+            // Only look past the screen once every visible tile is resident.
+            None => first_missing_tile(
+                &candidates.prefetch[..candidates.prefetch_count],
+                vram_slots,
+                active_circuit,
+            )
+            .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty)),
+        };
+        let Some((bx, by, sub_tx, sub_ty)) = candidate else {
+            return false;
+        };
 
-            // Find oldest VRAM slot not currently visible in this frame
-            let mut best_slot = 0;
-            let mut oldest_age = u32::MAX;
-            for s_idx in 0..VRAM_SLOT_COUNT {
-                if !used_slots[s_idx] {
-                    let slot = &vram_slots[s_idx];
-                    if slot.resident_circuit == usize::MAX {
-                        best_slot = s_idx;
-                        break;
-                    }
-                    if slot.last_used < oldest_age {
-                        oldest_age = slot.last_used;
-                        best_slot = s_idx;
-                    }
+        // Find oldest VRAM slot not currently visible in this frame. `used_slots`
+        // holds both visible residents and in-flight decode targets, so this can
+        // only evict a tile nothing on screen needs.
+        let mut best_slot = 0;
+        let mut oldest_age = u32::MAX;
+        for s_idx in 0..VRAM_SLOT_COUNT {
+            if !used_slots[s_idx] {
+                let slot = &vram_slots[s_idx];
+                if slot.resident_circuit == usize::MAX {
+                    best_slot = s_idx;
+                    break;
+                }
+                if slot.last_used < oldest_age {
+                    oldest_age = slot.last_used;
+                    best_slot = s_idx;
                 }
             }
-
-            // Reserve this slot so subsequent decodes in this frame won't evict it
-            used_slots[best_slot] = true;
-
-            // Schedule incremental decode job starting at MCU row 0
-            *job = DecodeJob {
-                active: true,
-                circuit: active_circuit,
-                block_x: bx,
-                block_y: by,
-                tile_x: sub_tx,
-                tile_y: sub_ty,
-                target_slot: best_slot,
-                next_row: 0,
-            };
-            scheduled = true;
-            break;
         }
 
-        if !scheduled {
-            return false;
-        }
+        // Reserve this slot so subsequent decodes in this frame won't evict it
+        used_slots[best_slot] = true;
+
+        // Schedule incremental decode job starting at MCU row 0
+        *job = DecodeJob {
+            active: true,
+            circuit: active_circuit,
+            block_x: bx,
+            block_y: by,
+            tile_x: sub_tx,
+            tile_y: sub_ty,
+            target_slot: best_slot,
+            next_row: 0,
+        };
     }
 
     let job_bx = job.block_x;
@@ -1713,8 +1818,8 @@ fn step_or_schedule_decode_row(
     // If step_decode_job completed all 4 rows, job.active is now false and the tile
     // was uploaded to VRAM. Update slot_for_tile so Phase 3 renders it immediately textured without placeholder!
     if !job.active {
-        for i in 0..vis_count {
-            let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+        for (i, tile) in candidates.visible.iter().take(vis_count).enumerate() {
+            let (_, _, bx, by, sub_tx, sub_ty) = *tile;
             if bx == job_bx && by == job_by && sub_tx == job_tx && sub_ty == job_ty {
                 slot_for_tile[i] = job_slot;
                 used_slots[job_slot] = true;
@@ -1824,6 +1929,52 @@ pub fn render_track_extents(
         }
     }
 
+    // One tile row of lookahead above and below the visible rectangle.
+    //
+    // A tile's decode is time-sliced across 4 MCU rows, so a tile first seen at
+    // the screen edge spends several frames as a placeholder. Starting its
+    // decode a row early means it is usually resident by the time the camera
+    // reaches it. Vertical only: adding columns as well would roughly double
+    // the candidate set against a fixed 64-slot VRAM pool, and horizontal
+    // scrolling is the cheap direction (tiles enter sideways, already decoded
+    // by the row that was already in view).
+    //
+    // These are candidates only -- Phase 3 still draws `visible_tiles`, so a
+    // prefetched tile costs a decode row and a slot, never a polygon.
+    let mut prefetch_tiles: [TileRef; PREFETCH_MAX] = [(0, 0, 0, 0, 0, 0); PREFETCH_MAX];
+    let mut prefetch_count = 0usize;
+    {
+        let world_max_ty = (world_h - 1).max(0) / tile_wu_y;
+        for ty in [min_ty.saturating_sub(1), max_ty + 1] {
+            // Clamping the lookahead to the world can land it back on a row that
+            // is already visible (at the top or bottom edge). Those tiles are
+            // covered by `visible_tiles`, so skip rather than spend a candidate.
+            if !(0..=world_max_ty).contains(&ty) || (min_ty..=max_ty).contains(&ty) {
+                continue;
+            }
+            for tx in min_tx..=max_tx {
+                if prefetch_count >= PREFETCH_MAX {
+                    break;
+                }
+                let wx0 = tx * tile_wu_x;
+                let wy0 = ty * tile_wu_y;
+                if camera.mode7 && !m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
+                    continue;
+                }
+                let bx = (wx0 / block_wu_x) as usize;
+                let by = (wy0 / block_wu_y) as usize;
+                let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                    as usize;
+                let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                    as usize;
+                prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                prefetch_count += 1;
+            }
+        }
+    }
+
     let mut slot_for_tile = [usize::MAX; 48];
     let mut used_slots = [false; VRAM_SLOT_COUNT];
 
@@ -1885,8 +2036,12 @@ pub fn render_track_extents(
         let did_work = step_or_schedule_decode_row(
             current_frame,
             active_circuit,
-            &visible_tiles,
-            vis_count,
+            &TileCandidates {
+                visible: &visible_tiles,
+                visible_count: vis_count,
+                prefetch: &prefetch_tiles,
+                prefetch_count,
+            },
             &mut slot_for_tile,
             &mut used_slots,
             vram_slots,

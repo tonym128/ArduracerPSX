@@ -81,6 +81,31 @@ pub const fn vram_slot_coords(slot: usize) -> (u16, u16, usize, u8, u8) {
     (tx + u, ty + v, tpage_idx, u as u8, v as u8)
 }
 
+/// Halfwidth of a 64x64 4bpp tile in VRAM halfwords: four indices per word.
+pub const TIM4_TILE_HALFWORDS_WIDE: u16 = VRAM_TILE_DIM / 4;
+
+/// The 4bpp equivalent of a VRAM cache slot's origin.
+///
+/// The 15bpp layout steps 64 halfwords per tile column, because a 64-texel
+/// 15bpp tile *is* 64 halfwords wide. At 4bpp the same 64 texels are only 16
+/// halfwords, so stepping 64 would leave three quarters of every page column
+/// unused and push the last tile column off the 4bpp page (which is 64 halfwords
+/// wide, not 256).
+///
+/// The 4x4 grid therefore packs tightly: 4 * 16 = 64 halfwords fills one page
+/// column exactly, which is why 16 tiles at 4bpp and 16 at 15bpp both fill a
+/// 256x256 page and the two layouts can share the same page origins.
+pub const fn vram_slot_coords_tim4(slot: usize) -> (u16, u16, usize, u8, u8) {
+    let tpage_idx = slot / TILES_PER_TPAGE;
+    let sub = slot % TILES_PER_TPAGE;
+    // Same texel-space offsets as the 15bpp layout: a tile is 64 texels across
+    // either way. Only the VRAM halfword origin differs, by the 4bpp packing.
+    let u = (sub % TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
+    let v = (sub / TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
+    let (tx, ty) = TRACK_VRAM_SLOTS[tpage_idx];
+    (tx + u / 4, ty + v, tpage_idx, u as u8, v as u8)
+}
+
 /// Bytes one 64x64 tile costs in VRAM: 64 * 64 * 2 = 8,192 bytes (8 KB).
 pub const TRACK_TILE_BYTES: usize = (TRACK_TILE_DIM as usize) * (TRACK_TILE_DIM as usize) * 2;
 
@@ -238,9 +263,144 @@ const _: () = {
     }
 };
 
+// The 4bpp slot grid has to tile its page exactly. A 4bpp texture page is 64
+// halfwords wide by 256 rows (256x256 texels, four per word), so 4 tiles across
+// at 16 halfwords each is what fills it -- the 15bpp grid's 64-halfword step
+// would run off the right-hand page column.
+const _: () = assert!(
+    TILES_PER_TPAGE_AXIS as u16 * TIM4_TILE_HALFWORDS_WIDE == TRACK_PAGE_COLS,
+    "4 tiles across must exactly fill a 4bpp page column"
+);
+const _: () = assert!(
+    TILES_PER_TPAGE_AXIS as u16 * VRAM_TILE_DIM == TRACK_PAGE_TEXELS,
+    "4 tiles down must exactly fill a 4bpp page column"
+);
+
+// Both layouts must agree on the texel-space UV offsets: the renderers sample
+// through `u`/`v`, and only the VRAM halfword origin may differ between depths.
+// If these ever diverge, tiles upload to one place and sample from another.
+const _: () = {
+    let mut s = 0;
+    while s < TRACK_SLOT_COUNT {
+        let (_, _, tp15, u15, v15) = vram_slot_coords(s);
+        let (_, _, tp4, u4, v4) = vram_slot_coords_tim4(s);
+        assert!(
+            tp15 == tp4 && u15 == u4 && v15 == v4,
+            "4bpp UVs diverge from 15bpp"
+        );
+        s += 1;
+    }
+};
+
+// A 4bpp tile's texel-space U must survive the trip to an 8-bit UV word. The
+// GPU divides U by four itself, so U is in texels and the deepest tile column
+// (192) plus a full 64-texel tile must still fit in 255.
+const _: () = assert!(
+    (TILES_PER_TPAGE_AXIS as u16 - 1) * VRAM_TILE_DIM + VRAM_TILE_DIM <= 256,
+    "4bpp UV U overflows the 8-bit vertex field"
+);
+
 // CLUT below the minimap slot, inside the same 64-column strip.
 const _: () = assert!(TRACK_CLUT_X == TEXTURE_X, "CLUT and minimap diverged");
 const _: () = assert!(
     TRACK_CLUT_Y >= TEXTURE_Y + MAX_DIM,
     "the CLUT row sits inside the minimap slot"
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arduracer_core::visual_tex;
+
+    // The 4bpp regression. A 4bpp tile is 16 VRAM halfwords across and 64 rows
+    // down. The 8bpp conversion (32x32) has the right *area* and the wrong
+    // shape, and the shape is what the GPU samples by, so it renders as a
+    // sheared, striped track rather than a clean failure.
+
+    #[test]
+    fn tim4_tile_is_16_halfwords_wide_and_64_rows_tall() {
+        assert_eq!(TIM4_TILE_HALFWORDS_WIDE, 16);
+        assert_eq!(VRAM_TILE_DIM, 64);
+        // Both shapes have area 1024; only one is the 4bpp one.
+        assert_eq!(TIM4_TILE_HALFWORDS_WIDE as usize * 64, 1024);
+        assert_eq!(32 * 32, 1024);
+    }
+
+    /// The cooker-facing constants are the ones that actually fed the upload
+    /// rect, so they are checked against this layout directly. They shipped at
+    /// the 8bpp figure (32x32) while everything else here said 16x64, which is
+    /// why the area-only assert in `tracktex` could not see it.
+    #[test]
+    fn cooker_constants_agree_with_this_layout() {
+        assert_eq!(
+            visual_tex::TIM4_TILE_HALFWORDS_WIDE,
+            TIM4_TILE_HALFWORDS_WIDE as usize
+        );
+        assert_eq!(visual_tex::TIM4_TILE_ROWS, VRAM_TILE_DIM as usize);
+        assert_eq!(visual_tex::TIM4_TEXELS_PER_HALFWORD, 4);
+        // And the area the cooker reports is the product of the two.
+        assert_eq!(
+            visual_tex::TIM4_TILE_HALFWORDS,
+            visual_tex::TIM4_TILE_HALFWORDS_WIDE * visual_tex::TIM4_TILE_ROWS
+        );
+    }
+
+    #[test]
+    fn tim4_slots_tile_their_page_exactly() {
+        for s in 0..TRACK_SLOT_COUNT {
+            let (sx, sy, tpage, _, _) = vram_slot_coords_tim4(s);
+            let (px, py) = TRACK_VRAM_SLOTS[tpage];
+            assert!(
+                sx + TIM4_TILE_HALFWORDS_WIDE <= px + TRACK_PAGE_COLS,
+                "slot {s} runs off the right edge of its 4bpp page"
+            );
+            assert!(
+                sy + VRAM_TILE_DIM <= py + TRACK_PAGE_TEXELS,
+                "slot {s} runs off the bottom of its 4bpp page"
+            );
+            assert!(sx >= SCREEN_W, "slot {s} touches framebuffer");
+            assert!(
+                sx + TIM4_TILE_HALFWORDS_WIDE <= TEXTURE_X,
+                "slot {s} touches minimap"
+            );
+            assert!(sy + VRAM_TILE_DIM <= 512, "slot {s} overflows VRAM height");
+        }
+    }
+
+    #[test]
+    fn tim4_and_15bpp_agree_on_texel_uvs_but_not_on_halfword_origins() {
+        for s in 0..TRACK_SLOT_COUNT {
+            let (x15, y15, tp15, u15, v15) = vram_slot_coords(s);
+            let (x4, y4, tp4, u4, v4) = vram_slot_coords_tim4(s);
+            // The renderers sample through u/v, so these must match exactly or a
+            // tile uploads to one place and samples from another.
+            assert_eq!((tp15, u15, v15), (tp4, u4, v4), "slot {s} UVs diverge");
+            // Rows always match: 4bpp halves the width axis only.
+            assert_eq!(y15, y4, "slot {s} rows must match");
+            // Columns past the first are packed tighter.
+            let col = (s % TILES_PER_TPAGE) % TILES_PER_TPAGE_AXIS;
+            if col != 0 {
+                assert!(x4 < x15, "slot {s}: 4bpp origin should be tighter");
+            } else {
+                assert_eq!(x4, x15, "slot {s}: first column shares an origin");
+            }
+        }
+    }
+
+    #[test]
+    fn tim4_texel_u_fits_the_eight_bit_vertex_field() {
+        // U is carried in texels (the GPU divides by four itself), so the
+        // deepest tile column must not overflow the 8-bit UV word.
+        for s in 0..TILES_PER_TPAGE {
+            let (_, _, _, u, _) = vram_slot_coords_tim4(s);
+            assert!(
+                (u as u16) + VRAM_TILE_DIM <= 256,
+                "slot {s}: U overflows the vertex field"
+            );
+        }
+        // The deepest column starts at 192 and ends at 256, i.e. the last texel
+        // is U = 255 exactly.
+        let (_, _, _, u, _) = vram_slot_coords_tim4(TILES_PER_TPAGE - 1);
+        assert_eq!(u, 192);
+    }
+}

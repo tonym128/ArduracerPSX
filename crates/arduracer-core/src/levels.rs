@@ -6494,7 +6494,7 @@ pub static TRACK_CASCADE_FALLS: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_CASCADE_FALLS_TILES,
+    tiles: Some(&TRACK_CASCADE_FALLS_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -13364,7 +13364,7 @@ pub static TRACK_COPPER_GORGE: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_COPPER_GORGE_TILES,
+    tiles: Some(&TRACK_COPPER_GORGE_TILES),
     route: &[
         Vec2 {
             x: Fixed(3211264),
@@ -20234,7 +20234,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_LONGBOW_TILES,
+    tiles: Some(&TRACK_LONGBOW_TILES),
     route: &[
         Vec2 {
             x: Fixed(2162688),
@@ -27104,7 +27104,7 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_AMBER_MESA_TILES,
+    tiles: Some(&TRACK_AMBER_MESA_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -33974,7 +33974,7 @@ pub static TRACK_EMERALD_GLEN: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_EMERALD_GLEN_TILES,
+    tiles: Some(&TRACK_EMERALD_GLEN_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -40844,7 +40844,7 @@ pub static TRACK_SUNBURST_VALLEY: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_SUNBURST_VALLEY_TILES,
+    tiles: Some(&TRACK_SUNBURST_VALLEY_TILES),
     route: &[
         Vec2 {
             x: Fixed(2555904),
@@ -47714,7 +47714,7 @@ pub static TRACK_WHISPERING_PINES: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_WHISPERING_PINES_TILES,
+    tiles: Some(&TRACK_WHISPERING_PINES_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -54584,7 +54584,7 @@ pub static TRACK_IRONSTONE_QUARRY: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_IRONSTONE_QUARRY_TILES,
+    tiles: Some(&TRACK_IRONSTONE_QUARRY_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -61454,7 +61454,7 @@ pub static TRACK_SILVERSTONE_MIST: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_SILVERSTONE_MIST_TILES,
+    tiles: Some(&TRACK_SILVERSTONE_MIST_TILES),
     route: &[
         Vec2 {
             x: Fixed(2162688),
@@ -68324,7 +68324,7 @@ pub static TRACK_FALCON_CREST: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_FALCON_CREST_TILES,
+    tiles: Some(&TRACK_FALCON_CREST_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -75194,7 +75194,7 @@ pub static TRACK_WILLOW_CREEK: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_WILLOW_CREEK_TILES,
+    tiles: Some(&TRACK_WILLOW_CREEK_TILES),
     route: &[
         Vec2 {
             x: Fixed(2686976),
@@ -82064,7 +82064,7 @@ pub static TRACK_COBALT_RUN: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_COBALT_RUN_TILES,
+    tiles: Some(&TRACK_COBALT_RUN_TILES),
     route: &[
         Vec2 {
             x: Fixed(2162688),
@@ -88934,7 +88934,7 @@ pub static TRACK_DRAGON_S_SPINE: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_DRAGON_S_SPINE_TILES,
+    tiles: Some(&TRACK_DRAGON_S_SPINE_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -95804,7 +95804,7 @@ pub static TRACK_REDWOOD_PASS: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_REDWOOD_PASS_TILES,
+    tiles: Some(&TRACK_REDWOOD_PASS_TILES),
     route: &[
         Vec2 {
             x: Fixed(2162688),
@@ -102674,7 +102674,7 @@ pub static TRACK_THUNDER_BASIN: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_THUNDER_BASIN_TILES,
+    tiles: Some(&TRACK_THUNDER_BASIN_TILES),
     route: &[
         Vec2 {
             x: Fixed(2555904),
@@ -109544,7 +109544,7 @@ pub static TRACK_CANYON_MIRAGE: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_CANYON_MIRAGE_TILES,
+    tiles: Some(&TRACK_CANYON_MIRAGE_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -116414,7 +116414,7 @@ pub static TRACK_APEX_PREDATOR: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_APEX_PREDATOR_TILES,
+    tiles: Some(&TRACK_APEX_PREDATOR_TILES),
     route: &[
         Vec2 {
             x: Fixed(2162688),
@@ -123284,7 +123284,7 @@ pub static TRACK_VIPER_S_TAIL: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_VIPER_S_TAIL_TILES,
+    tiles: Some(&TRACK_VIPER_S_TAIL_TILES),
     route: &[
         Vec2 {
             x: Fixed(2686976),
@@ -130154,7 +130154,7 @@ pub static TRACK_FROSTPEAK_SUMMIT: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_FROSTPEAK_SUMMIT_TILES,
+    tiles: Some(&TRACK_FROSTPEAK_SUMMIT_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -137024,7 +137024,7 @@ pub static TRACK_GOLDEN_HORIZON: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_GOLDEN_HORIZON_TILES,
+    tiles: Some(&TRACK_GOLDEN_HORIZON_TILES),
     route: &[
         Vec2 {
             x: Fixed(2162688),
@@ -143894,7 +143894,7 @@ pub static TRACK_PHANTOM_RAVINE: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_PHANTOM_RAVINE_TILES,
+    tiles: Some(&TRACK_PHANTOM_RAVINE_TILES),
     route: &[
         Vec2 {
             x: Fixed(2424832),
@@ -150764,7 +150764,7 @@ pub static TRACK_FROST_CASCADE: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_FROST_CASCADE_TILES,
+    tiles: Some(&TRACK_FROST_CASCADE_TILES),
     route: &[
         Vec2 {
             x: Fixed(8323072),
@@ -157634,7 +157634,7 @@ pub static TRACK_LUNAR_GORGE: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_LUNAR_GORGE_TILES,
+    tiles: Some(&TRACK_LUNAR_GORGE_TILES),
     route: &[
         Vec2 {
             x: Fixed(6750208),
@@ -164464,7 +164464,7 @@ pub static TRACK_ONYX_RUN: TrackDef = TrackDef {
         EMPTY_GATE,
         EMPTY_GATE,
     ],
-    tiles: &TRACK_ONYX_RUN_TILES,
+    tiles: Some(&TRACK_ONYX_RUN_TILES),
     route: &[
         Vec2 {
             x: Fixed(7929856),

@@ -85,6 +85,16 @@ host-test = []
 #   cargo build --release --features profiling
 profiling = []
 
+# Pin the texture format for headless A/B/C comparison runs, so a run can be
+# reproduced from its feature list alone instead of depending on which save the
+# memory card happens to hold. Each implies `profiling`; combining them is a
+# compile error (see main.rs) rather than a silent winner.
+#
+#   cargo build --release --features profiling,profile-tim
+profile-tim = ["profiling"]
+profile-tim4 = ["profiling"]
+profile-qoi = ["profiling"]
+
 [dependencies]
 psx-asset = { path = "../psoxide/sdk/crates/psx-asset" }
 psx-font  = { path = "../psoxide/sdk/crates/psx-font" }

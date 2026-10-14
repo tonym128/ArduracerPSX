@@ -276,11 +276,11 @@ fn par_drift(track: &TrackDef, dev: u32, gold: u32, silver: u32, bronze: u32) ->
 fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
     let label = format!("track {} ({})", idx + 1, track.name);
 
-    if track.tiles.len() != track.width as usize * track.height as usize {
+    if track.tile_grid().len() != track.width as usize * track.height as usize {
         errors.push(format!(
             "{}: tile array is {} entries, expected {}",
             label,
-            track.tiles.len(),
+            track.tile_grid().len(),
             track.width as usize * track.height as usize
         ));
         return;

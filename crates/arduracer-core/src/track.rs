@@ -82,6 +82,30 @@ pub enum TrackTile {
 }
 
 impl TrackTile {
+    /// Decodes a grid byte read from the disc into a variant.
+    ///
+    /// The discriminants are consecutive from 0, so this is a bounds check and
+    /// a cast. It exists because the byte comes off a disc the cooker wrote, and
+    /// a bare `transmute` here would turn one bad byte into an invalid enum
+    /// discriminant -- undefined behaviour in everything downstream, including
+    /// the `match` in [`surface`](Self::surface). Anything unrecognised becomes
+    /// [`Barrier`](Self::Barrier), which is what `tile_at` already returns for
+    /// an out-of-bounds coordinate, so a corrupt grid fails visibly instead of
+    /// unpredictably.
+    pub const fn from_disc_byte(b: u8) -> Self {
+        match b {
+            0 => Self::Tarmac,
+            1 => Self::Curb,
+            2 => Self::OffRoad,
+            3 => Self::OilSlick,
+            4 => Self::BoostPad,
+            5 => Self::Barrier,
+            6 => Self::StartFinish,
+            7 => Self::Checkpoint,
+            _ => Self::Barrier,
+        }
+    }
+
     /// Physical surface type used by the vehicle dynamics and haptics.
     pub const fn surface(self) -> SurfaceType {
         match self {
@@ -133,7 +157,17 @@ pub struct TrackDef {
     /// Checkpoint gates in *driving* order (tours may be traversed either way).
     pub checkpoints: [CheckpointGate; MAX_TRACK_CHECKPOINTS],
     /// Row-major tile grid, `height * width` entries.
-    pub tiles: &'static [TrackTile],
+    ///
+    /// `None` means the grid has not been loaded. That is the shipping state:
+    /// the grids live on the disc and are installed into a shared buffer at
+    /// level load, and this field is repointed at that buffer once (see
+    /// `game::level_grid`). Keeping it optional rather than always pointing
+    /// somewhere is what makes "not loaded" representable -- a stale grid from
+    /// the previously-loaded level is far worse than none.
+    ///
+    /// `Some` is what the host test tools use, and what a level looks like
+    /// before its data moves off the executable.
+    pub tiles: Option<&'static [TrackTile]>,
     /// Authored racing-line control points in world space, in order. The core
     /// builds [`Route`](crate::Route) from these rather than from the checkpoint
     /// gates, so the AI follows the centreline instead of a gate-to-gate chord.
@@ -220,14 +254,31 @@ impl TrackDef {
         0
     }
 
-    /// Returns the raw tile at a grid coordinate, or `Barrier` when out of bounds.
+    /// The loaded grid, or an empty slice when none is installed.
+    ///
+    /// Empty rather than a fallback fill: every reader already treats a missing
+    /// cell as [`Barrier`](TrackTile::Barrier), so an unloaded level reads as
+    /// solid wall everywhere instead of as plausible terrain.
+    #[inline]
+    pub fn tile_grid(&self) -> &'static [TrackTile] {
+        self.tiles.unwrap_or(&[])
+    }
+
+    /// Bytes a grid of this level's dimensions occupies on the disc.
+    #[inline]
+    pub fn grid_bytes(&self) -> usize {
+        self.width as usize * self.height as usize
+    }
+
+    /// Returns the raw tile at a grid coordinate, or `Barrier` when out of bounds
+    /// or when no grid is loaded.
     #[inline]
     pub fn tile_at(&self, tx: u8, ty: u8) -> TrackTile {
         if tx >= self.width || ty >= self.height {
             return TrackTile::Barrier;
         }
         let idx = (ty as usize) * (self.width as usize) + (tx as usize);
-        match self.tiles.get(idx) {
+        match self.tile_grid().get(idx) {
             Some(&t) => t,
             None => TrackTile::Barrier,
         }
@@ -511,7 +562,7 @@ mod tests {
             par_times: ParTimes::default(),
             checkpoint_count,
             checkpoints: gates,
-            tiles: &TILES,
+            tiles: Some(&TILES),
             // No authored centreline: exercises the gate-derived fallback.
             route: &[],
             half_width: 0,
@@ -740,14 +791,65 @@ mod tests {
                 }
             }
         }
-        // Boost pads and oil slicks are drivable but are not `is_road`, which is
-        // why navigation needs this predicate at all.
+    }
+
+    #[test]
+    fn disc_bytes_round_trip_through_every_variant() {
+        // The cooker writes the discriminant straight into the asset, so this
+        // mapping is a wire format between the disc and the engine. If a
+        // variant is ever renumbered without updating this, a loaded grid
+        // silently turns into different terrain.
+        let all = [
+            TrackTile::Tarmac,
+            TrackTile::Curb,
+            TrackTile::OffRoad,
+            TrackTile::OilSlick,
+            TrackTile::BoostPad,
+            TrackTile::Barrier,
+            TrackTile::StartFinish,
+            TrackTile::Checkpoint,
+        ];
+        for tile in all {
+            assert_eq!(TrackTile::from_disc_byte(tile as u8), tile, "{tile:?}");
+        }
+        // Discriminants are consecutive from 0, which is what makes the decode
+        // a bounds check rather than a lookup.
+        assert_eq!(all.len(), 8);
+    }
+
+    #[test]
+    fn an_unmapped_disc_byte_becomes_barrier_not_an_invalid_variant() {
+        // A corrupt or truncated asset must fail as solid wall. Reading it as a
+        // raw discriminant instead would be undefined behaviour in every
+        // `match` downstream.
+        for byte in [8u8, 9, 200, 255] {
+            assert_eq!(TrackTile::from_disc_byte(byte), TrackTile::Barrier);
+        }
+    }
+
+    #[test]
+    fn an_unloaded_grid_reads_as_barrier_everywhere() {
+        // `tiles: None` is the shipping state between loads. It must not read
+        // as the previous level's terrain, and must not panic.
+        let mut t = scratch_track(4);
+        t.tiles = None;
+        assert_eq!(t.tile_grid().len(), 0);
+        assert_eq!(t.tile_at(0, 0), TrackTile::Barrier);
+        assert_eq!(t.tile_at(2, 3), TrackTile::Barrier);
+        // Out of bounds is unchanged by any of this.
+        assert_eq!(t.tile_at(9, 9), TrackTile::Barrier);
+    }
+
+    // Boost pads and oil slicks are drivable but are not `is_road`, which is
+    // why navigation needs this predicate at all.
+    #[test]
+    fn boost_and_oil_tiles_are_line_tiles_but_not_road() {
         let mut pad = scratch_track(4);
-        pad.tiles = Box::leak(Box::new([TrackTile::BoostPad; 100]));
+        pad.tiles = Some(Box::leak(Box::new([TrackTile::BoostPad; 100])));
         assert!(!pad.is_road_at(0, 0));
         assert!(pad.is_line_tile(0, 0));
         let mut slick = scratch_track(4);
-        slick.tiles = Box::leak(Box::new([TrackTile::OilSlick; 100]));
+        slick.tiles = Some(Box::leak(Box::new([TrackTile::OilSlick; 100])));
         assert!(!slick.is_road_at(0, 0));
         assert!(slick.is_line_tile(0, 0));
     }
