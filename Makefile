@@ -403,10 +403,29 @@ circuits:
 
 # Re-measures reference laps and folds the result into the next `make atlas`, so
 # a par-table change is one command rather than two in the right order.
+#
+# The first pass deliberately ignores its exit status. `--calibrate` exits
+# non-zero precisely when it *found* drift and rewrote `par_calibration.json`,
+# which is the normal outcome of this target -- so treating that as failure
+# aborted make before `atlas` ran, and the drift notice told the user to run
+# `make atlas-and-calibrate` again, which is a loop that could never leave.
+# The `-` prefix is the fix; the second pass below is what actually gates.
+#
+# The second pass is strict, so a genuine problem -- a checkpoint off the racing
+# surface, say -- still fails loudly instead of being absorbed by the tolerance
+# above. That failure belongs to the level data, not to this target.
 .PHONY: atlas circuits atlas-and-calibrate
 atlas-and-calibrate:
-	@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+	-@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
 	@$(MAKE) --no-print-directory atlas
+	@$(MAKE) --no-print-directory verify-levels
+
+# Strict re-measure after a calibration: par times must now match the measured
+# laps. This is the gate `atlas-and-calibrate` finishes on, so it runs without
+# `--calibrate` and therefore has nothing to rewrite.
+.PHONY: verify-levels
+verify-levels:
+	@cargo run --manifest-path tools/playtest/Cargo.toml --release
 
 # The atlas pipeline compiles images, it does not draw them. Without this the
 # script exits on the first missing `.data.png` with a stack trace that reads as
@@ -449,8 +468,13 @@ iso: exe
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
+# Assembles the packed tile grid for every level. Only runs when the asset is
+# absent, so an ordinary build does not depend on having the circuit images
+# cooked -- but a tree that has never cooked them fails here with the reason,
+# rather than mastering a disc whose levels all read as solid wall.
 levels-bin:
-	@python3 $(ROOT)/tools/track_cook/make_levels_bin.py
+	@if [ -f "$(ROOT)/assets/LEVELS.BIN" ]; then exit 0; fi; \
+	python3 $(ROOT)/tools/track_cook/make_levels_bin.py
 
 assets: levels-bin
 	@mkdir -p $(ROOT)/assets/cdda

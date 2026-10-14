@@ -71,14 +71,6 @@ pub const TIM4_PALETTE_BYTES: usize = TIM4_PALETTE_ENTRIES * 2;
 pub const TIM4_PALETTE_SECTORS: u32 = 1;
 /// CD sectors per uncompressed 4bpp block.
 pub const TIM4_BLOCK_SECTORS: u32 = 257;
-/// Texels packed into one VRAM halfword at this depth.
-///
-/// Four 4-bit indices per 16-bit word. Every 4bpp conversion below divides by
-/// this, and it is *half* the 8bpp figure -- a 4bpp tile is half the width of
-/// an 8bpp tile of the same texel count. Getting this wrong is invisible in the
-/// area (see the cancel note on [`TIM4_TILE_HALFWORDS`]) and only shows up as a
-/// sheared image, so it is named rather than written as a bare division.
-pub const TIM4_TEXELS_PER_HALFWORD: usize = 4;
 /// Halfwords of VRAM a 64x64 4bpp image occupies.
 ///
 /// Quarter of its texel count, because four 4-bit indices share a
@@ -87,22 +79,33 @@ pub const TIM4_TEXELS_PER_HALFWORD: usize = 4;
 /// also the unit `GP0(A0h)` counts in, and it is *not* the texel
 /// width: a 64-texel-wide 4bpp image is 16 halfwords across.
 pub const TIM4_TILE_HALFWORDS: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;
+/// Texels packed into one VRAM halfword at this depth.
+///
+/// Four 4-bit indices per 16-bit word. Every 4bpp conversion divides by
+/// this, and it is *half* the 8bpp figure. Getting it wrong is invisible
+/// in the area -- a 32x32 halfword rect and the correct 16x64 both come
+/// to 1024 -- and only shows up as a sheared image, so it is named
+/// rather than written as a bare division.
+pub const TIM4_TEXELS_PER_HALFWORD: usize = 4;
 /// VRAM rows a 64-texel-tall 4bpp image occupies.
 ///
-/// One row per texel row: halving lives on the *width* axis at this depth,
-/// because four indices share one 16-bit word. Nothing is lost vertically, so
-/// this is the texel height unchanged. (Halving it to "keep the rect square"
-/// pairs a 32x32 halfword rect with a 16x64 texel tile, and the GPU then reads
-/// each texel row from the wrong halfword column.)
+/// One row per texel row: the halving lives on the *width* axis at this
+/// depth, because four indices share one 16-bit word. Nothing is lost
+/// vertically. (Halving it to "keep the rect square" pairs a 32x32
+/// halfword rect with a 16x64 texel tile, and the GPU then reads each
+/// texel row from the wrong halfword column.)
 pub const TIM4_TILE_ROWS: usize = TIM4_TILE_DIM;
 /// VRAM halfword columns a 64-texel-wide 4bpp image occupies.
 ///
-/// A quarter of the texel width, so the upload rect is *tall and narrow* in
-/// halfwords (16 across by 64 down) even though the image is square in texels.
-/// Passing the texel width here moves four times the tile; passing half the
-/// texel width -- the 8bpp figure -- moves it as a 32x32 block that does not
-/// match the 16x64 region the GPU later samples.
+/// A quarter of the texel width, so the upload rect is *tall and narrow*
+/// in halfwords (16 across by 64 down) even though the image is square
+/// in texels. Passing the texel width moves four times the tile;
+/// passing half the texel width -- the 8bpp figure -- moves it as a
+/// 32x32 block that does not match the 16x64 region the GPU samples.
 pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;
+/// Name of the disc asset holding every level's tile grid: row-major,
+/// one `TrackTile` discriminant per cell, in level order with no header.
+pub const LEVELS_BIN_NAME: &[u8] = b"LEVELS.BIN";
 /// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.
 pub const CAPETOWN_BIN_NAME: &[u8] = b"CAPETOWN.BIN";
 /// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.
@@ -932,7 +935,3 @@ pub static CLUT_RGB: [(u8, u8, u8); 16] = [
     (58, 90, 122),
     (255, 46, 136),
 ];
-
-/// Name of the disc asset holding every level's tile grid: row-major, one
-/// `TrackTile` discriminant per cell, in level order with no header.
-pub const LEVELS_BIN_NAME: &[u8] = b"LEVELS.BIN";

@@ -1147,16 +1147,35 @@ def emit_visual_tex(
             "/// 16-bit word -- the same `/2` as `TIM4_TILE_BYTES` but for a\n"
             "/// different reason, so it is not interchangeable with it. This is\n"
             "/// also the unit `GP0(A0h)` counts in, and it is *not* the texel\n"
-            "/// width: a 64-texel-wide 4bpp image is 32 halfwords across.\n"
-            "pub const TIM4_TILE_HALFWORDS: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / 4;\n"
-            "/// VRAM rows a 64-texel-tall 4bpp image occupies, for the same reason.\n"
-            "pub const TIM4_TILE_ROWS: usize = TIM4_TILE_DIM / 2;\n"
+            "/// width: a 64-texel-wide 4bpp image is 16 halfwords across.\n"
+            "pub const TIM4_TILE_HALFWORDS: usize = TIM4_TILE_DIM * TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;\n"
+            "/// Texels packed into one VRAM halfword at this depth.\n"
+            "///\n"
+            "/// Four 4-bit indices per 16-bit word. Every 4bpp conversion divides by\n"
+            "/// this, and it is *half* the 8bpp figure. Getting it wrong is invisible\n"
+            "/// in the area -- a 32x32 halfword rect and the correct 16x64 both come\n"
+            "/// to 1024 -- and only shows up as a sheared image, so it is named\n"
+            "/// rather than written as a bare division.\n"
+            "pub const TIM4_TEXELS_PER_HALFWORD: usize = 4;\n"
+            "/// VRAM rows a 64-texel-tall 4bpp image occupies.\n"
+            "///\n"
+            "/// One row per texel row: the halving lives on the *width* axis at this\n"
+            "/// depth, because four indices share one 16-bit word. Nothing is lost\n"
+            "/// vertically. (Halving it to \"keep the rect square\" pairs a 32x32\n"
+            "/// halfword rect with a 16x64 texel tile, and the GPU then reads each\n"
+            "/// texel row from the wrong halfword column.)\n"
+            "pub const TIM4_TILE_ROWS: usize = TIM4_TILE_DIM;\n"
             "/// VRAM halfword columns a 64-texel-wide 4bpp image occupies.\n"
             "///\n"
-            "/// Half the texel width, so the upload rect is square in *halfwords*\n"
-            "/// even though the image is square in texels. Passing the texel\n"
-            "/// width here moves twice the tile and overruns the VRAM slot.\n"
-            "pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / 2;\n"
+            "/// A quarter of the texel width, so the upload rect is *tall and narrow*\n"
+            "/// in halfwords (16 across by 64 down) even though the image is square\n"
+            "/// in texels. Passing the texel width moves four times the tile;\n"
+            "/// passing half the texel width -- the 8bpp figure -- moves it as a\n"
+            "/// 32x32 block that does not match the 16x64 region the GPU samples.\n"
+            "pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;\n"
+            "/// Name of the disc asset holding every level's tile grid: row-major,\n"
+            "/// one `TrackTile` discriminant per cell, in level order with no header.\n"
+            "pub const LEVELS_BIN_NAME: &[u8] = b\"LEVELS.BIN\";\n"
             "/// Name of the Cape Town 10 km^2 city visual asset file on the CD-ROM disc.\n"
             "pub const CAPETOWN_BIN_NAME: &[u8] = b\"CAPETOWN.BIN\";\n"
             "/// Name of the Melbourne 10 km^2 city visual asset file on the CD-ROM disc.\n"
@@ -1407,23 +1426,18 @@ def main() -> int:
         "",
         "use crate::math::{Fixed, Vec2};",
         "use crate::timing::{CheckpointGate, ParTimes};",
-        "use crate::track::{TrackDef, TrackTile};",
+        "use crate::track::TrackDef;",
         "",
         "const EMPTY_GATE: CheckpointGate = CheckpointGate { x: 0, y: 0, width: 0, height: 0 };",
         "",
     ]
+    # No `{ident}_TILES` array is emitted. The tile grids moved to
+    # LEVELS.BIN (`tools/track_cook/make_levels_bin.py`) and are installed into
+    # one shared buffer at level load; emitting them here would restore
+    # 326,400 bytes of per-level geometry to the executable and quietly undo
+    # that. What this emit still produces is everything that is *not* bulk
+    # grid: dimensions, gates, par times, the centreline, and the visual slot.
     for (name, grid, centre, half_cells), ident in zip(results, idents):
-        code.append(f"static {ident}_TILES: "
-                    f"[TrackTile; {grid.shape[1] * grid.shape[0]}] = [")
-        flat = []
-        for y in range(grid.shape[0]):
-            for x in range(grid.shape[1]):
-                flat.append(cc.CODE_TO_TILE.get(int(grid[y, x]), "OffRoad"))
-        while len(flat) % 16:
-            flat.append("OffRoad")
-        for i in range(0, len(flat), 16):
-            code.append("    " + ", ".join(flat[i:i + 16]) + ",")
-        code.append("];")
         # Route control points. Capped by the runtime: `MAX_ROUTE_SAMPLES / 8`
         # spans, where 8 is `DEFAULT_SAMPLES_PER_SPAN`. The compiler derives the
         # actual count from the circuit's perimeter, since control points closer

@@ -7,9 +7,11 @@
 //! real game logic on the host while the `mipsel-sony-psx` target keeps its
 //! freestanding guarantee.
 
-#![cfg_attr(not(test), no_std)]
+// `no_std` only for the console. Host tools build this crate too, and
+// `host_grids` reads LEVELS.BIN from disk on their behalf.
+#![cfg_attr(target_arch = "mips", no_std)]
 // Rejects unsafe code in target builds, per the AGENT.md hardware discipline.
-#![cfg_attr(not(test), deny(unsafe_code))]
+#![cfg_attr(target_arch = "mips", deny(unsafe_code))]
 
 pub mod ai;
 pub mod ai_profiles;
@@ -28,8 +30,10 @@ pub mod route;
 pub mod save;
 pub mod surface;
 pub mod svgtex;
-#[cfg(test)]
-pub mod test_grids;
+// Host tools only. The PS1 build loads its grid from the disc instead --
+// see `game::level_grid` -- and has no filesystem to load from.
+#[cfg(not(target_arch = "mips"))]
+pub mod host_grids;
 pub mod texture_format;
 pub mod timing;
 pub mod track;

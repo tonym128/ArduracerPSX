@@ -383,11 +383,12 @@ impl TrackDef {
     /// solid wall everywhere instead of as plausible terrain.
     #[inline]
     pub fn tile_grid(&self) -> &'static [TrackTile] {
-        // Host tests read the same `LEVELS.BIN` the console does, installed once
-        // on first use. Without this every test that reads terrain sees an empty
-        // grid -- i.e. solid wall everywhere -- and fails for the wrong reason.
-        #[cfg(test)]
-        crate::test_grids::ensure_installed();
+        // Host tools read the same `LEVELS.BIN` the console does, installed
+        // once on first use. Without this every one of them sees an empty grid
+        // -- solid wall everywhere -- and fails for the wrong reason: `playtest`
+        // reports zero completed laps on all 24 circuits.
+        #[cfg(not(target_arch = "mips"))]
+        crate::host_grids::ensure_installed();
         self.tiles.unwrap_or(&[])
     }
 

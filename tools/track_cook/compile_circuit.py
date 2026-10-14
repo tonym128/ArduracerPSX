@@ -553,11 +553,12 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
         out.append("        EMPTY_GATE,")
     out.append("    ],")
 
-    # `Some(...)`: the grid is a compiled-in literal today. It becomes `None`
-    # once the grids move to the disc and are installed at level load -- see
-    # `TrackDef::tiles`, which is `Option` precisely so that state is
-    # representable.
-    out.append(f"    tiles: Some(&{ident}_TILES),")
+    # `None`, and no `static {ident}_TILES` alongside it. The grids live in
+    # LEVELS.BIN and are installed into one shared buffer at level load; leaving
+    # a compiled-in copy here would put 326,400 bytes back into the executable
+    # for every level, of which exactly one is ever resident. The runtime binds
+    # this field before the level is ticked (see `game::level_grid::bind`).
+    out.append("    tiles: None,")
     out.append("    route: &[")
     # The runtime samples the spline 8 times per span, so at most
     # `MAX_ROUTE_SAMPLES / 8` control points fit. Resampled to equal arc length

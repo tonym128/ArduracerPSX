@@ -1,4 +1,4 @@
-//! Host-test grid installation.
+//! Host-side grid installation.
 //!
 //! The tile grids moved out of the executable and onto the disc, so the host
 //! harness cannot read them from `levels.rs` any more -- and it must not be
@@ -11,8 +11,6 @@
 //!
 //! Test builds are exempt from the crate's `unsafe_code` ban, which is what
 //! makes the rebind expressible on the host at all.
-
-#![cfg(test)]
 
 use std::path::PathBuf;
 
