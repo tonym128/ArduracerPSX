@@ -163,6 +163,39 @@ impl DiscReader {
     /// Seeks to `lba` and starts a ReadN stream, without waiting for data.
     ///
     /// Pauses CD-DA exactly as the blocking path does; the stream is one tile
+    /// Opens the XA music stream at `lba`.
+    ///
+    /// `prepare_xa` sets the Setmode bits that make the drive route sectors to
+    /// the SPU's hardware ADPCM decoder instead of raising `DataReady`, so
+    /// nothing further is needed to produce audio: the SPU decodes and mixes it
+    /// through the same path as Redbook.
+    ///
+    /// Pauses CD-DA, as every other read path does; the drive cannot do both.
+    pub fn begin_xa_stream(&mut self, lba: u32) -> bool {
+        crate::audio::cdda::pause_for_cd_read();
+        let ok = unsafe { self.reader.prepare_xa(true) && self.reader.start_read(lba) };
+        if !ok {
+            unsafe { self.reader.stop() };
+        }
+        self.streaming = ok;
+        ok
+    }
+
+    /// Where the drive is, as an absolute LBA.
+    ///
+    /// Needed to resume after a pause: the drive stops wherever it happened to
+    /// be, and resuming from the track head would restart the song on every
+    /// texture fetch.
+    pub fn xa_position(&mut self) -> Option<u32> {
+        let (m, s, f) = unsafe { self.reader.getloc_l() }?;
+        Some(psx_pack::cd::msf_to_lba(m, s, f))
+    }
+
+    /// Closes the XA stream and restores the post-read machine state.
+    pub fn stop_xa_stream(&mut self) {
+        self.stop_stream();
+    }
+
     /// long and [`stop_stream`](Self::stop_stream) resumes it.
     pub fn begin_tile_stream(&mut self, lba: u32) -> bool {
         crate::audio::cdda::pause_for_cd_read();

@@ -93,6 +93,7 @@ const IRQ_ERROR: u8 = 5;
 
 #[cfg(target_arch = "mips")]
 const CMD_SETLOC: u8 = 0x02;
+const CMD_GETLOCL: u8 = 0x10;
 #[cfg(target_arch = "mips")]
 const CMD_READN: u8 = 0x06;
 #[cfg(target_arch = "mips")]
@@ -292,6 +293,23 @@ impl SectorReader {
             self.wr_index(1);
             psx_io::write8(CD_PARAM, mask & 0x1F);
             self.wr_index(0);
+        }
+    }
+
+    /// Reads one byte from the response FIFO.
+    ///
+    /// `None` when the FIFO is empty, which is the normal outcome for a command
+    /// that returns fewer bytes than the caller asked about.
+    ///
+    /// # Safety
+    /// Same contract as [`prepare`](Self::prepare).
+    pub unsafe fn read_response(&mut self) -> Option<u8> {
+        unsafe {
+            self.wr_index(0);
+            if psx_io::read8(CD_STATUS) & STATUS_RESPONSE_FIFO_NOT_EMPTY == 0 {
+                return None;
+            }
+            Some(psx_io::read8(CD_RESPONSE))
         }
     }
 
@@ -656,6 +674,37 @@ impl SectorReader {
 
     /// Setfilter: the XA file and channel whose audio sectors the drive
     /// plays when the mode has the filter bit set.
+    ///
+    /// # Safety
+    /// Same contract as [`prepare`](Self::prepare).
+    /// Asks the drive where it is, as absolute MSF.
+    ///
+    /// Needed to resume a stream after a Pause: the drive stops wherever it
+    /// happened to be, and resuming from the top of the track would be audible.
+    /// The response is `amm, ass, asect, mode, file, channel, sm, ci`; only the
+    /// first three are wanted here.
+    ///
+    /// # Safety
+    /// Same contract as [`prepare`](Self::prepare).
+    pub unsafe fn getloc_l(&mut self) -> Option<(u8, u8, u8)> {
+        unsafe {
+            self.wr_index(0);
+            if !self.send_command(CMD_GETLOCL, &[], IRQ_ACK, ACK_POLL) {
+                return None;
+            }
+            let m = self.read_response()?;
+            let s = self.read_response()?;
+            let f = self.read_response()?;
+            Some((m, s, f))
+        }
+    }
+
+    /// Sets which XA stream the drive routes to the SPU.
+    ///
+    /// The filter matches the file and channel numbers in each sector's subheader,
+    /// so a disc carrying several interleaved streams plays only the one named.
+    /// Our music files are authored with a single stream, but setting the filter
+    /// anyway keeps a stray sector from a neighbouring file being decoded as music.
     ///
     /// # Safety
     /// Same contract as [`prepare`](Self::prepare).
@@ -1025,6 +1074,15 @@ impl Default for SectorReader {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Absolute MSF to LBA, the inverse of [`lba_to_bcd_msf`].
+///
+/// Needed to resume a stream: after a Pause the drive reports where it stopped,
+/// and that has to become a Setloc target. MSF counts 75 sectors per second
+/// with 150 sectors per minute, so the conversion is not a plain base-60.
+pub const fn msf_to_lba(m: u8, s: u8, f: u8) -> u32 {
+    (m as u32) * 4500 + (s as u32) * 75 + (f as u32)
 }
 
 /// Binary `0..=99` to BCD, as CD-ROM commands expect.

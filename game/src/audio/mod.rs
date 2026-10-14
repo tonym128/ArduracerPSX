@@ -24,6 +24,9 @@ pub struct AudioSystem {
     pub engine: EngineAudio,
     pub sfx: SfxPlayer,
     pub cdda: CddaController,
+    pub xa: crate::audio::xa::XaPlayer,
+    /// The player's chosen disc-audio mode, as a raw saved byte.
+    pub cd_audio: u8,
     pub policy: AudioPolicy,
 }
 
@@ -34,6 +37,46 @@ impl Default for AudioSystem {
 }
 
 impl AudioSystem {
+    /// Which disc-audio source is playing, for the telemetry line.
+    pub fn music_source(&self) -> &'static str {
+        match arduracer_core::save::CdAudioMode::from_saved(self.cd_audio) {
+            arduracer_core::save::CdAudioMode::Xa => "xa",
+            _ => "cdda",
+        }
+    }
+
+    /// Stores the chosen mode, so the music path and the telemetry agree.
+    pub fn set_cd_audio(&mut self, mode: u8) {
+        self.cd_audio = mode;
+    }
+
+    /// Starts the music for `track`, on whichever source the player chose.
+    ///
+    /// XA looks the file up by name; a disc mastered without one simply has no
+    /// music on that track, which is the honest outcome rather than a fallback
+    /// to CD-DA the player switched off.
+    pub fn play_music(&mut self, track: u8, reader: &mut crate::cd_fs::DiscReader) {
+        if arduracer_core::save::CdAudioMode::from_saved(self.cd_audio)
+            == arduracer_core::save::CdAudioMode::Xa
+        {
+            let name = crate::audio::xa::track_file_name(track);
+            if let Some(lba) = reader.find_file_lba(&name) {
+                crate::audio::xa::player().start_track(reader, lba);
+            }
+            return;
+        }
+        self.cdda.play_track(track);
+    }
+
+    /// Keeps the XA stream alive across a frame, resuming after a preemption.
+    ///
+    /// Cheap when nothing is wrong: one ownership check and nothing else. Called
+    /// once per frame from the render path, because the drive arbiter only acts
+    /// when something asks.
+    pub fn service_music(&mut self, reader: &mut crate::cd_fs::DiscReader) {
+        crate::audio::xa::player().service(reader);
+    }
+
     pub fn new() -> Self {
         init_spu_soundbank();
 
@@ -44,6 +87,9 @@ impl AudioSystem {
             engine: EngineAudio::new(),
             sfx: SfxPlayer::new(),
             cdda,
+            xa: crate::audio::xa::XaPlayer::new(),
+            // CD-DA by default; the boot path sets this from the saved card.
+            cd_audio: arduracer_core::save::CdAudioMode::default().as_u8(),
             // Nothing is audible until a stage loads: the title screen and the
             // intro play CD-DA only.
             policy: AudioPolicy::new(),

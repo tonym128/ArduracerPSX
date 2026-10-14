@@ -449,6 +449,9 @@ impl ArduracerGame {
             game.audio
                 .cdda
                 .set_enabled(game.memcard.save_data.cd_audio_mode().enabled());
+            // Which disc-audio source the player chose, and who yields to whom.
+            game.audio.set_cd_audio(game.memcard.save_data.cd_audio);
+            crate::drive::install_preempt(crate::audio::xa::player_suspend);
             dbg::print("[BOOT] graphics: format=");
             dbg::print(texture_format().label());
             dbg::print(" framerate=");
@@ -497,7 +500,8 @@ impl ArduracerGame {
         // Cup 3 (Tracks 13-18) -> CD-DA Track 5 ("Canyon Rush" Techno)
         // Cup 4 (Tracks 19-24) -> CD-DA Track 6 ("Apex Predator" Trance)
         let cdda_track = 3 + ((idx / 6) as u8).min(3);
-        self.audio.cdda.play_track(cdda_track);
+        self.audio
+            .play_music(cdda_track, crate::gpu::tracktex::disc_reader());
         // `Start` confirms through the title, main menu and track select, so a
         // player can load a stage still holding it. Without this the first
         // racing frame reads that as a fresh press and the pause veil opens
@@ -527,7 +531,8 @@ impl ArduracerGame {
         log_silicon_fallback_once();
 
         // CD-DA Track 4: "Coastal Drive" D&B - high tempo street cruise
-        self.audio.cdda.play_track(4);
+        self.audio
+            .play_music(4, crate::gpu::tracktex::disc_reader());
         self.pause.arm_for_race_start();
         self.audio.enter_race();
     }
@@ -975,7 +980,10 @@ impl ArduracerGame {
                                     } else {
                                         3 + ((self.current_track_idx / 6) as u8).min(3)
                                     };
-                                    self.audio.cdda.play_track(cdda_track);
+                                    self.audio.play_music(
+                                        cdda_track,
+                                        crate::gpu::tracktex::disc_reader(),
+                                    );
                                 }
                                 PauseChoice::Graphics(values) => {
                                     self.apply_settings(values);
@@ -989,7 +997,8 @@ impl ArduracerGame {
                                     // engine into the menu.
                                     self.audio.leave_race();
                                     self.audio.sync_ui_edges(pad.buttons.bits());
-                                    self.audio.cdda.play_track(2);
+                                    self.audio
+                                        .play_music(2, crate::gpu::tracktex::disc_reader());
                                 }
                                 PauseChoice::None => {}
                             }
@@ -1348,7 +1357,8 @@ impl ArduracerGame {
             // over the victory fanfare.
             self.audio.leave_race();
             self.audio.sync_ui_edges(pad.buttons.bits());
-            self.audio.cdda.play_track(7);
+            self.audio
+                .play_music(7, crate::gpu::tracktex::disc_reader());
         }
 
         let cleared = self.timer.checkpoints_cleared() as u8;
@@ -1358,6 +1368,10 @@ impl ArduracerGame {
             let _s = prof::span(prof::AUDIO);
             self.audio
                 .tick(&self.player, input.throttle, surface, any_impact, cleared);
+            // Keep the XA music stream alive: resume it if a texture run
+            // preempted it. Cheap when nothing is wrong.
+            self.audio
+                .service_music(crate::gpu::tracktex::disc_reader());
         }
 
         // Emit smoke particles and skidmarks during hard turns or drifts
@@ -1423,7 +1437,8 @@ impl ArduracerGame {
                     self.memcard.flush();
                     self.state_mgr.victory = Some(VictoryScreen::new(champ));
                     self.state_mgr.current = GameState::Victory;
-                    self.audio.cdda.play_track(7);
+                    self.audio
+                        .play_music(7, crate::gpu::tracktex::disc_reader());
                 } else {
                     self.load_track(self.current_track_idx);
                     self.state_mgr.current = GameState::Racing;
@@ -1445,7 +1460,8 @@ impl ArduracerGame {
                 } else {
                     3 + ((self.current_track_idx / 6) as u8).min(3)
                 };
-                self.audio.cdda.play_track(cdda_track);
+                self.audio
+                    .play_music(cdda_track, crate::gpu::tracktex::disc_reader());
                 self.state_mgr.current = GameState::Racing;
             }
             Some(ResultsAction::ExitToMenu) => {
@@ -1464,7 +1480,8 @@ impl ArduracerGame {
                 self.state_mgr.current = GameState::MainMenu;
                 self.audio.leave_race();
                 self.audio.sync_ui_edges(pad.buttons.bits());
-                self.audio.cdda.play_track(2);
+                self.audio
+                    .play_music(2, crate::gpu::tracktex::disc_reader());
             }
             None => {}
         }
@@ -1490,7 +1507,8 @@ impl ArduracerGame {
             self.state_mgr.current = GameState::MainMenu;
             self.audio.leave_race();
             self.audio.sync_ui_edges(pad.buttons.bits());
-            self.audio.cdda.play_track(2);
+            self.audio
+                .play_music(2, crate::gpu::tracktex::disc_reader());
         }
     }
 
