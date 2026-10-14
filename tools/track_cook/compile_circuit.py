@@ -276,6 +276,27 @@ def bake_texture(visual_path, out_png, out_bin, target=128):
 #: elevation carries them apart, and it rides in the manifest until the renderer
 #: and the collision map learn about layers. `SCENERY` is off-road for now.
 #:
+#: The same mapping, resolved to the *discriminant* rather than to Rust source.
+#:
+#: This is the wire format the runtime loader reads. It is derived from
+#: `CODE_TO_TILE` rather than written out separately so the two cannot drift --
+#: a variant renumbered in one place and not the other would turn a loaded grid
+#: into different terrain, with no compile error anywhere.
+#:
+#: The engine's `TrackTile` is `repr(u8)` with consecutive discriminants from 0,
+#: which `TrackTile::from_disc_byte` relies on. `verify_disc_bytes()` checks
+#: that against the real enum rather than trusting this table.
+VARIANT_ORDER = [
+    "Tarmac",        # 0
+    "Curb",          # 1
+    "OffRoad",       # 2
+    "OilSlick",      # 3
+    "BoostPad",      # 4
+    "Barrier",       # 5
+    "StartFinish",   # 6
+    "Checkpoint",    # 7
+]
+
 #: Deliberately *not* adding variants here: the point of the colour image is a
 #: new authoring format, not a new runtime type, and growing the enum is a change
 #: the physics and AI tests would have to be re-derived against.
@@ -297,6 +318,12 @@ CODE_TO_TILE = {
     14: "TrackTile::Tarmac",        # BRIDGE (level 0/1 carries it)
     15: "TrackTile::OffRoad",       # SCENERY
 }
+
+CODE_TO_DISC = {
+    code: VARIANT_ORDER.index(name.split("::")[1])
+    for code, name in CODE_TO_TILE.items()
+}
+
 
 import math
 import os
@@ -611,6 +638,24 @@ def main():
             nib = np.append(nib, 0)
         out_bytes = ((nib[0::2].astype(np.uint16) << 4) | nib[1::2].astype(np.uint16))
         out_bytes.astype(np.uint8).tofile(os.path.join(outroot, "surface.bin"))
+
+        # The runtime's tile grid: one byte per cell, row-major, in the exact
+        # order `TrackDef::tile_at` indexes it. This is what lets the grids leave
+        # the executable -- 326 KB of them, of which one level is ever in use --
+        # and it is why the engine has `TrackTile::from_disc_byte`.
+        #
+        # Deliberately 1 byte per cell rather than the 4-bit packing above: at
+        # 4 bits the loader would unpack before copying, which saves 82 KB on
+        # the disc and costs a loop and an unpack table in the hot load path for
+        # a total of ~204 KB, which is disc space nobody is short of.
+        disc = np.zeros(grid.size, dtype=np.uint8)
+        for code, variant in CODE_TO_DISC.items():
+            disc[grid.ravel() == code] = variant
+        unknown_codes = set(np.unique(grid).tolist()) - set(CODE_TO_DISC)
+        if unknown_codes:
+            print(f"  WARNING: unmapped palette codes {sorted(unknown_codes)} "
+                  f"cooked as Barrier", file=sys.stderr)
+        disc.tofile(os.path.join(outroot, "levelgrid.bin"))
 
     centre = []
     source = "none"
