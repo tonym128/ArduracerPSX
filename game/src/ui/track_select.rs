@@ -21,6 +21,7 @@ fn draw_count(mut x: u16, y: u16, value: u8, colour: (u8, u8, u8)) {
 
 pub struct TrackSelectScreen {
     pub selected_track_idx: usize,
+    pub is_records_mode: bool,
     pub prev_left: bool,
     pub prev_right: bool,
     pub prev_up: bool,
@@ -39,6 +40,7 @@ impl TrackSelectScreen {
     pub const fn new() -> Self {
         TrackSelectScreen {
             selected_track_idx: 0,
+            is_records_mode: false,
             // All armed: every one of these confirms or navigates on the main
             // menu immediately before this screen, so a button still held on
             // entry must be released before it can act (TASK-1217).
@@ -123,16 +125,21 @@ impl TrackSelectScreen {
         }
     }
 
-    /// Renders the track selection screen.
-    pub fn render(&self) {
+    /// Renders the track selection screen with personal records and medals.
+    pub fn render(&self, save: Option<&arduracer_core::SaveData>) {
         let track: &'static TrackDef = ALL_TRACKS[self.selected_track_idx];
 
         // Background panel
         gpu::draw_rect_flat(10, 10, 300, 220, 16, 20, 28);
         gpu::draw_rect_flat(12, 12, 296, 216, 26, 32, 44);
 
-        // Header: "SELECT CIRCUIT"
-        draw_text(90, 20, "SELECT CIRCUIT", (255, 225, 30), 2);
+        // Header: "SELECT CIRCUIT" or "RECORDS & MEDALS"
+        let (header_title, header_x) = if self.is_records_mode {
+            ("RECORDS & MEDALS", 80)
+        } else {
+            ("SELECT CIRCUIT", 90)
+        };
+        draw_text(header_x, 20, header_title, (255, 225, 30), 2);
         gpu::draw_rect_flat(30, 38, 260, 2, 220, 40, 60);
 
         // Cup classification
@@ -206,29 +213,86 @@ impl TrackSelectScreen {
             draw_char(124, my as u16, b'S', (160, 160, 160), 1);
         }
 
-        // Track Dimensions & Checkpoints Box (Right Panel)
+        // Track Dimensions, Records & Medals Box (Right Panel)
         gpu::draw_rect_flat(170, par_y, 126, 76, 30, 36, 48);
-        draw_text(178, (par_y + 8) as u16, "GATES: ", (0, 220, 255), 1);
-        // Two decimal digits. `b'0' + count` overflowed the digit range on the
-        // four circuits with 10, 12 and 13 gates, rendering ':', '<' and '='
-        // instead of a number (TASK-1217).
+        draw_text(176, (par_y + 8) as u16, "GATES:", (0, 220, 255), 1);
         draw_count(
-            234,
+            218,
             (par_y + 8) as u16,
             track.checkpoint_count,
             (255, 255, 255),
         );
+        draw_text(242, (par_y + 8) as u16, "L: 5", (0, 220, 255), 1);
 
-        draw_text(178, (par_y + 26) as u16, "LAPS:  5", (0, 220, 255), 1);
-        draw_text(178, (par_y + 44) as u16, "SPEED: HIGH", (255, 200, 40), 1);
+        // Personal Best record readout
+        let best_ticks = save
+            .and_then(|s| s.best_lap_ticks.get(self.selected_track_idx))
+            .copied()
+            .unwrap_or(arduracer_core::timing::NO_BEST_LAP);
+        draw_text(176, (par_y + 24) as u16, "BEST:", (180, 200, 220), 1);
+        if best_ticks != arduracer_core::timing::NO_BEST_LAP && best_ticks != u32::MAX {
+            let (m, s, cs) = arduracer_core::LapTimer::<1>::format_ticks(best_ticks);
+            let time_str = [
+                b'0' + ((m / 10) % 10) as u8,
+                b'0' + (m % 10) as u8,
+                b':',
+                b'0' + ((s / 10) % 10) as u8,
+                b'0' + (s % 10) as u8,
+                b'.',
+                b'0' + ((cs / 10) % 10) as u8,
+                b'0' + (cs % 10) as u8,
+                0,
+            ];
+            let mut cur_x = 216u16;
+            for &ch in time_str.iter() {
+                if ch == 0 {
+                    break;
+                }
+                draw_char(cur_x, (par_y + 24) as u16, ch, (255, 230, 40), 1);
+                cur_x += 6;
+            }
+        } else {
+            draw_text(216, (par_y + 24) as u16, "--:--.--", (140, 150, 160), 1);
+        }
+
+        // Earned Medal readout
+        let medal_code = save
+            .and_then(|s| s.medals_earned.get(self.selected_track_idx))
+            .copied()
+            .unwrap_or(0);
+        draw_text(176, (par_y + 40) as u16, "MEDAL:", (180, 200, 220), 1);
+        let (medal_str, medal_col) = match medal_code {
+            1 => ("BRONZE", (205, 127, 50)),
+            2 => ("SILVER", (192, 192, 192)),
+            3 => ("GOLD", (255, 215, 0)),
+            4 => ("DEV PLAT", (100, 220, 255)),
+            _ => ("NONE", (140, 150, 160)),
+        };
+        draw_text(220, (par_y + 40) as u16, medal_str, medal_col, 1);
+
+        // Row 4: Summary / Par indicator
+        if self.is_records_mode {
+            let total_medals: u32 = save
+                .map(|s| s.medals_earned.iter().map(|&m| (m > 0) as u32).sum())
+                .unwrap_or(0);
+            draw_text(176, (par_y + 56) as u16, "TOTAL: ", (0, 220, 255), 1);
+            draw_count(
+                220,
+                (par_y + 56) as u16,
+                total_medals as u8,
+                (255, 240, 50),
+            );
+            draw_text(244, (par_y + 56) as u16, "/24", (180, 190, 200), 1);
+        } else {
+            draw_text(176, (par_y + 56) as u16, "SPEED: HIGH", (255, 200, 40), 1);
+        }
 
         // Navigation Footer
-        draw_text(
-            24,
-            202,
-            "L/R: TRACK  U/D: CUP  CROSS: RACE  O: BACK",
-            (130, 150, 170),
-            1,
-        );
+        let footer_text = if self.is_records_mode {
+            "L/R: TRACK  U/D: CUP  CROSS/O: RETURN"
+        } else {
+            "L/R: TRACK  U/D: CUP  CROSS: RACE  O: BACK"
+        };
+        draw_text(24, 202, footer_text, (130, 150, 170), 1);
     }
 }

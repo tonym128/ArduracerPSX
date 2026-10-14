@@ -53,6 +53,18 @@ impl InputManager {
         self.rumble
             .tick(surface, player.is_drifting, player.engine_rpm);
 
+        let (small, large) = self.rumble.actuator_bytes();
+        psx_pad::set_rumble_port1(small, large);
+
         input
+    }
+
+    /// Cuts all DualShock vibration motors immediately.
+    pub fn silence(&mut self) {
+        self.rumble.small_motor = false;
+        self.rumble.large_motor = 0;
+        self.rumble.impact_ticks = 0;
+        self.rumble.boost_ticks = 0;
+        psx_pad::set_rumble_port1(false, 0);
     }
 }

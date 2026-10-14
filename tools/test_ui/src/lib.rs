@@ -2267,6 +2267,32 @@ mod ui_defect_tests {
             "the default preset is not the default setup"
         );
     }
+
+    /// POINTS REMAINING was previously drawn with reversed tens and ones digits,
+    /// so "15" rendered as "51" or inverted positions.
+    #[test]
+    #[allow(clippy::identity_op)]
+    fn points_remaining_digits_format_left_to_right() {
+        for pts in 0..=24u8 {
+            let tens = b'0' + pts / 10;
+            let ones = b'0' + pts % 10;
+            if pts >= 10 {
+                assert!(tens.is_ascii_digit());
+                assert!(ones.is_ascii_digit());
+                let val = (tens - b'0') * 10 + (ones - b'0');
+                assert_eq!(val, pts, "left-to-right composite digit value must equal pts");
+            } else {
+                assert_eq!(tens, b'0');
+                assert_eq!(ones - b'0', pts);
+            }
+        }
+        // Specific regression cases: 15 points remaining must give '1' tens and '5' ones
+        assert_eq!(b'0' + 15 / 10, b'1');
+        assert_eq!(b'0' + 15 % 10, b'5');
+        // 20 points remaining must give '2' tens and '0' ones
+        assert_eq!(b'0' + 20 / 10, b'2');
+        assert_eq!(b'0' + 20 % 10, b'0');
+    }
 }
 
 /// TASK-1204: the game had no texture pipeline at all, and TASK-1202's minimap

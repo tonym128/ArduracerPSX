@@ -579,24 +579,22 @@ impl ArduracerGame {
         self.last_player_rank = 1;
     }
 
-    /// Draws the five rivals back-to-front by screen row.
+    /// Draws all active vehicles (player + 5 rivals) back-to-front by screen row.
     ///
-    /// Cars were previously drawn in array order with the player unconditionally
-    /// last, so two cars on the same stretch of road interpenetrated: the one
-    /// nearer the camera was painted over by the one behind it (TASK-1206).
-    /// Sorting by projected screen `y` gives a painter's order that matches
-    /// which car is actually in front.
-    fn render_rivals_sorted(&self) {
-        if !RIVALS_ENABLED {
+    /// Sorting all 6 cars by projected screen `y` gives a true painter's order
+    /// so cars never interpenetrate or draw out of order.
+    fn render_cars_sorted(&self, player_color: (u8, u8, u8)) {
+        let is_freeroam = self.current_track.checkpoint_count == 0;
+        if !RIVALS_ENABLED || is_freeroam {
+            render_car(&self.player, &self.camera, false, player_color);
             return;
         }
-        // Insertion sort by depth. Five elements: cheaper in code size than
-        // allocating a buffer.
-        let mut order = [0usize; 5];
-        let mut depth = [0i16; 5];
+        // Insertion sort by depth across all 6 cars. 0 = player, 1..=5 = rivals.
+        let mut order = [0usize, 1, 2, 3, 4, 5];
+        let mut depth = [0i16; 6];
+        depth[0] = self.camera.world_to_screen(self.player.position).1;
         for (i, rival) in self.rivals.iter().enumerate() {
-            order[i] = i;
-            depth[i] = self.camera.world_to_screen(rival.state.position).1;
+            depth[i + 1] = self.camera.world_to_screen(rival.state.position).1;
         }
         for i in 1..order.len() {
             let mut j = i;
@@ -606,8 +604,12 @@ impl ArduracerGame {
             }
         }
         for idx in order {
-            let rival = &self.rivals[idx];
-            render_car(&rival.state, &self.camera, false, rival.profile.color);
+            if idx == 0 {
+                render_car(&self.player, &self.camera, false, player_color);
+            } else {
+                let rival = &self.rivals[idx - 1];
+                render_car(&rival.state, &self.camera, false, rival.profile.color);
+            }
         }
     }
 
@@ -616,13 +618,9 @@ impl ArduracerGame {
         self.fb.clear(18, 20, 26);
         render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
         self.skidmarks.render(&self.camera);
-        // Same ordering rule as the live frame: smoke belongs on top of the cars
-        // it came from (TASK-1206).
+        // Smoke belongs on top of the cars it came from (TASK-1206).
         self.particles.render(&self.camera);
-        for rival in &self.rivals {
-            render_car(&rival.state, &self.camera, false, rival.profile.color);
-        }
-        render_car(&self.player, &self.camera, false, (220, 25, 45));
+        self.render_cars_sorted((220, 25, 45));
     }
 
     pub fn run(&mut self) -> ! {
@@ -757,6 +755,7 @@ impl ArduracerGame {
                         match item {
                             MenuItem::TimeTrial => {
                                 self.state_mgr.championship = None;
+                                self.state_mgr.track_select.is_records_mode = false;
                                 self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
@@ -779,6 +778,8 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::Garage;
                             }
                             MenuItem::Records => {
+                                self.state_mgr.championship = None;
+                                self.state_mgr.track_select.is_records_mode = true;
                                 self.state_mgr.track_select.arm_for_entry();
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
@@ -900,21 +901,29 @@ impl ArduracerGame {
                     self.audio.ui_frame(pad.buttons.bits());
                     let (confirmed, cancelled) = self.state_mgr.track_select.update(&pad);
                     if let Some(track_idx) = confirmed {
-                        let target_idx = if let Some(ref mut champ) = self.state_mgr.championship {
-                            let cup_idx = ((track_idx / 6) as u8).min(3);
-                            champ.cup_index = cup_idx;
-                            champ.current_stage = 0;
-                            champ.current_track_idx()
+                        if self.state_mgr.track_select.is_records_mode {
+                            self.state_mgr.current = GameState::MainMenu;
+                            self.state_mgr.menu.arm_for_entry();
                         } else {
-                            track_idx
-                        };
-                        self.load_track(target_idx);
-                        self.state_mgr.current = GameState::Racing;
+                            let target_idx = if let Some(ref mut champ) = self.state_mgr.championship {
+                                let cup_idx = ((track_idx / 6) as u8).min(3);
+                                champ.cup_index = cup_idx;
+                                champ.current_stage = 0;
+                                champ.current_track_idx()
+                            } else {
+                                track_idx
+                            };
+                            self.load_track(target_idx);
+                            self.state_mgr.current = GameState::Racing;
+                        }
                     } else if cancelled {
                         self.state_mgr.current = GameState::MainMenu;
+                        self.state_mgr.menu.arm_for_entry();
                     }
                     self.fb.clear(15, 18, 25);
-                    self.state_mgr.track_select.render();
+                    self.state_mgr
+                        .track_select
+                        .render(Some(&self.memcard.save_data));
                 }
                 GameState::Racing => {
                     let track = self.current_track;
@@ -934,6 +943,7 @@ impl ArduracerGame {
                         // arm `continue`s and never reaches the tick.
                         self.audio.set_paused(self.paused);
                         if self.paused {
+                            self.input_mgr.silence();
                             self.audio.cdda.pause();
                         } else {
                             self.audio.cdda.resume();
@@ -979,7 +989,7 @@ impl ArduracerGame {
                                     // held right now so the same press is not
                                     // re-read against the fresh race.
                                     self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
-                                    let cdda_track = if self.current_track_idx == 99 {
+                                    let cdda_track = if self.current_track_idx >= 97 {
                                         4
                                     } else {
                                         3 + ((self.current_track_idx / 6) as u8).min(3)
@@ -993,9 +1003,11 @@ impl ArduracerGame {
                                     self.apply_settings(values);
                                 }
                                 PauseChoice::QuitToMenu => {
+                                    self.input_mgr.silence();
                                     self.state_mgr.championship = None;
                                     self.state_mgr.champ_stage_backup = None;
                                     self.state_mgr.current = GameState::MainMenu;
+                                    self.state_mgr.menu.arm_for_entry();
                                     // `self.paused` stays true across this
                                     // transition, so arming here would leak the
                                     // engine into the menu.
@@ -1119,12 +1131,10 @@ impl ArduracerGame {
                             self.timer.current_lap_ticks,
                         );
                     }
-                    // e. AI Rivals rendering
-                    // f. Player race car (Crimson Red: 220, 25, 45)
+                    // e. All race cars (player + rivals) sorted back-to-front
                     {
                         let _s = prof::span(prof::CARS);
-                        self.render_rivals_sorted();
-                        render_car(&self.player, &self.camera, false, (220, 25, 45));
+                        self.render_cars_sorted((220, 25, 45));
                     }
                     // g. Particle effects
                     // h. Start lights
@@ -1356,6 +1366,7 @@ impl ArduracerGame {
                 is_gp,
             ));
             self.state_mgr.current = GameState::Results;
+            self.input_mgr.silence();
             // Cut before the tick below, which would otherwise run
             // once more this frame and re-latch a live engine volume
             // over the victory fanfare.
@@ -1444,8 +1455,17 @@ impl ArduracerGame {
                     self.audio
                         .play_music(7, crate::gpu::tracktex::disc_reader());
                 } else {
-                    self.load_track(self.current_track_idx);
-                    self.state_mgr.current = GameState::Racing;
+                    self.audio.leave_race();
+                    self.audio.sync_ui_edges(pad.buttons.bits());
+                    self.audio
+                        .play_music(2, crate::gpu::tracktex::disc_reader());
+                    if self.current_track_idx >= 97 {
+                        self.state_mgr.city_select.arm_for_entry();
+                        self.state_mgr.current = GameState::CitySelect;
+                    } else {
+                        self.state_mgr.track_select.arm_for_entry();
+                        self.state_mgr.current = GameState::TrackSelect;
+                    }
                 }
             }
             Some(ResultsAction::RestartRace) => {
@@ -1459,7 +1479,7 @@ impl ArduracerGame {
                 self.audio.enter_race();
                 self.pause.arm_for_race_start();
                 self.pause.sync_edges(PauseMenu::input_from_pad(pad));
-                let cdda_track = if self.current_track_idx == 99 {
+                let cdda_track = if self.current_track_idx >= 97 {
                     4
                 } else {
                     3 + ((self.current_track_idx / 6) as u8).min(3)
@@ -1482,6 +1502,7 @@ impl ArduracerGame {
                 self.state_mgr.championship = None;
                 self.state_mgr.champ_stage_backup = None;
                 self.state_mgr.current = GameState::MainMenu;
+                self.state_mgr.menu.arm_for_entry();
                 self.audio.leave_race();
                 self.audio.sync_ui_edges(pad.buttons.bits());
                 self.audio

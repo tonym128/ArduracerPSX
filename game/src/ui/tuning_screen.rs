@@ -132,9 +132,12 @@ impl TuningScreen {
         let remaining = self.menu.points_remaining();
 
         draw_text(24, 46, "POINTS REMAINING: ", (0, 220, 255), 1);
-        draw_char(132, 46, b'0' + (remaining % 10), (255, 255, 255), 1);
         if remaining >= 10 {
-            draw_char(140, 46, b'0' + (remaining / 10), (255, 255, 255), 1);
+            draw_char(132, 46, b'0' + (remaining / 10), (255, 255, 255), 1);
+            draw_char(140, 46, b'0' + (remaining % 10), (255, 255, 255), 1);
+        } else {
+            draw_char(132, 46, b'0' + remaining, (255, 255, 255), 1);
+            draw_char(140, 46, b' ', (255, 255, 255), 1);
         }
 
         // Sliders
