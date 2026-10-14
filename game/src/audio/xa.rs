@@ -36,6 +36,12 @@
 
 use crate::cd_fs::DiscReader;
 
+/// File and channel numbers our authored XA files carry in every sector
+/// subheader. `Setfilter` is set to match, so the drive routes only these
+/// sectors to the SPU and leaves everything else to the CPU.
+pub const XA_FILE: u8 = 1;
+pub const XA_CHANNEL: u8 = 0;
+
 /// The disc file name for a given music track.
 ///
 /// `MUSIC1.XA` .. `MUSIC6.XA`. ISO9660 stores these with a `;1` version
@@ -48,24 +54,36 @@ pub fn track_file_name(track: u8) -> [u8; 9] {
     out
 }
 
-/// File and channel numbers our authored XA files carry in every sector
-/// subheader. `Setfilter` is set to match, so the drive routes only these
-/// sectors to the SPU and leaves everything else to the CPU.
-pub const XA_FILE: u8 = 1;
-pub const XA_CHANNEL: u8 = 0;
-
-/// Absolute LBA the drive reports after a Pause, for resuming.
+/// Where the drive was when it was last paused.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct Position {
     lba: u32,
     valid: bool,
 }
 
-/// The one XA music stream.
+/// The XA music stream.
 ///
 /// A global rather than a field, because the drive arbiter's preempt hook is a
 /// plain `fn()` and cannot capture the game state. The same reason `DiscReader`
 /// is a global.
+pub struct XaPlayer {
+    /// LBA of the track's first sector.
+    track_lba: u32,
+    /// Where the drive was when it was last paused.
+    stopped_at: Position,
+    /// The drive stream is open.
+    stream_open: bool,
+    /// Preempted by a texture run; owed a resume.
+    suspended: bool,
+}
+
+impl Default for XaPlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// The one XA music stream.
 static mut PLAYER: XaPlayer = XaPlayer {
     track_lba: 0,
     stopped_at: Position {
@@ -74,8 +92,6 @@ static mut PLAYER: XaPlayer = XaPlayer {
     },
     stream_open: false,
     suspended: false,
-    preemptions: 0,
-    seconds_played: 0,
 };
 
 /// The preempt hook the drive arbiter calls when textures need the drive.
@@ -91,28 +107,6 @@ pub fn player() -> &'static mut XaPlayer {
     unsafe { &mut *core::ptr::addr_of_mut!(PLAYER) }
 }
 
-/// The XA music stream.
-pub struct XaPlayer {
-    /// LBA of the track's first sector.
-    track_lba: u32,
-    /// Where the drive was when it was last paused.
-    stopped_at: Position,
-    /// The drive stream is open.
-    stream_open: bool,
-    /// Preempted by a texture run; owed a resume.
-    suspended: bool,
-    /// Times a texture run took the drive.
-    pub preemptions: u32,
-    /// Seconds of music delivered, for the telemetry line.
-    pub seconds_played: u32,
-}
-
-impl Default for XaPlayer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl XaPlayer {
     pub const fn new() -> Self {
         XaPlayer {
@@ -123,8 +117,6 @@ impl XaPlayer {
             },
             stream_open: false,
             suspended: false,
-            preemptions: 0,
-            seconds_played: 0,
         }
     }
 
@@ -189,6 +181,8 @@ impl XaPlayer {
         if !self.stream_open {
             return;
         }
+        // The reader is a global, so the arbiter's plain `fn()` hook can reach
+        // it without capturing anything.
         let reader = crate::gpu::tracktex::disc_reader();
         if let Some(lba) = reader.xa_position() {
             self.stopped_at = Position { lba, valid: true };
@@ -196,8 +190,19 @@ impl XaPlayer {
         reader.stop_xa_stream();
         self.stream_open = false;
         self.suspended = true;
-        self.preemptions += 1;
         crate::drive::release(crate::drive::Owner::Xa);
+    }
+
+    /// Resumes the stream if a texture run preempted it.
+    ///
+    /// The stream is continuous, so this is the only per-frame work: if it was
+    /// paused, reopen it at the remembered position. Called once per frame from
+    /// the render path, because the drive arbiter only acts when something asks.
+    pub fn service(&mut self, reader: &mut DiscReader) {
+        if !self.suspended || self.track_lba == 0 {
+            return;
+        }
+        self.resume(reader);
     }
 
     /// Closes the stream and drops the track.
@@ -213,18 +218,5 @@ impl XaPlayer {
             lba: 0,
             valid: false,
         };
-    }
-
-    /// Keeps the stream open across a frame, resuming if it was preempted.
-    ///
-    /// Cheap when nothing is wrong: one ownership check, and nothing else.
-    pub fn service(&mut self, reader: &mut DiscReader) {
-        if self.stream_open {
-            return;
-        }
-        if !self.suspended || self.track_lba == 0 {
-            return;
-        }
-        self.resume(reader);
     }
 }

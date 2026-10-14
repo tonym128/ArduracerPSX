@@ -1631,6 +1631,21 @@ impl ArduracerGame {
         if want_cdda != previous_cd_audio {
             self.audio.cdda.set_enabled(want_cdda);
         }
+        // A change of source, not just of on/off: restart the current track on
+        // whichever source the player now wants. Without this the choice only
+        // takes effect on the next screen, which reads as the setting being
+        // ignored.
+        //
+        // The audio system's copy is updated first and the switch keys off the
+        // comparison, so it fires once per change rather than on every later
+        // settings write -- a stale copy would restart the music on an unrelated
+        // change such as a texture format tweak.
+        let source_changed = values.cd_audio != self.audio.cd_audio;
+        self.audio.set_cd_audio(values.cd_audio);
+        if source_changed {
+            self.audio
+                .apply_music_mode(crate::gpu::tracktex::disc_reader());
+        }
 
         dbg::print("[SETTINGS] applied format=");
         dbg::print(format.label());

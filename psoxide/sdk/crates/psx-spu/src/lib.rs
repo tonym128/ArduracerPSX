@@ -124,7 +124,6 @@ const TRANSFER_ADDR: u32 = 0x1F80_1DA6;
 const REVERB_WORK_BASE: u32 = 0x1F80_1DA2;
 const TRANSFER_DATA: u32 = 0x1F80_1DA8;
 const TRANSFER_CTRL: u32 = 0x1F80_1DAC;
-const CD_INPUT: u32 = 0x1F80_1B04;
 const CD_VOL_LEFT: u32 = 0x1F80_1DB0;
 const CD_VOL_RIGHT: u32 = 0x1F80_1DB2;
 const SPUCNT_CD_AUDIO_ENABLE: u16 = 1 << 0;
@@ -782,25 +781,6 @@ pub fn set_noise_clock(shift: u8, step: u8) {
     let field = (((shift as u16) & 0xF) << 10) | (((step as u16) & 0x3) << 8);
     let control = read_reg16(SPUCNT) & !NOISE_BITS;
     write_reg16(SPUCNT, control | field);
-}
-
-/// Write one stereo frame into the CD audio input, left in bits 0..=15 and
-/// right in bits 16..=31.
-///
-/// Redbook CD-DA never needs this: the drive pushes samples into this port
-/// itself and the SPU mixes whatever is there. CD-XA does need it, because the
-/// drive has no idea what ADPCM is -- the host decodes to PCM and writes the
-/// result here. Same port, same mixer, same volume registers; only the source
-/// differs.
-///
-/// The 32-bit form is deliberate. The BIOS writes this port as one word, and the
-/// SPU latches the pair together, so writing 16 bits twice risks a frame where
-/// one channel is this frame's and the other is the last one's.
-pub fn write_cd_input(left: i16, right: i16) {
-    let packed = (u32::from(left as u16)) | (u32::from(right as u16) << 16);
-    // SAFETY: `CD_INPUT` is a fixed SPU register in the hardware-MMIO window,
-    // so the address is a constant and cannot be redirected.
-    unsafe { core::ptr::write_volatile(CD_INPUT as *mut u32, packed) };
 }
 
 /// Enable or disable routing CD-DA/XA input into the SPU mixer.

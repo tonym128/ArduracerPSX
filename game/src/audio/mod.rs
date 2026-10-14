@@ -27,6 +27,9 @@ pub struct AudioSystem {
     pub xa: crate::audio::xa::XaPlayer,
     /// The player's chosen disc-audio mode, as a raw saved byte.
     pub cd_audio: u8,
+    /// The track `play_music` was last asked to play, so a mode change can
+    /// restart the same track on the new source.
+    last_music_track: u8,
     pub policy: AudioPolicy,
 }
 
@@ -56,6 +59,7 @@ impl AudioSystem {
     /// music on that track, which is the honest outcome rather than a fallback
     /// to CD-DA the player switched off.
     pub fn play_music(&mut self, track: u8, reader: &mut crate::cd_fs::DiscReader) {
+        self.last_music_track = track;
         if arduracer_core::save::CdAudioMode::from_saved(self.cd_audio)
             == arduracer_core::save::CdAudioMode::Xa
         {
@@ -80,6 +84,24 @@ impl AudioSystem {
         self.cdda.play_track(track);
     }
 
+    /// Switches the music source without changing track, if music is on.
+    ///
+    /// Called when the player changes the setting mid-screen. Without it the
+    /// choice would only take effect on the next screen, which reads as the
+    /// setting being ignored.
+    pub fn apply_music_mode(&mut self, reader: &mut crate::cd_fs::DiscReader) {
+        use arduracer_core::save::CdAudioMode as Mode;
+        let mode = Mode::from_saved(self.cd_audio);
+        if !mode.enabled() || self.last_music_track == 0 {
+            return;
+        }
+        // Stop whatever is playing before starting the other source, or the
+        // two would share the drive.
+        self.cdda.stop();
+        self.xa.stop(reader);
+        self.play_music(self.last_music_track, reader);
+    }
+
     /// Keeps the XA stream alive across a frame, resuming after a preemption.
     ///
     /// Cheap when nothing is wrong: one ownership check and nothing else. Called
@@ -102,6 +124,7 @@ impl AudioSystem {
             xa: crate::audio::xa::XaPlayer::new(),
             // CD-DA by default; the boot path sets this from the saved card.
             cd_audio: arduracer_core::save::CdAudioMode::default().as_u8(),
+            last_music_track: 0,
             // Nothing is audible until a stage loads: the title screen and the
             // intro play CD-DA only.
             policy: AudioPolicy::new(),
