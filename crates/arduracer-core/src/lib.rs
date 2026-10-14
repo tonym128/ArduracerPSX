@@ -30,6 +30,7 @@ pub mod route;
 pub mod save;
 pub mod surface;
 pub mod svgtex;
+pub mod xa;
 // Host tools only. The PS1 build loads its grid from the disc instead --
 // see `game::level_grid` -- and has no filesystem to load from.
 #[cfg(not(target_arch = "mips"))]
