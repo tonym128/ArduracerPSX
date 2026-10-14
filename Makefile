@@ -445,6 +445,7 @@ iso: exe
 		--file $(ROOT)/assets/SVGTRACKS.BIN \
 		--file $(ROOT)/assets/TIMTRACKS.BIN \
 		--file $(ROOT)/assets/TIM4TRACKS.BIN \
+		--file $(ROOT)/assets/LEVELS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
@@ -488,6 +489,7 @@ disc: assets exe
 		--file $(ROOT)/assets/SVGTRACKS.BIN \
 		--file $(ROOT)/assets/TIMTRACKS.BIN \
 		--file $(ROOT)/assets/TIM4TRACKS.BIN \
+		--file $(ROOT)/assets/LEVELS.BIN \
 		--file $(ROOT)/assets/CAPETOWN.BIN \
 		--file $(ROOT)/assets/MELBOURNE.BIN \
 		--file $(ROOT)/assets/LONDON.BIN \

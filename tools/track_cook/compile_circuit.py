@@ -482,6 +482,13 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     while len(tiles) % 16:
         tiles.append("T_OFFROAD")
 
+    # `.data`, not the default: the runtime rebinds `tiles` to the grid it reads
+    # from the disc, and a `TrackDef` whose `tiles` is `None` is a pure constant
+    # that rustc would promote into `.rodata` -- where the rebind writes to
+    # nothing and every tile reads as `Barrier`. `link_section` is denied by the
+    # crate's `unsafe_code`, so it carries an explicit allow.
+    out.append("#[allow(unsafe_code)]")
+    out.append('#[link_section = ".data"]')
     out.append(f"pub static {ident}: TrackDef = TrackDef {{")
     out.append(f'    name: "{name.title().replace("_", " ")}",')
     out.append(f"    width: {cw},")

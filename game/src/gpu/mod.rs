@@ -24,4 +24,4 @@ pub use tracktex::{
     init_track_texture, reset_texture_caches, set_frame_period, set_texture_format, texture_format,
     Framerate, TextureFormat,
 };
-pub use tracktex::{prewarm_starting_tiles, render_track, render_track_extents};
+pub use tracktex::{load_level_grid, prewarm_starting_tiles, render_track, render_track_extents};

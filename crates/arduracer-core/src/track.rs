@@ -158,6 +158,7 @@ pub struct TrackDef {
     pub checkpoints: [CheckpointGate; MAX_TRACK_CHECKPOINTS],
     /// Row-major tile grid, `height * width` entries.
     ///
+    ///
     /// `None` means the grid has not been loaded. That is the shipping state:
     /// the grids live on the disc and are installed into a shared buffer at
     /// level load, and this field is repointed at that buffer once (see
@@ -261,6 +262,11 @@ impl TrackDef {
     /// solid wall everywhere instead of as plausible terrain.
     #[inline]
     pub fn tile_grid(&self) -> &'static [TrackTile] {
+        // Host tests read the same `LEVELS.BIN` the console does, installed once
+        // on first use. Without this every test that reads terrain sees an empty
+        // grid -- i.e. solid wall everywhere -- and fails for the wrong reason.
+        #[cfg(test)]
+        crate::test_grids::ensure_installed();
         self.tiles.unwrap_or(&[])
     }
 

@@ -16,6 +16,7 @@ pub mod ghost_player;
 pub mod ghost_recorder;
 pub mod gpu;
 pub mod input;
+pub mod level_grid;
 pub mod memcard;
 pub mod prof;
 pub mod state;
@@ -473,6 +474,10 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
+        // After `init_track_texture`: that is what locates `LEVELS.BIN`. Loading
+        // first finds no asset, leaves every tile `Barrier`, and the AI has no
+        // road to follow -- the car sits on the grid doing nothing.
+        gpu::load_level_grid(ALL_TRACK_VISUALS[idx], ALL_TRACKS[idx]);
         prewarm_starting_tiles(
             self.current_track.world_width(),
             self.current_track.world_height(),
@@ -507,6 +512,7 @@ impl ArduracerGame {
         bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(city.track_id);
+        gpu::load_level_grid(city.track_id, city.track);
         prewarm_starting_tiles(
             self.current_track.world_width(),
             self.current_track.world_height(),

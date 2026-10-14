@@ -324,6 +324,9 @@ static mut SVGTRACKS_BIN_LBA: Option<u32> = None;
 /// has no such file. Probing is non-fatal and the pin degrades to Auto.
 static mut TIMTRACKS_BIN_LBA: Option<u32> = None;
 
+/// LBA of `LEVELS.BIN`, the packed tile grid for every shipped level.
+static mut LEVELS_BIN_LBA: Option<u32> = None;
+
 /// LBA of the uncompressed 4bpp (TIM4) circuit asset.
 ///
 /// Optional for the same reason as [`TIMTRACKS_BIN_LBA`], and more so: TIM4 is
@@ -786,6 +789,64 @@ pub fn reset_texture_caches() {
 
 /// Prepares the track texture streaming cache for a new circuit or city.
 #[allow(clippy::needless_range_loop)]
+/// Grid dimensions of every shipped level, in `LEVELS.BIN` order.
+///
+/// The prefix-sum table [`crate::level_grid::offset_in_asset`] indexes. It
+/// duplicates `TrackDef::width`/`height` deliberately: the loader computes an
+/// offset for a level it has not bound yet, and asking a `TrackDef` for its own
+/// dimensions would require the grid to already exist -- which is the thing being
+/// loaded. A mismatch here is the one failure that produces a plausible-looking
+/// level that is quietly the wrong terrain, so it is pinned by a host test.
+pub const LEVEL_DIMS: [(u8, u8); 27] = [
+    // 24 circuits
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    // 3 free-roam cities
+    (240, 240),
+    (240, 240),
+    (240, 240),
+];
+
+/// Loads `track`'s tile grid from disc and binds it.
+///
+/// Call after `init_track_texture`, which is what locates the asset.
+pub fn load_level_grid(circuit: usize, track: &'static arduracer_core::TrackDef) -> bool {
+    // 24 circuits occupy 0..23; the cities follow at 24..26.
+    let index = match circuit {
+        97 => 24,
+        98 => 25,
+        99 => 26,
+        c => c,
+    };
+    if index >= LEVEL_DIMS.len() {
+        return false;
+    }
+    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+    crate::level_grid::load(reader, unsafe { LEVELS_BIN_LBA }, track, index, &LEVEL_DIMS)
+}
+
 pub fn init_track_texture(circuit: usize) {
     let city_id = if circuit == 99 || circuit == 98 || circuit == 97 {
         circuit
@@ -796,14 +857,14 @@ pub fn init_track_texture(circuit: usize) {
         ACTIVE_CITY = city_id;
         ACTIVE_CIRCUIT = circuit;
         let vram_slots = &mut *core::ptr::addr_of_mut!(VRAM_SLOTS);
-        for i in 0..VRAM_SLOT_COUNT {
-            vram_slots[i] = VramSlot::empty();
+        for slot in vram_slots.iter_mut() {
+            *slot = VramSlot::empty();
         }
         let ram_blocks = &mut *core::ptr::addr_of_mut!(RAM_BLOCKS);
-        for i in 0..RAM_CACHE_BLOCKS {
-            ram_blocks[i].resident_circuit = usize::MAX;
-            ram_blocks[i].valid = false;
-            ram_blocks[i].last_used = 0;
+        for block in ram_blocks.iter_mut() {
+            block.resident_circuit = usize::MAX;
+            block.valid = false;
+            block.last_used = 0;
         }
         ACTIVE_JOB = DecodeJob::empty();
         FRAME_COUNTER = 0;
@@ -818,6 +879,7 @@ pub fn init_track_texture(circuit: usize) {
             SVGTRACKS_BIN_LBA = reader.find_file_lba(visual_tex::SVGTRACKS_BIN_NAME);
             TIMTRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TIMTRACKS_BIN_NAME);
             TIM4TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TIM4TRACKS_BIN_NAME);
+            LEVELS_BIN_LBA = reader.find_file_lba(visual_tex::LEVELS_BIN_NAME);
             CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
             MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
             LONDON_BIN_LBA = reader.find_file_lba(visual_tex::LONDON_BIN_NAME);

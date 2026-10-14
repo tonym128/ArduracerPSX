@@ -28,6 +28,8 @@ pub mod route;
 pub mod save;
 pub mod surface;
 pub mod svgtex;
+#[cfg(test)]
+pub mod test_grids;
 pub mod texture_format;
 pub mod timing;
 pub mod track;

@@ -932,3 +932,7 @@ pub static CLUT_RGB: [(u8, u8, u8); 16] = [
     (58, 90, 122),
     (255, 46, 136),
 ];
+
+/// Name of the disc asset holding every level's tile grid: row-major, one
+/// `TrackTile` discriminant per cell, in level order with no header.
+pub const LEVELS_BIN_NAME: &[u8] = b"LEVELS.BIN";
