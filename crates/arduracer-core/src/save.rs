@@ -88,6 +88,65 @@ pub const CHECKSUM_OFFSET: usize = 180;
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
 const OFF_BEST_LAPS: usize = 24;
 
+/// Which disc-audio source the player has chosen.
+///
+/// The three are not interchangeable, and the difference is the drive.
+///
+/// A PS1 CD-ROM has one laser and one head. Redbook CD-DA at 44.1 kHz stereo
+/// is 75.2 sectors per second -- the *whole* drive, every second, for as long as
+/// it plays -- so a texture read has to pause the music, seek, read, and seek
+/// back. That is the audible stutter this field originally existed to switch off.
+///
+/// XA-ADPCM was made for exactly this situation. It is read at 2x and holds 504
+/// stereo frames per sector against CD-DA's 588, so per unit of drive time it
+/// delivers 75,600 frames/s where CD-DA delivers 44,100 -- about 58% of the
+/// cost, and interruptible by design, since interleaved CD-ROM playback was the
+/// entire point of the format.
+///
+/// It is still not free: 58% of a 44.1 kHz stream plus the texture streamer
+/// exceeds the drive on the 15bpp format, so XA is offered where it fits.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum CdAudioMode {
+    /// No disc audio. Music off, SFX and engine unaffected.
+    Off,
+    /// Redbook CD-DA, streamed by the drive into the SPU's CD input.
+    ///
+    /// The default, and what a legacy card with a non-zero byte decodes to.
+    #[default]
+    Cdda,
+    /// CD-XA ADPCM, decoded by the CPU and fed to the same SPU CD input.
+    Xa,
+}
+
+impl CdAudioMode {
+    /// Highest mode, for bounds checks.
+    pub const MAX: CdAudioMode = CdAudioMode::Xa;
+
+    pub const fn as_u8(self) -> u8 {
+        match self {
+            CdAudioMode::Off => 0,
+            CdAudioMode::Cdda => 1,
+            CdAudioMode::Xa => 2,
+        }
+    }
+
+    /// Reads a stored byte. Anything unrecognised becomes CD-DA when it was
+    /// non-zero, and Off when it was zero -- so the pre-XA flag encoding is
+    /// exactly right for every byte the old format could hold.
+    pub const fn from_saved(v: u8) -> CdAudioMode {
+        match v {
+            0 => CdAudioMode::Off,
+            2 => CdAudioMode::Xa,
+            _ => CdAudioMode::Cdda,
+        }
+    }
+
+    /// Whether the music field should read as "on".
+    pub const fn enabled(self) -> bool {
+        !matches!(self, CdAudioMode::Off)
+    }
+}
+
 /// 1-block PSX Save Data struct.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SaveData {
@@ -116,12 +175,15 @@ pub struct SaveData {
     pub texture_format: u8,
     /// Selected framerate: 0 = 60 FPS, 1 = 30 FPS.
     pub framerate: u8,
-    /// Whether Redbook CD-DA playback is permitted: 0 = off, 1 = on.
+    /// Which disc-audio source is permitted. See [`CdAudioMode`].
     ///
-    /// Exists because the TIM texture streamer and CD-DA both contend for the
-    /// one physical drive, and the streamer wins often enough to be heard as
-    /// audio stutter. Sanitised as a flag by the same reasoning as
-    /// `rumble_enabled`.
+    /// Exists because music and textures contend for the one physical drive,
+    /// and the streamer wins often enough to be heard as audio stutter.
+    ///
+    /// Was a flag (0 = off, 1 = on) before XA existed, so the stored bytes are
+    /// read unchanged: 1 still means CD-DA. `sanitise` folds anything else onto
+    /// CD-DA rather than off, because a corrupt byte should not silently mute a
+    /// player who had music on.
     pub cd_audio: u8,
     pub checksum: u16,
 }
@@ -146,7 +208,7 @@ impl Default for SaveData {
             // gets.
             texture_format: 0,
             framerate: 0,
-            cd_audio: 1,
+            cd_audio: CdAudioMode::default().as_u8(),
             checksum: 0,
         };
         save.checksum = save.compute_checksum();
@@ -155,6 +217,11 @@ impl Default for SaveData {
 }
 
 impl SaveData {
+    /// The decoded disc-audio mode, rather than the raw stored byte.
+    pub const fn cd_audio_mode(&self) -> CdAudioMode {
+        CdAudioMode::from_saved(self.cd_audio)
+    }
+
     /// Serialises every field into `out` in the documented byte order.
     ///
     /// `out` must be at least [`PAYLOAD_SIZE`] bytes. Bounds-checked indexing
@@ -359,7 +426,7 @@ impl SaveData {
             self.texture_format = 0;
         }
         self.framerate = u8::from(self.framerate != 0);
-        self.cd_audio = u8::from(self.cd_audio != 0);
+        self.cd_audio = CdAudioMode::from_saved(self.cd_audio).as_u8();
         // _reserved0 stores Grand Prix progression when active.
         // A valid active championship has:
         // - active flag bit 0 set (0x01)
@@ -412,7 +479,7 @@ impl SaveData {
             && self.music_volume <= MAX_VOLUME
             && self.rumble_enabled <= 1
             && self.framerate <= 1
-            && self.cd_audio <= 1
+            && self.cd_audio <= CdAudioMode::MAX.as_u8()
             && self.texture_format <= 5
             && self.medals_earned.iter().all(|&m| m <= MAX_MEDAL)
             && self
@@ -1044,6 +1111,82 @@ mod tests {
         }
         for &idx in session.grid_positions.iter() {
             assert!(idx < COMPETITORS_PER_SESSION);
+        }
+    }
+
+    /// Every byte the pre-XA flag format could hold must still decode, and must
+    /// decode to CD-DA rather than Off when it was non-zero. A player who had
+    /// music on must not come back from an update with the music muted.
+    #[test]
+    fn every_legacy_cd_audio_byte_decodes_to_a_mode() {
+        assert_eq!(CdAudioMode::from_saved(0), CdAudioMode::Off);
+        assert_eq!(CdAudioMode::from_saved(1), CdAudioMode::Cdda);
+        // Anything else non-zero is CD-DA, which is what "on" meant before.
+        for byte in 2..=255u8 {
+            assert_eq!(
+                CdAudioMode::from_saved(byte),
+                if byte == 2 {
+                    CdAudioMode::Xa
+                } else {
+                    CdAudioMode::Cdda
+                },
+                "byte {byte} decoded to the wrong mode"
+            );
+        }
+    }
+
+    /// The mode has to survive the save round trip, and a corrupt byte must be
+    /// repaired rather than rejected -- a card that fails `is_valid` outright
+    /// would lose the whole profile over one bad audio byte.
+    #[test]
+    fn cd_audio_mode_round_trips_and_repairs() {
+        for mode in [CdAudioMode::Off, CdAudioMode::Cdda, CdAudioMode::Xa] {
+            let mut card = SaveData {
+                cd_audio: mode.as_u8(),
+                ..SaveData::default()
+            };
+            // Field checks first: `is_valid` also covers the checksum, which a
+            // just-mutated card cannot have until it is recomputed below.
+            assert!(
+                card.has_legal_fields(),
+                "{mode:?} was rejected by the field checks"
+            );
+            card.checksum = card.compute_checksum();
+            assert!(card.is_valid(), "{mode:?} failed the checksum");
+            let mut block = [0u8; 8192];
+            card.to_block_bytes(&mut block);
+            let back = SaveData::from_block_bytes(&block).expect("round trip");
+            assert_eq!(back.cd_audio_mode(), mode, "{mode:?} did not survive");
+        }
+
+        let repaired = SaveData {
+            cd_audio: 200,
+            ..SaveData::default()
+        }
+        .sanitised();
+        assert_eq!(repaired.cd_audio_mode(), CdAudioMode::Cdda);
+        assert!(
+            repaired.has_legal_fields(),
+            "a repaired card must still pass the field checks"
+        );
+    }
+
+    /// Every byte is foldable, so no stored value can be rejected by `is_valid`
+    /// for being out of range.
+    #[test]
+    fn cd_audio_stored_bytes_round_trip_through_sanitise() {
+        for byte in 0..=255u8 {
+            let card = SaveData {
+                cd_audio: byte,
+                ..SaveData::default()
+            }
+            .sanitised();
+            assert!(card.has_legal_fields(), "byte {byte} left an invalid card");
+            if byte == 0 {
+                assert!(!card.cd_audio_mode().enabled(), "byte 0 must be Off");
+            } else {
+                assert!(card.cd_audio_mode().enabled(), "byte {byte} must be on");
+            }
         }
     }
 }

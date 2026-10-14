@@ -9,6 +9,7 @@ use crate::ui::font::draw_text;
 use crate::ui::settings_input::{
     SettingsChoice, SettingsInput, SettingsMenu, SettingsValues, ROW_COUNT,
 };
+use arduracer_core::save::CdAudioMode;
 use psx_gpu as gpu;
 
 /// Maps the persisted integers onto the enums the renderer uses.
@@ -125,10 +126,23 @@ impl SettingsScreen {
 ///
 /// Spelled ON/OFF rather than ENABLED/DISABLED so the label and its value fit
 /// between the `<` and `>` arrows without overlapping them.
+impl SettingsValues {
+    /// The decoded disc-audio mode behind the raw menu byte.
+    pub const fn cd_audio_mode(&self) -> CdAudioMode {
+        CdAudioMode::from_saved(self.cd_audio)
+    }
+}
+
+/// How the setting names itself in the menu.
+///
+/// Three states, not two, and the middle one is named rather than "ON" because
+/// the choice is no longer a flag: Redbook CD-DA holds the whole drive for as
+/// long as it plays, and XA costs about 58% of that. See
+/// [`arduracer_core::save::CdAudioMode`].
 pub const fn cd_audio_label(v: u8) -> &'static str {
-    if v != 0 {
-        "ON"
-    } else {
-        "OFF"
+    match v {
+        0 => "OFF",
+        2 => "XA",
+        _ => "CD-DA",
     }
 }

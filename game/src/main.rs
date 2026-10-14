@@ -24,6 +24,7 @@ pub mod state;
 pub mod ui;
 pub mod video;
 
+use arduracer_core::save::CdAudioMode;
 use arduracer_core::{
     compute_standings, grid_slot_offset_on, grid_slot_position_on, resolve_field, AiRacer,
     ChampionshipSession, Difficulty, Fixed, LapTimer, StartPhase, StartSequence, TrackDef, Vec2,
@@ -446,7 +447,7 @@ impl ArduracerGame {
             // CD-DA and hand it straight back, for the whole boot.
             game.audio
                 .cdda
-                .set_enabled(game.memcard.save_data.cd_audio != 0);
+                .set_enabled(game.memcard.save_data.cd_audio_mode().enabled());
             dbg::print("[BOOT] graphics: format=");
             dbg::print(texture_format().label());
             dbg::print(" framerate=");
@@ -1599,8 +1600,13 @@ impl ArduracerGame {
         // does not restart it here: the next `play_track` for whatever screen
         // the player is on does that, which keeps this function free of
         // knowledge about which screen that is.
-        if (values.cd_audio != 0) != previous_cd_audio {
-            self.audio.cdda.set_enabled(values.cd_audio != 0);
+        // Only CD-DA and Off reach the drive controller; XA is a separate
+        // player with its own transfer, and selecting it must not leave the
+        // Redbook stream holding the drive.
+        let want_cdda =
+            values.cd_audio_mode() != CdAudioMode::Xa && values.cd_audio_mode().enabled();
+        if want_cdda != previous_cd_audio {
+            self.audio.cdda.set_enabled(want_cdda);
         }
 
         dbg::print("[SETTINGS] applied format=");

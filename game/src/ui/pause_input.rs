@@ -166,7 +166,7 @@ impl PauseMenu {
             ),
             ITEM_FRAMERATE => (self.values.framerate as i32, 2),
             ITEM_VIEW => (self.values.camera_view as i32, 3),
-            ITEM_CD_AUDIO => (self.values.cd_audio as i32, 2),
+            ITEM_CD_AUDIO => (self.values.cd_audio as i32, 3),
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
