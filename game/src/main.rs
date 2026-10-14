@@ -13,6 +13,7 @@ pub mod audio;
 pub mod autopilot;
 pub mod cd_fs;
 pub mod dbg;
+pub mod drive;
 pub mod ghost_player;
 pub mod ghost_recorder;
 pub mod gpu;

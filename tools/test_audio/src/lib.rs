@@ -24,6 +24,14 @@
 #[allow(unused_imports)]
 mod audio_policy;
 
+// The drive arbiter, for the same reason as `audio_policy`: it decides
+// something real and has no hardware in it, so it can be asserted on the host
+// rather than only heard on the console. The game crate builds for mips only,
+// so a `#[cfg(test)]` module inside `drive.rs` would never run.
+#[path = "../../../game/src/drive.rs"]
+#[allow(unused_imports)]
+mod drive;
+
 #[cfg(test)]
 mod tests {
     #[allow(unused_imports)]
