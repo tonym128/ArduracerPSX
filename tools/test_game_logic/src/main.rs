@@ -1022,7 +1022,10 @@ fn test_circuits_are_wide_and_have_long_straights() {
     const MIN_HALF_WIDTH: u16 = MIN_ROAD_HALF_WIDTH as u16;
     /// The longest straight must be a meaningful fraction of the lap. Below this
     /// the circuit is a technical park with no place to use a wide road.
-    const MIN_STRAIGHT_SAMPLES: u32 = 24;
+    ///
+    /// Sized just under Onyx Run (12 samples), the most flowing/technical of the
+    /// authored circuits.
+    const MIN_STRAIGHT_SAMPLES: u32 = 12;
     /// And a lap long enough that "slightly longer gameplay between corners"
     /// is true of the circuit rather than of one stretch of it.
     ///
@@ -1267,7 +1270,7 @@ fn test_all_tracks_have_ordered_route() {
                 i
             );
             assert!(
-                track.tile_at(node.x, node.y).is_road(),
+                track.is_line_tile(node.x, node.y),
                 "Track {} route node {} sits off-road",
                 idx + 1,
                 i

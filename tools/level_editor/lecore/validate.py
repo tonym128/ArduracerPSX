@@ -168,7 +168,7 @@ def _components(grid: np.ndarray, of_interest: frozenset[int]) -> list[list[tupl
     return regions
 
 
-def validate_grid(grid: np.ndarray) -> Report:
+def validate_grid(grid: np.ndarray, level: "Level | None" = None) -> Report:
     """The compiler's rules, on a resolved cell grid rather than a PNG."""
     r = Report()
     h, w = grid.shape
@@ -231,7 +231,7 @@ def validate_grid(grid: np.ndarray) -> Report:
                 break
         right = step - 1
         widths.append(left + right + 1)
-    if widths:
+    if widths and level is not None:
         med = sorted(widths)[len(widths) // 2]
         r.info["median_road_width_cells"] = med
         want = int(round(level.road_half_cells * 2))
@@ -411,7 +411,7 @@ def validate_level(level: Level, grid: np.ndarray | None = None) -> Report:
             "crossing will not count as finishing a lap."
         )
     if grid is not None:
-        r.merge(validate_grid(grid))
+        r.merge(validate_grid(grid, level))
         if centreline:
             r.merge(validate_gates(level, grid, centreline))
     return r

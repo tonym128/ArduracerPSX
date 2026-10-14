@@ -329,7 +329,7 @@ fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
         if !g.is_active() {
             errors.push(format!("{}: checkpoint {} is empty", label, i));
         }
-        if !track.tile_at(g.x, g.y).is_road() {
+        if !track.is_line_tile(g.x, g.y) {
             errors.push(format!(
                 "{}: checkpoint {} at ({},{}) is off the racing surface",
                 label, i, g.x, g.y

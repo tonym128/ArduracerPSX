@@ -335,9 +335,9 @@ pub fn decode_sector(
 /// Sized against the seek, which dominates everything else here. A run of N
 /// costs one ~150 ms seek plus N * 6.7 ms of transfer and delivers N * 54 ms of
 /// audio, so the drive's duty cycle is `(150 + 6.7N) / (54N)`:
-///
-///     N = 1 -> 2.9x    N = 2 -> 1.5x    N = 4 -> 0.82    N = 16 -> 0.30
-///
+/// ```text
+/// N = 1 -> 2.9x    N = 2 -> 1.5x    N = 4 -> 0.82    N = 16 -> 0.30
+/// ```
 /// Under about N = 4 the drive is busier than the audio it carries, which is the
 /// whole thing this format was introduced to avoid. See
 /// `drive_duty_cycle_is_what_limits_run_length`.

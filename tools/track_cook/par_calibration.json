@@ -16,16 +16,16 @@
       { "track": "Willow Creek", "dev": 2742, "gold": 3091, "silver": 3462, "bronze": 3956, "tuned_ticks": 2742, "tuning": [5, 7, 4, 2, 2] },
       { "track": "Cobalt Run", "dev": 1232, "gold": 1516, "silver": 1698, "bronze": 1940, "tuned_ticks": 1232, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Dragon'S Spine", "dev": 1706, "gold": 1947, "silver": 2181, "bronze": 2492, "tuned_ticks": 1706, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Neon Boulevard", "dev": 2180, "gold": 2703, "silver": 3027, "bronze": 3460, "tuned_ticks": 2180, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Redwood Pass", "dev": 1287, "gold": 1738, "silver": 1947, "bronze": 2225, "tuned_ticks": 1287, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Thunder Basin", "dev": 1385, "gold": 1743, "silver": 1952, "bronze": 2231, "tuned_ticks": 1385, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Canyon Mirage", "dev": 2414, "gold": 3194, "silver": 3577, "bronze": 4088, "tuned_ticks": 2414, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Obsidian Loop", "dev": 1389, "gold": 1841, "silver": 2062, "bronze": 2356, "tuned_ticks": 1389, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Apex Predator", "dev": 1852, "gold": 2100, "silver": 2352, "bronze": 2688, "tuned_ticks": 1852, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Viper'S Tail", "dev": 2331, "gold": 2795, "silver": 3130, "bronze": 3578, "tuned_ticks": 2331, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Frostpeak Summit", "dev": 1288, "gold": 1667, "silver": 1867, "bronze": 2134, "tuned_ticks": 1288, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Golden Horizon", "dev": 1242, "gold": 1554, "silver": 1740, "bronze": 1989, "tuned_ticks": 1242, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Phantom Ravine", "dev": 1212, "gold": 1526, "silver": 1709, "bronze": 1953, "tuned_ticks": 1212, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Grand Finale", "dev": 1363, "gold": 1682, "silver": 1884, "bronze": 2153, "tuned_ticks": 1363, "tuning": [7, 5, 4, 2, 2] }
+      { "track": "Frost Cascade", "dev": 1181, "gold": 1533, "silver": 1717, "bronze": 1962, "tuned_ticks": 1181, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Lunar Gorge", "dev": 626, "gold": 804, "silver": 900, "bronze": 1029, "tuned_ticks": 626, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Onyx Run", "dev": 907, "gold": 1164, "silver": 1304, "bronze": 1490, "tuned_ticks": 907, "tuning": [7, 5, 4, 2, 2] }
   ]
 }
