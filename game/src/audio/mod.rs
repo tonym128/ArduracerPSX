@@ -9,6 +9,7 @@ pub mod engine_audio;
 pub mod sfx;
 pub mod soundbank;
 pub mod spu;
+pub mod xa;
 
 pub use audio_policy::{AudioPolicy, UiSound};
 pub use cdda::{CddaController, CddaState};

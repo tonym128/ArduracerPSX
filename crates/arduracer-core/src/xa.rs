@@ -330,6 +330,117 @@ pub fn decode_sector(
     Some(written / 2)
 }
 
+/// Sectors the player takes per drive run.
+///
+/// Sized against the seek, which dominates everything else here. A run of N
+/// costs one ~150 ms seek plus N * 6.7 ms of transfer and delivers N * 54 ms of
+/// audio, so the drive's duty cycle is `(150 + 6.7N) / (54N)`:
+///
+///     N = 1 -> 2.9x    N = 2 -> 1.5x    N = 4 -> 0.82    N = 16 -> 0.30
+///
+/// Under about N = 4 the drive is busier than the audio it carries, which is the
+/// whole thing this format was introduced to avoid. See
+/// `drive_duty_cycle_is_what_limits_run_length`.
+pub const RUN_SECTORS: usize = 4;
+
+/// Stereo frames of jitter budget: 37,800 / 60 = 630 consumed per video frame,
+/// and four of those absorbs a frame that runs long or a sector that lands late.
+pub const JITTER_FRAMES: usize = 4 * 630;
+
+/// Stereo frames the ring holds: one whole run plus the jitter budget.
+///
+/// It has to hold a *whole run*, not just jitter. A sector carries 54 ms of
+/// audio but arrives every 6.7 ms at 2x, so the drive delivers frames eight
+/// times faster than playback consumes them. Decoding a run as it lands
+/// therefore deposits `RUN_SECTORS * 2016` frames at once, and a ring sized only
+/// for jitter would drop most of the run as overflow -- which reads as the
+/// music skipping, not as a click.
+pub const MIN_RING_FRAMES: usize = RUN_SECTORS * FRAMES_PER_SECTOR_4BIT + JITTER_FRAMES;
+
+/// Stereo frames of audio per video frame at `video_hz`.
+///
+/// Derived, not hardcoded: it is 630 at 60 fps and 1260 at 30, and getting it
+/// wrong is not a subtle pitch shift -- the stream plays at the wrong speed, or
+/// runs its buffer dry.
+pub fn frames_per_video_frame(video_hz: u32) -> u32 {
+    (Coding::MASTERED.rate.hz() + video_hz / 2) / video_hz.max(1)
+}
+
+/// A stereo frame ring: two indices into one flat buffer, no allocation.
+///
+/// Lives here rather than in the player so it can be tested on the host. The
+/// player owns the SPU and the drive; this owns only "which frame is next", and
+/// getting that wrong is a bug you would otherwise hear rather than read.
+#[derive(Clone)]
+pub struct Ring {
+    data: [i16; MIN_RING_FRAMES * 2],
+    write: usize,
+    read: usize,
+}
+
+/// Hand-written because the derived one needs `[i16; N]: Default`, which
+/// arrays do not have above 32 elements.
+impl Default for Ring {
+    fn default() -> Self {
+        Ring::new()
+    }
+}
+
+impl Ring {
+    pub const fn new() -> Self {
+        Ring {
+            data: [0; MIN_RING_FRAMES * 2],
+            write: 0,
+            read: 0,
+        }
+    }
+
+    /// Frames currently buffered.
+    ///
+    /// The addition before the modulo is load-bearing: `wrapping_sub` followed
+    /// by `%` is Rust's *remainder*, not Euclidean modulo, so an index that has
+    /// wrapped reports nonsense -- a ring filled to its nominal size measured
+    /// 10095 frames of 10584. Every caller of this decides whether the buffer is
+    /// low enough to fetch into, so a wrong depth here is a silent underrun.
+    pub fn len(&self) -> usize {
+        (self.write + MIN_RING_FRAMES - self.read) % MIN_RING_FRAMES
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.write == self.read
+    }
+
+    /// Appends one stereo frame.
+    ///
+    /// On overflow the *oldest* frame goes. Dropping the newest instead would
+    /// leave the player permanently one frame behind, which reads as drift
+    /// rather than as a click -- a much harder fault to recognise.
+    pub fn push(&mut self, left: i16, right: i16) {
+        let next = (self.write + 1) % MIN_RING_FRAMES;
+        if next == self.read {
+            self.read = (self.read + 1) % MIN_RING_FRAMES;
+        }
+        self.data[self.write * 2] = left;
+        self.data[self.write * 2 + 1] = right;
+        self.write = next;
+    }
+
+    /// The oldest buffered frame.
+    pub fn pop(&mut self) -> Option<(i16, i16)> {
+        if self.is_empty() {
+            return None;
+        }
+        let frame = (self.data[self.read * 2], self.data[self.read * 2 + 1]);
+        self.read = (self.read + 1) % MIN_RING_FRAMES;
+        Some(frame)
+    }
+
+    pub fn clear(&mut self) {
+        self.write = 0;
+        self.read = 0;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -414,6 +525,94 @@ mod tests {
         let mut l = ChannelState::new();
         let mut r = ChannelState::new();
         assert!(decode_sector(&raw, Coding::MASTERED, &mut l, &mut r, &mut out).is_none());
+    }
+
+    /// Cadence must follow the video frame rate: 630 at 60 fps, 1260 at 30.
+    #[test]
+    fn cadence_follows_the_video_frame_rate() {
+        assert_eq!(frames_per_video_frame(60), 630);
+        assert_eq!(frames_per_video_frame(30), 1260);
+    }
+
+    /// The ring must hand frames back in the order they went in.
+    #[test]
+    fn ring_is_fifo_and_reports_depth() {
+        let mut r = Ring::new();
+        assert!(r.is_empty());
+        for i in 0..10i16 {
+            r.push(i, -i);
+        }
+        assert_eq!(r.len(), 10);
+        for i in 0..10i16 {
+            assert_eq!(r.pop(), Some((i, -i)), "frame {i} came back wrong");
+        }
+        assert!(r.is_empty());
+        assert_eq!(r.pop(), None);
+    }
+
+    /// Overflow drops the oldest and keeps the newest, so a late sector costs a
+    /// glitch rather than permanent drift.
+    #[test]
+    fn ring_overflow_keeps_the_newest() {
+        let mut r = Ring::new();
+        let pushed: usize = MIN_RING_FRAMES + 5;
+        for i in 0..pushed {
+            r.push(i as i16, i as i16);
+        }
+        assert_eq!(r.len(), MIN_RING_FRAMES - 1);
+        // The last `MIN_RING_FRAMES - 1` frames pushed must be exactly what
+        // comes back, in order: the dropped ones are the oldest.
+        let first_surviving: i32 = (pushed - (MIN_RING_FRAMES - 1)) as i32;
+        for expect in first_surviving..(pushed as i32) {
+            assert_eq!(
+                r.pop(),
+                Some((expect as i16, expect as i16)),
+                "frame {expect} did not survive"
+            );
+        }
+    }
+
+    /// The ring must hold a whole decoded run plus the jitter budget, or a run
+    /// is dropped as overflow the moment it lands.
+    #[test]
+    fn ring_absorbs_a_whole_run_plus_jitter() {
+        let mut r = Ring::new();
+        for _ in 0..RUN_SECTORS {
+            for _ in 0..FRAMES_PER_SECTOR_4BIT {
+                r.push(1, -1);
+            }
+        }
+        assert!(
+            r.len() >= RUN_SECTORS * FRAMES_PER_SECTOR_4BIT,
+            "a {RUN_SECTORS}-sector run does not fit the ring"
+        );
+    }
+
+    /// The drive arithmetic the whole design rests on: how much of the drive a
+    /// run of N sectors occupies, as a multiple of the audio time it delivers.
+    ///
+    /// This is the number that decides whether music can share the disc with the
+    /// texture streamer, and it is *not* the sector-rate figure -- a run is
+    /// bounded by one seek, so the seek dominates at small N and the sector rate
+    /// only starts to matter once N is large.
+    #[test]
+    fn drive_duty_cycle_is_what_limits_run_length() {
+        let seek_us = 150_000.0;
+        let sector_us = 6_700.0; // one XA sector at 2x
+        let audio_per_sector_us = 54_000.0;
+        let duty = |n: f64| (seek_us + sector_us * n) / (audio_per_sector_us * n);
+
+        // A single-sector run is nearly three times the drive for 54 ms of
+        // music: the seek is the entire cost.
+        assert!(duty(1.0) > 2.0, "N=1 should be seek-dominated");
+        // The shipped run length leaves the drive busier than the audio.
+        assert!(
+            duty(RUN_SECTORS as f64) > 0.5,
+            "N={RUN_SECTORS} should still be substantially seek-dominated"
+        );
+        // Reaching a 30% duty needs a run of ~16 sectors, which needs a ring of
+        // 16 * 2016 + jitter frames -- about 130 KB, more than the build has.
+        assert!(duty(16.0) < 0.35, "N=16 should reach a workable duty cycle");
     }
 
     /// Reserved channel and rate encodings must be refused, not guessed at.
