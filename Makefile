@@ -504,7 +504,19 @@ assets: levels-bin
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
-disc: assets exe
+# Encodes the six CD-DA music masters into CD-XA-ADPCM sectors. The XA files
+# are what the `CdAudioMode::XA` option plays; without them that option is
+# silent, which is the honest outcome.
+.PHONY: music-xa
+music-xa:
+	@mkdir -p $(ROOT)/assets/music
+	@for i in 1 2 3 4 5 6; do \
+		src=$$(ls $(ROOT)/assets/cdda/track0$$((i+1))_*.raw); \
+		python3 $(ROOT)/tools/track_cook/make_music_xa.py $$src \
+			$(ROOT)/assets/music/MUSIC$$i.XA $$i || exit 1; \
+	done
+
+disc: assets music-xa exe
 	@mkdir -p $(DIST)
 	cargo run --release --manifest-path $(MKISOPSX)/Cargo.toml -- \
 		--exe $(DIST)/arduracer.exe \
@@ -525,7 +537,13 @@ disc: assets exe
 		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \
 		--cdda-track $(ROOT)/assets/cdda/track05_cyber.raw \
 		--cdda-track $(ROOT)/assets/cdda/track06_canyon.raw \
-		--cdda-track $(ROOT)/assets/cdda/track07_victory.raw
+		--cdda-track $(ROOT)/assets/cdda/track07_victory.raw \
+		--xa-file $(ROOT)/assets/music/MUSIC1.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC2.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC3.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC4.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC5.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC6.XA
 	@echo "SUCCESS! Bootable PS1 Disc Mastered:"
 	@echo "  CUE: $(DIST)/arduracer.cue"
 	@echo "  BIN: $(DIST)/arduracer.bin"

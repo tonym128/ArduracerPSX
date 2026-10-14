@@ -379,7 +379,11 @@ impl ArduracerGame {
             "Initializing audio subsystem and cueing CD-DA Track 2...",
         );
         let mut audio = AudioSystem::new();
-        audio.cdda.play_track(2);
+        // The mode has to be set before the first `play_music`, or the title
+        // screen plays CD-DA regardless of what the player chose.
+        let cd_audio = memcard.save_data.cd_audio;
+        audio.set_cd_audio(cd_audio);
+        audio.play_music(2, crate::gpu::tracktex::disc_reader());
         dbg::check_faults();
 
         dbg::log_step(8, 9, "Initializing DualShock analog controller manager...");
@@ -449,8 +453,8 @@ impl ArduracerGame {
             game.audio
                 .cdda
                 .set_enabled(game.memcard.save_data.cd_audio_mode().enabled());
-            // Which disc-audio source the player chose, and who yields to whom.
-            game.audio.set_cd_audio(game.memcard.save_data.cd_audio);
+            // Who yields to whom for the drive. The mode itself was already
+            // applied to the audio system above, before the first play_music.
             crate::drive::install_preempt(crate::audio::xa::player_suspend);
             dbg::print("[BOOT] graphics: format=");
             dbg::print(texture_format().label());

@@ -38,17 +38,13 @@ use crate::cd_fs::DiscReader;
 
 /// The disc file name for a given music track.
 ///
-/// `MUSIC1.XA` .. `MUSIC6.XA`, matching the six CD-DA tracks. Uppercase, no
-/// extension padding -- the ISO9660 8.3 form the cooker already emits.
-pub fn track_file_name(track: u8) -> [u8; 11] {
-    let mut name = *b"MUSIC0.XA  ";
-    name[5] = b'0' + track;
-    // Trim to 8+3 with a dot, the ISO9660 form.
-    let mut out = [0u8; 11];
-    out[..8].copy_from_slice(&b"MUSIC0.XA"[..8]);
-    out[8] = b'.';
-    out[9..11].copy_from_slice(&b"XA"[..2]);
-    let _ = name;
+/// `MUSIC1.XA` .. `MUSIC6.XA`. ISO9660 stores these with a `;1` version
+/// suffix, and `find_file_lba` matches on the name as a prefix before the
+/// semicolon, so the returned slice is the bare name with no version.
+pub fn track_file_name(track: u8) -> [u8; 9] {
+    let mut out = [0u8; 9];
+    out.copy_from_slice(b"MUSIC0.XA");
+    out[5] = b'0' + track;
     out
 }
 

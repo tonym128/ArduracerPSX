@@ -60,8 +60,20 @@ impl AudioSystem {
             == arduracer_core::save::CdAudioMode::Xa
         {
             let name = crate::audio::xa::track_file_name(track);
-            if let Some(lba) = reader.find_file_lba(&name) {
-                crate::audio::xa::player().start_track(reader, lba);
+            match reader.find_file_lba(&name) {
+                Some(lba) => {
+                    crate::dbg::print("[XA] track ");
+                    crate::dbg::print_dec(track as u32);
+                    crate::dbg::print(" at LBA ");
+                    crate::dbg::print_dec(lba);
+                    crate::dbg::println("");
+                    crate::audio::xa::player().start_track(reader, lba);
+                }
+                None => {
+                    crate::dbg::print("[XA] track ");
+                    crate::dbg::print_dec(track as u32);
+                    crate::dbg::println(" not on disc");
+                }
             }
             return;
         }
