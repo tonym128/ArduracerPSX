@@ -1269,6 +1269,109 @@ fn paint_fallback_row(start_y: usize, scratch: &mut [u16; TILE_PIXELS]) {
 }
 
 #[inline(never)]
+fn upload_tile_sync(
+    circuit: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+) -> bool {
+    let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
+        return false;
+    };
+    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
+        return false;
+    }
+
+    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
+    let block_end = block_lba + block_sectors;
+    let tile_lba = block_lba + tile_index * TIM_TILE_SECTORS;
+    if tile_lba + TIM_TILE_SECTORS > block_end {
+        return false;
+    }
+
+    let byte_count = TIM_TILE_SECTORS as usize * 2048;
+    let dst = unsafe {
+        core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count)
+    };
+    if !disc_reader().read_sectors(tile_lba, TIM_TILE_SECTORS as usize, dst) {
+        return false;
+    }
+
+    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
+    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
+    let src = scratch_words() as *const u32;
+    let via_dma = dma_copy_to_vram(rect, src);
+    if !via_dma {
+        upload_words(rect, unsafe {
+            core::slice::from_raw_parts(src, TILE_PIXELS / 2)
+        });
+    }
+
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[target_slot].resident_circuit = circuit;
+    vram_slots[target_slot].resident_block_x = 0;
+    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_tile_x = tile_x;
+    vram_slots[target_slot].resident_tile_y = tile_y;
+    vram_slots[target_slot].last_used = 1;
+    true
+}
+
+#[inline(never)]
+fn upload_tile_sync4(
+    circuit: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+) -> bool {
+    let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
+        return false;
+    };
+    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
+        return false;
+    }
+    if !upload_tim4_palette(circuit) {
+        return false;
+    }
+
+    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
+    let tile_lba = block_lba
+        .wrapping_add(visual_tex::TIM4_PALETTE_SECTORS)
+        .wrapping_add(tile_index * TIM4_TILE_SECTORS);
+    let block_end = block_lba + block_sectors;
+    if tile_lba + TIM4_TILE_SECTORS > block_end {
+        return false;
+    }
+
+    let byte_count = TIM4_TILE_SECTORS as usize * 2048;
+    let dst = unsafe {
+        core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count)
+    };
+    if !disc_reader().read_sectors(tile_lba, TIM4_TILE_SECTORS as usize, dst) {
+        return false;
+    }
+
+    let (vx, vy, _, _, _) = texlayout::vram_slot_coords_tim4(target_slot);
+    let rect = VramRect::new(vx, vy, TIM4_TILE_RECT.0, TIM4_TILE_RECT.1);
+    let src = scratch_words() as *const u32;
+    let via_dma = dma_copy_to_vram(rect, src);
+    if !via_dma {
+        upload_words(rect, unsafe {
+            core::slice::from_raw_parts(src, visual_tex::TIM4_TILE_HALFWORDS / 2)
+        });
+    }
+
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[target_slot].resident_circuit = circuit;
+    vram_slots[target_slot].resident_block_x = 0;
+    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_tile_x = tile_x;
+    vram_slots[target_slot].resident_tile_y = tile_y;
+    vram_slots[target_slot].last_used = 1;
+    true
+}
+
+#[inline(never)]
 fn decode_and_upload_full_tile(
     circuit: usize,
     bx: usize,
@@ -1278,14 +1381,9 @@ fn decode_and_upload_full_tile(
     target_slot: usize,
 ) {
     // TIM has no block to decode out of: the tile comes straight off the disc.
-    // Its block coordinates are always (0, 0) -- a circuit is one block -- so
-    // they are not carried into the sector arithmetic.
-    //
-    // `codec_is_tim` rather than `tim_block_for`: testing availability here made
-    // every codec on a TIM-bearing disc take this branch and ignore its RAM
-    // block entirely. See `codec_is_tim`.
+    // During prewarm, read synchronously so the race starts with all visible tiles resident.
     if codec_is_tim(circuit) {
-        if upload_tile_dma(circuit, sub_tx, sub_ty, target_slot, 1) {
+        if upload_tile_sync(circuit, sub_tx, sub_ty, target_slot) {
             return;
         }
         let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
@@ -1293,10 +1391,9 @@ fn decode_and_upload_full_tile(
         return;
     }
 
-    // Same rule for the 4bpp path, and a separate branch because the payload is
-    // CLUT-indexed and lands in a different VRAM depth.
+    // Same rule for the 4bpp path.
     if codec_is_tim4(circuit) {
-        if upload_tile_dma4(circuit, sub_tx, sub_ty, target_slot, 1) {
+        if upload_tile_sync4(circuit, sub_tx, sub_ty, target_slot) {
             return;
         }
         let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
@@ -1367,7 +1464,8 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     let min_ty = (y0 / tile_wu_y).max(0);
     let max_ty = (y1 - 1).max(0) / tile_wu_y;
 
-    let mut next_slot = 0usize;
+    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); VRAM_SLOT_COUNT];
+    let mut count = 0;
     for ty in min_ty..=max_ty {
         for tx in min_tx..=max_tx {
             let wx0 = tx * tile_wu_x;
@@ -1381,18 +1479,29 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
                 .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
             let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
                 .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
+            let tile_idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
 
-            let slot_idx = next_slot % VRAM_SLOT_COUNT;
-            decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot_idx);
-
-            next_slot += 1;
-            if next_slot >= VRAM_SLOT_COUNT {
-                break;
+            if count < VRAM_SLOT_COUNT {
+                tiles[count] = (bx, by, sub_tx, sub_ty, tile_idx);
+                count += 1;
             }
         }
-        if next_slot >= VRAM_SLOT_COUNT {
-            break;
+    }
+
+    // For uncompressed disc streaming, sort by tile_index (disc LBA)
+    // so the disc head sweeps monotonically forward without backwards seeks!
+    if codec_is_tim(active_circuit) || codec_is_tim4(active_circuit) {
+        for i in 1..count {
+            let mut j = i;
+            while j > 0 && tiles[j - 1].4 > tiles[j].4 {
+                tiles.swap(j - 1, j);
+                j -= 1;
+            }
         }
+    }
+
+    for (slot_idx, &(bx, by, sub_tx, sub_ty, _)) in tiles[..count].iter().enumerate() {
+        decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot_idx);
     }
 }
 
@@ -1762,19 +1871,43 @@ fn step_or_schedule_decode_row(
     let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
     if !job.active {
         // No active decode job running: pick the next tile that needs one.
-        let visible_miss = (0..vis_count).find(|&i| slot_for_tile[i] == usize::MAX);
-        let candidate = match visible_miss {
-            Some(i) => {
-                let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
-                Some((bx, by, sub_tx, sub_ty))
+        // For uncompressed disc streaming, pick the missing visible tile with the
+        // lowest tile_index (disc LBA) to keep CD seeks monotonic and sequential.
+        let candidate = if codec_is_tim(active_circuit) || codec_is_tim4(active_circuit) {
+            let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
+            for i in 0..vis_count {
+                if slot_for_tile[i] == usize::MAX {
+                    let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
+                    let idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
+                    if best_vis.is_none() || idx < best_vis.unwrap().4 {
+                        best_vis = Some((bx, by, sub_tx, sub_ty, idx));
+                    }
+                }
             }
-            // Only look past the screen once every visible tile is resident.
-            None => first_missing_tile(
-                &candidates.prefetch[..candidates.prefetch_count],
-                vram_slots,
-                active_circuit,
-            )
-            .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty)),
+            if let Some((bx, by, sub_tx, sub_ty, _)) = best_vis {
+                Some((bx, by, sub_tx, sub_ty))
+            } else {
+                first_missing_tile(
+                    &candidates.prefetch[..candidates.prefetch_count],
+                    vram_slots,
+                    active_circuit,
+                )
+                .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty))
+            }
+        } else {
+            let visible_miss = (0..vis_count).find(|&i| slot_for_tile[i] == usize::MAX);
+            match visible_miss {
+                Some(i) => {
+                    let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
+                    Some((bx, by, sub_tx, sub_ty))
+                }
+                None => first_missing_tile(
+                    &candidates.prefetch[..candidates.prefetch_count],
+                    vram_slots,
+                    active_circuit,
+                )
+                .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty)),
+            }
         };
         let Some((bx, by, sub_tx, sub_ty)) = candidate else {
             return false;
@@ -1823,9 +1956,9 @@ fn step_or_schedule_decode_row(
 
     step_decode_job(current_frame);
 
-    // If step_decode_job completed all 4 rows, job.active is now false and the tile
-    // was uploaded to VRAM. Update slot_for_tile so Phase 3 renders it immediately textured without placeholder!
-    if !job.active {
+    // If step_decode_job completed and the slot is resident, update slot_for_tile
+    // so Phase 3 renders it immediately textured without placeholder!
+    if !job.active && vram_slots[job_slot].resident_circuit == active_circuit {
         for (i, tile) in candidates.visible.iter().take(vis_count).enumerate() {
             let (_, _, bx, by, sub_tx, sub_ty) = *tile;
             if bx == job_bx && by == job_by && sub_tx == job_tx && sub_ty == job_ty {
@@ -1957,11 +2090,11 @@ pub fn render_track_extents(
     let mut prefetch_tiles: [TileRef; PREFETCH_MAX] = [(0, 0, 0, 0, 0, 0); PREFETCH_MAX];
     let mut prefetch_count = 0usize;
     {
+        let world_max_tx = (world_w - 1).max(0) / tile_wu_x;
         let world_max_ty = (world_h - 1).max(0) / tile_wu_y;
+
+        // Vertical lookahead: rows immediately above and below the frustum
         for ty in [min_ty.saturating_sub(1), max_ty + 1] {
-            // Clamping the lookahead to the world can land it back on a row that
-            // is already visible (at the top or bottom edge). Those tiles are
-            // covered by `visible_tiles`, so skip rather than spend a candidate.
             if !(0..=world_max_ty).contains(&ty) || (min_ty..=max_ty).contains(&ty) {
                 continue;
             }
@@ -1984,6 +2117,50 @@ pub fn render_track_extents(
                     as usize;
                 prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
                 prefetch_count += 1;
+            }
+        }
+
+        // Horizontal lookahead: columns immediately left and right of the frustum
+        for tx in [min_tx.saturating_sub(1), max_tx + 1] {
+            if !(0..=world_max_tx).contains(&tx) || (min_tx..=max_tx).contains(&tx) {
+                continue;
+            }
+            for ty in min_ty..=max_ty {
+                if prefetch_count >= PREFETCH_MAX {
+                    break;
+                }
+                let wx0 = tx * tile_wu_x;
+                let wy0 = ty * tile_wu_y;
+                if camera.mode7 && !m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
+                    continue;
+                }
+                let bx = (wx0 / block_wu_x) as usize;
+                let by = (wy0 / block_wu_y) as usize;
+                let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                    as usize;
+                let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                    as usize;
+                prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                prefetch_count += 1;
+            }
+        }
+
+        // For TIM/TIM4 streaming, sort prefetch candidates in ascending disc LBA order
+        if codec_is_tim(active_circuit) || codec_is_tim4(active_circuit) {
+            for i in 1..prefetch_count {
+                let mut j = i;
+                while j > 0 {
+                    let prev_idx = prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j - 1].4;
+                    let curr_idx = prefetch_tiles[j].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j].4;
+                    if prev_idx > curr_idx {
+                        prefetch_tiles.swap(j - 1, j);
+                        j -= 1;
+                    } else {
+                        break;
+                    }
+                }
             }
         }
     }

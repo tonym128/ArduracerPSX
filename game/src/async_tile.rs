@@ -283,7 +283,7 @@ pub fn fetch(
     // sectors now -- keyed by LBA, with no owner -- so it is free to overwrite.
     // The seek covers this tile and no more; `available` bounds it at the end of
     // the run so a tile at the end of a block cannot stream into the next block.
-    let total = available.min(WINDOW_SECTORS).min(need).max(need);
+    let total = available.min(WINDOW_SECTORS).max(need);
     unsafe { SEEKED = SEEKED.wrapping_add(1) };
     if !reader.begin_tile_stream(tile_lba) {
         return None;
