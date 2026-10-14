@@ -242,10 +242,7 @@ fn log_silicon_fallback_once() {
 /// circuit gets the full two-column grid, a one-lane circuit gets a single
 /// file, because a fixed ±16 on a one-lane road is not a stagger but two cars
 /// parked on opposite kerbs.
-fn spawn_rivals(
-    track: &TrackDef,
-    champ: Option<&ChampionshipSession>,
-) -> [AiRacer; 5] {
+fn spawn_rivals(track: &TrackDef, champ: Option<&ChampionshipSession>) -> [AiRacer; 5] {
     let start_pos = track.start_pos;
     let start_heading = track.start_heading;
     let diff = champ.map(|c| c.difficulty).unwrap_or(Difficulty::Medium);

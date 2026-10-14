@@ -963,9 +963,9 @@ mod tests {
             assert!(track.road_width_is_legal());
         }
         for bad in [
-            1u16,                            // sub-cell
-            (MIN_ROAD_HALF_WIDTH + 1) as u16, // sub-cell, just above the floor
-            (MIN_ROAD_HALF_WIDTH - 1) as u16, // narrower than one lane
+            1u16,                                     // sub-cell
+            (MIN_ROAD_HALF_WIDTH + 1) as u16,         // sub-cell, just above the floor
+            (MIN_ROAD_HALF_WIDTH - 1) as u16,         // narrower than one lane
             (MAX_ROAD_HALF_WIDTH + TILE_SIZE) as u16, // wider than the grid
             u16::MAX,
         ] {
@@ -993,7 +993,11 @@ mod tests {
                 track.name,
                 track.lane_count()
             );
-            assert!(track.lateral_room() > 0, "{}: no room to manoeuvre", track.name);
+            assert!(
+                track.lateral_room() > 0,
+                "{}: no room to manoeuvre",
+                track.name
+            );
         }
     }
 

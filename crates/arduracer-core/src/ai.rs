@@ -410,9 +410,9 @@ impl AiRacer {
                 // aim point *ahead along the road*, which is the direction a
                 // one-lane rival has to be pointed anyway.
                 None => {
-                    return TrackDef::gate_centre(&track.route_node(
-                        (self.target_gate_idx as usize) % route,
-                    ));
+                    return TrackDef::gate_centre(
+                        &track.route_node((self.target_gate_idx as usize) % route),
+                    );
                 }
             };
             let centre = tile_centre_world(nx, ny);
@@ -1286,12 +1286,12 @@ mod tests {
         assert!(offset.abs() <= 2 * AVOIDANCE_OFFSET_UNITS);
     }
 
-    /// The swerve budget is the road, so a one-lane circuit gets a smaller dodge
-    /// than a three-lane one -- and never a dodge that lands on the far kerb.
-    ///
-    /// This is the defect that made narrow circuits unplayable by the AI: a fixed
-    /// 64-unit dodge is a whole road width on a one-lane road, so a rival that
-    /// merely *saw* traffic steered itself into the opposite barrier.
+    // The swerve budget is the road, so a one-lane circuit gets a smaller dodge
+    // than a three-lane one -- and never a dodge that lands on the far kerb.
+    //
+    // This is the defect that made narrow circuits unplayable by the AI: a fixed
+    // 64-unit dodge is a whole road width on a one-lane road, so a rival that
+    // merely *saw* traffic steered itself into the opposite barrier.
     // ========================================================================
     // narrow roads: one lane, and the two-lane case
     // ========================================================================
@@ -1340,15 +1340,38 @@ mod tests {
         // two rectangles cannot do.
         // Gates on the four straights, on the centreline.
         let gates = [
-            CheckpointGate { x: mid as u8, y: lo as u8, width: 1, height: 1 },
-            CheckpointGate { x: hi as u8, y: mid as u8, width: 1, height: 1 },
-            CheckpointGate { x: mid as u8, y: hi as u8, width: 1, height: 1 },
-            CheckpointGate { x: lo as u8, y: mid as u8, width: 1, height: 1 },
+            CheckpointGate {
+                x: mid as u8,
+                y: lo as u8,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: hi as u8,
+                y: mid as u8,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: mid as u8,
+                y: hi as u8,
+                width: 1,
+                height: 1,
+            },
+            CheckpointGate {
+                x: lo as u8,
+                y: mid as u8,
+                width: 1,
+                height: 1,
+            },
         ];
         let mut checkpoints = [CheckpointGate::default(); MAX_TRACK_CHECKPOINTS];
         checkpoints[..4].copy_from_slice(&gates);
 
-        let start_pos = Vec2::new(TrackDef::tile_centre(mid as u8), TrackDef::tile_centre(lo as u8));
+        let start_pos = Vec2::new(
+            TrackDef::tile_centre(mid as u8),
+            TrackDef::tile_centre(lo as u8),
+        );
         TrackDef {
             name: "NARROW RING",
             width: GRID as u8,
@@ -1359,7 +1382,7 @@ mod tests {
             par_times: crate::timing::ParTimes::default(),
             checkpoint_count: 4,
             checkpoints,
-            tiles: Box::leak(Box::new(tiles)),
+            tiles: Some(Box::leak(Box::new(tiles))),
             // No authored centreline: exercises the gate-derived fallback, which
             // is what the other narrow-road fixtures here use too.
             route: &[],

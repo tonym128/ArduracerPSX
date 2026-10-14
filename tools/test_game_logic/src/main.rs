@@ -1099,10 +1099,7 @@ fn test_the_whole_corridor_is_drivable() {
             let p = route.point(i);
             // Sample the centreline and both shoulders of the corridor.
             for offset in [-1i32, 0, 1] {
-                let probe = Vec2::new(
-                    Fixed::from_raw(p.x.raw() + offset * (half as i32) * 4096),
-                    p.y,
-                );
+                let probe = Vec2::new(Fixed::from_raw(p.x.raw() + offset * half * 4096), p.y);
                 let tx = TrackDef::tile_x_of(probe.x);
                 let ty = TrackDef::tile_y_of(probe.y);
                 if tx >= track.width || ty >= track.height {

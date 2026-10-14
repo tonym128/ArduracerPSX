@@ -1252,8 +1252,8 @@ mod tests {
         // and relying on the road-wide check. Nothing in between is a case this
         // reasoning covers, so a road two tiles wide is fine and a gate on no
         // road at all is not.
-        assert_eq!(
-            narrowest >= 1, true,
+        assert!(
+            narrowest >= 1,
             "every gate must sit on at least one tile of road"
         );
         // Whether or not the shipped fleet currently contains a narrow circuit,
@@ -1286,38 +1286,38 @@ mod tests {
     ];
 
     /// The [`LINE_OFFSETS`] that are on the road at *every* gate of the lap.
-///
-/// Not all nine are legal everywhere, and they never were: a gate at a corner
-/// has road on one side and barrier on the other, so `(1,-1)` is a
-/// corner-cutting line on one circuit and a drive into the wall on the next.
-/// The tests below used to `assert!` that all nine were road, which is only
-/// true of circuits wide enough that every gate has three cells of road around
-/// it -- and it failed outright the moment a narrower circuit was cooked in,
-/// reporting a *legal* corner-cutting line as a defect.
-///
-/// The filter is on the whole lap, not per gate, and that matters: a per-gate
-/// filter silently produces a lap where the car is on the centreline at one
-/// checkpoint and two tiles wide of it at the next. That is not a racing line,
-/// it is a teleport, and it can skip a gate on the way -- which is exactly what
-/// the first version of this did.
-///
-/// A one-lane circuit offers the along-road offsets only, which is the point:
-/// it still has to complete a lap, on the one line it has.
-fn legal_line_offsets(track: &TrackDef) -> impl Iterator<Item = (i16, i16)> + '_ {
-    LINE_OFFSETS.into_iter().filter(move |&(dx, dy)| {
-        track
-            .checkpoint_slice()
-            .iter()
-            .copied()
-            .chain(std::iter::once(track.start_gate))
-            .all(|g| {
-                let (tx, ty) = offset_tile(g, dx, dy);
-                track.is_road_at(tx, ty)
-            })
-    })
-}
+    ///
+    /// Not all nine are legal everywhere, and they never were: a gate at a corner
+    /// has road on one side and barrier on the other, so `(1,-1)` is a
+    /// corner-cutting line on one circuit and a drive into the wall on the next.
+    /// The tests below used to `assert!` that all nine were road, which is only
+    /// true of circuits wide enough that every gate has three cells of road around
+    /// it -- and it failed outright the moment a narrower circuit was cooked in,
+    /// reporting a *legal* corner-cutting line as a defect.
+    ///
+    /// The filter is on the whole lap, not per gate, and that matters: a per-gate
+    /// filter silently produces a lap where the car is on the centreline at one
+    /// checkpoint and two tiles wide of it at the next. That is not a racing line,
+    /// it is a teleport, and it can skip a gate on the way -- which is exactly what
+    /// the first version of this did.
+    ///
+    /// A one-lane circuit offers the along-road offsets only, which is the point:
+    /// it still has to complete a lap, on the one line it has.
+    fn legal_line_offsets(track: &TrackDef) -> impl Iterator<Item = (i16, i16)> + '_ {
+        LINE_OFFSETS.into_iter().filter(move |&(dx, dy)| {
+            track
+                .checkpoint_slice()
+                .iter()
+                .copied()
+                .chain(std::iter::once(track.start_gate))
+                .all(|g| {
+                    let (tx, ty) = offset_tile(g, dx, dy);
+                    track.is_road_at(tx, ty)
+                })
+        })
+    }
 
-#[test]
+    #[test]
     fn a_racing_line_off_the_authored_gates_still_completes_a_lap() {
         // The reported defect, end to end on every shipped circuit: drive the
         // whole lap one tile off the authored gate tiles -- an ordinary racing
@@ -1437,7 +1437,7 @@ fn legal_line_offsets(track: &TrackDef) -> impl Iterator<Item = (i16, i16)> + '_
                 par_times: ParTimes::default(),
                 checkpoint_count: 4,
                 checkpoints: gates,
-                tiles: Box::leak(Box::new(tiles)),
+                tiles: Some(Box::leak(Box::new(tiles))),
                 route: &[],
                 // One lane, exactly: the narrowest legal road.
                 half_width: MIN_ROAD_HALF_WIDTH as u16,
@@ -1454,7 +1454,7 @@ fn legal_line_offsets(track: &TrackDef) -> impl Iterator<Item = (i16, i16)> + '_
         // The tolerance box around a gate is three tiles across; the road is two.
         // So on a one-lane circuit the gate is catchable *only* because the
         // road-wide check exists, and this is the test that says so.
-        assert!(
+        const _: () = assert!(
             MIN_ROAD_HALF_WIDTH * 2 < TILE_SIZE * 3,
             "the one-lane road must be narrower than a gate's tolerance box for \
              this test to mean anything"

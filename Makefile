@@ -449,7 +449,10 @@ iso: exe
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
-assets:
+levels-bin:
+	@python3 $(ROOT)/tools/track_cook/make_levels_bin.py
+
+assets: levels-bin
 	@mkdir -p $(ROOT)/assets/cdda
 	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
 	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi

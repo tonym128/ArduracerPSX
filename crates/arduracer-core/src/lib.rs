@@ -42,9 +42,9 @@ pub use ai::{angle_error, atan2_bams, heading_towards, AiRacer};
 pub use ai_profiles::{AiProfile, AI_PROFILES};
 pub use capetown::TRACK_CAPETOWN;
 pub use championship::{
-    compute_standings, grid_offset, grid_slot_offset_on, grid_slot_position,
-    grid_slot_position_on, ChampionshipSession, Competitor, Difficulty, GridSlotOffset, CUP_COUNT,
-    CUP_NAMES, GRID_SLOT_OFFSETS, POINTS_TABLE, STAGES_PER_CUP,
+    compute_standings, grid_offset, grid_slot_offset_on, grid_slot_position, grid_slot_position_on,
+    ChampionshipSession, Competitor, Difficulty, GridSlotOffset, CUP_COUNT, CUP_NAMES,
+    GRID_SLOT_OFFSETS, POINTS_TABLE, STAGES_PER_CUP,
 };
 pub use contact::{
     collide_cars, resolve_field, CarContact, FieldContacts, CAR_BODY_HALF_SPAN, CAR_BODY_RADIUS,
