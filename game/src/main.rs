@@ -7,6 +7,7 @@
 
 extern crate psx_rt;
 
+pub mod async_tile;
 pub mod audio;
 #[cfg(feature = "profiling")]
 pub mod autopilot;
@@ -695,6 +696,21 @@ impl ArduracerGame {
                     dbg::print_dec(cd_dma);
                     dbg::print(" pio=");
                     dbg::print_dec(cd_pio);
+                    // The asynchronous tile fetch. `waited` is the number of
+                    // frames that asked for a tile and found the sectors still
+                    // in the drive, so it is what the non-blocking read costs;
+                    // `stall` is non-zero only if the drive stopped delivering
+                    // mid-tile, which should not happen with a one-tile stream.
+                    dbg::print(" | tile landed=");
+                    dbg::print_dec(crate::async_tile::landed());
+                    dbg::print(" waited=");
+                    dbg::print_dec(crate::async_tile::waited());
+                    dbg::print(" seeks=");
+                    dbg::print_dec(crate::async_tile::seeks());
+                    dbg::print(" stall=");
+                    dbg::print_dec(crate::async_tile::stalled());
+                    dbg::print(" open=");
+                    dbg::print_dec(crate::async_tile::outstanding());
                     // Player position, so a run can be *proved* to have driven
                     // rather than sat on the grid. Streaming counters only mean
                     // something next to a position that actually changes.

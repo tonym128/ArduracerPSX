@@ -244,9 +244,6 @@ impl DecodeJob {
 /// 1-slot unified RAM block holding the 1024x1024 compressed map (<= 500 KB).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
-/// RAM half of the TIM4 streaming path.
-static mut TIM4_FIFO: Tim4Fifo = Tim4Fifo::new();
-
 /// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
 static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];
 
@@ -284,7 +281,7 @@ fn scratch() -> *mut [u16; TILE_PIXELS] {
 
 /// The staging buffer viewed as DMA words: 2048 words for a 64x64 tile.
 #[inline(always)]
-fn scratch_words() -> *mut [u32; TILE_PIXELS / 2] {
+pub fn scratch_words() -> *mut [u32; TILE_PIXELS / 2] {
     // SAFETY: `TileScratch` is 4-byte aligned and holds exactly
     // `TILE_PIXELS` halfwords, so the same 8 KB is a valid `[u32;
     // TILE_PIXELS / 2]`. Nothing else reads the buffer while either view is
@@ -302,6 +299,15 @@ static mut ACTIVE_CIRCUIT: usize = 0;
 static mut FRAME_COUNTER: u32 = 0;
 
 static mut DISC_READER: DiscReader = DiscReader::new();
+
+/// The shared disc reader, for the non-blocking tile fetcher.
+///
+/// A function rather than a re-export so `async_tile` can reach it without
+/// making the static itself public.
+#[inline]
+pub fn disc_reader() -> &'static mut DiscReader {
+    unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) }
+}
 static mut TRACKS_BIN_LBA: Option<u32> = None;
 static mut TRACKS_PROBED: bool = false;
 
@@ -512,57 +518,6 @@ const _: () = assert!(
     visual_tex::TIM4_TILE_BYTES as u32 == TIM4_TILE_SECTORS * 2048,
     "a 4bpp tile must be a whole number of CD sectors"
 );
-
-/// Streaming FIFO of 4bpp tiles, in sectors.
-///
-/// The RAM half of "copy to the RAM buffer, DMA to VRAM from there". A tile is
-/// one sector, so the FIFO holds whole tiles and the CD read that fills it is
-/// contiguous -- a run of horizontally adjacent tiles comes back in one
-/// `read_sectors` call instead of one per tile, which is the only thing that
-/// makes a per-tile format tolerable.
-///
-/// Backed by the shared 8 KB staging buffer, so TIM4 adds no static RAM of its
-/// own. It is only ever live when the active codec is TIM4, which is also when
-/// nothing else is using that buffer.
-struct Tim4Fifo {
-    /// LBA of the first sector held, valid when `len > 0`.
-    start_lba: u32,
-    /// Sectors currently held.
-    len: usize,
-    /// Index of the next sector to consume, relative to `start_lba`.
-    next: usize,
-}
-
-impl Tim4Fifo {
-    const FIFO_SECTORS: usize = 4;
-
-    const fn new() -> Self {
-        Self {
-            start_lba: 0,
-            len: 0,
-            next: 0,
-        }
-    }
-
-    const fn reset(&mut self) {
-        self.start_lba = 0;
-        self.len = 0;
-        self.next = 0;
-    }
-
-    /// Index of `lba` within the held run, if it is still unread.
-    const fn holds(&self, lba: u32) -> Option<usize> {
-        if lba < self.start_lba {
-            return None;
-        }
-        let idx = (lba - self.start_lba) as usize;
-        if idx < self.next || idx >= self.len {
-            None
-        } else {
-            Some(idx)
-        }
-    }
-}
 
 /// Whether `circuit` has a TIM4 block on this disc, and where it starts.
 ///
@@ -782,8 +737,9 @@ pub fn reset_texture_caches() {
         // being drawn through the previous circuit's colours. Same for the
         // streaming FIFO: its sectors belong to a circuit that may have changed.
         TIM4_CLUT_CIRCUIT = usize::MAX;
-        let fifo = &mut *core::ptr::addr_of_mut!(TIM4_FIFO);
-        fifo.reset();
+        // Nothing buffered across a format switch any more: a tile in
+        // flight dies with the decoder that asked for it.
+        crate::async_tile::cancel();
     }
 }
 
@@ -977,8 +933,7 @@ pub fn init_track_texture(circuit: usize) {
             // Raw pointer rather than a method call on the static: taking a
             // mutable reference to a mutable static is UB by the reference
             // rules, and this is single threaded.
-            let fifo = &mut *core::ptr::addr_of_mut!(TIM4_FIFO);
-            fifo.reset();
+            crate::async_tile::cancel();
             TIM4_CLUT_CIRCUIT = usize::MAX;
             if !upload_tim4_palette(circuit) {
                 crate::dbg::println("  TIM4 palette unreadable, falling back");
@@ -1130,41 +1085,24 @@ fn upload_tile_dma4(
         return false;
     }
 
-    let words = scratch_words();
-    let fifo = unsafe { &mut *core::ptr::addr_of_mut!(TIM4_FIFO) };
-
-    let held = match fifo.holds(tile_lba) {
-        Some(idx) => idx,
-        None => {
-            // Refill: this tile first, then as many followers as fit.
-            let want = Tim4Fifo::FIFO_SECTORS;
-            let avail = ((block_end - tile_lba) / TIM4_TILE_SECTORS) as usize;
-            let count = if want < avail { want } else { avail };
-            if count == 0 {
-                return false;
-            }
-            let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-            crate::prof::count(crate::prof::C_CD_SECTORS, count as u32);
-            let read = {
-                let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-                reader.read_sectors(tile_lba, count, unsafe {
-                    core::slice::from_raw_parts_mut(words as *mut u8, count * 2048)
-                })
-            };
-            if !read {
-                fifo.reset();
-                return false;
-            }
-            fifo.start_lba = tile_lba;
-            fifo.len = count;
-            fifo.next = 0;
-            0
-        }
+    // Asynchronous: one seek covers a window of sectors, of which this tile is
+    // one. A run of adjacent tiles costs one seek between them rather than one
+    // each, which is the whole point -- a per-tile seek is ~150 ms and the tiles
+    // the row-scan wants are contiguous on the disc.
+    let src = {
+        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
+        let Some(p) = crate::async_tile::fetch(
+            disc_reader(),
+            crate::async_tile::Codec::Tim4,
+            tile_lba,
+            block_end - tile_lba,
+            current_frame,
+        ) else {
+            return false;
+        };
+        p
     };
-
-    // `held` is a sector offset within the FIFO; a tile is one sector, so the
-    // word offset is one sector's worth of words.
-    let src = unsafe { (words as *const u32).add(held * (visual_tex::TIM4_TILE_BYTES / 4)) };
+    crate::prof::count(crate::prof::C_CD_SECTORS, TIM4_TILE_SECTORS);
 
     // The 4bpp slot origin, not the 15bpp one: at this depth a 64-texel tile is
     // 16 halfwords across, so the slot grid steps a quarter as far.
@@ -1192,8 +1130,6 @@ fn upload_tile_dma4(
         }
     }
     let _ = tpage_idx;
-
-    fifo.next = held + TIM4_TILE_SECTORS as usize;
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
@@ -1249,18 +1185,28 @@ fn upload_tile_dma(
     if tile_bytes != TILE_PIXELS * 2 {
         return false;
     }
-    let words = scratch_words();
-    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-    crate::prof::count(crate::prof::C_CD_SECTORS, TIM_TILE_SECTORS);
-    let read = {
+    // Asynchronous, like the TIM4 path: issue the seek on one frame and take
+    // the sectors on the next few. The blocking form waited here, inside the
+    // render path, and that wait is what cost 8.6x a frame budget in the worst
+    // measured case.
+    let src = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        reader.read_sectors(tile_lba, TIM_TILE_SECTORS as usize, unsafe {
-            core::slice::from_raw_parts_mut(words as *mut u8, tile_bytes)
-        })
+        let Some(p) = crate::async_tile::fetch(
+            disc_reader(),
+            crate::async_tile::Codec::Tim,
+            tile_lba,
+            block_end - tile_lba,
+            current_frame,
+        ) else {
+            // Still being fetched: the caller paints the placeholder and asks
+            // again next frame. The four sectors of a TIM tile are contiguous,
+            // so they are handed back as one run to DMA.
+            let _ = tile_bytes;
+            return false;
+        };
+        p
     };
-    if !read {
-        return false;
-    }
+    crate::prof::count(crate::prof::C_CD_SECTORS, TIM_TILE_SECTORS);
 
     let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
     let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
@@ -1279,7 +1225,7 @@ fn upload_tile_dma(
         // Count the path taken, not just the outcome: "the DMA channel wedged"
         // and "the DMA path is fine but this tile's rect cannot be DMA'd" both
         // return false, and only the first is a silicon story.
-        let via_dma = dma_copy_to_vram(rect, words as *const u32);
+        let via_dma = dma_copy_to_vram(rect, src);
         crate::note_upload_path(via_dma);
         crate::prof::count(
             if via_dma {
@@ -1291,7 +1237,7 @@ fn upload_tile_dma(
         );
         if !via_dma {
             upload_words(rect, unsafe {
-                core::slice::from_raw_parts(words as *const u32, TILE_PIXELS / 2)
+                core::slice::from_raw_parts(src, TILE_PIXELS / 2)
             });
         }
     }
@@ -1923,6 +1869,11 @@ pub fn render_track_extents(
         FRAME_COUNTER = FRAME_COUNTER.wrapping_add(1);
     }
     let current_frame = unsafe { FRAME_COUNTER };
+    // Advance any tile fetch already in flight before deciding what this frame
+    // wants. The drive pushes on its own clock, so this cannot be left to the
+    // tile request below: a frame that asks for nothing would leave the sectors
+    // sitting in the drive's two-slot FIFO and overrun it.
+    crate::async_tile::pump(disc_reader(), current_frame);
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
     // Sampling parameters for whichever codec this circuit selected: tpage
     // depth, CLUT handle, and how many texels a U unit spans. Bound once here

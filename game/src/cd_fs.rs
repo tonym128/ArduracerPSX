@@ -2,9 +2,28 @@
 
 use psx_pack::cd::{SectorReader, SECTOR_WORDS};
 
+/// Result of one non-blocking sector poll.
+///
+/// A three-way answer rather than `Result<bool, ()>` because the three cases
+/// are not two cases and a flag: `Empty` is a normal, expected outcome that
+/// drives the caller's retry loop, and it is worth being able to say so at the
+/// type level rather than by comment.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum SectorPoll {
+    /// The drive has nothing buffered yet. Try again next frame.
+    Empty,
+    /// One sector was written into the caller's buffer.
+    Filled,
+    /// The drive reported an error. The stream must be closed.
+    Fault,
+}
+
 pub struct DiscReader {
     reader: SectorReader,
     sector: [u32; SECTOR_WORDS],
+    /// True while a non-blocking tile stream issued by
+    /// [`begin_tile_stream`](Self::begin_tile_stream) is open.
+    streaming: bool,
 }
 
 impl DiscReader {
@@ -12,6 +31,7 @@ impl DiscReader {
         Self {
             reader: SectorReader::new(),
             sector: [0; SECTOR_WORDS],
+            streaming: false,
         }
     }
 }
@@ -129,5 +149,54 @@ impl DiscReader {
         }
 
         ok
+    }
+
+    // -----------------------------------------------------------------------
+    // Non-blocking tile streaming
+    // -----------------------------------------------------------------------
+    //
+    // `read_sectors` above is the blocking form and is the wrong shape for the
+    // render path: it pays a Pause/Setloc/seek per call and then *waits* inside
+    // the frame. These three split that into a command on one frame and a poll
+    // on the next few.
+
+    /// Seeks to `lba` and starts a ReadN stream, without waiting for data.
+    ///
+    /// Pauses CD-DA exactly as the blocking path does; the stream is one tile
+    /// long and [`stop_stream`](Self::stop_stream) resumes it.
+    pub fn begin_tile_stream(&mut self, lba: u32) -> bool {
+        crate::audio::cdda::pause_for_cd_read();
+        let ok = unsafe { self.reader.prepare_single_speed() && self.reader.start_read(lba) };
+        if !ok {
+            unsafe { self.reader.stop() };
+        }
+        self.streaming = ok;
+        ok
+    }
+
+    /// Reads one sector into `dst` if the drive has one, without ever waiting.
+    ///
+    /// [`SectorPoll::Empty`] is the normal answer on most frames and has to stay
+    /// cheap -- the caller loops on it until its tile is complete.
+    pub fn try_tile_sector(&mut self, dst: &mut [u32; SECTOR_WORDS]) -> SectorPoll {
+        match unsafe { self.reader.try_read_sector(dst) } {
+            Ok(true) => SectorPoll::Filled,
+            Ok(false) => SectorPoll::Empty,
+            Err(()) => SectorPoll::Fault,
+        }
+    }
+
+    /// Closes the open tile stream and restores the post-read machine state.
+    pub fn stop_stream(&mut self) {
+        if !self.streaming {
+            return;
+        }
+        self.streaming = false;
+        unsafe { self.reader.stop() };
+        psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
+        psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
+        if crate::audio::cdda::active_cdda_track().is_some() {
+            crate::audio::cdda::resume_after_cd_read();
+        }
     }
 }
