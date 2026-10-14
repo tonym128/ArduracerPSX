@@ -129,7 +129,8 @@ compile_error!("enable exactly one of profile-tim / profile-tim4 / profile-qoi")
 /// With no pin feature -- every build that can reach a player's console -- this
 /// returns `saved` unchanged.
 #[inline]
-fn headless_texture_format(_saved: u8) -> TextureFormat {
+#[allow(unused_variables)]
+fn headless_texture_format(saved: u8) -> TextureFormat {
     #[cfg(feature = "profile-tim")]
     {
         return TextureFormat::Tim;

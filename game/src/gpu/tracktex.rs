@@ -1875,8 +1875,8 @@ fn step_or_schedule_decode_row(
         // lowest tile_index (disc LBA) to keep CD seeks monotonic and sequential.
         let candidate = if codec_is_tim(active_circuit) || codec_is_tim4(active_circuit) {
             let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
-            for i in 0..vis_count {
-                if slot_for_tile[i] == usize::MAX {
+            for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
+                if slot == usize::MAX {
                     let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
                     let idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
                     if best_vis.is_none() || idx < best_vis.unwrap().4 {
