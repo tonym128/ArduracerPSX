@@ -558,6 +558,7 @@ web: disc iso
 		if [ ! -f "$(DIST)/$$f" ]; then echo "ERROR: $(DIST)/$$f missing"; exit 1; fi; \
 		cp "$(DIST)/$$f" "$(ROOT)/web/roms/"; \
 	done
+	@python3 $(ROOT)/tools/generate_rom_manifest.py $(ROOT)/web/roms
 	@python3 $(ROOT)/tools/serve_web.py 8080 $(ROOT)/web
 
 # Fails before the (expensive) disc/iso prerequisites rather than after.
