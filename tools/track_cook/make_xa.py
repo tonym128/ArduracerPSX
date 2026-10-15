@@ -30,7 +30,7 @@ import sys
 import wave
 
 XA_SECTOR_BYTES = 2336
-XA_PAYLOAD_OFFSET = 24
+XA_PAYLOAD_OFFSET = 8
 XA_GROUPS = 18
 GROUP_BYTES = 128
 GROUP_HEADER_BYTES = 16
@@ -68,14 +68,19 @@ def read_nibble(frames, index):
     return nib & 0x0F
 
 
-def encode_sector(frames, offset):
+def encode_sector(frames, offset, file_num=1, channel_num=0):
     """Encode 2016 stereo frames (offset within the source) into one 2336-byte sector."""
     if len(frames) < 2016:
         raise ValueError("need 2016 stereo frames per sector")
 
     raw = bytearray(XA_SECTOR_BYTES)
-    raw[0:4] = b"\x00\x00\x00\x00"
-    raw[4] = CODING_4BIT_STEREO_378
+    # CD-XA Mode 2 Form 2 subheader (repeated twice across 8 bytes):
+    # File, Channel, Submode (0x64: Form 2 | Real-time | Audio), Coding (0x01: 4-bit stereo 37.8kHz)
+    subheader = bytes([
+        file_num, channel_num, 0x64, CODING_4BIT_STEREO_378,
+        file_num, channel_num, 0x64, CODING_4BIT_STEREO_378,
+    ])
+    raw[0:8] = subheader
 
     for group_idx in range(XA_GROUPS):
         group_at = XA_PAYLOAD_OFFSET + group_idx * GROUP_BYTES

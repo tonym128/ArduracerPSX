@@ -37,7 +37,7 @@
 pub const XA_SECTOR_BYTES: usize = 2336;
 
 /// Offset of the sound-group payload within a raw sector.
-pub const XA_PAYLOAD_OFFSET: usize = 24;
+pub const XA_PAYLOAD_OFFSET: usize = 8;
 
 /// Sound groups per sector.
 pub const XA_GROUPS: usize = 18;
@@ -506,8 +506,17 @@ mod tests {
     #[test]
     fn silent_sector_yields_the_promised_frames() {
         let mut raw = [0u8; XA_SECTOR_BYTES];
-        // A zero subheader is mono 4-bit; set the channel bit for stereo.
-        raw[4] = Coding::MASTERED.to_byte();
+        // 8-byte subheader: file=1, channel=0, submode=0x64, coding=0x01
+        raw[..8].copy_from_slice(&[
+            1,
+            0,
+            0x64,
+            Coding::MASTERED.to_byte(),
+            1,
+            0,
+            0x64,
+            Coding::MASTERED.to_byte(),
+        ]);
         let mut out = [0i16; FRAMES_PER_SECTOR_4BIT * 2];
         let mut l = ChannelState::new();
         let mut r = ChannelState::new();

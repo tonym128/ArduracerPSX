@@ -173,7 +173,14 @@ impl DiscReader {
     /// Pauses CD-DA, as every other read path does; the drive cannot do both.
     pub fn begin_xa_stream(&mut self, lba: u32) -> bool {
         crate::audio::cdda::pause_for_cd_read();
-        let ok = unsafe { self.reader.prepare_xa(true) && self.reader.start_read(lba) };
+        let ok = unsafe {
+            self.reader.demute()
+                && self.reader.prepare_xa(true)
+                && self
+                    .reader
+                    .set_filter(crate::audio::xa::XA_FILE, crate::audio::xa::XA_CHANNEL)
+                && self.reader.start_read(lba)
+        };
         if !ok {
             unsafe { self.reader.stop() };
         }
