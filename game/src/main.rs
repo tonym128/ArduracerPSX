@@ -111,10 +111,13 @@ static mut CD_SILICON_REPORTED: bool = false;
 /// Compiling more than one format pin would silently pick one.
 #[cfg(any(
     all(feature = "profile-tim", feature = "profile-tim4"),
+    all(feature = "profile-tim", feature = "profile-tim8"),
     all(feature = "profile-tim", feature = "profile-qoi"),
-    all(feature = "profile-tim4", feature = "profile-qoi")
+    all(feature = "profile-tim4", feature = "profile-tim8"),
+    all(feature = "profile-tim4", feature = "profile-qoi"),
+    all(feature = "profile-tim8", feature = "profile-qoi")
 ))]
-compile_error!("enable exactly one of profile-tim / profile-tim4 / profile-qoi");
+compile_error!("enable exactly one of profile-tim / profile-tim4 / profile-tim8 / profile-qoi");
 
 /// The texture format a headless comparison run is pinned to, if any.
 ///
@@ -139,6 +142,10 @@ fn headless_texture_format(saved: u8) -> TextureFormat {
     {
         return TextureFormat::Tim4;
     }
+    #[cfg(feature = "profile-tim8")]
+    {
+        return TextureFormat::Tim8;
+    }
     #[cfg(feature = "profile-qoi")]
     {
         return TextureFormat::Qoi;
@@ -146,6 +153,7 @@ fn headless_texture_format(saved: u8) -> TextureFormat {
     #[cfg(all(
         not(feature = "profile-tim"),
         not(feature = "profile-tim4"),
+        not(feature = "profile-tim8"),
         not(feature = "profile-qoi")
     ))]
     {
@@ -1628,7 +1636,7 @@ impl ArduracerGame {
             texture_format: texture_format().to_saved(),
             framerate: self.framerate.to_saved(),
             camera_view: self.camera_view,
-            cd_audio: u8::from(self.audio.cdda.enabled()),
+            cd_audio: self.audio.cd_audio,
             debug_metrics: self.debug_metrics,
         }
     }
@@ -1643,7 +1651,7 @@ impl ArduracerGame {
     fn apply_settings(&mut self, values: SettingsValues) {
         let previous_format = texture_format();
         let previous_fps = self.framerate;
-        let previous_cd_audio = self.audio.cdda.enabled();
+        let previous_cdda_enabled = self.audio.cdda.enabled();
 
         let format = TextureFormat::from_saved(values.texture_format);
         let framerate = Framerate::from_saved(values.framerate);
@@ -1718,7 +1726,7 @@ impl ArduracerGame {
         // Redbook stream holding the drive.
         let want_cdda =
             values.cd_audio_mode() != CdAudioMode::Xa && values.cd_audio_mode().enabled();
-        if want_cdda != previous_cd_audio {
+        if want_cdda != previous_cdda_enabled {
             self.audio.cdda.set_enabled(want_cdda);
         }
         // A change of source, not just of on/off: restart the current track on

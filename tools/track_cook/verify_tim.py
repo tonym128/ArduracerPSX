@@ -47,6 +47,13 @@ TIM4_BLOCK_SECTORS = build_atlas.TIM4_BLOCK_SECTORS
 TIM4_TILE_BYTES = TILE_DIM * TILE_DIM // 4 * 2
 assert TIM4_TILE_BYTES == SECTOR_SIZE, "a TIM4 tile must be exactly one sector"
 
+# --- 8bpp (TIM8) layout ---
+TIM8_PALETTE_BYTES = build_atlas.TIM8_PALETTE_BYTES
+TIM8_BLOCK_SECTORS = build_atlas.TIM8_BLOCK_SECTORS
+TIM8_TILE_BYTES = TILE_DIM * TILE_DIM
+TIM8_TILE_SECTORS = build_atlas.TIM8_TILE_SECTORS
+assert TIM8_TILE_BYTES == 2 * SECTOR_SIZE, "a TIM8 tile must be exactly two sectors"
+
 
 def expect_source_555(im):
     """Re-derives the halfwords the cooker should have written."""
@@ -186,6 +193,56 @@ def check_tim4(circuit: int, name: str, offset: int):
                 )
 
 
+def check_tim8(circuit: int, name: str, offset: int):
+    """Verify an 8bpp block against a freshly quantised copy of the source."""
+    path = os.path.join(ROOT, "assets", "TIM8TRACKS.BIN")
+    pal_sector_bytes = SECTOR_SIZE
+    want_indices, want_palette = build_atlas.quantise_256(source_image(name))
+
+    with open(path, "rb") as f:
+        # Palette sector.
+        f.seek(offset * SECTOR_SIZE)
+        raw = f.read(pal_sector_bytes)
+        entries = np.frombuffer(raw[: TIM8_PALETTE_BYTES], dtype="<u2")
+        for i, (r, g, b) in enumerate(want_palette):
+            want = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3)
+            if int(entries[i]) != want:
+                raise AssertionError(
+                    f"{name} TIM8 palette[{i}]: on disc 0x{int(entries[i]):04x}, "
+                    f"expected 0x{want:04x} for RGB({r},{g},{b})"
+                )
+
+        # Sample tiles across the block, including the last one
+        for ty, tx in ((0, 0), (5, 9), (TILES_PER_AXIS - 1, TILES_PER_AXIS - 1)):
+            lba = offset + 1 + (ty * TILES_PER_AXIS + tx) * TIM8_TILE_SECTORS
+            f.seek(lba * SECTOR_SIZE)
+            raw = f.read(TIM8_TILE_BYTES)
+            if len(raw) != TIM8_TILE_BYTES:
+                raise AssertionError(
+                    f"{name} TIM8 tile ({tx},{ty}) is {len(raw)} bytes, not {TIM8_TILE_BYTES}"
+                )
+
+            halfwords = np.frombuffer(raw, dtype="<u2").reshape(TILE_DIM, TILE_DIM // 2)
+            indices = np.stack(
+                [
+                    halfwords & 0xFF,
+                    (halfwords >> 8) & 0xFF,
+                ],
+                axis=-1,
+            ).reshape(TILE_DIM, TILE_DIM)
+
+            want = want_indices[
+                ty * TILE_DIM : (ty + 1) * TILE_DIM,
+                tx * TILE_DIM : (tx + 1) * TILE_DIM,
+            ]
+            if not np.array_equal(indices, want):
+                bad = int((indices != want).sum())
+                raise AssertionError(
+                    f"{name} TIM8 tile ({tx},{ty}): {bad}/{TILE_DIM ** 2} indices differ "
+                    f"from the quantised source -- byte order or tile offset is wrong"
+                )
+
+
 def source_image(name):
     """The raster the cooker packs for `name`, from the same source it uses."""
     clean = name.replace(" ", "_")
@@ -244,6 +301,21 @@ def main() -> int:
             f"{len(tim4_entries) * TIM4_BLOCK_SECTORS}"
         )
 
+    t8 = re.search(r"CIRCUIT_TIM8_SECTORS[^=]*= \[(.*?)\n\];", text, re.S)
+    assert t8 is not None, "CIRCUIT_TIM8_SECTORS not found in visual_tex.rs"
+    tim8_entries = [
+        (int(a), int(b), int(c))
+        for a, b, c in re.findall(
+            r"sector_offset: (\d+),\s*sector_count: (\d+),\s*byte_len: (\d+)", t8.group(1))
+    ]
+    tim8_path = os.path.join(ROOT, "assets", "TIM8TRACKS.BIN")
+    if os.path.exists(tim8_path):
+        tim8_sectors = os.path.getsize(tim8_path) // SECTOR_SIZE
+        assert tim8_sectors == len(tim8_entries) * TIM8_BLOCK_SECTORS, (
+            f"TIM8TRACKS.BIN is {tim8_sectors} sectors, table expects "
+            f"{len(tim8_entries) * TIM8_BLOCK_SECTORS}"
+        )
+
     for idx, (name, _) in enumerate(names):
         off, cnt, blen = entries[idx]
         if cnt != BLOCK_SECTORS or blen != BLOCK_SECTORS * SECTOR_SIZE:
@@ -267,6 +339,17 @@ def main() -> int:
             f"circuit {idx} ({name}): 4bpp offset {tim4_off}, "
             f"expected {idx * TIM4_BLOCK_SECTORS}")
 
+        tim8_off, tim8_cnt, tim8_len = tim8_entries[idx]
+        assert (
+            tim8_cnt == TIM8_BLOCK_SECTORS
+            and tim8_len == TIM8_BLOCK_SECTORS * SECTOR_SIZE
+        ), (
+            f"circuit {idx} ({name}): 8bpp sector_count {tim8_cnt}, byte_len "
+            f"{tim8_len}; expected {TIM8_BLOCK_SECTORS} sectors")
+        assert tim8_off == idx * TIM8_BLOCK_SECTORS, (
+            f"circuit {idx} ({name}): 8bpp offset {tim8_off}, "
+            f"expected {idx * TIM8_BLOCK_SECTORS}")
+
         if only is not None and only != idx:
             continue
 
@@ -275,9 +358,12 @@ def main() -> int:
         if os.path.exists(tim4_path):
             check_tim4(idx, name, tim4_off)
             print(f"  ok  {name} (4bpp block {idx}, {TIM4_BLOCK_SECTORS} sectors)")
+        if os.path.exists(tim8_path):
+            check_tim8(idx, name, tim8_off)
+            print(f"  ok  {name} (8bpp block {idx}, {TIM8_BLOCK_SECTORS} sectors)")
 
     checked = len(names) if only is None else 1
-    print(f"TIM/TIM4 verified: {file_sectors} 15bpp sectors, {checked} circuits checked")
+    print(f"TIM/TIM4/TIM8 verified: {file_sectors} 15bpp sectors, {checked} circuits checked")
     return 0
 
 

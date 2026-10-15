@@ -222,6 +222,7 @@ ci-disc: disc
 	if [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then echo "ERROR: assets/SVGTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ]; then echo "ERROR: assets/TIMTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ]; then echo "ERROR: assets/TIM4TRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TIM8TRACKS.BIN" ]; then echo "ERROR: assets/TIM8TRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	cuefile=$$(sed -n 's/^[[:space:]]*FILE[[:space:]]*"\(.*\)".*/\1/p' "$$cue" | head -1); \
 	echo "CUE FILE entry: '$$cuefile'"; \
 	if [ "$$cuefile" != "arduracer.bin" ]; then \
@@ -464,6 +465,7 @@ iso: exe
 		--file $(ROOT)/assets/SVGTRACKS.BIN \
 		--file $(ROOT)/assets/TIMTRACKS.BIN \
 		--file $(ROOT)/assets/TIM4TRACKS.BIN \
+		--file $(ROOT)/assets/TIM8TRACKS.BIN \
 		--file $(ROOT)/assets/LEVELS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
@@ -481,7 +483,7 @@ levels-bin:
 
 assets:
 	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
-	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM8TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
 	@$(MAKE) --no-print-directory levels-bin
 	@mkdir -p $(ROOT)/assets/cdda
 	@if [ ! -f "$(ROOT)/assets/CAPETOWN.BIN" ]; then \
@@ -532,6 +534,7 @@ disc: assets music-xa exe
 		--file $(ROOT)/assets/SVGTRACKS.BIN \
 		--file $(ROOT)/assets/TIMTRACKS.BIN \
 		--file $(ROOT)/assets/TIM4TRACKS.BIN \
+		--file $(ROOT)/assets/TIM8TRACKS.BIN \
 		--file $(ROOT)/assets/LEVELS.BIN \
 		--file $(ROOT)/assets/CAPETOWN.BIN \
 		--file $(ROOT)/assets/MELBOURNE.BIN \

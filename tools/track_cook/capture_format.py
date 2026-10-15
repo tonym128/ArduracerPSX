@@ -12,7 +12,7 @@ Emits the `--press` tape `frontend launch` wants:
 and optionally runs the capture and converts the PPM to PNG. The number of Right
 presses on the TEXTURE row is what selects the format:
 
-    0 = AUTO   1 = SVG   2 = QOI   3 = JPEG   4 = TIM   5 = TIM4
+    0 = AUTO   1 = SVG   2 = QOI   3 = JPEG   4 = TIM   5 = TIM4   6 = TIM8
 """
 
 import os
@@ -22,8 +22,8 @@ import sys
 FRONTEND = "/home/tonym/Projects/ArduracerPSX/PSoXide-emulator/target/release/frontend"
 
 # Format byte -> Right presses on the TEXTURE row. The menu cycles
-# AUTO -> SVG -> QOI -> JPEG -> TIM -> TIM4 byte-linearly.
-FORMAT_RIGHT_PRESSES = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
+# AUTO -> SVG -> QOI -> JPEG -> TIM -> TIM4 -> TIM8 byte-linearly.
+FORMAT_RIGHT_PRESSES = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6}
 
 
 def tape(rights: int, fmt: int) -> str:

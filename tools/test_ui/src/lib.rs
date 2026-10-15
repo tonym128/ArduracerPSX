@@ -2981,22 +2981,26 @@ mod graphics_settings {
     /// The texture format must wrap in both directions rather than clamp, so
     /// the player can reach every option from any other in a single press.
     ///
-    /// Five options now: AUTO, SVG, QOI, JPEG, TIM. The cycle is byte-linear,
-    /// matching `TextureFormat::next`, so TIM is reached from JPEG.
+    /// Seven options now: AUTO, SVG, QOI, JPEG, TIM, TIM4, TIM8. The cycle is byte-linear,
+    /// matching `TextureFormat::next`, so TIM8 is reached from TIM4.
     #[test]
     fn texture_format_cycles_through_every_option_and_wraps() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..6 {
+        for _ in 0..7 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
         }
-        assert_eq!(seen, vec![0, 1, 2, 3, 4, 5, 0], "right must cycle and wrap");
+        assert_eq!(
+            seen,
+            vec![0, 1, 2, 3, 4, 5, 6, 0],
+            "right must cycle and wrap"
+        );
 
-        // Backwards from Auto lands on TIM4, the last option.
+        // Backwards from Auto lands on TIM8, the last option.
         m.update(press(|i| i.left = true));
-        assert_eq!(m.values().texture_format, 5, "left must wrap to the end");
+        assert_eq!(m.values().texture_format, 6, "left must wrap to the end");
     }
 
     #[test]
@@ -3211,7 +3215,7 @@ mod graphics_settings {
     fn every_reachable_value_is_persistable() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..6 {
+        for _ in 0..7 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
@@ -3310,6 +3314,58 @@ mod graphics_settings {
         });
         assert!(matches!(out.choice, PauseChoice::Graphics(_)));
         assert_eq!(p.values().cd_audio, 2, "left wraps to XA");
+    }
+
+    /// When XA mode is selected, synchronizing the menu with current settings
+    /// (or feeding values on subsequent frames in the pause menu) must keep
+    /// XA mode intact instead of reverting to OFF or CD-DA.
+    #[test]
+    fn cd_audio_xa_mode_survives_sync_with_applied_values() {
+        // Settings screen:
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..3 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        let choice = m.update(press(|i| i.right = true));
+        let applied_values = match choice {
+            SettingsChoice::Changed(v) => {
+                assert_eq!(v.cd_audio, 2, "changed to XA");
+                v
+            }
+            other => panic!("expected a change, got {other:?}"),
+        };
+        // Simulated main loop re-sync (set_values with current_settings):
+        m.set_values(applied_values);
+        assert_eq!(m.values().cd_audio, 2, "XA preserved after sync");
+
+        // Pause menu:
+        let mut p = PauseMenu::default();
+        for _ in 0..5 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        let applied_pause_values = match out.choice {
+            PauseChoice::Graphics(v) => {
+                assert_eq!(v.cd_audio, 2, "pause menu changed to XA");
+                v
+            }
+            other => panic!("expected graphics change, got {other:?}"),
+        };
+        // Next frame feeding applied values via update_with_values:
+        p.update_with_values(PauseInput::default(), applied_pause_values);
+        assert_eq!(
+            p.values().cd_audio,
+            2,
+            "XA preserved on subsequent pause frame"
+        );
     }
 
     /// The METRICS row must be reachable on the settings screen and cycle

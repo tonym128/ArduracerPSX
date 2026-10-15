@@ -106,12 +106,36 @@ pub const fn vram_slot_coords_tim4(slot: usize) -> (u16, u16, usize, u8, u8) {
     (tx + u / 4, ty + v, tpage_idx, u as u8, v as u8)
 }
 
+/// Halfwidth of a 64x64 8bpp tile in VRAM halfwords: two indices per word.
+pub const TIM8_TILE_HALFWORDS_WIDE: u16 = VRAM_TILE_DIM / 2;
+
+/// The 8bpp equivalent of a VRAM cache slot's origin.
+///
+/// An 8bpp texture page is 128 halfwords wide by 256 rows (256x256 texels, two
+/// per word), so 4 tiles across at 32 halfwords each fills one page column
+/// exactly (4 * 32 = 128 halfwords).
+pub const fn vram_slot_coords_tim8(slot: usize) -> (u16, u16, usize, u8, u8) {
+    let tpage_idx = slot / TILES_PER_TPAGE;
+    let sub = slot % TILES_PER_TPAGE;
+    let u = (sub % TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
+    let v = (sub / TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
+    let (tx, ty) = TRACK_VRAM_SLOTS[tpage_idx];
+    (tx + u / 2, ty + v, tpage_idx, u as u8, v as u8)
+}
+
 /// Bytes one 64x64 tile costs in VRAM: 64 * 64 * 2 = 8,192 bytes (8 KB).
 pub const TRACK_TILE_BYTES: usize = (TRACK_TILE_DIM as usize) * (TRACK_TILE_DIM as usize) * 2;
 
 /// Where the 16-entry level-palette CLUT lives. 16 halfwords at 15 bits.
 pub const TRACK_CLUT_X: u16 = 896;
 pub const TRACK_CLUT_Y: u16 = 64;
+
+/// Where the 256-entry TIM8 palette CLUT lives: row 480 (below the dual 320x240 framebuffers,
+/// clear of both framebuffers and clear of the track TPages at X=384..896).
+pub const TIM8_CLUT_X: u16 = 0;
+pub const TIM8_CLUT_Y: u16 = 480;
+pub const TIM8_PALETTE_ENTRIES: usize = 256;
+pub const TIM8_PALETTE_BYTES: usize = TIM8_PALETTE_ENTRIES * 2;
 
 /// Bytes one circuit's world visual costs uncompressed in total: 1280*1280 texels at 2
 /// bytes each (15-bit direct colour BGR555).
@@ -276,7 +300,19 @@ const _: () = assert!(
     "4 tiles down must exactly fill a 4bpp page column"
 );
 
-// Both layouts must agree on the texel-space UV offsets: the renderers sample
+// The 8bpp slot grid has to tile its page exactly. An 8bpp texture page is 128
+// halfwords wide by 256 rows (256x256 texels, two per word), so 4 tiles across
+// at 32 halfwords each is what fills it.
+const _: () = assert!(
+    TILES_PER_TPAGE_AXIS as u16 * TIM8_TILE_HALFWORDS_WIDE == 128,
+    "4 tiles across must exactly fill an 8bpp page column"
+);
+const _: () = assert!(
+    TILES_PER_TPAGE_AXIS as u16 * VRAM_TILE_DIM == TRACK_PAGE_TEXELS,
+    "4 tiles down must exactly fill an 8bpp page column"
+);
+
+// All layouts must agree on the texel-space UV offsets: the renderers sample
 // through `u`/`v`, and only the VRAM halfword origin may differ between depths.
 // If these ever diverge, tiles upload to one place and sample from another.
 const _: () = {
@@ -284,9 +320,14 @@ const _: () = {
     while s < TRACK_SLOT_COUNT {
         let (_, _, tp15, u15, v15) = vram_slot_coords(s);
         let (_, _, tp4, u4, v4) = vram_slot_coords_tim4(s);
+        let (_, _, tp8, u8, v8) = vram_slot_coords_tim8(s);
         assert!(
             tp15 == tp4 && u15 == u4 && v15 == v4,
             "4bpp UVs diverge from 15bpp"
+        );
+        assert!(
+            tp15 == tp8 && u15 == u8 && v15 == v8,
+            "8bpp UVs diverge from 15bpp"
         );
         s += 1;
     }
@@ -305,6 +346,22 @@ const _: () = assert!(TRACK_CLUT_X == TEXTURE_X, "CLUT and minimap diverged");
 const _: () = assert!(
     TRACK_CLUT_Y >= TEXTURE_Y + MAX_DIM,
     "the CLUT row sits inside the minimap slot"
+);
+
+// TIM8 CLUT layout assertions.
+const _: () = assert!(
+    TIM8_CLUT_X.is_multiple_of(16),
+    "TIM8 CLUT X must be 16-aligned"
+);
+const _: () = assert!(TIM8_CLUT_X + 256 <= 1024, "TIM8 CLUT overflows VRAM width");
+const _: () = assert!(
+    TIM8_CLUT_Y >= 2 * FB_HEIGHT,
+    "TIM8 CLUT overlaps framebuffers"
+);
+const _: () = assert!(TIM8_CLUT_Y < 512, "TIM8 CLUT overflows VRAM height");
+const _: () = assert!(
+    TIM8_CLUT_X + 256 <= TRACK_VRAM_SLOTS[0].0,
+    "TIM8 CLUT touches track TPages"
 );
 
 #[cfg(test)]

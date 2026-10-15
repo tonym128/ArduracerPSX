@@ -92,13 +92,14 @@ impl AudioSystem {
     pub fn apply_music_mode(&mut self, reader: &mut crate::cd_fs::DiscReader) {
         use arduracer_core::save::CdAudioMode as Mode;
         let mode = Mode::from_saved(self.cd_audio);
+        // Stop whatever is playing before starting the other source, or the
+        // two would share the drive. Stopping here also silences playback
+        // immediately if the player switched the music off entirely.
+        self.cdda.stop();
+        self.xa.stop(reader);
         if !mode.enabled() || self.last_music_track == 0 {
             return;
         }
-        // Stop whatever is playing before starting the other source, or the
-        // two would share the drive.
-        self.cdda.stop();
-        self.xa.stop(reader);
         self.play_music(self.last_music_track, reader);
     }
 

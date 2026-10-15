@@ -136,6 +136,27 @@ assert TIM4_TILE_HALFWORDS == (TIM_TILE_DIM // 2) * (TIM_TILE_DIM // 2), (
     "a 64x64 4bpp image is a 32x32 rect of halfwords, because GP0(A0h) counts "
     "width in words and height in rows and 4bpp packs two texel rows per row"
 )
+#: Palette entries in an 8bpp TIM8 block.
+TIM8_PALETTE_ENTRIES = 256
+#: Bytes of BGR555 palette entries in one TIM8 block.
+TIM8_PALETTE_BYTES = TIM8_PALETTE_ENTRIES * 2
+#: A 64x64 8bpp tile is 4096 texels at two per halfword = exactly 4096 bytes,
+#: so one tile is exactly two CD sectors.
+TIM8_TILE_SECTORS = TIM_TILE_DIM * TIM_TILE_DIM // SECTOR_SIZE_TIM
+#: Halfwords in one 8bpp tile: two indices share a 16-bit word.
+TIM8_TILE_HALFWORDS = TIM_TILE_DIM * TIM_TILE_DIM // 2
+#: Tiles along each axis of a 1024x1024 TIM8 block.
+TIM8_TILES_PER_BLOCK_AXIS = 1024 // TIM_TILE_DIM
+#: Sectors per TIM8 block: one palette sector, then two per tile (256 * 2 = 512).
+TIM8_BLOCK_SECTORS = 1 + TIM8_TILES_PER_BLOCK_AXIS * TIM8_TILES_PER_BLOCK_AXIS * TIM8_TILE_SECTORS
+assert TIM8_TILE_SECTORS == 2, "an 8bpp TIM8 tile must be exactly two CD sectors"
+assert TIM8_BLOCK_SECTORS == 513, "a TIM8 block is one palette sector plus 256*2 tile sectors"
+assert TIM8_TILE_HALFWORDS == TIM_TILE_DIM * TIM_TILE_DIM // 2, "2 texels per halfword"
+assert TIM8_TILE_HALFWORDS * 2 == 2 * SECTOR_SIZE_TIM, "one 8bpp tile is two CD sectors"
+assert TIM8_TILE_HALFWORDS == (TIM_TILE_DIM // 2) * TIM_TILE_DIM, (
+    "a 64x64 8bpp image is a 32x64 rect of halfwords, because GP0(A0h) counts "
+    "width in words and height in rows and 8bpp packs two texels per halfword"
+)
 TILE_DIM = 256
 TILES_X = VISUAL_SIZE[0] // TILE_DIM
 TILES_Y = VISUAL_SIZE[1] // TILE_DIM
@@ -583,10 +604,12 @@ def pack_arsv(name: str) -> bytes | None:
     return bytes(out)
 
 
-def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None, bytes | None, bytes | None]:
+def pack_visual(
+    name: str,
+) -> tuple[bytes, bytes | None, bytes | None, bytes | None, bytes | None, bytes | None]:
     """Packs one circuit's visual image into 1024x1024 blocks and exports them.
 
-    Returns `(jpeg_data, qoi_data, arsv_data, tim_data, tim4_data)`, the five
+    Returns `(jpeg_data, qoi_data, arsv_data, tim_data, tim4_data, tim8_data)`, the six
     disc formats:
 
     - `qoi_data` is `None` when the source art does not fit the 500 KB block
@@ -599,6 +622,7 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None, bytes | N
       a fixed 2 MB for every circuit, or it does not exist at all.
     - `tim4_data` is `None` for the same reason. It has no budget either: a 4bpp
       block is a fixed 512 KB.
+    - `tim8_data` is `None` for the same reason. A fixed 1026 KB (513 sectors).
 
     The `.visual.gen.png` override still wins for the bitmap formats: it is
     hand-authored detail that no rasteriser can reproduce. Where it is absent,
@@ -636,6 +660,7 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None, bytes | N
     arsv_data = pack_arsv(name)
     tim_data = pack_tim_block(im)
     tim4_data = pack_tim4_block(im)
+    tim8_data = pack_tim8_block(im)
 
     # Export to tracks/<Circuit>.jpg
     with open(jpg_path, "wb") as f_jpg:
@@ -687,8 +712,14 @@ def pack_visual(name: str) -> tuple[bytes, bytes | None, bytes | None, bytes | N
         f"({TIM4_TILES_PER_BLOCK_AXIS ** 2} tiles of {TIM4_TILE_SECTORS} sector "
         f"+ 1 palette sector)"
     )
+    print(
+        f"  TIM8: {clean_name} -> uncompressed 8bpp, 256 colours, "
+        f"{len(tim8_data)} bytes = {len(tim8_data)/1024:.0f} KB "
+        f"({TIM8_TILES_PER_BLOCK_AXIS ** 2} tiles of {TIM8_TILE_SECTORS} sectors "
+        f"+ 1 palette sector)"
+    )
 
-    return jpeg_data, qoi_data, arsv_data, tim_data, tim4_data
+    return jpeg_data, qoi_data, arsv_data, tim_data, tim4_data, tim8_data
 
 
 def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
@@ -878,6 +909,75 @@ def pack_tim4_block(im: Image.Image) -> bytes | None:
     return block
 
 
+def quantise_256(im: Image.Image) -> tuple[np.ndarray, list[tuple[int, int, int]]]:
+    """Reduces an image to 256 palette indices using median-cut and Floyd-Steinberg dithering.
+
+    Returns `(indices, palette)` where `indices` is an HxW `uint8` array of palette entries
+    and `palette` is a 256-entry list of `(r, g, b)` tuples.
+    """
+    rgb_im = im.convert("RGB")
+    q = rgb_im.quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG)
+    raw_pal = q.getpalette() or []
+    palette: list[tuple[int, int, int]] = []
+    for i in range(len(raw_pal) // 3):
+        palette.append((raw_pal[i * 3], raw_pal[i * 3 + 1], raw_pal[i * 3 + 2]))
+    while len(palette) < 256:
+        palette.append((0, 0, 0))
+    indices = np.array(q, dtype=np.uint8)
+    return indices, palette[:256]
+
+
+def pack_tim8_block(im: Image.Image) -> bytes | None:
+    """Packs an image as uncompressed 8bpp CLUT-indexed texels, 256 colours.
+
+    Returns one sector of palette followed by two sectors per 64x64 tile, or
+    `None` if packing fails. Total: 1 + 256 * 2 = 513 sectors (1,050,624 bytes).
+
+    A 64x64 8bpp tile is 4096 texels at two per halfword = 4096 bytes, which is
+    *exactly two CD sectors*.
+
+    The texels are written row-major: within each 16-bit halfword, texel 0 is
+    in the low byte (bits 0..7) and texel 1 is in the high byte (bits 8..15).
+    """
+    if im.size != (1024, 1024):
+        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
+
+    indices, palette = quantise_256(im)
+
+    # Palette sector: 256 BGR555 entries, low halfword first, padded to a sector.
+    pal_bytes = bytearray()
+    for (r, g, b) in palette:
+        half = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3)
+        pal_bytes += struct.pack("<H", half)
+    assert len(pal_bytes) == TIM8_PALETTE_BYTES, "palette must be exactly 256 entries"
+    palette_sector = bytes(pal_bytes) + b"\x00" * (SECTOR_SIZE_TIM - len(pal_bytes))
+
+    tiles = []
+    for ty in range(TIM8_TILES_PER_BLOCK_AXIS):
+        for tx in range(TIM8_TILES_PER_BLOCK_AXIS):
+            tile = indices[
+                ty * TIM_TILE_DIM : (ty + 1) * TIM_TILE_DIM,
+                tx * TIM_TILE_DIM : (tx + 1) * TIM_TILE_DIM,
+            ]
+            # Two indices per halfword: low byte texel 0, high byte texel 1.
+            pairs = tile.reshape(TIM_TILE_DIM, TIM_TILE_DIM // 2, 2).astype(np.uint16) & 0xFF
+            packed = pairs[..., 0] | (pairs[..., 1] << 8)
+            tiles.append(np.ascontiguousarray(packed, dtype="<u2").tobytes())
+
+    tile_bytes = TIM_TILE_DIM * TIM_TILE_DIM
+    assert all(len(t) == tile_bytes for t in tiles), (
+        f"a TIM8 tile must be exactly two sectors ({tile_bytes} bytes), got "
+        f"{sorted({len(t) for t in tiles})}"
+    )
+
+    block = palette_sector + b"".join(tiles)
+    expected = SECTOR_SIZE_TIM + tile_bytes * TIM8_TILES_PER_BLOCK_AXIS**2
+    assert len(block) == expected, f"TIM8 block is {len(block)} bytes, expected {expected}"
+    assert len(block) % SECTOR_SIZE_TIM == 0, "TIM8 block is not sector aligned"
+    return block
+
+
+
 def pack_tim_block(im: Image.Image) -> bytes:
     """Packs an image as uncompressed 15bpp texels, tiled for direct DMA.
 
@@ -935,7 +1035,7 @@ def pack_tim_block(im: Image.Image) -> bytes:
 
 def emit_visual_tex(
     packed_per_circuit: list[
-        tuple[bytes, bytes | None, bytes | None, bytes | None, bytes | None]
+        tuple[bytes, bytes | None, bytes | None, bytes | None, bytes | None, bytes | None]
     ]
 ) -> None:
     """Writes the track texture BINs and `crates/arduracer-core/src/visual_tex.rs`.
@@ -949,6 +1049,8 @@ def emit_visual_tex(
     `assets/TIMTRACKS.BIN` holds the uncompressed blocks, and is *not* padded to
     a fixed allocation: a 15bpp 1024x1024 block is exactly 2,097,152 bytes, so
     every circuit gets the same 1024 sectors and the table is pure arithmetic.
+    `assets/TIM4TRACKS.BIN` holds the 4bpp CLUT-indexed blocks (257 sectors).
+    `assets/TIM8TRACKS.BIN` holds the 8bpp CLUT-indexed blocks (513 sectors).
 
     `visual_tex.rs` receives the sector index tables, decoupling runtime
     textures from static executable size.
@@ -962,6 +1064,7 @@ def emit_visual_tex(
     out_arsv_bin = os.path.join(assets_dir, "SVGTRACKS.BIN")
     out_tim_bin = os.path.join(assets_dir, "TIMTRACKS.BIN")
     out_tim4_bin = os.path.join(assets_dir, "TIM4TRACKS.BIN")
+    out_tim8_bin = os.path.join(assets_dir, "TIM8TRACKS.BIN")
 
     n = len(packed_per_circuit)
     SECTOR_SIZE = 2048
@@ -987,16 +1090,18 @@ def emit_visual_tex(
     arsv_sector = 0
     tim_sector = 0
     tim4_sector = 0
+    tim8_sector = 0
     tile_entries: list[tuple[int, int, int]] = []
     qoi_entries: list[tuple[int, int, int]] = []
     arsv_entries: list[tuple[int, int, int]] = []
     tim_entries: list[tuple[int, int, int]] = []
     tim4_entries: list[tuple[int, int, int]] = []
+    tim8_entries: list[tuple[int, int, int]] = []
 
     with open(out_bin, "wb") as f_bin, open(out_qoi_bin, "wb") as f_qoi, \
             open(out_arsv_bin, "wb") as f_arsv, open(out_tim_bin, "wb") as f_tim, \
-            open(out_tim4_bin, "wb") as f_tim4:
-        for c, (jpeg_data, qoi_data, arsv_data, tim_data, tim4_data) in enumerate(
+            open(out_tim4_bin, "wb") as f_tim4, open(out_tim8_bin, "wb") as f_tim8:
+        for c, (jpeg_data, qoi_data, arsv_data, tim_data, tim4_data, tim8_data) in enumerate(
             packed_per_circuit
         ):
             tile_entries.append(
@@ -1061,6 +1166,22 @@ def emit_visual_tex(
                 f_tim4.write(tim4_data)
                 tim4_sector += len(tim4_data) // SECTOR_SIZE
 
+            if tim8_data is None:
+                tim8_entries.append((0, 0, 0))
+            else:
+                assert len(tim8_data) % SECTOR_SIZE == 0, (
+                    f"circuit {c}: TIM8 block is {len(tim8_data)} bytes, not sector aligned"
+                )
+                assert len(tim8_data) // SECTOR_SIZE == TIM8_BLOCK_SECTORS, (
+                    f"circuit {c}: TIM8 block is {len(tim8_data) // SECTOR_SIZE} sectors, "
+                    f"expected {TIM8_BLOCK_SECTORS}"
+                )
+                tim8_entries.append(
+                    (tim8_sector, len(tim8_data) // SECTOR_SIZE, len(tim8_data))
+                )
+                f_tim8.write(tim8_data)
+                tim8_sector += len(tim8_data) // SECTOR_SIZE
+
     total_sectors = current_sector
     total_bin_bytes = total_sectors * SECTOR_SIZE
     qoi_sectors_total = qoi_sector
@@ -1071,6 +1192,8 @@ def emit_visual_tex(
     tim_count = sum(1 for e in tim_entries if e[1] > 0)
     tim4_sectors_total = tim4_sector
     tim4_count = sum(1 for e in tim4_entries if e[1] > 0)
+    tim8_sectors_total = tim8_sector
+    tim8_count = sum(1 for e in tim8_entries if e[1] > 0)
 
     # Emit visual_tex.rs with block sector index
     with open(out_rs, "w") as f:
@@ -1180,6 +1303,36 @@ def emit_visual_tex(
             "/// passing half the texel width -- the 8bpp figure -- moves it as a\n"
             "/// 32x32 block that does not match the 16x64 region the GPU samples.\n"
             "pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;\n"
+            "/// Name of the uncompressed 8bpp CLUT-indexed track visual asset file.\n"
+            "pub const TIM8TRACKS_BIN_NAME: &[u8] = b\"TIM8TRACKS.BIN\";\n"
+            "/// Number of circuits with an uncompressed 8bpp block on this disc.\n"
+            f"pub const TIM8_CIRCUIT_COUNT: usize = {tim8_count};\n"
+            "/// Texels per 8bpp TIM tile, on each axis.\n"
+            "pub const TIM8_TILE_DIM: usize = TILE_DIM;\n"
+            "/// Bytes per 8bpp TIM tile: two indices per halfword.\n"
+            "pub const TIM8_TILE_BYTES: usize = TIM8_TILE_DIM * TIM8_TILE_DIM;\n"
+            "/// CD sectors per 8bpp TIM tile. 4096 bytes is exactly two sectors.\n"
+            f"pub const TIM8_TILE_SECTORS: u32 = {TIM8_TILE_SECTORS};\n"
+            "/// Colour entries in an 8bpp TIM palette.\n"
+            "pub const TIM8_PALETTE_ENTRIES: usize = 256;\n"
+            "/// Bytes of 15bpp BGR555 palette entries per circuit.\n"
+            "pub const TIM8_PALETTE_BYTES: usize = TIM8_PALETTE_ENTRIES * 2;\n"
+            "/// CD sectors holding one circuit's 8bpp palette, padded to a sector.\n"
+            "///\n"
+            "/// The palette leads its block so a tile's sector is\n"
+            "/// `base + TIM8_PALETTE_SECTORS + (tile_y * 16 + tile_x) * 2`,\n"
+            "/// with no per-tile table anywhere.\n"
+            f"pub const TIM8_PALETTE_SECTORS: u32 = 1;\n"
+            "/// CD sectors per uncompressed 8bpp block.\n"
+            f"pub const TIM8_BLOCK_SECTORS: u32 = {TIM8_BLOCK_SECTORS};\n"
+            "/// Halfwords of VRAM a 64x64 8bpp image occupies.\n"
+            "pub const TIM8_TILE_HALFWORDS: usize = TIM8_TILE_DIM * TIM8_TILE_DIM / TIM8_TEXELS_PER_HALFWORD;\n"
+            "/// Texels packed into one VRAM halfword at this depth (2).\n"
+            "pub const TIM8_TEXELS_PER_HALFWORD: usize = 2;\n"
+            "/// VRAM rows a 64-texel-tall 8bpp image occupies.\n"
+            "pub const TIM8_TILE_ROWS: usize = TIM8_TILE_DIM;\n"
+            "/// VRAM halfword columns a 64-texel-wide 8bpp image occupies (32).\n"
+            "pub const TIM8_TILE_HALFWORDS_WIDE: usize = TIM8_TILE_DIM / TIM8_TEXELS_PER_HALFWORD;\n"
             "/// Name of the disc asset holding every level's tile grid: row-major,\n"
             "/// one `TrackTile` discriminant per cell, in level order with no header.\n"
             "pub const LEVELS_BIN_NAME: &[u8] = b\"LEVELS.BIN\";\n"
@@ -1229,7 +1382,7 @@ def emit_visual_tex(
         f.write("];\n\n")
 
         # SVG-derived blocks: the SVG raster plus its surface code map, decoded
-        # with a per-surface detail pass. Same zero-sector fallback as QOI.
+        # with a per-surface detail pass. Same zero-fallback as QOI.
         f.write(
             "/// Streaming SVG-derived (`ARSV`) block sector index [circuit].\n"
             "///\n"
@@ -1283,6 +1436,26 @@ def emit_visual_tex(
             f"pub static CIRCUIT_TIM4_SECTORS: [TileSectorEntry; COUNT] = [\n"
         )
         for c, (sec_off, sec_cnt, b_len) in enumerate(tim4_entries):
+            f.write(
+                f"    TileSectorEntry {{ sector_offset: {sec_off}, "
+                f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
+            )
+        f.write("];\n\n")
+
+        # Uncompressed 8bpp CLUT-indexed blocks.
+        f.write(
+            "/// Uncompressed 8bpp block sector index [circuit].\n"
+            "///\n"
+            "/// Each block is `TIM8_BLOCK_SECTORS` sectors: sector 0 is the\n"
+            "/// circuit's 256-entry palette, and sectors 1..=512 are its 256\n"
+            "/// 64x64 tiles, two sectors each, row-major. A tile's sector is\n"
+            "/// therefore `base + TIM8_PALETTE_SECTORS + (tile_y * 16 + tile_x) * 2`,\n"
+            "/// with no per-tile table anywhere.\n"
+            "///\n"
+            "/// A zero `sector_count` marks a circuit with no 8bpp block.\n"
+            f"pub static CIRCUIT_TIM8_SECTORS: [TileSectorEntry; COUNT] = [\n"
+        )
+        for c, (sec_off, sec_cnt, b_len) in enumerate(tim8_entries):
             f.write(
                 f"    TileSectorEntry {{ sector_offset: {sec_off}, "
                 f"sector_count: {sec_cnt}, byte_len: {b_len} }},\n"
@@ -1347,6 +1520,12 @@ def emit_visual_tex(
         f"{tim4_sectors_total * SECTOR_SIZE} bytes = "
         f"{tim4_sectors_total * SECTOR_SIZE / 1024 / 1024:.1f} MB) "
         f"({tim4_count}/{n} circuits x uncompressed 4bpp blocks, 16 colours)"
+    )
+    print(
+        f"wrote {out_tim8_bin} ({tim8_sectors_total} sectors = "
+        f"{tim8_sectors_total * SECTOR_SIZE} bytes = "
+        f"{tim8_sectors_total * SECTOR_SIZE / 1024 / 1024:.1f} MB) "
+        f"({tim8_count}/{n} circuits x uncompressed 8bpp blocks, 256 colours)"
     )
 
 

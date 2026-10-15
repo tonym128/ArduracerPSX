@@ -76,7 +76,7 @@ def build(texture_format: int, framerate: int = 0, cd_audio: int = 1,
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: seed_mcd.py <out.mcd> <texture_format 0..5> [cd_audio 0|1]")
+        print("usage: seed_mcd.py <out.mcd> <texture_format 0..6> [cd_audio 0|1]")
         return 2
     out, fmt = sys.argv[1], int(sys.argv[2])
     cd = int(sys.argv[3]) if len(sys.argv) > 3 else 1

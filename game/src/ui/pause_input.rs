@@ -24,14 +24,14 @@
 /// give the two include paths two distinct types for the same struct.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct SettingsValues {
-    /// 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG, 4 = TIM, 5 = TIM4. Totality lives in
+    /// 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG, 4 = TIM, 5 = TIM4, 6 = TIM8. Totality lives in
     /// `arduracer_core::texture_format::TextureFormat::from_saved`.
     pub texture_format: u8,
     /// 0 = 60 FPS, 1 = 30 FPS.
     pub framerate: u8,
     /// 0 = Behind (Mode 7 Chase), 1 = Overhead (Top-down).
     pub camera_view: u8,
-    /// 0 = CD-DA music off, 1 = on.
+    /// 0 = Off, 1 = CD-DA, 2 = XA.
     ///
     /// Not merely a mute. The TIM texture streamer and CD-DA both want the one
     /// physical drive, and `cd_fs::read_sectors` pauses playback around every
@@ -107,7 +107,7 @@ const ITEM_QUIT: u8 = 7;
 const ITEM_COUNT: u8 = 8;
 
 /// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
-pub const MAX_TEXTURE_FORMAT: u8 = 5;
+pub const MAX_TEXTURE_FORMAT: u8 = 6;
 
 /// Whether `v` names a selectable texture format.
 ///

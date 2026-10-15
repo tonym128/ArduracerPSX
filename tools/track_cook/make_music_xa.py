@@ -14,6 +14,7 @@ Usage:
     make_music_xa.py <in.raw> <out.xa> [track_number]
 """
 
+import os
 import struct
 import sys
 
@@ -46,10 +47,18 @@ def resample(stereo_i16, src_hz=SRC_HZ, dst_hz=DST_HZ):
 
 
 def main():
-    if len(sys.argv) < 3:
+    force = "--force" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--force"]
+    if len(args) < 2:
         sys.exit(__doc__)
-    src_path, dst_path = sys.argv[1], sys.argv[2]
-    track = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    src_path, dst_path = args[0], args[1]
+    track = int(args[2]) if len(args) > 2 else 0
+
+    if not force and os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+        if os.path.exists(src_path) and os.path.getmtime(dst_path) >= os.path.getmtime(src_path):
+            size_mb = os.path.getsize(dst_path) / 1e6
+            print(f"{dst_path}: cached -> track {track} ({size_mb:.1f} MB)")
+            return
 
     with open(src_path, "rb") as f:
         raw = f.read()

@@ -103,6 +103,36 @@ pub const TIM4_TILE_ROWS: usize = TIM4_TILE_DIM;
 /// passing half the texel width -- the 8bpp figure -- moves it as a
 /// 32x32 block that does not match the 16x64 region the GPU samples.
 pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / TIM4_TEXELS_PER_HALFWORD;
+/// Name of the uncompressed 8bpp CLUT-indexed track visual asset file.
+pub const TIM8TRACKS_BIN_NAME: &[u8] = b"TIM8TRACKS.BIN";
+/// Number of circuits with an uncompressed 8bpp block on this disc.
+pub const TIM8_CIRCUIT_COUNT: usize = 24;
+/// Texels per 8bpp TIM tile, on each axis.
+pub const TIM8_TILE_DIM: usize = TILE_DIM;
+/// Bytes per 8bpp TIM tile: two indices per halfword.
+pub const TIM8_TILE_BYTES: usize = TIM8_TILE_DIM * TIM8_TILE_DIM;
+/// CD sectors per 8bpp TIM tile. 4096 bytes is exactly two sectors.
+pub const TIM8_TILE_SECTORS: u32 = 2;
+/// Colour entries in an 8bpp TIM palette.
+pub const TIM8_PALETTE_ENTRIES: usize = 256;
+/// Bytes of 15bpp BGR555 palette entries per circuit.
+pub const TIM8_PALETTE_BYTES: usize = TIM8_PALETTE_ENTRIES * 2;
+/// CD sectors holding one circuit's 8bpp palette, padded to a sector.
+///
+/// The palette leads its block so a tile's sector is
+/// `base + TIM8_PALETTE_SECTORS + (tile_y * 16 + tile_x) * 2`,
+/// with no per-tile table anywhere.
+pub const TIM8_PALETTE_SECTORS: u32 = 1;
+/// CD sectors per uncompressed 8bpp block.
+pub const TIM8_BLOCK_SECTORS: u32 = 513;
+/// Halfwords of VRAM a 64x64 8bpp image occupies.
+pub const TIM8_TILE_HALFWORDS: usize = TIM8_TILE_DIM * TIM8_TILE_DIM / TIM8_TEXELS_PER_HALFWORD;
+/// Texels packed into one VRAM halfword at this depth (2).
+pub const TIM8_TEXELS_PER_HALFWORD: usize = 2;
+/// VRAM rows a 64-texel-tall 8bpp image occupies.
+pub const TIM8_TILE_ROWS: usize = TIM8_TILE_DIM;
+/// VRAM halfword columns a 64-texel-wide 8bpp image occupies (32).
+pub const TIM8_TILE_HALFWORDS_WIDE: usize = TIM8_TILE_DIM / TIM8_TEXELS_PER_HALFWORD;
 /// Name of the disc asset holding every level's tile grid: row-major,
 /// one `TrackTile` discriminant per cell, in level order with no header.
 pub const LEVELS_BIN_NAME: &[u8] = b"LEVELS.BIN";
@@ -763,6 +793,138 @@ pub static CIRCUIT_TIM4_SECTORS: [TileSectorEntry; COUNT] = [
         sector_offset: 5911,
         sector_count: 257,
         byte_len: 526336,
+    },
+];
+
+/// Uncompressed 8bpp block sector index [circuit].
+///
+/// Each block is `TIM8_BLOCK_SECTORS` sectors: sector 0 is the
+/// circuit's 256-entry palette, and sectors 1..=512 are its 256
+/// 64x64 tiles, two sectors each, row-major. A tile's sector is
+/// therefore `base + TIM8_PALETTE_SECTORS + (tile_y * 16 + tile_x) * 2`,
+/// with no per-tile table anywhere.
+///
+/// A zero `sector_count` marks a circuit with no 8bpp block.
+pub static CIRCUIT_TIM8_SECTORS: [TileSectorEntry; COUNT] = [
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 513,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 1026,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 1539,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 2052,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 2565,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 3078,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 3591,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 4104,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 4617,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 5130,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 5643,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 6156,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 6669,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 7182,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 7695,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 8208,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 8721,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 9234,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 9747,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 10260,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 10773,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 11286,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 11799,
+        sector_count: 513,
+        byte_len: 1050624,
     },
 ];
 

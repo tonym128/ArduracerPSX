@@ -106,6 +106,7 @@ static mut SEEKED: u32 = 0;
 pub enum Codec {
     Tim,
     Tim4,
+    Tim8,
 }
 
 /// Sectors a codec's tile spans.
@@ -113,6 +114,7 @@ pub const fn sectors_for(codec: Codec) -> u32 {
     match codec {
         Codec::Tim => 4,
         Codec::Tim4 => 1,
+        Codec::Tim8 => 2,
     }
 }
 

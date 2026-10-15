@@ -16,7 +16,7 @@ codegen-units = 1
 lto = true
 
 [features]
-default = ["svg-track-texture", "qoi-track-stream", "tim-track-stream", "tim4-track-stream"]
+default = ["svg-track-texture", "qoi-track-stream", "tim-track-stream", "tim4-track-stream", "tim8-track-stream"]
 
 # SVG-derived circuit textures (the `ARSV` container). On by default, and the
 # preferred format: the authored vector geometry rasterised at 1024, plus a
@@ -69,6 +69,13 @@ tim-track-stream = []
 #   cargo build --release --features tim4-track-stream
 tim4-track-stream = []
 
+# Uncompressed 8bpp CLUT-indexed circuit textures (`TIM8TRACKS.BIN`), 256
+# colours per circuit, DMA'd tile by tile. On by default, but never chosen by
+# `Auto`.
+#
+# A 64x64 8bpp tile is 4096 bytes (two CD sectors).
+tim8-track-stream = []
+
 # Declared only so `cfg(feature = "host-test")` in `memcard.rs` resolves
 # instead of warning as an unexpected cfg. DO NOT BUILD THE GAME WITH IT: it
 # compiles the SIO0 wrappers out, and `main.rs` calls `probe()` / `flush()`.
@@ -93,6 +100,7 @@ profiling = []
 #   cargo build --release --features profiling,profile-tim
 profile-tim = ["profiling"]
 profile-tim4 = ["profiling"]
+profile-tim8 = ["profiling"]
 profile-qoi = ["profiling"]
 
 [dependencies]

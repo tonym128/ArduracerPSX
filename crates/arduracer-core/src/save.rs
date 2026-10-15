@@ -170,7 +170,7 @@ pub struct SaveData {
     /// Grid order for the next stage, as competitor indices.
     pub champ_grid: [u8; COMPETITORS_PER_SESSION],
     /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG,
-    /// 4 = TIM. Totality lives in `texture_format::TextureFormat::from_saved`,
+    /// 4 = TIM, 5 = TIM4, 6 = TIM8. Totality lives in `texture_format::TextureFormat::from_saved`,
     /// not here.
     pub texture_format: u8,
     /// Selected framerate: 0 = 60 FPS, 1 = 30 FPS.
@@ -422,7 +422,7 @@ impl SaveData {
         // 200 into 4 -- which is TIM. A corrupt card would then select a
         // specific texture format rather than falling back. Out of range is
         // Auto, the same answer `from_saved` gives.
-        if self.texture_format > 5 {
+        if self.texture_format > 6 {
             self.texture_format = 0;
         }
         self.framerate = u8::from(self.framerate != 0);
@@ -480,7 +480,7 @@ impl SaveData {
             && self.rumble_enabled <= 1
             && self.framerate <= 1
             && self.cd_audio <= CdAudioMode::MAX.as_u8()
-            && self.texture_format <= 5
+            && self.texture_format <= 6
             && self.medals_earned.iter().all(|&m| m <= MAX_MEDAL)
             && self
                 .best_lap_ticks
@@ -794,12 +794,12 @@ mod tests {
     #[test]
     fn the_texture_format_ceiling_tracks_the_highest_real_format() {
         let loaded = load(&corrupt(|s| {
-            s.texture_format = crate::texture_format::TextureFormat::Tim.to_saved()
+            s.texture_format = crate::texture_format::TextureFormat::Tim8.to_saved()
         }));
         assert_eq!(
             crate::texture_format::TextureFormat::from_saved(loaded.texture_format),
-            crate::texture_format::TextureFormat::Tim,
-            "a saved TIM pin must survive the round trip"
+            crate::texture_format::TextureFormat::Tim8,
+            "a saved TIM8 pin must survive the round trip"
         );
 
         let loaded = load(&corrupt(|s| s.texture_format = 200));

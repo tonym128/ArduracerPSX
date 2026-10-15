@@ -30,6 +30,8 @@ pub enum TextureFormat {
     Tim,
     /// Uncompressed 4bpp, CLUT-indexed: a 16-colour palette per circuit.
     Tim4,
+    /// Uncompressed 8bpp, CLUT-indexed: a 256-colour palette per circuit.
+    Tim8,
 }
 
 /// Which decoder serves each pinned format.
@@ -47,6 +49,8 @@ pub enum Codec {
     Tim,
     /// Uncompressed 4bpp CLUT-indexed tile, DMA'd the same way.
     Tim4,
+    /// Uncompressed 8bpp CLUT-indexed tile, DMA'd the same way.
+    Tim8,
 }
 
 impl TextureFormat {
@@ -67,7 +71,8 @@ impl TextureFormat {
             Self::Qoi => Self::Jpeg,
             Self::Jpeg => Self::Tim,
             Self::Tim => Self::Tim4,
-            Self::Tim4 => Self::Auto,
+            Self::Tim4 => Self::Tim8,
+            Self::Tim8 => Self::Auto,
         }
     }
 
@@ -79,6 +84,7 @@ impl TextureFormat {
             Self::Qoi => "QOI",
             Self::Tim => "TIM",
             Self::Tim4 => "TIM4",
+            Self::Tim8 => "TIM8",
             Self::Jpeg => "JPEG",
         }
     }
@@ -94,6 +100,7 @@ impl TextureFormat {
             3 => Self::Jpeg,
             4 => Self::Tim,
             5 => Self::Tim4,
+            6 => Self::Tim8,
             _ => Self::Auto,
         }
     }
@@ -113,6 +120,7 @@ impl TextureFormat {
             Self::Jpeg => 3,
             Self::Tim => 4,
             Self::Tim4 => 5,
+            Self::Tim8 => 6,
         }
     }
 
@@ -128,6 +136,7 @@ impl TextureFormat {
             Self::Qoi => Codec::Qoi,
             Self::Tim => Codec::Tim,
             Self::Tim4 => Codec::Tim4,
+            Self::Tim8 => Codec::Tim8,
             Self::Jpeg | Self::Auto => Codec::Jpeg,
         }
     }
@@ -205,6 +214,7 @@ mod tests {
         assert_eq!(TextureFormat::Qoi.codec(), Codec::Qoi);
         assert_eq!(TextureFormat::Tim.codec(), Codec::Tim);
         assert_eq!(TextureFormat::Tim4.codec(), Codec::Tim4);
+        assert_eq!(TextureFormat::Tim8.codec(), Codec::Tim8);
         assert_eq!(TextureFormat::Jpeg.codec(), Codec::Jpeg);
     }
 
@@ -215,6 +225,7 @@ mod tests {
             TextureFormat::Qoi.codec(),
             TextureFormat::Tim.codec(),
             TextureFormat::Tim4.codec(),
+            TextureFormat::Tim8.codec(),
             TextureFormat::Jpeg.codec(),
         ];
         for i in 0..all.len() {
@@ -224,22 +235,25 @@ mod tests {
         }
     }
 
-    /// Adding TIM4 must not renumber anything that came before it, for the same
-    /// reason TIM's byte was appended rather than inserted.
+    /// Adding TIM4 and TIM8 must not renumber anything that came before them,
+    /// for the same reason TIM's byte was appended rather than inserted.
     #[test]
-    fn adding_tim4_did_not_renumber_the_existing_formats() {
+    fn adding_tim_variants_did_not_renumber_the_existing_formats() {
         assert_eq!(TextureFormat::Auto.to_saved(), 0);
         assert_eq!(TextureFormat::Svg.to_saved(), 1);
         assert_eq!(TextureFormat::Qoi.to_saved(), 2);
         assert_eq!(TextureFormat::Jpeg.to_saved(), 3);
         assert_eq!(TextureFormat::Tim.to_saved(), 4);
         assert_eq!(TextureFormat::Tim4.to_saved(), 5);
+        assert_eq!(TextureFormat::Tim8.to_saved(), 6);
         for f in [
             TextureFormat::Auto,
             TextureFormat::Svg,
             TextureFormat::Qoi,
             TextureFormat::Jpeg,
             TextureFormat::Tim,
+            TextureFormat::Tim4,
+            TextureFormat::Tim8,
         ] {
             assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
         }
@@ -254,25 +268,33 @@ mod tests {
         );
     }
 
-    /// Two uncompressed formats on one disc is the case the availability/selection
-    /// split exists for: a disc can carry both, so "a TIM block exists" and "a
-    /// TIM4 block exists" are both true everywhere and neither identifies which
-    /// path a circuit took.
     #[test]
-    fn the_two_uncompressed_pins_never_select_each_other() {
-        // Both assets present, which is the normal disc: neither availability
-        // flag distinguishes them, so only the pin can.
+    fn the_tim8_pin_takes_the_tim8_path_only_when_the_block_is_there() {
+        assert!(selects_tim8(TextureFormat::Tim8, true));
         assert!(
-            !selects_tim4(TextureFormat::Tim, true),
-            "the 15bpp pin must not take the 4bpp path even with both assets present"
+            !selects_tim8(TextureFormat::Tim8, false),
+            "a pin to TIM8 on a disc without TIM8TRACKS.BIN must fall back"
         );
-        assert!(
-            !selects_tim(TextureFormat::Tim4, true),
-            "the 4bpp pin must not take the 15bpp path even with both assets present"
-        );
+    }
+
+    /// Uncompressed formats on one disc is the case the availability/selection
+    /// split exists for: a disc can carry multiple, so availability flags alone
+    /// do not identify which path a circuit took.
+    #[test]
+    fn the_uncompressed_pins_never_select_each_other() {
+        // All assets present: no availability flag distinguishes them, so only
+        // the pin can.
+        assert!(!selects_tim4(TextureFormat::Tim, true));
+        assert!(!selects_tim8(TextureFormat::Tim, true));
+        assert!(!selects_tim(TextureFormat::Tim4, true));
+        assert!(!selects_tim8(TextureFormat::Tim4, true));
+        assert!(!selects_tim(TextureFormat::Tim8, true));
+        assert!(!selects_tim4(TextureFormat::Tim8, true));
+
         // And each still selects itself.
         assert!(selects_tim(TextureFormat::Tim, true));
         assert!(selects_tim4(TextureFormat::Tim4, true));
+        assert!(selects_tim8(TextureFormat::Tim8, true));
     }
 
     #[test]
@@ -284,10 +306,11 @@ mod tests {
             TextureFormat::Jpeg,
             TextureFormat::Tim,
             TextureFormat::Tim4,
+            TextureFormat::Tim8,
         ] {
             assert_eq!(TextureFormat::from_saved(f.to_saved()), f);
         }
-        for b in 6u8..=255 {
+        for b in 7u8..=255 {
             assert_eq!(TextureFormat::from_saved(b), TextureFormat::Auto);
         }
     }
@@ -343,7 +366,7 @@ mod tests {
     fn cycling_visits_every_option_and_wraps() {
         let mut f = TextureFormat::Auto;
         let mut seen = vec![f];
-        for _ in 0..6 {
+        for _ in 0..7 {
             f = f.next();
             seen.push(f);
         }
@@ -356,6 +379,7 @@ mod tests {
                 TextureFormat::Jpeg,
                 TextureFormat::Tim,
                 TextureFormat::Tim4,
+                TextureFormat::Tim8,
                 TextureFormat::Auto,
             ]
         );
@@ -368,7 +392,7 @@ mod tests {
     fn cycling_visits_the_persisted_bytes_in_order() {
         let mut f = TextureFormat::Auto;
         let mut by_cycle = Vec::new();
-        for _ in 0..6 {
+        for _ in 0..7 {
             f = f.next();
             by_cycle.push(f.to_saved());
         }
@@ -376,8 +400,8 @@ mod tests {
         // Exactly what a menu does: `(byte + 1) % (MAX + 1)`.
         let mut byte = 0u8;
         let mut by_byte = Vec::new();
-        for _ in 0..6 {
-            byte = (byte + 1) % 6;
+        for _ in 0..7 {
+            byte = (byte + 1) % 7;
             by_byte.push(byte);
         }
 
@@ -417,15 +441,20 @@ pub const fn selects_tim4(pinned: TextureFormat, tim4_available: bool) -> bool {
     tim4_available && selects_codec(pinned, Codec::Tim4)
 }
 
+/// Whether a circuit is served by the uncompressed 8bpp (TIM8) path.
+pub const fn selects_tim8(pinned: TextureFormat, tim8_available: bool) -> bool {
+    tim8_available && selects_codec(pinned, Codec::Tim8)
+}
+
 /// Whether `pinned` names `want`, ignoring availability.
 ///
-/// Shared by both uncompressed predicates so "does the pin name this decoder"
+/// Shared by all uncompressed predicates so "does the pin name this decoder"
 /// has one definition rather than one per format. `matches!` rather than `==`:
 /// `PartialEq` is not const.
 const fn selects_codec(pinned: TextureFormat, want: Codec) -> bool {
     matches!(
         (pinned.codec(), want),
-        (Codec::Tim, Codec::Tim) | (Codec::Tim4, Codec::Tim4)
+        (Codec::Tim, Codec::Tim) | (Codec::Tim4, Codec::Tim4) | (Codec::Tim8, Codec::Tim8)
     )
 }
 
@@ -470,6 +499,7 @@ mod budget_tests {
             TextureFormat::Qoi,
             TextureFormat::Jpeg,
             TextureFormat::Tim4,
+            TextureFormat::Tim8,
         ] {
             assert!(
                 !selects_tim(f, true),
@@ -490,6 +520,7 @@ mod budget_tests {
             TextureFormat::Qoi,
             TextureFormat::Jpeg,
             TextureFormat::Tim,
+            TextureFormat::Tim8,
         ] {
             assert!(
                 !selects_tim4(f, true),
@@ -498,6 +529,27 @@ mod budget_tests {
             assert!(
                 !selects_tim4(f, false),
                 "{f:?} must not take the TIM4 path without a block either"
+            );
+        }
+    }
+
+    #[test]
+    fn only_the_tim8_pin_selects_the_tim8_path() {
+        for f in [
+            TextureFormat::Auto,
+            TextureFormat::Svg,
+            TextureFormat::Qoi,
+            TextureFormat::Jpeg,
+            TextureFormat::Tim,
+            TextureFormat::Tim4,
+        ] {
+            assert!(
+                !selects_tim8(f, true),
+                "{f:?} must not take the TIM8 path just because TIM8 exists"
+            );
+            assert!(
+                !selects_tim8(f, false),
+                "{f:?} must not take the TIM8 path without a block either"
             );
         }
     }
