@@ -164,6 +164,17 @@ static mut STALLED: u32 = 0;
 /// and should fall towards zero once the camera is over ground already covered.
 static mut WAITED: u32 = 0;
 
+/// Outcome of an asynchronous tile fetch.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum FetchStatus {
+    /// Pixels are ready in the window buffer and can be uploaded to VRAM.
+    Ready(*const u32),
+    /// Tile is currently being streamed from the disc across frames.
+    Pending,
+    /// Fetch failed to start or stalled/faulted.
+    Failed,
+}
+
 /// The window buffer, as a pixel base plus its length in words.
 fn window() -> *const u32 {
     core::ptr::addr_of!(WINDOW) as *const u32
@@ -184,6 +195,7 @@ fn step(reader: &mut crate::cd_fs::DiscReader, current_frame: u32) {
         *job = no_fetch();
         unsafe { STALLED = STALLED.wrapping_add(1) };
         unsafe { WINDOW_REMAINING = 0 };
+        crate::drive::release(crate::drive::Owner::Texture);
         return;
     }
 
@@ -204,6 +216,7 @@ fn step(reader: &mut crate::cd_fs::DiscReader, current_frame: u32) {
                 *job = no_fetch();
                 unsafe { STALLED = STALLED.wrapping_add(1) };
                 unsafe { WINDOW_REMAINING = 0 };
+                crate::drive::release(crate::drive::Owner::Texture);
                 return;
             }
         }
@@ -216,6 +229,7 @@ fn step(reader: &mut crate::cd_fs::DiscReader, current_frame: u32) {
         // let the drive run on into the next window's sectors.
         reader.stop_stream();
         job.active = false;
+        crate::drive::release(crate::drive::Owner::Texture);
     }
 }
 
@@ -230,9 +244,9 @@ pub fn pump(reader: &mut crate::cd_fs::DiscReader, current_frame: u32) {
 
 /// Requests one tile, opening a fetch if none is in progress.
 ///
-/// Returns the tile's pixels when they are in hand and the caller should upload
-/// them, `None` when they are still being fetched (draw the placeholder and ask
-/// again next frame) or when a different window is already open.
+/// Returns `FetchStatus::Ready` when pixels are in hand, `FetchStatus::Pending`
+/// when sectors are being collected or another fetch is in flight, or
+/// `FetchStatus::Failed` on permanent error or drive fault.
 ///
 /// Never blocks. The cost on the frame that opens a fetch is the seek command
 /// and nothing more; every frame after that is one `try_read_sector` per sector
@@ -248,7 +262,7 @@ pub fn fetch(
     tile_lba: u32,
     available: u32,
     current_frame: u32,
-) -> Option<*const u32> {
+) -> FetchStatus {
     step(reader, current_frame);
     let need = sectors_for(codec);
     let job = unsafe { &mut *core::ptr::addr_of_mut!(PENDING) };
@@ -259,7 +273,7 @@ pub fn fetch(
     if job.total >= need && tile_lba >= job.base_lba && end <= job.base_lba + job.have {
         let at = (tile_lba - job.base_lba) as usize * SECTOR_WORDS;
         unsafe { LANDED = LANDED.wrapping_add(1) };
-        return Some(unsafe { (window() as *mut u32).add(at) });
+        return FetchStatus::Ready(unsafe { (window() as *mut u32).add(at) });
     }
 
     // A window the caller did not ask for. Leave it entirely alone.
@@ -278,17 +292,26 @@ pub fn fetch(
     // waits its turn.
     if job.active {
         unsafe { WAITED = WAITED.wrapping_add(1) };
-        return None;
+        return FetchStatus::Pending;
+    }
+
+    if available < need {
+        return FetchStatus::Failed;
+    }
+
+    if !crate::drive::claim(crate::drive::Owner::Texture) {
+        unsafe { WAITED = WAITED.wrapping_add(1) };
+        return FetchStatus::Pending;
     }
 
     // Nothing open and the tile is not covered. A finished window is just cached
     // sectors now -- keyed by LBA, with no owner -- so it is free to overwrite.
-    // The seek covers this tile and no more; `available` bounds it at the end of
-    // the run so a tile at the end of a block cannot stream into the next block.
-    let total = available.min(WINDOW_SECTORS).max(need);
+    // Stream exactly one tile's sectors and close immediately when they land.
+    let total = need.min(available);
     unsafe { SEEKED = SEEKED.wrapping_add(1) };
     if !reader.begin_tile_stream(tile_lba) {
-        return None;
+        crate::drive::release(crate::drive::Owner::Texture);
+        return FetchStatus::Failed;
     }
     *job = Fetch {
         active: true,
@@ -304,10 +327,10 @@ pub fn fetch(
     if job.have >= need && tile_lba >= job.base_lba {
         let at = (tile_lba - job.base_lba) as usize * SECTOR_WORDS;
         unsafe { LANDED = LANDED.wrapping_add(1) };
-        Some(unsafe { (window() as *mut u32).add(at) })
+        FetchStatus::Ready(unsafe { (window() as *mut u32).add(at) })
     } else {
         unsafe { WAITED = WAITED.wrapping_add(1) };
-        None
+        FetchStatus::Pending
     }
 }
 
@@ -320,6 +343,12 @@ pub fn cancel() {
     crate::gpu::tracktex::disc_reader().stop_stream();
     unsafe { *core::ptr::addr_of_mut!(PENDING) = no_fetch() };
     unsafe { WINDOW_REMAINING = 0 };
+    crate::drive::release(crate::drive::Owner::Texture);
+}
+
+/// Whether an asynchronous fetch is currently in flight on the CD drive.
+pub fn is_in_flight() -> bool {
+    unsafe { (*core::ptr::addr_of!(PENDING)).active }
 }
 
 /// Tiles handed back for upload.

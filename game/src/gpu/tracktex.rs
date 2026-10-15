@@ -919,6 +919,7 @@ pub fn init_track_texture(circuit: usize) {
             block.last_used = 0;
         }
         ACTIVE_JOB = DecodeJob::empty();
+        crate::async_tile::cancel();
         FRAME_COUNTER = 0;
 
         if !TRACKS_PROBED {
@@ -1140,12 +1141,16 @@ fn upload_tim4_palette(circuit: usize) -> bool {
     let scratch = unsafe { &mut *scratch() };
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
     crate::prof::count(crate::prof::C_CD_SECTORS, 1);
+    let claimed = crate::drive::claim(crate::drive::Owner::Texture);
     let read = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
         reader.read_sectors(block_lba, 1, unsafe {
             core::slice::from_raw_parts_mut(scratch.as_mut_ptr().cast::<u8>(), 2048)
         })
     };
+    if claimed {
+        crate::drive::release(crate::drive::Owner::Texture);
+    }
     if !read {
         return false;
     }
@@ -1179,12 +1184,16 @@ fn upload_tim8_palette(circuit: usize) -> bool {
     let scratch = unsafe { &mut *scratch() };
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
     crate::prof::count(crate::prof::C_CD_SECTORS, 1);
+    let claimed = crate::drive::claim(crate::drive::Owner::Texture);
     let read = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
         reader.read_sectors(block_lba, 1, unsafe {
             core::slice::from_raw_parts_mut(scratch.as_mut_ptr().cast::<u8>(), 2048)
         })
     };
+    if claimed {
+        crate::drive::release(crate::drive::Owner::Texture);
+    }
     if !read {
         return false;
     }
@@ -1213,6 +1222,17 @@ fn upload_tim8_palette(circuit: usize) -> bool {
 /// tile's own sector, taking as many following sectors as the buffer holds. The
 /// common case is a horizontal run of visible tiles, whose sectors are
 /// consecutive, so a single read usually serves the next three.
+/// Outcome of attempting to upload an uncompressed or paletted tile to VRAM.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum TileStepResult {
+    /// Tile data received and uploaded to VRAM. Slot is now resident.
+    Uploaded,
+    /// Tile is currently being fetched asynchronously; waiting on sectors.
+    Pending,
+    /// Permanent error (invalid bounds, missing block, or CD fault).
+    Failed,
+}
+
 #[inline(never)]
 fn upload_tile_dma4(
     circuit: usize,
@@ -1220,12 +1240,12 @@ fn upload_tile_dma4(
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
-) -> bool {
+) -> TileStepResult {
     let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
-        return false;
+        return TileStepResult::Failed;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return false;
+        return TileStepResult::Failed;
     }
 
     // The palette leads the block, so tile N is one sector further on than in
@@ -1236,7 +1256,7 @@ fn upload_tile_dma4(
         .wrapping_add(tile_index * TIM4_TILE_SECTORS);
     let block_end = block_lba + block_sectors;
     if tile_lba + TIM4_TILE_SECTORS > block_end {
-        return false;
+        return TileStepResult::Failed;
     }
 
     // Asynchronous: one seek covers a window of sectors, of which this tile is
@@ -1245,16 +1265,17 @@ fn upload_tile_dma4(
     // the row-scan wants are contiguous on the disc.
     let src = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        let Some(p) = crate::async_tile::fetch(
+        match crate::async_tile::fetch(
             disc_reader(),
             crate::async_tile::Codec::Tim4,
             tile_lba,
             block_end - tile_lba,
             current_frame,
-        ) else {
-            return false;
-        };
-        p
+        ) {
+            crate::async_tile::FetchStatus::Ready(p) => p,
+            crate::async_tile::FetchStatus::Pending => return TileStepResult::Pending,
+            crate::async_tile::FetchStatus::Failed => return TileStepResult::Failed,
+        }
     };
     crate::prof::count(crate::prof::C_CD_SECTORS, TIM4_TILE_SECTORS);
 
@@ -1292,7 +1313,7 @@ fn upload_tile_dma4(
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = current_frame;
-    true
+    TileStepResult::Uploaded
 }
 
 /// Pulls one 8bpp tile for `circuit` into the FIFO and DMAs it into VRAM slot
@@ -1304,12 +1325,12 @@ fn upload_tile_dma8(
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
-) -> bool {
+) -> TileStepResult {
     let Some((block_lba, block_sectors)) = tim8_block_for(circuit) else {
-        return false;
+        return TileStepResult::Failed;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return false;
+        return TileStepResult::Failed;
     }
 
     let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
@@ -1318,21 +1339,22 @@ fn upload_tile_dma8(
         .wrapping_add(tile_index * TIM8_TILE_SECTORS);
     let block_end = block_lba + block_sectors;
     if tile_lba + TIM8_TILE_SECTORS > block_end {
-        return false;
+        return TileStepResult::Failed;
     }
 
     let src = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        let Some(p) = crate::async_tile::fetch(
+        match crate::async_tile::fetch(
             disc_reader(),
             crate::async_tile::Codec::Tim8,
             tile_lba,
             block_end - tile_lba,
             current_frame,
-        ) else {
-            return false;
-        };
-        p
+        ) {
+            crate::async_tile::FetchStatus::Ready(p) => p,
+            crate::async_tile::FetchStatus::Pending => return TileStepResult::Pending,
+            crate::async_tile::FetchStatus::Failed => return TileStepResult::Failed,
+        }
     };
     crate::prof::count(crate::prof::C_CD_SECTORS, TIM8_TILE_SECTORS);
 
@@ -1365,7 +1387,7 @@ fn upload_tile_dma8(
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = current_frame;
-    true
+    TileStepResult::Uploaded
 }
 
 /// Streams one 64x64 15bpp tile from `TIMTRACKS.BIN` into VRAM slot
@@ -1389,12 +1411,12 @@ fn upload_tile_dma(
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
-) -> bool {
+) -> TileStepResult {
     let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
-        return false;
+        return TileStepResult::Failed;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return false;
+        return TileStepResult::Failed;
     }
 
     // Row-major over the 16x16 tile grid, four sectors each. The cooker lays
@@ -1403,14 +1425,14 @@ fn upload_tile_dma(
     let block_end = block_lba + block_sectors;
     let tile_lba = block_lba + tile_index * TIM_TILE_SECTORS;
     if tile_lba + TIM_TILE_SECTORS > block_end {
-        return false;
+        return TileStepResult::Failed;
     }
 
     // Four 2048-byte sectors exactly fill the 8 KB tile with no partial
     // sector and no repacking.
     let tile_bytes = TIM_TILE_SECTORS as usize * 2048;
     if tile_bytes != TILE_PIXELS * 2 {
-        return false;
+        return TileStepResult::Failed;
     }
     // Asynchronous, like the TIM4 path: issue the seek on one frame and take
     // the sectors on the next few. The blocking form waited here, inside the
@@ -1418,20 +1440,17 @@ fn upload_tile_dma(
     // measured case.
     let src = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        let Some(p) = crate::async_tile::fetch(
+        match crate::async_tile::fetch(
             disc_reader(),
             crate::async_tile::Codec::Tim,
             tile_lba,
             block_end - tile_lba,
             current_frame,
-        ) else {
-            // Still being fetched: the caller paints the placeholder and asks
-            // again next frame. The four sectors of a TIM tile are contiguous,
-            // so they are handed back as one run to DMA.
-            let _ = tile_bytes;
-            return false;
-        };
-        p
+        ) {
+            crate::async_tile::FetchStatus::Ready(p) => p,
+            crate::async_tile::FetchStatus::Pending => return TileStepResult::Pending,
+            crate::async_tile::FetchStatus::Failed => return TileStepResult::Failed,
+        }
     };
     crate::prof::count(crate::prof::C_CD_SECTORS, TIM_TILE_SECTORS);
 
@@ -1476,7 +1495,7 @@ fn upload_tile_dma(
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = current_frame;
-    true
+    TileStepResult::Uploaded
 }
 
 /// Paints the procedural placeholder used when a block could not be decoded, so
@@ -1760,7 +1779,10 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
 
     // For uncompressed disc streaming, sort by tile_index (disc LBA)
     // so the disc head sweeps monotonically forward without backwards seeks!
-    if codec_is_tim(active_circuit) || codec_is_tim4(active_circuit) {
+    if codec_is_tim(active_circuit)
+        || codec_is_tim4(active_circuit)
+        || codec_is_tim8(active_circuit)
+    {
         for i in 1..count {
             let mut j = i;
             while j > 0 && tiles[j - 1].4 > tiles[j].4 {
@@ -1855,10 +1877,16 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
 
         crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
         crate::prof::count(crate::prof::C_CD_SECTORS, sector_count as u32);
-        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        if sector_count <= visual_tex::BLOCK_SECTORS
-            && reader.read_sectors(block_lba, sector_count, &mut ram_slot.block_data)
-        {
+        let claimed = crate::drive::claim(crate::drive::Owner::Texture);
+        let read_ok = {
+            let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
+            sector_count <= visual_tex::BLOCK_SECTORS
+                && reader.read_sectors(block_lba, sector_count, &mut ram_slot.block_data)
+        };
+        if claimed {
+            crate::drive::release(crate::drive::Owner::Texture);
+        }
+        if read_ok {
             ram_slot.byte_len = byte_len;
             ram_slot.codec = if use_arsv {
                 Codec::Arsv
@@ -1964,11 +1992,24 @@ fn ensure_ram_block(circuit: usize, block_x: usize, block_y: usize, current_fram
 /// and the cost of that step is the CD read the other formats amortise across
 /// 256 tiles. The per-frame ceiling is unchanged, which keeps a stalled drive
 /// from turning into a frame overrun.
+/// Outcome of advancing the active tile decode job.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum StepResult {
+    /// Full 64x64 tile uploaded to VRAM and marked resident.
+    Done,
+    /// One MCU row decoded (for incremental formats JPEG/QOI/ARSV).
+    RowAdvanced,
+    /// Asynchronous CD read in flight (TIM/TIM4/TIM8); keep job active and slot reserved.
+    Pending,
+    /// Permanent error or stall; slot emptied and job cleared.
+    Failed,
+}
+
 #[inline(never)]
-fn step_decode_job(current_frame: u32) {
+fn step_decode_job(current_frame: u32) -> StepResult {
     let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
     if !job.active {
-        return;
+        return StepResult::Failed;
     }
 
     // `codec_is_tim`, not `tim_block_for`: asking only whether a TIM block exists
@@ -1976,56 +2017,80 @@ fn step_decode_job(current_frame: u32) {
     // RAM block. See `codec_is_tim`.
     if codec_is_tim(job.circuit) {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-        // A failed read leaves the slot empty, which renders as the placeholder
-        // and retries next frame. `job.active` clears either way: a read that
-        // is going to keep failing should not pin the queue on this tile.
-        if !upload_tile_dma(
+        match upload_tile_dma(
             job.circuit,
             job.tile_x,
             job.tile_y,
             job.target_slot,
             current_frame,
         ) {
-            let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-            slots[job.target_slot] = VramSlot::empty();
+            TileStepResult::Uploaded => {
+                crate::prof::count(crate::prof::C_TILE_DECODES, 1);
+                job.active = false;
+                return StepResult::Done;
+            }
+            TileStepResult::Pending => {
+                return StepResult::Pending;
+            }
+            TileStepResult::Failed => {
+                let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+                slots[job.target_slot] = VramSlot::empty();
+                job.active = false;
+                return StepResult::Failed;
+            }
         }
-        job.active = false;
-        return;
     }
 
     if codec_is_tim4(job.circuit) {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-        if !upload_tile_dma4(
+        match upload_tile_dma4(
             job.circuit,
             job.tile_x,
             job.tile_y,
             job.target_slot,
             current_frame,
         ) {
-            let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-            slots[job.target_slot] = VramSlot::empty();
+            TileStepResult::Uploaded => {
+                crate::prof::count(crate::prof::C_TILE_DECODES, 1);
+                job.active = false;
+                return StepResult::Done;
+            }
+            TileStepResult::Pending => {
+                return StepResult::Pending;
+            }
+            TileStepResult::Failed => {
+                let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+                slots[job.target_slot] = VramSlot::empty();
+                job.active = false;
+                return StepResult::Failed;
+            }
         }
-        job.active = false;
-        return;
     }
 
     if codec_is_tim8(job.circuit) {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-        if !upload_tile_dma8(
+        match upload_tile_dma8(
             job.circuit,
             job.tile_x,
             job.tile_y,
             job.target_slot,
             current_frame,
         ) {
-            let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-            slots[job.target_slot] = VramSlot::empty();
+            TileStepResult::Uploaded => {
+                crate::prof::count(crate::prof::C_TILE_DECODES, 1);
+                job.active = false;
+                return StepResult::Done;
+            }
+            TileStepResult::Pending => {
+                return StepResult::Pending;
+            }
+            TileStepResult::Failed => {
+                let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+                slots[job.target_slot] = VramSlot::empty();
+                job.active = false;
+                return StepResult::Failed;
+            }
         }
-        job.active = false;
-        return;
     }
 
     let ram_slot_idx = ensure_ram_block(job.circuit, job.block_x, job.block_y, current_frame);
@@ -2061,6 +2126,9 @@ fn step_decode_job(current_frame: u32) {
         vram_slots[job.target_slot].last_used = current_frame;
 
         job.active = false;
+        StepResult::Done
+    } else {
+        StepResult::RowAdvanced
     }
 }
 
@@ -2160,7 +2228,10 @@ fn step_or_schedule_decode_row(
         // No active decode job running: pick the next tile that needs one.
         // For uncompressed disc streaming, pick the missing visible tile with the
         // lowest tile_index (disc LBA) to keep CD seeks monotonic and sequential.
-        let candidate = if codec_is_tim(active_circuit) || codec_is_tim4(active_circuit) {
+        let candidate = if codec_is_tim(active_circuit)
+            || codec_is_tim4(active_circuit)
+            || codec_is_tim8(active_circuit)
+        {
             let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
             for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
                 if slot == usize::MAX {
@@ -2233,6 +2304,8 @@ fn step_or_schedule_decode_row(
             target_slot: best_slot,
             next_row: 0,
         };
+    } else {
+        used_slots[job.target_slot] = true;
     }
 
     let job_bx = job.block_x;
@@ -2241,21 +2314,27 @@ fn step_or_schedule_decode_row(
     let job_ty = job.tile_y;
     let job_slot = job.target_slot;
 
-    step_decode_job(current_frame);
+    let res = step_decode_job(current_frame);
 
     // If step_decode_job completed and the slot is resident, update slot_for_tile
     // so Phase 3 renders it immediately textured without placeholder!
-    if !job.active && vram_slots[job_slot].resident_circuit == active_circuit {
-        for (i, tile) in candidates.visible.iter().take(vis_count).enumerate() {
-            let (_, _, bx, by, sub_tx, sub_ty) = *tile;
-            if bx == job_bx && by == job_by && sub_tx == job_tx && sub_ty == job_ty {
-                slot_for_tile[i] = job_slot;
-                used_slots[job_slot] = true;
+    match res {
+        StepResult::Done => {
+            if vram_slots[job_slot].resident_circuit == active_circuit {
+                for (i, tile) in candidates.visible.iter().take(vis_count).enumerate() {
+                    let (_, _, bx, by, sub_tx, sub_ty) = *tile;
+                    if bx == job_bx && by == job_by && sub_tx == job_tx && sub_ty == job_ty {
+                        slot_for_tile[i] = job_slot;
+                        used_slots[job_slot] = true;
+                    }
+                }
             }
+            true
         }
+        StepResult::RowAdvanced => true,
+        StepResult::Pending => false,
+        StepResult::Failed => false,
     }
-
-    true
 }
 
 /// Renders the world texture clamped to arbitrary world extents (tracks or 10km x 10km cities).
@@ -2488,6 +2567,12 @@ pub fn render_track_extents(
         }
     }
     crate::prof::set(crate::prof::C_VISIBLE_TILES, vis_count as u32);
+
+    // Reserve any in-flight decode target slot so Phase 2 won't evict it
+    let job = unsafe { &*core::ptr::addr_of!(ACTIVE_JOB) };
+    if job.active {
+        used_slots[job.target_slot] = true;
+    }
 
     // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
     // Up to `max_decode_rows` can be processed, provided the frame stays inside its own
