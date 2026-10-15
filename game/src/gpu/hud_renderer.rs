@@ -17,7 +17,7 @@ use crate::gpu::texlayout::{
 };
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
-use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
+use arduracer_core::{AiRacer, LapTimer, TrackDef, TrackTile, VehicleState, NITRO_MAX_TICKS};
 use psx_gpu as gpu;
 use psx_gpu::material::BlendMode;
 
@@ -25,29 +25,72 @@ use psx_gpu::material::BlendMode;
 ///
 /// Call once per track load, never per frame: the upload is a DMA transfer and
 /// the image is static for the whole race.
+///
+/// Multi-pass layered rasterisation guarantees road continuity:
+/// 1. Background terrain (OffRoad) fills the inner minimap box.
+/// 2. Barriers and non-drivable bounds are drawn.
+/// 3. Drivable roads, curbs, and speed/hazard pads are stamped on top.
+/// 4. Start/finish and checkpoint gates are stamped with highest priority.
 pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
     slot.begin_compose();
-    if (track.width as i32) <= MINIMAP_INNER && (track.height as i32) <= MINIMAP_INNER {
-        for ty in 0..track.height {
-            for tx in 0..track.width {
-                let tile = track.tile_at(tx, ty);
-                let (r, g, b) = minimap_colour(tile);
-                let (px, py, pw, ph) = minimap_tile_rect(tx, ty, track.width, track.height);
-                slot.fill_rect(px, py, pw, ph, (r, g, b));
-            }
-        }
-    } else {
-        // Downsample larger maps (e.g. 240x240 Cape Town) smoothly onto the minimap panel
-        for py in 0..MINIMAP_INNER {
-            let ty = ((py * track.height as i32) / MINIMAP_INNER).min(track.height as i32 - 1);
-            for px in 0..MINIMAP_INNER {
-                let tx = ((px * track.width as i32) / MINIMAP_INNER).min(track.width as i32 - 1);
-                let tile = track.tile_at(tx as u8, ty as u8);
-                let (r, g, b) = minimap_colour(tile);
-                slot.set_pixel_rgb(px as u16, py as u16, r, g, b);
+    let bg = minimap_colour(TrackTile::OffRoad);
+    slot.fill_rect(0, 0, MINIMAP_INNER, MINIMAP_INNER, bg);
+
+    let tiles = track.tile_grid();
+    if tiles.is_empty() {
+        slot.upload();
+        return;
+    }
+
+    let w = track.width;
+    let h = track.height;
+
+    // Pass 1: Barriers and boundary walls
+    for ty in 0..h {
+        let row_idx = ty as usize * w as usize;
+        for tx in 0..w {
+            if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                if tile == TrackTile::Barrier {
+                    let (r, g, b) = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    slot.fill_rect(px, py, pw, ph, (r, g, b));
+                }
             }
         }
     }
+
+    // Pass 2: Drivable road surface, curbs, and hazards (drawn on top of barriers/terrain)
+    for ty in 0..h {
+        let row_idx = ty as usize * w as usize;
+        for tx in 0..w {
+            if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                if tile.is_road()
+                    || tile == TrackTile::Curb
+                    || tile == TrackTile::BoostPad
+                    || tile == TrackTile::OilSlick
+                {
+                    let (r, g, b) = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    slot.fill_rect(px, py, pw, ph, (r, g, b));
+                }
+            }
+        }
+    }
+
+    // Pass 3: Start/finish and checkpoint gates (highest visual priority)
+    for ty in 0..h {
+        let row_idx = ty as usize * w as usize;
+        for tx in 0..w {
+            if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                if tile == TrackTile::StartFinish || tile == TrackTile::Checkpoint {
+                    let (r, g, b) = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    slot.fill_rect(px, py, pw, ph, (r, g, b));
+                }
+            }
+        }
+    }
+
     slot.upload();
 }
 

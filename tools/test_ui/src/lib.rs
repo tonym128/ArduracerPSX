@@ -2518,6 +2518,138 @@ mod texture_pipeline_tests {
     fn the_minimap_inner_area_is_the_documented_size() {
         assert_eq!(MINIMAP_INNER, 48, "the 56x56 panel has a 48px inner area");
     }
+
+    /// Road and checkpoint tiles must retain drawing priority over adjacent offroad/barrier tiles.
+    #[test]
+    fn minimap_bake_preserves_road_and_checkpoint_priority() {
+        let w = 80u8;
+        let h = 80u8;
+        let bg = minimap_colour(TrackTile::OffRoad);
+        let mut buffer = [bg; (MINIMAP_INNER * MINIMAP_INNER) as usize];
+
+        let mut grid = [TrackTile::OffRoad; 80 * 80];
+        for tx in 0..80 {
+            grid[10 * 80 + tx] = if tx % 4 == 0 {
+                TrackTile::Barrier
+            } else if tx % 4 == 1 {
+                TrackTile::Tarmac
+            } else if tx % 4 == 2 {
+                TrackTile::Checkpoint
+            } else {
+                TrackTile::Curb
+            };
+        }
+
+        // Pass 1: Barriers
+        for ty in 0..h {
+            for tx in 0..w {
+                let tile = grid[ty as usize * w as usize + tx as usize];
+                if tile == TrackTile::Barrier {
+                    let col = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    for y in py..(py + ph) {
+                        for x in px..(px + pw) {
+                            buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pass 2: Road & curbs
+        for ty in 0..h {
+            for tx in 0..w {
+                let tile = grid[ty as usize * w as usize + tx as usize];
+                if tile.is_road() || tile == TrackTile::Curb {
+                    let col = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    for y in py..(py + ph) {
+                        for x in px..(px + pw) {
+                            buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pass 3: Checkpoints
+        for ty in 0..h {
+            for tx in 0..w {
+                let tile = grid[ty as usize * w as usize + tx as usize];
+                if tile == TrackTile::Checkpoint {
+                    let col = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    for y in py..(py + ph) {
+                        for x in px..(px + pw) {
+                            buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                        }
+                    }
+                }
+            }
+        }
+
+        let (_, py, _, _) = minimap_tile_rect(0, 10, w, h);
+        let road_col = minimap_colour(TrackTile::Tarmac);
+        let cp_col = minimap_colour(TrackTile::Checkpoint);
+
+        let mut road_pixels = 0;
+        let mut cp_pixels = 0;
+        for x in 0..MINIMAP_INNER {
+            let px_col = buffer[(py * MINIMAP_INNER + x) as usize];
+            if px_col == road_col {
+                road_pixels += 1;
+            } else if px_col == cp_col {
+                cp_pixels += 1;
+            }
+        }
+        assert!(road_pixels > 0, "Road pixels must be present and visible");
+        assert!(
+            cp_pixels > 0,
+            "Checkpoint pixels must be present and visible"
+        );
+    }
+}
+
+#[cfg(test)]
+mod minimap_load_order_tests {
+    const MAIN_SRC: &str = include_str!("../../../game/src/main.rs");
+
+    #[test]
+    fn load_level_grid_precedes_bake_minimap_in_all_load_paths() {
+        let load_track_fn = MAIN_SRC
+            .find("pub fn load_track(")
+            .expect("load_track exists");
+        let load_city_fn = MAIN_SRC
+            .find("pub fn load_city_freeroam(")
+            .expect("load_city_freeroam exists");
+        let reset_race_fn = MAIN_SRC
+            .find("pub fn reset_race(")
+            .expect("reset_race exists");
+
+        let load_track_body = &MAIN_SRC[load_track_fn..load_city_fn];
+        let llg_pos = load_track_body
+            .find("gpu::load_level_grid(")
+            .expect("load_level_grid in load_track");
+        let bm_pos = load_track_body
+            .find("bake_minimap(")
+            .expect("bake_minimap in load_track");
+        assert!(
+            llg_pos < bm_pos,
+            "load_level_grid must precede bake_minimap in load_track"
+        );
+
+        let load_city_body = &MAIN_SRC[load_city_fn..reset_race_fn];
+        let llg_city_pos = load_city_body
+            .find("gpu::load_level_grid(")
+            .expect("load_level_grid in load_city");
+        let bm_city_pos = load_city_body
+            .find("bake_minimap(")
+            .expect("bake_minimap in load_city");
+        assert!(
+            llg_city_pos < bm_city_pos,
+            "load_level_grid must precede bake_minimap in load_city_freeroam"
+        );
+    }
 }
 
 /// TASK-1215: the pause menu never appeared.

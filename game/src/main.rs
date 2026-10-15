@@ -361,6 +361,7 @@ impl ArduracerGame {
             "Initializing track texture streaming & locating TRACKS.BIN...",
         );
         init_track_texture(ALL_TRACK_VISUALS[0]);
+        gpu::load_level_grid(ALL_TRACK_VISUALS[0], ALL_TRACKS[0]);
         dbg::check_faults();
 
         let fb = FrameBuffer::new(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -414,7 +415,7 @@ impl ArduracerGame {
             timer,
             pause: PauseMenu::new(),
             paused: false,
-            minimap_texture: TextureSlot::new(crate::gpu::texlayout::MAX_DIM),
+            minimap_texture: TextureSlot::new(crate::gpu::texlayout::MINIMAP_INNER as u16),
             show_hud: true,
             current_track: track,
             current_track_idx: 0,
@@ -490,15 +491,15 @@ impl ArduracerGame {
         self.current_track = ALL_TRACKS[idx];
         self.ghost.reset(idx as u8);
         self.reset_race();
-        // Re-bake the minimap for the new circuit. Once per load: the image is
-        // static for the whole race, so this must not be per-frame (TASK-1202).
-        bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
         // After `init_track_texture`: that is what locates `LEVELS.BIN`. Loading
         // first finds no asset, leaves every tile `Barrier`, and the AI has no
         // road to follow -- the car sits on the grid doing nothing.
         gpu::load_level_grid(ALL_TRACK_VISUALS[idx], ALL_TRACKS[idx]);
+        // Re-bake the minimap for the new circuit once the level grid is resident in RAM.
+        // Once per load: the image is static for the whole race, so this must not be per-frame (TASK-1202).
+        bake_minimap(&self.minimap_texture, self.current_track);
         prewarm_starting_tiles(
             self.current_track.world_width(),
             self.current_track.world_height(),
@@ -531,10 +532,10 @@ impl ArduracerGame {
         self.current_track = city.track;
         self.ghost.reset(city.track_id as u8);
         self.reset_race();
-        bake_minimap(&self.minimap_texture, self.current_track);
         self.audio.cdda.stop();
         init_track_texture(city.track_id);
         gpu::load_level_grid(city.track_id, city.track);
+        bake_minimap(&self.minimap_texture, self.current_track);
         prewarm_starting_tiles(
             self.current_track.world_width(),
             self.current_track.world_height(),
