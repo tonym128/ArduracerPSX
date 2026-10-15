@@ -128,7 +128,7 @@ impl SettingsMenu {
             ROW_TEXTURE => MAX_TEXTURE_FORMAT as i32 + 1,
             ROW_FRAMERATE => 2,
             ROW_VIEW => 3,
-            ROW_CD_AUDIO => 2,
+            ROW_CD_AUDIO => 3,
             ROW_METRICS => 4,
             _ => return false,
         };

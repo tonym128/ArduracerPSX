@@ -459,9 +459,9 @@ impl ArduracerGame {
             // Applied before anything asks for a track: with TIM pinned and the
             // music left spinning, every tile read would hand the drive back to
             // CD-DA and hand it straight back, for the whole boot.
-            game.audio
-                .cdda
-                .set_enabled(game.memcard.save_data.cd_audio_mode().enabled());
+            let want_cdda = game.memcard.save_data.cd_audio_mode() != CdAudioMode::Xa
+                && game.memcard.save_data.cd_audio_mode().enabled();
+            game.audio.cdda.set_enabled(want_cdda);
             // Who yields to whom for the drive. The mode itself was already
             // applied to the audio system above, before the first play_music.
             crate::drive::install_preempt(crate::audio::xa::player_suspend);
@@ -470,10 +470,10 @@ impl ArduracerGame {
             dbg::print(" framerate=");
             dbg::print(game.framerate.label());
             dbg::print(" cd-audio=");
-            dbg::println(if game.audio.cdda.enabled() {
-                "on"
-            } else {
-                "off"
+            dbg::println(match game.memcard.save_data.cd_audio {
+                2 => "xa",
+                1 => "cdda",
+                _ => "off",
             });
         }
 
@@ -1748,10 +1748,10 @@ impl ArduracerGame {
             _ => "ROTATING",
         });
         dbg::print(" cd-audio=");
-        dbg::println(if self.audio.cdda.enabled() {
-            "on"
-        } else {
-            "off"
+        dbg::println(match self.audio.cd_audio {
+            2 => "xa",
+            1 => "cdda",
+            _ => "off",
         });
 
         // Persist unconditionally: both values are cheap and a card write is

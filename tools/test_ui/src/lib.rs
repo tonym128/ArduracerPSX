@@ -3224,8 +3224,8 @@ mod graphics_settings {
         }
     }
 
-    /// The CD-audio row must be reachable on both menus and must reach both
-    /// states, or the player who hits the drive contention has no way to fix it.
+    /// The CD-audio row must be reachable on both menus and must cycle through
+    /// all three states (OFF = 0, CD-DA = 1, XA = 2).
     #[test]
     fn cd_audio_is_reachable_on_the_settings_screen() {
         let mut m = SettingsMenu::new(values());
@@ -3234,21 +3234,47 @@ mod graphics_settings {
             m.update(SettingsInput::default());
         }
         assert_eq!(m.selected_row, 3, "row 3 is CD AUDIO");
-        assert_eq!(m.values().cd_audio, 1, "on by default");
+        assert_eq!(m.values().cd_audio, 1, "CD-DA by default");
 
-        match m.update(press(|i| i.left = true)) {
-            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "left turns it off"),
+        // Right cycles CD-DA (1) -> XA (2)
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 2, "right cycles to XA"),
             other => panic!("expected a change, got {other:?}"),
         }
         m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().cd_audio, 1, "right wraps it back on");
+
+        // Right cycles XA (2) -> OFF (0)
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "right cycles to OFF"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Right cycles OFF (0) -> CD-DA (1)
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 1, "right cycles to CD-DA"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Left cycles CD-DA (1) -> OFF (0)
+        match m.update(press(|i| i.left = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "left cycles to OFF"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Left cycles OFF (0) -> XA (2)
+        match m.update(press(|i| i.left = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 2, "left wraps to XA"),
+            other => panic!("expected a change, got {other:?}"),
+        }
     }
 
     #[test]
     fn cd_audio_is_reachable_in_the_pause_menu() {
         let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, METRICS, QUIT.
         for _ in 0..5 {
             p.update(PauseInput {
                 down: true,
@@ -3257,16 +3283,33 @@ mod graphics_settings {
             p.update(PauseInput::default());
         }
         assert_eq!(p.selected_idx, 5, "row 5 is CD AUDIO");
+        assert_eq!(p.values().cd_audio, 1, "CD-DA by default");
 
+        // Right cycles to XA (2)
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().cd_audio, 2, "right cycles to XA");
+
+        p.update(PauseInput::default());
+        // Right cycles to OFF (0)
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().cd_audio, 0, "right cycles to OFF");
+
+        p.update(PauseInput::default());
+        // Left wraps back to XA (2)
         let out = p.update(PauseInput {
             left: true,
             ..Default::default()
         });
-        assert!(
-            matches!(out.choice, PauseChoice::Graphics(_)),
-            "the change must be reported so it gets applied and persisted"
-        );
-        assert_eq!(p.values().cd_audio, 0);
+        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().cd_audio, 2, "left wraps to XA");
     }
 
     /// The METRICS row must be reachable on the settings screen and cycle
