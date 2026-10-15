@@ -67,7 +67,8 @@ PSoXide-emulator
 .cargo-lock
 __pycache__/
 /scratch/
-/assets
+/assets/*
+!/assets/LEVELS.BIN
 screenshots/
 
 # Compiled circuit output from tools/track_cook/compile_circuit.py.

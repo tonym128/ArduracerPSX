@@ -1269,12 +1269,7 @@ fn paint_fallback_row(start_y: usize, scratch: &mut [u16; TILE_PIXELS]) {
 }
 
 #[inline(never)]
-fn upload_tile_sync(
-    circuit: usize,
-    tile_x: usize,
-    tile_y: usize,
-    target_slot: usize,
-) -> bool {
+fn upload_tile_sync(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
     let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
         return false;
     };
@@ -1290,9 +1285,7 @@ fn upload_tile_sync(
     }
 
     let byte_count = TIM_TILE_SECTORS as usize * 2048;
-    let dst = unsafe {
-        core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count)
-    };
+    let dst = unsafe { core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count) };
     if !disc_reader().read_sectors(tile_lba, TIM_TILE_SECTORS as usize, dst) {
         return false;
     }
@@ -1318,12 +1311,7 @@ fn upload_tile_sync(
 }
 
 #[inline(never)]
-fn upload_tile_sync4(
-    circuit: usize,
-    tile_x: usize,
-    tile_y: usize,
-    target_slot: usize,
-) -> bool {
+fn upload_tile_sync4(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
     let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
         return false;
     };
@@ -1344,9 +1332,7 @@ fn upload_tile_sync4(
     }
 
     let byte_count = TIM4_TILE_SECTORS as usize * 2048;
-    let dst = unsafe {
-        core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count)
-    };
+    let dst = unsafe { core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count) };
     if !disc_reader().read_sectors(tile_lba, TIM4_TILE_SECTORS as usize, dst) {
         return false;
     }
@@ -2152,7 +2138,8 @@ pub fn render_track_extents(
             for i in 1..prefetch_count {
                 let mut j = i;
                 while j > 0 {
-                    let prev_idx = prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j - 1].4;
+                    let prev_idx =
+                        prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j - 1].4;
                     let curr_idx = prefetch_tiles[j].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j].4;
                     if prev_idx > curr_idx {
                         prefetch_tiles.swap(j - 1, j);

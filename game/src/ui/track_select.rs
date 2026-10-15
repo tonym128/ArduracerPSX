@@ -276,12 +276,7 @@ impl TrackSelectScreen {
                 .map(|s| s.medals_earned.iter().map(|&m| (m > 0) as u32).sum())
                 .unwrap_or(0);
             draw_text(176, (par_y + 56) as u16, "TOTAL: ", (0, 220, 255), 1);
-            draw_count(
-                220,
-                (par_y + 56) as u16,
-                total_medals as u8,
-                (255, 240, 50),
-            );
+            draw_count(220, (par_y + 56) as u16, total_medals as u8, (255, 240, 50));
             draw_text(244, (par_y + 56) as u16, "/24", (180, 190, 200), 1);
         } else {
             draw_text(176, (par_y + 56) as u16, "SPEED: HIGH", (255, 200, 40), 1);

@@ -319,7 +319,7 @@ clippy-game: require-sdk
 		( cd $(GAME_DIR) && cargo clippy --release -- -D warnings ) || exit 1; \
 	fi
 
-test: require-sdk
+test: require-sdk levels-bin
 	@echo "Running host-side tests in crates/arduracer-core..."
 	@if [ -f "crates/arduracer-core/Cargo.toml" ]; then \
 		cargo test --manifest-path crates/arduracer-core/Cargo.toml || exit 1; \
@@ -474,12 +474,16 @@ iso: exe
 # rather than mastering a disc whose levels all read as solid wall.
 levels-bin:
 	@if [ -f "$(ROOT)/assets/LEVELS.BIN" ]; then exit 0; fi; \
+	if [ ! -f "$(ROOT)/build/circuits/Cascade_Falls/levelgrid.bin" ]; then \
+		$(MAKE) --no-print-directory atlas; \
+	fi; \
 	python3 $(ROOT)/tools/track_cook/make_levels_bin.py
 
-assets: levels-bin
-	@mkdir -p $(ROOT)/assets/cdda
+assets:
 	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
 	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	@$(MAKE) --no-print-directory levels-bin
+	@mkdir -p $(ROOT)/assets/cdda
 	@if [ ! -f "$(ROOT)/assets/CAPETOWN.BIN" ]; then \
 		if [ -f "$(DIST)/capetown_10km/CAPETOWN.BIN" ]; then \
 			cp $(DIST)/capetown_10km/CAPETOWN.BIN $(ROOT)/assets/CAPETOWN.BIN; \

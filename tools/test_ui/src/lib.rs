@@ -2280,7 +2280,10 @@ mod ui_defect_tests {
                 assert!(tens.is_ascii_digit());
                 assert!(ones.is_ascii_digit());
                 let val = (tens - b'0') * 10 + (ones - b'0');
-                assert_eq!(val, pts, "left-to-right composite digit value must equal pts");
+                assert_eq!(
+                    val, pts,
+                    "left-to-right composite digit value must equal pts"
+                );
             } else {
                 assert_eq!(tens, b'0');
                 assert_eq!(ones - b'0', pts);

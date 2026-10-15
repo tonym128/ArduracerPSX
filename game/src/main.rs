@@ -906,14 +906,15 @@ impl ArduracerGame {
                             self.state_mgr.current = GameState::MainMenu;
                             self.state_mgr.menu.arm_for_entry();
                         } else {
-                            let target_idx = if let Some(ref mut champ) = self.state_mgr.championship {
-                                let cup_idx = ((track_idx / 6) as u8).min(3);
-                                champ.cup_index = cup_idx;
-                                champ.current_stage = 0;
-                                champ.current_track_idx()
-                            } else {
-                                track_idx
-                            };
+                            let target_idx =
+                                if let Some(ref mut champ) = self.state_mgr.championship {
+                                    let cup_idx = ((track_idx / 6) as u8).min(3);
+                                    champ.cup_index = cup_idx;
+                                    champ.current_stage = 0;
+                                    champ.current_track_idx()
+                                } else {
+                                    track_idx
+                                };
                             self.load_track(target_idx);
                             self.state_mgr.current = GameState::Racing;
                         }
