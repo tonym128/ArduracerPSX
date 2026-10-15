@@ -36,8 +36,8 @@ use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
     bake_minimap, init_track_texture, prewarm_starting_tiles, render_car, render_hud, render_track,
-    reset_texture_caches, set_frame_period, set_texture_format, texture_format, Camera, Framerate,
-    ParticleSystem, SkidmarkBuffer, TextureFormat, TextureSlot,
+    reset_texture_caches, set_frame_period, set_texture_format, texture_format, Camera,
+    DebugOverlay, Framerate, ParticleSystem, SkidmarkBuffer, TextureFormat, TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -307,6 +307,10 @@ pub struct ArduracerGame {
     pub last_player_rank: u8,
     /// 0 = Behind (Mode 7 Chase), 1 = Overhead (Top-down).
     pub camera_view: u8,
+    /// 0 = Off, 1 = Simple FPS, 2 = Simple Graphing FPS, 3 = All Metrics.
+    pub debug_metrics: u8,
+    /// Live performance telemetry and rolling graph.
+    pub debug_overlay: DebugOverlay,
     /// Edge detection state for racing gameplay buttons (e.g. Triangle view toggle).
     pub prev_pad_racing: psx_pad::ButtonState,
     /// Synthetic driver used only by `profiling` builds to get the car on
@@ -428,6 +432,8 @@ impl ArduracerGame {
             last_standings: [0, 1, 2, 3, 4, 5],
             last_player_rank: 1,
             camera_view: 0,
+            debug_metrics: 0,
+            debug_overlay: DebugOverlay::new(),
             prev_pad_racing: psx_pad::ButtonState::from_bits(0),
             memcard,
             #[cfg(feature = "profiling")]
@@ -442,6 +448,7 @@ impl ArduracerGame {
                 framerate: game.memcard.save_data.framerate,
                 camera_view: game.camera_view,
                 cd_audio: game.memcard.save_data.cd_audio,
+                debug_metrics: game.debug_metrics,
             };
             set_texture_format(headless_texture_format(saved.texture_format));
             game.framerate = Framerate::from_saved(saved.framerate);
@@ -628,6 +635,8 @@ impl ArduracerGame {
         // The queued display flip is applied by the VBlank handler, which
         // requires this counter (TASK-1201).
         psx_rt::interrupts::install_vblank_counter();
+        // Configure hardware root counter 2 to tick at system_clock / 8 (4.2336 MHz).
+        psx_io::timers::set_mode(psx_io::timers::Timer::Timer2, 0x0200);
         dbg::println("[LOOP] Entering main game loop with VBlank interrupt installed.");
         dbg::check_faults();
 
@@ -681,6 +690,13 @@ impl ArduracerGame {
             }
             psx_gpu_mod::arm_draw_done();
             self.fb.apply_draw_target();
+
+            let t_frame_start = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+            let mut t_checkpoint = t_frame_start;
+            let mut t_sim_ticks: u16 = 0;
+            let mut t_track_ticks: u16 = 0;
+            let mut t_cars_ticks: u16 = 0;
+            let mut t_misc_ticks: u16 = 0;
 
             {
                 let _s = prof::span(prof::LOOP_OVERHEAD);
@@ -1063,6 +1079,13 @@ impl ArduracerGame {
                             self.camera.set_heading(self.player.visual_angle);
                         }
                     }
+                    // In-game debug metrics overlay toggle on R2 press (Off -> FPS -> Graph -> All):
+                    if pad
+                        .buttons
+                        .pressed_since(self.prev_pad_racing, psx_pad::button::R2)
+                    {
+                        self.debug_metrics = (self.debug_metrics + 1) % 4;
+                    }
                     self.prev_pad_racing = pad.buttons;
 
                     // Frame-rate agnostic simulation updates:
@@ -1090,6 +1113,11 @@ impl ArduracerGame {
                             track.world_width(),
                             track.world_height(),
                         );
+                    }
+                    {
+                        let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+                        t_sim_ticks = t_now.wrapping_sub(t_checkpoint);
+                        t_checkpoint = t_now;
                     }
 
                     // Render Pass:
@@ -1119,6 +1147,11 @@ impl ArduracerGame {
                         );
                         render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
                     }
+                    {
+                        let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+                        t_track_ticks = t_now.wrapping_sub(t_checkpoint);
+                        t_checkpoint = t_now;
+                    }
                     // c. Skidmarks on track
                     {
                         let _s = prof::span(prof::SKIDMARKS);
@@ -1137,6 +1170,11 @@ impl ArduracerGame {
                     {
                         let _s = prof::span(prof::CARS);
                         self.render_cars_sorted((220, 25, 45));
+                    }
+                    {
+                        let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+                        t_cars_ticks = t_now.wrapping_sub(t_checkpoint);
+                        t_checkpoint = t_now;
                     }
                     // g. Particle effects
                     // h. Start lights
@@ -1158,6 +1196,20 @@ impl ArduracerGame {
                             &self.minimap_texture,
                         );
                     }
+
+                    // j. In-game debug metrics and performance telemetry overlay
+                    if self.show_hud && self.debug_metrics > 0 {
+                        self.debug_overlay.mode = self.debug_metrics;
+                        self.debug_overlay.render(
+                            &self.player,
+                            track,
+                            self.framerate.vblanks_per_frame(),
+                        );
+                    }
+                    {
+                        let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+                        t_misc_ticks = t_now.wrapping_sub(t_checkpoint);
+                    }
                 }
                 GameState::Results => {
                     self.handle_results_screen(&pad);
@@ -1174,6 +1226,17 @@ impl ArduracerGame {
             if let Some(status) = self.memcard.notice() {
                 render_card_notice(status);
             }
+
+            let elapsed_vblanks =
+                psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
+            self.debug_overlay.mode = self.debug_metrics;
+            self.debug_overlay.record_timings(
+                elapsed_vblanks,
+                t_sim_ticks,
+                t_track_ticks,
+                t_cars_ticks,
+                t_misc_ticks,
+            );
 
             // 5. Close the frame and queue the flip for the next VBlank.
             self.close_frame();
@@ -1565,6 +1628,7 @@ impl ArduracerGame {
             framerate: self.framerate.to_saved(),
             camera_view: self.camera_view,
             cd_audio: u8::from(self.audio.cdda.enabled()),
+            debug_metrics: self.debug_metrics,
         }
     }
 
@@ -1584,6 +1648,8 @@ impl ArduracerGame {
         let framerate = Framerate::from_saved(values.framerate);
 
         self.camera_view = values.camera_view;
+        self.debug_metrics = values.debug_metrics;
+        self.debug_overlay.mode = values.debug_metrics;
         let mode7 = self.camera_view == 0;
         let rotating = self.camera_view == 2;
         if self.camera.mode7 != mode7 || self.camera.rotating != rotating {

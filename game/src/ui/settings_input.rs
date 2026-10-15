@@ -11,11 +11,12 @@
 //! open-ended behaviour.
 
 /// Rows, in display order.
-pub const ROW_COUNT: u8 = 4;
+pub const ROW_COUNT: u8 = 5;
 const ROW_TEXTURE: u8 = 0;
 const ROW_FRAMERATE: u8 = 1;
 const ROW_VIEW: u8 = 2;
 const ROW_CD_AUDIO: u8 = 3;
+const ROW_METRICS: u8 = 4;
 
 /// Raw button state for one frame.
 #[derive(Copy, Clone, Default)]
@@ -128,6 +129,7 @@ impl SettingsMenu {
             ROW_FRAMERATE => 2,
             ROW_VIEW => 3,
             ROW_CD_AUDIO => 2,
+            ROW_METRICS => 4,
             _ => return false,
         };
         let cur = match self.selected_row {
@@ -135,6 +137,7 @@ impl SettingsMenu {
             ROW_FRAMERATE => self.values.framerate as i32,
             ROW_VIEW => self.values.camera_view as i32,
             ROW_CD_AUDIO => self.values.cd_audio as i32,
+            ROW_METRICS => self.values.debug_metrics as i32,
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
@@ -143,6 +146,7 @@ impl SettingsMenu {
             ROW_FRAMERATE => self.values.framerate = next,
             ROW_VIEW => self.values.camera_view = next,
             ROW_CD_AUDIO => self.values.cd_audio = next,
+            ROW_METRICS => self.values.debug_metrics = next,
             _ => return false,
         }
         next != cur as u8

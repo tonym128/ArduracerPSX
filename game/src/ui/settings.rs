@@ -26,12 +26,14 @@ pub fn state_to_values(
     r: Framerate,
     camera_view: u8,
     cd_audio: u8,
+    debug_metrics: u8,
 ) -> SettingsValues {
     SettingsValues {
         texture_format: f.to_saved(),
         framerate: r.to_saved(),
         camera_view,
         cd_audio,
+        debug_metrics,
     }
 }
 
@@ -76,10 +78,10 @@ impl SettingsScreen {
         let (fmt, fps) = values_to_state(self.values());
         let sel = self.selected_row();
 
-        gpu::draw_rect_flat(60, 44, 200, 156, 8, 10, 14);
-        gpu::draw_rect_flat(62, 46, 196, 152, 16, 20, 30);
-        gpu::draw_rect_flat(64, 48, 192, 2, 220, 40, 60);
-        draw_text(112, 52, "GRAPHICS", (200, 210, 235), 1);
+        gpu::draw_rect_flat(60, 38, 200, 160, 8, 10, 14);
+        gpu::draw_rect_flat(62, 40, 196, 156, 16, 20, 30);
+        gpu::draw_rect_flat(64, 42, 192, 2, 220, 40, 60);
+        draw_text(112, 46, "GRAPHICS", (200, 210, 235), 1);
 
         let view_label = match self.values().camera_view {
             0 => "BEHIND",
@@ -87,14 +89,18 @@ impl SettingsScreen {
             _ => "ROTATING",
         };
 
-        // Four rows, value between `<` and `>`. Spacing is 22 px rather than
-        // the 24 a three-row screen used, which is what keeps the hint text
-        // inside the panel now that there is a fourth row.
+        // Five rows, value between `<` and `>`. Spacing is 18 px so all rows
+        // and hint text sit comfortably inside the panel.
         let rows: [(&str, &str, u16); ROW_COUNT as usize] = [
-            ("TEXTURE", fmt.label(), 76),
-            ("FRAMERATE", fps.label(), 98),
-            ("VIEW", view_label, 120),
-            ("CD AUDIO", cd_audio_label(self.values().cd_audio), 142),
+            ("TEXTURE", fmt.label(), 66),
+            ("FRAMERATE", fps.label(), 84),
+            ("VIEW", view_label, 102),
+            ("CD AUDIO", cd_audio_label(self.values().cd_audio), 120),
+            (
+                "METRICS",
+                debug_metrics_label(self.values().debug_metrics),
+                138,
+            ),
         ];
         for (i, (label, value, y)) in rows.iter().enumerate() {
             let selected = i as u8 == sel;
@@ -105,20 +111,20 @@ impl SettingsScreen {
             };
             draw_text(72, *y, label, color, 1);
             if selected {
-                draw_text(196, *y, "<", color, 1);
-                draw_text(232, *y, ">", color, 1);
+                draw_text(168, *y, "<", color, 1);
+                draw_text(238, *y, ">", color, 1);
             }
-            draw_text(204, *y, value, color, 1);
+            draw_text(176, *y, value, color, 1);
         }
 
         draw_text(
             72,
-            168,
+            164,
             "UP/DOWN ROW   LEFT/RIGHT CHANGE",
             (120, 135, 160),
             1,
         );
-        draw_text(72, 180, "CROSS: BACK", (120, 135, 160), 1);
+        draw_text(72, 178, "CROSS: BACK", (120, 135, 160), 1);
     }
 }
 
@@ -144,5 +150,15 @@ pub const fn cd_audio_label(v: u8) -> &'static str {
         0 => "OFF",
         2 => "XA",
         _ => "CD-DA",
+    }
+}
+
+/// How the debug metrics setting names itself in the menu.
+pub const fn debug_metrics_label(v: u8) -> &'static str {
+    match v {
+        1 => "FPS",
+        2 => "FPS GRAPH",
+        3 => "ALL",
+        _ => "OFF",
     }
 }

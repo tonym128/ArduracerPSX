@@ -40,6 +40,8 @@ pub struct SettingsValues {
     /// the drive, which is the only fix -- nothing on the audio side can hide
     /// it.
     pub cd_audio: u8,
+    /// 0 = Off, 1 = Simple FPS, 2 = Simple Graphing FPS, 3 = All Metrics.
+    pub debug_metrics: u8,
 }
 
 /// What the player chose from the pause menu.
@@ -100,8 +102,9 @@ const ITEM_TEXTURE: u8 = 2;
 const ITEM_FRAMERATE: u8 = 3;
 const ITEM_VIEW: u8 = 4;
 const ITEM_CD_AUDIO: u8 = 5;
-const ITEM_QUIT: u8 = 6;
-const ITEM_COUNT: u8 = 7;
+const ITEM_METRICS: u8 = 6;
+const ITEM_QUIT: u8 = 7;
+const ITEM_COUNT: u8 = 8;
 
 /// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
 pub const MAX_TEXTURE_FORMAT: u8 = 5;
@@ -132,6 +135,7 @@ impl PauseMenu {
                 framerate: 0,
                 camera_view: 0,
                 cd_audio: 1,
+                debug_metrics: 0,
             },
             prev: PauseInput {
                 start: false,
@@ -167,6 +171,7 @@ impl PauseMenu {
             ITEM_FRAMERATE => (self.values.framerate as i32, 2),
             ITEM_VIEW => (self.values.camera_view as i32, 3),
             ITEM_CD_AUDIO => (self.values.cd_audio as i32, 3),
+            ITEM_METRICS => (self.values.debug_metrics as i32, 4),
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
@@ -175,6 +180,7 @@ impl PauseMenu {
             ITEM_FRAMERATE => self.values.framerate = next,
             ITEM_VIEW => self.values.camera_view = next,
             ITEM_CD_AUDIO => self.values.cd_audio = next,
+            ITEM_METRICS => self.values.debug_metrics = next,
             _ => return false,
         }
         next as i32 != cur
@@ -238,7 +244,7 @@ impl PauseMenu {
             match self.selected_idx {
                 ITEM_RESUME => PauseChoice::Resume,
                 ITEM_RESTART => PauseChoice::RestartRace,
-                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO => {
+                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO | ITEM_METRICS => {
                     if changed {
                         PauseChoice::Graphics(self.values)
                     } else {

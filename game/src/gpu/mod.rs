@@ -6,6 +6,7 @@
 pub mod camera;
 pub mod car_geometry;
 pub mod car_renderer;
+pub mod debug_overlay;
 pub mod effects_sim;
 pub mod hud_renderer;
 pub mod palette;
@@ -17,6 +18,7 @@ pub mod tracktex;
 
 pub use camera::Camera;
 pub use car_renderer::render_car;
+pub use debug_overlay::DebugOverlay;
 pub use effects_sim::{Particle, ParticleSystem, ParticleType, Skidmark, SkidmarkBuffer};
 pub use hud_renderer::{bake_minimap, render_hud};
 pub use texpipe::TextureSlot;

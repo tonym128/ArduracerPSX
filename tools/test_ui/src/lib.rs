@@ -457,7 +457,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 7);
+        assert_eq!(PauseMenu::item_count(), 8);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -2836,6 +2836,7 @@ mod graphics_settings {
             framerate: 0,
             camera_view: 0,
             cd_audio: 1,
+            debug_metrics: 0,
         }
     }
 
@@ -2915,15 +2916,15 @@ mod graphics_settings {
         assert_eq!(m.values().texture_format, 1);
     }
 
-    /// Row selection must stay in range with four rows.
+    /// Row selection must stay in range with five rows.
     #[test]
     fn row_selection_wraps_between_the_rows() {
         let mut m = SettingsMenu::new(values());
         assert_eq!(m.selected_row, 0);
         m.update(press(|i| i.up = true));
         assert_eq!(
-            m.selected_row, 3,
-            "up from the first row wraps to the last (CD AUDIO)"
+            m.selected_row, 4,
+            "up from the first row wraps to the last (METRICS)"
         );
         m.update(SettingsInput::default());
         m.update(press(|i| i.down = true));
@@ -3136,12 +3137,40 @@ mod graphics_settings {
         assert_eq!(p.values().cd_audio, 0);
     }
 
-    /// QUIT must still be the last row and still quit. The CD-audio row was
-    /// inserted before it, and an off-by-one there turns the destructive
-    /// option into a setting or, worse, makes the pause menu unexitable.
+    /// The METRICS row must be reachable on the settings screen and cycle
+    /// through all four modes (OFF, FPS, FPS GRAPH, ALL).
     #[test]
-    fn quit_is_still_the_last_row_and_still_quits() {
+    fn debug_metrics_cycles_on_the_settings_screen() {
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..4 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        assert_eq!(m.selected_row, 4, "row 4 is METRICS");
+        assert_eq!(m.values().debug_metrics, 0, "off by default");
+
+        let mut seen = vec![m.values().debug_metrics];
+        for _ in 0..4 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().debug_metrics);
+        }
+        assert_eq!(
+            seen,
+            vec![0, 1, 2, 3, 0],
+            "right must cycle through all 4 modes and wrap"
+        );
+
+        // Left wraps to ALL (3)
+        m.update(press(|i| i.left = true));
+        assert_eq!(m.values().debug_metrics, 3, "left must wrap back to ALL");
+    }
+
+    /// The METRICS row must be reachable in the pause menu and edit inline.
+    #[test]
+    fn debug_metrics_is_reachable_in_the_pause_menu() {
         let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, METRICS, QUIT.
         for _ in 0..6 {
             p.update(PauseInput {
                 down: true,
@@ -3149,8 +3178,34 @@ mod graphics_settings {
             });
             p.update(PauseInput::default());
         }
-        assert_eq!(p.selected_idx, 6, "row 6 is QUIT TO MENU");
-        assert_eq!(PauseMenu::item_count(), 7);
+        assert_eq!(p.selected_idx, 6, "row 6 is METRICS");
+
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(
+            matches!(out.choice, PauseChoice::Graphics(_)),
+            "metrics edit must report Graphics choice"
+        );
+        assert_eq!(p.values().debug_metrics, 1);
+    }
+
+    /// QUIT must still be the last row and still quit. The METRICS row was
+    /// inserted before it, and an off-by-one there turns the destructive
+    /// option into a setting or, worse, makes the pause menu unexitable.
+    #[test]
+    fn quit_is_still_the_last_row_and_still_quits() {
+        let mut p = PauseMenu::default();
+        for _ in 0..7 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 7, "row 7 is QUIT TO MENU");
+        assert_eq!(PauseMenu::item_count(), 8);
 
         let out = p.update(PauseInput {
             cross: true,

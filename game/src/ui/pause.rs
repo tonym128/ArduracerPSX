@@ -50,13 +50,13 @@ impl PauseMenu {
 
     /// Renders the dimmed pause panel.
     pub fn render(&self) {
-        // Panel grown to hold seven rows plus the footer hint.
-        gpu::draw_rect_flat(60, 36, 200, 180, 8, 10, 14);
-        gpu::draw_rect_flat(62, 38, 196, 176, 16, 20, 30);
-        gpu::draw_rect_flat(64, 40, 192, 172, 26, 30, 42);
-        gpu::draw_rect_flat(64, 40, 192, 2, 220, 40, 60);
+        // Panel grown to hold eight rows plus the footer hint.
+        gpu::draw_rect_flat(60, 32, 200, 178, 8, 10, 14);
+        gpu::draw_rect_flat(62, 34, 196, 174, 16, 20, 30);
+        gpu::draw_rect_flat(64, 36, 192, 170, 26, 30, 42);
+        gpu::draw_rect_flat(64, 36, 192, 2, 220, 40, 60);
 
-        draw_text(102, 48, "PAUSED", (255, 220, 0), 2);
+        draw_text(102, 44, "PAUSED", (255, 220, 0), 2);
 
         // The settings rows carry their value inline between < and >; the
         // action rows are plain labels. Values come from the menu's
@@ -67,7 +67,7 @@ impl PauseMenu {
             1 => "OVERHEAD",
             _ => "ROTATING",
         };
-        let rows: [(&str, Option<&str>); 7] = [
+        let rows: [(&str, Option<&str>); 8] = [
             ("RESUME", None),
             ("RESTART RACE", None),
             ("TEXTURE", Some(fmt.label())),
@@ -77,12 +77,17 @@ impl PauseMenu {
                 "CD AUDIO",
                 Some(crate::ui::settings::cd_audio_label(self.values().cd_audio)),
             ),
+            (
+                "METRICS",
+                Some(crate::ui::settings::debug_metrics_label(
+                    self.values().debug_metrics,
+                )),
+            ),
             ("QUIT TO MENU", None),
         ];
         for (idx, (label, value)) in rows.iter().enumerate() {
-            // 17 px rather than the 19 a six-row menu used: the seventh row
-            // would otherwise collide with the footer hint at y 196.
-            let y = 74 + (idx as u16) * 17;
+            // 15 px vertical spacing so eight rows sit cleanly inside the frame.
+            let y = 68 + (idx as u16) * 15;
             let selected = (idx as u8) == self.selected_idx;
             let color = if selected {
                 (255, 255, 255)
@@ -90,22 +95,22 @@ impl PauseMenu {
                 (150, 165, 185)
             };
             if selected {
-                gpu::draw_rect_flat(74, (y - 3) as i16, 172, 16, 200, 30, 50);
-                draw_text(86, y, ">", (255, 240, 0), 1);
+                gpu::draw_rect_flat(74, (y - 3) as i16, 172, 14, 200, 30, 50);
+                draw_text(82, y, ">", (255, 240, 0), 1);
             }
-            draw_text(96, y, label, color, 1);
+            draw_text(92, y, label, color, 1);
             if let Some(v) = value {
                 if selected {
-                    draw_text(176, y, "<", (255, 240, 0), 1);
-                    draw_text(226, y, ">", (255, 240, 0), 1);
+                    draw_text(168, y, "<", (255, 240, 0), 1);
+                    draw_text(238, y, ">", (255, 240, 0), 1);
                 }
-                draw_text(184, y, v, color, 1);
+                draw_text(176, y, v, color, 1);
             }
         }
 
         draw_text(
             70,
-            196,
+            194,
             "L/R CHANGE   CROSS SELECT   START RESUME",
             (110, 130, 155),
             1,
