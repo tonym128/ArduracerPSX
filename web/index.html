@@ -67,6 +67,7 @@
               <option value="../roms/arduracer.iso">📀 Compact Disc ISO (Data Only Track - 2 MB)</option>
               <option value="../roms/arduracer.exe">🚀 Fast Boot (Standalone PSX-EXE - 304 KB)</option>
             </select>
+            <button id="btn-cache" class="btn-tool" title="Manage ROM Disc Cache">💾 Cache <span id="cache-badge" class="cache-badge">Check</span></button>
             <button id="btn-reset" class="btn-tool" title="Cold Boot / Reset PS1">🔄 Reset</button>
             <button id="btn-mute" class="btn-tool" title="Mute/Unmute Audio">🔊 Audio</button>
           </div>
@@ -80,6 +81,38 @@
             </select>
             <button id="btn-touch" class="btn-tool" title="Toggle On-Screen Touch Controls">📱 Touch Controls</button>
             <button id="btn-fullscreen" class="btn-tool" title="Toggle Fullscreen">⛶ Fullscreen</button>
+          </div>
+        </div>
+
+        <!-- ROM Cache Management Modal -->
+        <div id="cache-modal" class="cache-modal" hidden>
+          <div class="cache-modal-header">
+            <div class="cache-modal-title">💿 ROM DISC CACHE &amp; STORAGE</div>
+            <button id="btn-close-cache" class="btn-tool" style="padding: 2px 8px; font-size: 0.75rem;">✕</button>
+          </div>
+          <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">
+            Cache disc images in browser storage for instant boot and offline gameplay.
+            If a new version is published, outdated images are automatically flushed.
+          </div>
+          <div id="cache-build-info" style="font-size: 0.75rem; color: #64748b; font-family: monospace;">
+            BUILD: checking...
+          </div>
+          <div id="cache-file-list" class="cache-file-list">
+            <!-- Populated dynamically -->
+          </div>
+          <div id="cache-progress-container" class="cache-progress-container" hidden>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #cbd5e1;">
+              <span id="cache-progress-filename">Downloading...</span>
+              <span id="cache-progress-percent">0%</span>
+            </div>
+            <div class="cache-progress-bar-bg">
+              <div id="cache-progress-bar-fill" class="cache-progress-bar-fill"></div>
+            </div>
+          </div>
+          <div class="cache-actions">
+            <button id="btn-precache" class="btn-tool" style="flex: 1;" title="Download full disc into cache">📥 Pre-Cache Disc</button>
+            <button id="btn-check-updates" class="btn-tool" title="Check server for new images">🔄 Check Updates</button>
+            <button id="btn-flush-cache" class="btn-tool" style="color: #f87171; border-color: #7f1d1d;" title="Clear all cached ROMs">🗑️ Flush Cache</button>
           </div>
         </div>
 
@@ -480,6 +513,7 @@
     <p>ARDURACER &copy; 2026. Built with PSoXide &bull; Powered by WebAssembly SIMD128 &amp; WebGL &bull; Mastered for Sony PlayStation</p>
   </footer>
 
+  <script src="rom-cache.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

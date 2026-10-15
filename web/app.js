@@ -366,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
       iframe.src = `player/?embed=1&disc=${discPath}`;
       statusLed.style.background = '#f59e0b';
       statusText.textContent = 'RELOADING DISC...';
+      if (typeof refreshCacheUI === 'function') refreshCacheUI();
     });
   }
 
@@ -464,5 +465,174 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     requestAnimationFrame(pollGamepads);
   }
-  requestAnimationFrame(pollGamepads);
+  // 7. ROM Cache Manager UI & Event Hooks
+  const btnCache = document.getElementById('btn-cache');
+  const cacheBadge = document.getElementById('cache-badge');
+  const cacheModal = document.getElementById('cache-modal');
+  const btnCloseCache = document.getElementById('btn-close-cache');
+  const btnPrecache = document.getElementById('btn-precache');
+  const btnCheckUpdates = document.getElementById('btn-check-updates');
+  const btnFlushCache = document.getElementById('btn-flush-cache');
+  const cacheFileList = document.getElementById('cache-file-list');
+  const cacheBuildInfo = document.getElementById('cache-build-info');
+  const cacheProgressContainer = document.getElementById('cache-progress-container');
+  const cacheProgressFilename = document.getElementById('cache-progress-filename');
+  const cacheProgressPercent = document.getElementById('cache-progress-percent');
+  const cacheProgressBarFill = document.getElementById('cache-progress-bar-fill');
+
+  const ROM_FILES = [
+    { name: 'arduracer.cue', path: 'roms/arduracer.cue', desc: 'Cue Sheet' },
+    { name: 'arduracer.bin', path: 'roms/arduracer.bin', desc: 'Track 1 Data + CDDA Audio' },
+    { name: 'arduracer.iso', path: 'roms/arduracer.iso', desc: 'Compact Disc ISO' },
+    { name: 'arduracer.exe', path: 'roms/arduracer.exe', desc: 'Standalone Executable' }
+  ];
+
+  async function refreshCacheUI() {
+    if (!window.romCache) return;
+    const status = await window.romCache.getStatus();
+
+    if (cacheBuildInfo) {
+      cacheBuildInfo.textContent = `BUILD ID: ${status.buildId || 'local'} • TOTAL CACHED: ${RomCacheManager.formatBytes(status.totalBytes)}`;
+    }
+
+    // Determine current disc status
+    const currentDiscVal = discSelect ? discSelect.value : '../roms/arduracer.cue';
+    const currentFilename = currentDiscVal.split('/').pop();
+    const isCurrentCached = status.files.some((f) => f.filename === currentFilename);
+
+    if (cacheBadge) {
+      if (isCurrentCached) {
+        cacheBadge.className = 'cache-badge cached';
+        cacheBadge.textContent = 'Cached';
+      } else {
+        cacheBadge.className = 'cache-badge streaming';
+        cacheBadge.textContent = 'Stream';
+      }
+    }
+
+    if (cacheFileList) {
+      cacheFileList.innerHTML = '';
+      ROM_FILES.forEach((item) => {
+        const cachedItem = status.files.find((f) => f.filename === item.name);
+        const el = document.createElement('div');
+        el.className = 'cache-file-item';
+        const isCached = !!cachedItem;
+        const sizeStr = isCached ? RomCacheManager.formatBytes(cachedItem.size) : '';
+
+        el.innerHTML = `
+          <span><strong>${item.name}</strong> <span style="color:#64748b;">(${item.desc})</span></span>
+          <span class="cache-file-status" style="color: ${isCached ? '#34d399' : '#64748b'};">
+            ${isCached ? `✓ Cached (${sizeStr})` : '○ On-Demand'}
+          </span>
+        `;
+        cacheFileList.appendChild(el);
+      });
+    }
+  }
+
+  if (window.romCache) {
+    window.romCache.init().then(() => {
+      refreshCacheUI();
+    });
+
+    window.romCache.subscribe((event, data) => {
+      if (event === 'new-image') {
+        statusLed.style.background = '#f59e0b';
+        statusText.textContent = 'NEW DISC IMAGE DETECTED • CACHE FLUSHED';
+        refreshCacheUI();
+      } else if (event === 'cache-flushed') {
+        statusLed.style.background = '#f59e0b';
+        statusText.textContent = 'DISC CACHE FLUSHED';
+        refreshCacheUI();
+      } else if (event === 'status-change') {
+        refreshCacheUI();
+      } else if (event === 'progress') {
+        if (cacheProgressContainer) {
+          cacheProgressContainer.hidden = false;
+          if (cacheProgressFilename) {
+            const fname = data.url.split('/').pop();
+            cacheProgressFilename.textContent = `Downloading ${fname}: ${RomCacheManager.formatBytes(data.loaded)} / ${RomCacheManager.formatBytes(data.total)}`;
+          }
+          if (cacheProgressPercent) {
+            cacheProgressPercent.textContent = `${data.percent}%`;
+          }
+          if (cacheProgressBarFill) {
+            cacheProgressBarFill.style.width = `${data.percent}%`;
+          }
+        }
+        if (cacheBadge) {
+          cacheBadge.className = 'cache-badge downloading';
+          cacheBadge.textContent = `${data.percent}%`;
+        }
+      }
+    });
+  }
+
+  if (btnCache) {
+    btnCache.addEventListener('click', () => {
+      if (cacheModal) {
+        cacheModal.hidden = !cacheModal.hidden;
+        if (!cacheModal.hidden) refreshCacheUI();
+      }
+    });
+  }
+
+  if (btnCloseCache) {
+    btnCloseCache.addEventListener('click', () => {
+      if (cacheModal) cacheModal.hidden = true;
+    });
+  }
+
+  if (btnCheckUpdates) {
+    btnCheckUpdates.addEventListener('click', async () => {
+      btnCheckUpdates.disabled = true;
+      btnCheckUpdates.textContent = 'Checking...';
+      const updated = await window.romCache.checkForUpdates();
+      btnCheckUpdates.disabled = false;
+      btnCheckUpdates.textContent = '🔄 Check Updates';
+      if (updated) {
+        statusText.textContent = 'NEW IMAGES FOUND • CACHE UPDATED';
+      } else {
+        statusText.textContent = 'DISC IMAGES UP TO DATE';
+      }
+      refreshCacheUI();
+    });
+  }
+
+  if (btnFlushCache) {
+    btnFlushCache.addEventListener('click', async () => {
+      if (confirm('Flush all cached ROM disc images? Future runs will stream or re-download.')) {
+        await window.romCache.flushCache();
+        refreshCacheUI();
+      }
+    });
+  }
+
+  if (btnPrecache) {
+    btnPrecache.addEventListener('click', async () => {
+      const currentDiscVal = discSelect ? discSelect.value : '../roms/arduracer.cue';
+      const cleanPath = currentDiscVal.replace(/^\.\.\//, '');
+      btnPrecache.disabled = true;
+      btnPrecache.textContent = 'Caching...';
+      statusText.textContent = `PRE-CACHING ${cleanPath.toUpperCase()}...`;
+
+      try {
+        if (cleanPath.endsWith('.cue')) {
+          await window.romCache.cacheRom('roms/arduracer.cue');
+          await window.romCache.cacheRom('roms/arduracer.bin');
+        } else {
+          await window.romCache.cacheRom(cleanPath);
+        }
+        statusText.textContent = 'PRE-CACHE COMPLETE • READY TO RUN';
+      } catch (err) {
+        console.error('Precache failed:', err);
+        statusText.textContent = `PRE-CACHE ERROR: ${err.message}`;
+      } finally {
+        btnPrecache.disabled = false;
+        btnPrecache.textContent = '📥 Pre-Cache Disc';
+        if (cacheProgressContainer) cacheProgressContainer.hidden = true;
+        refreshCacheUI();
+      }
+    });
+  }
 });
