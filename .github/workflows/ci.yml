@@ -98,7 +98,7 @@ jobs:
         # ffmpeg for wav2vag.py; python3-numpy and python3-pil for track atlas / city asset cookers.
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-numpy python3-pil
+          sudo apt-get install -y ffmpeg python3-numpy python3-pil python3-cairosvg
 
       - name: Install psxavenc (FMV encoder)
         # tools/fmv_cook/cook_intro_str.py silently falls back to a procedural

@@ -496,17 +496,24 @@ def rasterise_svg_visual(name: str):
 
     import io as _io
 
-    import cairosvg
+    try:
+        import cairosvg
 
-    svg_text = open(svg_path, encoding="utf-8").read()
-    png = cairosvg.svg2png(
-        bytestring=svg_text.encode("utf-8"),
-        output_width=VISUAL_SIZE[0],
-        output_height=VISUAL_SIZE[1],
-        background_color="black",
-    )
-    assert png is not None, "cairosvg returned no image"
-    im = Image.open(_io.BytesIO(png)).convert("RGB")
+        svg_text = open(svg_path, encoding="utf-8").read()
+        png = cairosvg.svg2png(
+            bytestring=svg_text.encode("utf-8"),
+            output_width=VISUAL_SIZE[0],
+            output_height=VISUAL_SIZE[1],
+            background_color="black",
+        )
+        assert png is not None, "cairosvg returned no image"
+        im = Image.open(_io.BytesIO(png)).convert("RGB")
+    except ImportError:
+        visual_path = stem + ".visual.png"
+        if os.path.exists(visual_path):
+            im = Image.open(visual_path).convert("RGB")
+        else:
+            raise
 
     if not os.path.exists(data_path):
         return im, None
