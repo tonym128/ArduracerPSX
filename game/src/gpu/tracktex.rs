@@ -444,7 +444,7 @@ const TIM_TILE_SECTORS: u32 = visual_tex::TIM_TILE_SECTORS;
 /// arithmetic on its coordinates -- there is no per-tile table to stream or
 /// index, which is what makes a 2 MB uncompressed block affordable at all.
 #[inline]
-fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
+fn tim_block_for(circuit: usize, block_x: usize, block_y: usize) -> Option<(u32, u32)> {
     if !TIM_ENABLED {
         return None;
     }
@@ -455,10 +455,11 @@ fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
         return None;
     }
     let lba = unsafe { TIMTRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
+    let block_idx = visual_tex::circuit_block_index(circuit, block_x, block_y);
+    if block_idx >= visual_tex::COUNT {
         return None;
     }
-    let entry = visual_tex::CIRCUIT_TIM_SECTORS[circuit];
+    let entry = visual_tex::CIRCUIT_TIM_SECTORS[block_idx];
     if entry.sector_count == 0 {
         return None;
     }
@@ -470,7 +471,7 @@ fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
 /// Built from [`selects_tim`] rather than from [`tim_block_for`] alone, and the
 /// difference is the whole bug this replaced.
 ///
-/// Asking `tim_block_for(circuit).is_some()` means "does this disc carry a TIM
+/// Asking `tim_block_for(circuit, 0, 0).is_some()` means "does this disc carry a TIM
 /// block for this circuit", which is true for *every* circuit on any disc
 /// mastered with `TIMTRACKS.BIN`. Using it as the decode-path selector meant a
 /// circuit pinned to QOI, JPEG or SVG still took the TIM branch: the RAM block
@@ -482,7 +483,7 @@ fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
 fn codec_is_tim(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim(
         unsafe { TEXTURE_FORMAT },
-        tim_block_for(circuit).is_some(),
+        tim_block_for(circuit, 0, 0).is_some(),
     )
 }
 
@@ -496,7 +497,7 @@ fn codec_is_tim(circuit: usize) -> bool {
 fn codec_is_tim4(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim4(
         unsafe { TEXTURE_FORMAT },
-        tim4_block_for(circuit).is_some(),
+        tim4_block_for(circuit, 0, 0).is_some(),
     )
 }
 
@@ -579,7 +580,7 @@ const _: () = assert!(
 /// (no art to convert, only a generator to re-run), or the cooker recorded no
 /// block for it.
 #[inline]
-fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
+fn tim4_block_for(circuit: usize, block_x: usize, block_y: usize) -> Option<(u32, u32)> {
     if !TIM4_ENABLED {
         return None;
     }
@@ -587,10 +588,11 @@ fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
         return None;
     }
     let lba = unsafe { TIM4TRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
+    let block_idx = visual_tex::circuit_block_index(circuit, block_x, block_y);
+    if block_idx >= visual_tex::COUNT {
         return None;
     }
-    let entry = visual_tex::CIRCUIT_TIM4_SECTORS[circuit];
+    let entry = visual_tex::CIRCUIT_TIM4_SECTORS[block_idx];
     if entry.sector_count == 0 {
         return None;
     }
@@ -602,7 +604,7 @@ fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
 fn codec_is_tim8(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim8(
         unsafe { TEXTURE_FORMAT },
-        tim8_block_for(circuit).is_some(),
+        tim8_block_for(circuit, 0, 0).is_some(),
     )
 }
 
@@ -653,7 +655,7 @@ const _: () = assert!(
 
 /// Whether `circuit` has a TIM8 block on this disc, and where it starts.
 #[inline]
-fn tim8_block_for(circuit: usize) -> Option<(u32, u32)> {
+fn tim8_block_for(circuit: usize, block_x: usize, block_y: usize) -> Option<(u32, u32)> {
     if !TIM8_ENABLED {
         return None;
     }
@@ -661,10 +663,11 @@ fn tim8_block_for(circuit: usize) -> Option<(u32, u32)> {
         return None;
     }
     let lba = unsafe { TIM8TRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
+    let block_idx = visual_tex::circuit_block_index(circuit, block_x, block_y);
+    if block_idx >= visual_tex::COUNT {
         return None;
     }
-    let entry = visual_tex::CIRCUIT_TIM8_SECTORS[circuit];
+    let entry = visual_tex::CIRCUIT_TIM8_SECTORS[block_idx];
     if entry.sector_count == 0 {
         return None;
     }
@@ -782,7 +785,12 @@ fn codec_for_circuit(circuit: usize) -> Codec {
     let have_qoi_asset = unsafe { QOITRACKS_BIN_LBA }.is_some();
     let have_svg_asset = unsafe { SVGTRACKS_BIN_LBA }.is_some();
     let have_jpeg_asset = unsafe { TRACKS_BIN_LBA }.is_some();
-    let known = circuit < visual_tex::COUNT;
+    let known = circuit < visual_tex::CIRCUIT_COUNT;
+    let base_block = if known {
+        visual_tex::circuit_block_index(circuit, 0, 0)
+    } else {
+        0
+    };
 
     // A pinned format is honoured first, but only if this build can actually
     // decode it and the disc carries it. Pinning something unavailable therefore
@@ -794,25 +802,25 @@ fn codec_for_circuit(circuit: usize) -> Codec {
                 SVG_ENABLED
                     && have_svg_asset
                     && known
-                    && visual_tex::CIRCUIT_ARSV_SECTORS[circuit].sector_count > 0
+                    && visual_tex::CIRCUIT_ARSV_SECTORS[base_block].sector_count > 0
             }
             TextureFormat::Qoi => {
                 QOI_ENABLED
                     && have_qoi_asset
                     && known
-                    && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
+                    && visual_tex::CIRCUIT_QOI_SECTORS[base_block].sector_count > 0
             }
             // Availability check, which is the right question here: this arm
             // *is* the place that decides whether a TIM pin can be honoured.
             // The decode paths ask `codec_is_tim` instead, because they need to
             // know what was selected, not what exists.
-            TextureFormat::Tim => tim_block_for(circuit).is_some(),
-            TextureFormat::Tim4 => tim4_block_for(circuit).is_some(),
-            TextureFormat::Tim8 => tim8_block_for(circuit).is_some(),
+            TextureFormat::Tim => tim_block_for(circuit, 0, 0).is_some(),
+            TextureFormat::Tim4 => tim4_block_for(circuit, 0, 0).is_some(),
+            TextureFormat::Tim8 => tim8_block_for(circuit, 0, 0).is_some(),
             TextureFormat::Jpeg => {
                 have_jpeg_asset
                     && known
-                    && visual_tex::CIRCUIT_BLOCK_SECTORS[circuit].sector_count > 0
+                    && visual_tex::CIRCUIT_BLOCK_SECTORS[base_block].sector_count > 0
             }
             TextureFormat::Auto => false,
         };
@@ -824,13 +832,13 @@ fn codec_for_circuit(circuit: usize) -> Codec {
     if SVG_ENABLED
         && have_svg_asset
         && known
-        && visual_tex::CIRCUIT_ARSV_SECTORS[circuit].sector_count > 0
+        && visual_tex::CIRCUIT_ARSV_SECTORS[base_block].sector_count > 0
     {
         Codec::Arsv
     } else if QOI_ENABLED
         && have_qoi_asset
         && known
-        && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
+        && visual_tex::CIRCUIT_QOI_SECTORS[base_block].sector_count > 0
     {
         Codec::Qoi
     } else {
@@ -897,7 +905,7 @@ pub fn reset_texture_caches() {
 /// dimensions would require the grid to already exist -- which is the thing being
 /// loaded. A mismatch here is the one failure that produces a plausible-looking
 /// level that is quietly the wrong terrain, so it is pinned by a host test.
-pub const LEVEL_DIMS: [(u8, u8); 27] = [
+pub const LEVEL_DIMS: [(u8, u8); 28] = [
     // 24 circuits
     (80, 80),
     (80, 80),
@@ -923,6 +931,8 @@ pub const LEVEL_DIMS: [(u8, u8); 27] = [
     (80, 80),
     (80, 80),
     (80, 80),
+    // Map 25 (Titan Circuit)
+    (128, 128),
     // 3 free-roam cities
     (240, 240),
     (240, 240),
@@ -933,11 +943,11 @@ pub const LEVEL_DIMS: [(u8, u8); 27] = [
 ///
 /// Call after `init_track_texture`, which is what locates the asset.
 pub fn load_level_grid(circuit: usize, track: &'static arduracer_core::TrackDef) -> bool {
-    // 24 circuits occupy 0..23; the cities follow at 24..26.
+    // 25 circuits occupy 0..24; the cities follow at 25..27.
     let index = match circuit {
-        97 => 24,
-        98 => 25,
-        99 => 26,
+        97 => 25,
+        98 => 26,
+        99 => 27,
         c => c,
     };
     if index >= LEVEL_DIMS.len() {
@@ -1179,7 +1189,7 @@ fn decode_row(
 /// caller should refuse the format rather than draw every tile through whatever
 /// the CLUT happened to contain.
 fn upload_tim4_palette(circuit: usize) -> bool {
-    let Some((block_lba, _)) = tim4_block_for(circuit) else {
+    let Some((block_lba, _)) = tim4_block_for(circuit, 0, 0) else {
         return false;
     };
     if unsafe { TIM4_CLUT_CIRCUIT } == circuit {
@@ -1222,7 +1232,7 @@ fn upload_tim4_palette(circuit: usize) -> bool {
 /// Reads `circuit`'s 256-colour palette from sector 0 of its TIM8 block and
 /// uploads it to the TIM8 CLUT row.
 fn upload_tim8_palette(circuit: usize) -> bool {
-    let Some((block_lba, _)) = tim8_block_for(circuit) else {
+    let Some((block_lba, _)) = tim8_block_for(circuit, 0, 0) else {
         return false;
     };
     if unsafe { TIM8_CLUT_CIRCUIT } == circuit {
@@ -1284,12 +1294,14 @@ enum TileStepResult {
 #[inline(never)]
 fn upload_tile_dma4(
     circuit: usize,
+    block_x: usize,
+    block_y: usize,
     tile_x: usize,
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
 ) -> TileStepResult {
-    let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
+    let Some((block_lba, block_sectors)) = tim4_block_for(circuit, block_x, block_y) else {
         return TileStepResult::Failed;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
@@ -1356,8 +1368,8 @@ fn upload_tile_dma4(
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_block_x = block_x;
+    vram_slots[target_slot].resident_block_y = block_y;
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = current_frame;
@@ -1369,12 +1381,14 @@ fn upload_tile_dma4(
 #[inline(never)]
 fn upload_tile_dma8(
     circuit: usize,
+    block_x: usize,
+    block_y: usize,
     tile_x: usize,
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
 ) -> TileStepResult {
-    let Some((block_lba, block_sectors)) = tim8_block_for(circuit) else {
+    let Some((block_lba, block_sectors)) = tim8_block_for(circuit, block_x, block_y) else {
         return TileStepResult::Failed;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
@@ -1430,8 +1444,8 @@ fn upload_tile_dma8(
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_block_x = block_x;
+    vram_slots[target_slot].resident_block_y = block_y;
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = current_frame;
@@ -1455,12 +1469,14 @@ fn upload_tile_dma8(
 #[inline(never)]
 fn upload_tile_dma(
     circuit: usize,
+    block_x: usize,
+    block_y: usize,
     tile_x: usize,
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
 ) -> TileStepResult {
-    let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
+    let Some((block_lba, block_sectors)) = tim_block_for(circuit, block_x, block_y) else {
         return TileStepResult::Failed;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
@@ -1538,8 +1554,8 @@ fn upload_tile_dma(
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_block_x = block_x;
+    vram_slots[target_slot].resident_block_y = block_y;
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = current_frame;
@@ -1563,8 +1579,15 @@ fn paint_fallback_row(start_y: usize, scratch: &mut [u16; TILE_PIXELS]) {
 }
 
 #[inline(never)]
-fn upload_tile_sync(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
-    let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
+fn upload_tile_sync(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+) -> bool {
+    let Some((block_lba, block_sectors)) = tim_block_for(circuit, block_x, block_y) else {
         return false;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
@@ -1596,8 +1619,8 @@ fn upload_tile_sync(circuit: usize, tile_x: usize, tile_y: usize, target_slot: u
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_block_x = block_x;
+    vram_slots[target_slot].resident_block_y = block_y;
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = 1;
@@ -1605,8 +1628,15 @@ fn upload_tile_sync(circuit: usize, tile_x: usize, tile_y: usize, target_slot: u
 }
 
 #[inline(never)]
-fn upload_tile_sync4(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
-    let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
+fn upload_tile_sync4(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+) -> bool {
+    let Some((block_lba, block_sectors)) = tim4_block_for(circuit, block_x, block_y) else {
         return false;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
@@ -1643,8 +1673,8 @@ fn upload_tile_sync4(circuit: usize, tile_x: usize, tile_y: usize, target_slot: 
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_block_x = block_x;
+    vram_slots[target_slot].resident_block_y = block_y;
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = 1;
@@ -1652,8 +1682,15 @@ fn upload_tile_sync4(circuit: usize, tile_x: usize, tile_y: usize, target_slot: 
 }
 
 #[inline(never)]
-fn upload_tile_sync8(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
-    let Some((block_lba, block_sectors)) = tim8_block_for(circuit) else {
+fn upload_tile_sync8(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+) -> bool {
+    let Some((block_lba, block_sectors)) = tim8_block_for(circuit, block_x, block_y) else {
         return false;
     };
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
@@ -1690,8 +1727,8 @@ fn upload_tile_sync8(circuit: usize, tile_x: usize, tile_y: usize, target_slot: 
 
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
+    vram_slots[target_slot].resident_block_x = block_x;
+    vram_slots[target_slot].resident_block_y = block_y;
     vram_slots[target_slot].resident_tile_x = tile_x;
     vram_slots[target_slot].resident_tile_y = tile_y;
     vram_slots[target_slot].last_used = 1;
@@ -1710,7 +1747,7 @@ fn decode_and_upload_full_tile(
     // TIM has no block to decode out of: the tile comes straight off the disc.
     // During prewarm, read synchronously so the race starts with all visible tiles resident.
     if codec_is_tim(circuit) {
-        if upload_tile_sync(circuit, sub_tx, sub_ty, target_slot) {
+        if upload_tile_sync(circuit, bx, by, sub_tx, sub_ty, target_slot) {
             return;
         }
         let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
@@ -1720,7 +1757,7 @@ fn decode_and_upload_full_tile(
 
     // Same rule for the 4bpp path.
     if codec_is_tim4(circuit) {
-        if upload_tile_sync4(circuit, sub_tx, sub_ty, target_slot) {
+        if upload_tile_sync4(circuit, bx, by, sub_tx, sub_ty, target_slot) {
             return;
         }
         let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
@@ -1730,7 +1767,7 @@ fn decode_and_upload_full_tile(
 
     // Same rule for the 8bpp path.
     if codec_is_tim8(circuit) {
-        if upload_tile_sync8(circuit, sub_tx, sub_ty, target_slot) {
+        if upload_tile_sync8(circuit, bx, by, sub_tx, sub_ty, target_slot) {
             return;
         }
         let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
@@ -1785,15 +1822,24 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     }
 
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
-    let block_wu_x = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_w.max(1)
+    let (block_wu_x, block_wu_y) = if active_circuit >= 97 {
+        let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_w.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_h.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        (bx, by)
     } else {
-        BLOCK_DIM as i32 * 5 / 2
-    };
-    let block_wu_y = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_h.max(1)
-    } else {
-        BLOCK_DIM as i32 * 5 / 2
+        let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
+        (
+            (world_w / g_bx as i32).max(1),
+            (world_h / g_by as i32).max(1),
+        )
     };
 
     let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
@@ -1882,7 +1928,7 @@ fn block_location(
             )
         }
         _ => {
-            let c = circuit % visual_tex::COUNT;
+            let c = visual_tex::circuit_block_index(circuit, block_x, block_y);
             if use_arsv {
                 (
                     unsafe { SVGTRACKS_BIN_LBA },
@@ -2271,6 +2317,8 @@ fn step_decode_job(current_frame: u32) -> StepResult {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
         match upload_tile_dma(
             job.circuit,
+            job.block_x,
+            job.block_y,
             job.tile_x,
             job.tile_y,
             job.target_slot,
@@ -2297,6 +2345,8 @@ fn step_decode_job(current_frame: u32) -> StepResult {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
         match upload_tile_dma4(
             job.circuit,
+            job.block_x,
+            job.block_y,
             job.tile_x,
             job.tile_y,
             job.target_slot,
@@ -2323,6 +2373,8 @@ fn step_decode_job(current_frame: u32) -> StepResult {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
         match upload_tile_dma8(
             job.circuit,
+            job.block_x,
+            job.block_y,
             job.tile_x,
             job.tile_y,
             job.target_slot,
@@ -2716,17 +2768,26 @@ pub fn render_track_extents(
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
 
     // Compute exact world units per 64x64 tile along X and Y axes.
-    // For single tracks: 1 block (1024x1024) covers the entire track (world_w x world_h).
-    // For large cities (> 2560 world units): partitioned into blocks of 2560 world units.
-    let block_wu_x = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_w.max(1)
+    // For standard circuits (< 97): block grid comes from visual_tex::circuit_block_grid (1x1 for single tracks, 4x4 for multi-block tracks).
+    // For large cities (>= 97): partitioned into blocks of 2560 world units.
+    let (block_wu_x, block_wu_y) = if active_circuit >= 97 {
+        let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_w.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_h.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        (bx, by)
     } else {
-        BLOCK_DIM as i32 * 5 / 2
-    };
-    let block_wu_y = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_h.max(1)
-    } else {
-        BLOCK_DIM as i32 * 5 / 2
+        let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
+        (
+            (world_w / g_bx as i32).max(1),
+            (world_h / g_by as i32).max(1),
+        )
     };
 
     let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
@@ -2916,9 +2977,22 @@ pub fn render_track_extents(
             for i in 1..prefetch_count {
                 let mut j = i;
                 while j > 0 {
-                    let prev_idx =
-                        prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j - 1].4;
-                    let curr_idx = prefetch_tiles[j].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j].4;
+                    let prev_b = visual_tex::circuit_block_index(
+                        active_circuit,
+                        prefetch_tiles[j - 1].2,
+                        prefetch_tiles[j - 1].3,
+                    );
+                    let curr_b = visual_tex::circuit_block_index(
+                        active_circuit,
+                        prefetch_tiles[j].2,
+                        prefetch_tiles[j].3,
+                    );
+                    let prev_idx = prev_b * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS)
+                        + prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS
+                        + prefetch_tiles[j - 1].4;
+                    let curr_idx = curr_b * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS)
+                        + prefetch_tiles[j].5 * TILES_PER_BLOCK_AXIS
+                        + prefetch_tiles[j].4;
                     if prev_idx > curr_idx {
                         prefetch_tiles.swap(j - 1, j);
                         j -= 1;
@@ -3222,11 +3296,7 @@ fn draw_tile_m7(
     let (nx, ny) = if textured {
         let (_, zc) =
             camera.view_from_offset_q4((2 * wx0 + cw) * 8 - cam_qx, (2 * wy0 + ch) * 8 - cam_qy);
-        let target = if zc < (160 << 4) {
-            64
-        } else {
-            128
-        };
+        let target = if zc < (160 << 4) { 64 } else { 128 };
         (
             ((cw + target - 1) / target).clamp(1, 3),
             ((ch + target - 1) / target).clamp(1, 3),

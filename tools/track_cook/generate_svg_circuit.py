@@ -224,10 +224,10 @@ OUTSIDE = GRASS
 # --- SVG document -------------------------------------------------------------
 
 
-def svg_header(size: int) -> list[str]:
+def svg_header(size: int, grid: int = GRID) -> list[str]:
     return [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
-        f'viewBox="0 0 {GRID} {GRID}" shape-rendering="geometricPrecision">',
+        f'viewBox="0 0 {grid} {grid}" shape-rendering="geometricPrecision">',
     ]
 
 
@@ -581,22 +581,24 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
     order is the whole trick -- SVG has no z-buffer beyond document order, so a
     kerb painted before the road is simply painted over.
     """
-    cx = cy = GRID / 2.0
+    grid = int(spec.get("grid", GRID))
+    vis_size = int(spec.get("visual_size", SIZE))
+    cx = cy = grid / 2.0
     centre = shape_centreline(spec, cx, cy)
     path = shape_path(spec, cx, cy)
 
-    road_hw = ROAD_HALF_CELLS
+    road_hw = float(spec.get("road_half_cells", ROAD_HALF_CELLS))
     kerb_hw = road_hw + KERB_CELLS
     runoff_hw = kerb_hw + RUNOFF_CELLS
     wall_hw = runoff_hw + WALL_CELLS
 
-    out = svg_header(SIZE)
+    out = svg_header(vis_size, grid)
     out.append(f'<!-- {spec["name"]}: authored circuit, cell units. -->')
     out.append(f'<!-- {shape_note(spec)} -->')
 
     # Ground. Everything outside the circuit is grass; the infield is grass too,
     # which is what gives the ring its surroundings.
-    out.append(f'<rect x="0" y="0" width="{GRID}" height="{GRID}" '
+    out.append(f'<rect x="0" y="0" width="{grid}" height="{grid}" '
                f'fill="{RGB[OUTSIDE]}"/>')
 
     # Barrier, then runoff over its inner half, so the barrier reads as a rim.
@@ -657,13 +659,13 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
 # --- Rasterisation ------------------------------------------------------------
 
 
-def rasterise(svg_text: str, px_per_cell: int) -> np.ndarray:
+def rasterise(svg_text: str, px_per_cell: int, grid: int = GRID) -> np.ndarray:
     """SVG -> HxWx3 uint8, at an exact multiple of the grid."""
     import io
 
     import cairosvg  # imported lazily: only the generator needs it
 
-    size = GRID * px_per_cell
+    size = grid * px_per_cell
     png = cairosvg.svg2png(bytestring=svg_text.encode("utf-8"),
                            output_width=size, output_height=size,
                            background_color="black")
@@ -747,7 +749,7 @@ def compress_1024_jpeg_500kb(im: Image.Image) -> bytes:
 
 
 def paint_visual(codes: np.ndarray, size: int = SIZE) -> np.ndarray:
-    """Paints the appearance image from the code map at size x size (1024x1024). Display only.
+    """Paints the appearance image from the code map at size x size. Display only.
 
     Deliberately does *not* read the SVG raster. The visual image is what the
     player sees and the data map is what the car drives; keeping them separate is
@@ -756,69 +758,93 @@ def paint_visual(codes: np.ndarray, size: int = SIZE) -> np.ndarray:
     """
     grid_h, grid_w = codes.shape
     vis_img = Image.fromarray(codes.astype(np.uint8)).resize((size, size), Image.Resampling.NEAREST)
-    vis = np.array(vis_img)
+    vis = np.array(vis_img, dtype=np.int32)
     h, w = vis.shape
-    out = np.zeros((h, w, 3), dtype=np.uint8)
 
-    def base(code):
-        return np.array(RGB_TUPLE[code], dtype=np.float32)
+    ys, xs = np.mgrid[0:h, 0:w]
+    scale = max(1, size // grid_w // 2)
 
-    def grain(y, x, salt=0):
-        scale = max(1, size // grid_w // 2)
-        gx = x // scale
-        gy = y // scale
+    def grain_arr(y_arr: np.ndarray, x_arr: np.ndarray, salt: int = 0) -> np.ndarray:
+        gx = x_arr // scale
+        gy = y_arr // scale
         v = ((gx * 73856093) ^ (gy * 19349663) ^ (salt * 83492791)) & 0xFF
-        return (v & 0x3F) / 255.0
+        return (v & 0x3F).astype(np.float32) / 255.0
 
-    for y in range(h):
-        for x in range(w):
-            c = int(vis[y, x])
-            n = grain(y, x)
-            n2 = grain(y // 4, x // 4, salt=7)
-            b = base(c)
-            if c in (TARMAC, TARMAC_WORN):
-                out[y, x] = np.clip(b * (1.0 - 0.10 - n * 0.10 - n2 * 0.06), 0, 255)
-            elif c in (KERB_WHITE, KERB_RED):
-                blk = ((x * grid_w // size) + (y * grid_h // size)) % 2
-                b = base(KERB_WHITE if blk == 0 else KERB_RED)
-                out[y, x] = np.clip(b * (1.0 - n * 0.12), 0, 255)
-            elif c in (GRASS,):
-                out[y, x] = np.clip(b * (1.0 - 0.14 - n * 0.22 - n2 * 0.10), 0, 255)
-            elif c in (GRAVEL, SAND, SCENERY):
-                out[y, x] = np.clip(b * (1.0 - 0.14 - n * 0.24), 0, 255)
-            elif c == WALL:
-                edge = any(
-                    0 <= y + dy < h and 0 <= x + dx < w
-                    and int(vis[y + dy, x + dx]) in
-                    (TARMAC, TARMAC_WORN, KERB_WHITE, KERB_RED, BOOST, GATE,
-                     START_LINE, TUNNEL, BRIDGE)
-                    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1))
-                )
-                lit = 0.22 if edge else n * 0.08
-                out[y, x] = np.clip(b + (255 - b) * lit, 0, 255)
-            elif c == START_LINE:
-                cell_x = x * grid_w // size
-                cell_y = y * grid_h // size
-                out[y, x] = ((245, 245, 245)
-                             if (cell_x + cell_y) % 2 else (28, 28, 32))
-            elif c == BOOST:
-                cell_x = x * grid_w // size
-                cell_y = y * grid_h // size
-                band = (cell_y + cell_x) % 2
-                out[y, x] = (255, 240, 200) if band else np.clip(b * (1 - n * 0.1), 0, 255)
-            elif c == OIL:
-                t = 0.5 + 0.5 * ((x * 0.3 + y * 0.2) % 6) / 6.0
-                out[y, x] = (18 + 42 * t, 14 + 16 * t, 26 + 54 * t)
-            elif c == GATE:
-                out[y, x] = np.clip(b + (255 - b) * (0.15 + n * 0.15), 0, 255)
-            elif c == VOID:
-                out[y, x] = (0, 0, 0)
-            else:
-                out[y, x] = np.clip(b * (1.0 - n * 0.10), 0, 255)
+    n = grain_arr(ys, xs, 0)[..., None]
+    n2 = grain_arr(ys // 4, xs // 4, 7)[..., None]
+
+    lut = np.zeros((16, 3), dtype=np.float32)
+    for code, rgb in RGB_TUPLE.items():
+        lut[code] = rgb
+    b = lut[vis]
+
+    out = np.clip(b * (1.0 - n * 0.10), 0, 255)
+
+    m_tarmac = (vis == TARMAC) | (vis == TARMAC_WORN)
+    out = np.where(m_tarmac[..., None], np.clip(b * (1.0 - 0.10 - n * 0.10 - n2 * 0.06), 0, 255), out)
+
+    m_kerb = (vis == KERB_WHITE) | (vis == KERB_RED)
+    if np.any(m_kerb):
+        blk = (((xs * grid_w // size) + (ys * grid_h // size)) % 2)[..., None]
+        b_kerb = np.where(blk == 0, lut[KERB_WHITE], lut[KERB_RED])
+        out = np.where(m_kerb[..., None], np.clip(b_kerb * (1.0 - n * 0.12), 0, 255), out)
+
+    m_grass = vis == GRASS
+    out = np.where(m_grass[..., None], np.clip(b * (1.0 - 0.14 - n * 0.22 - n2 * 0.10), 0, 255), out)
+
+    m_gravel = (vis == GRAVEL) | (vis == SAND) | (vis == SCENERY)
+    out = np.where(m_gravel[..., None], np.clip(b * (1.0 - 0.14 - n * 0.24), 0, 255), out)
+
+    m_wall = vis == WALL
+    if np.any(m_wall):
+        road_like = np.isin(
+            vis,
+            (TARMAC, TARMAC_WORN, KERB_WHITE, KERB_RED, BOOST, GATE, START_LINE, TUNNEL, BRIDGE),
+        )
+        edge = np.zeros((h, w), dtype=bool)
+        edge[1:, :] |= road_like[:-1, :]
+        edge[:-1, :] |= road_like[1:, :]
+        edge[:, 1:] |= road_like[:, :-1]
+        edge[:, :-1] |= road_like[:, 1:]
+        lit = np.where(edge[..., None], 0.22, n * 0.08)
+        out = np.where(m_wall[..., None], np.clip(b + (255.0 - b) * lit, 0, 255), out)
+
+    m_start = vis == START_LINE
+    if np.any(m_start):
+        cell_x = xs * grid_w // size
+        cell_y = ys * grid_h // size
+        chk = (((cell_x + cell_y) % 2) != 0)[..., None]
+        c_start = np.where(chk, np.array([245.0, 245.0, 245.0]), np.array([28.0, 28.0, 32.0]))
+        out = np.where(m_start[..., None], c_start, out)
+
+    m_boost = vis == BOOST
+    if np.any(m_boost):
+        cell_x = xs * grid_w // size
+        cell_y = ys * grid_h // size
+        band = (((cell_y + cell_x) % 2) != 0)[..., None]
+        c_boost = np.where(band, np.array([255.0, 240.0, 200.0]), np.clip(b * (1.0 - n * 0.1), 0, 255))
+        out = np.where(m_boost[..., None], c_boost, out)
+
+    m_oil = vis == OIL
+    if np.any(m_oil):
+        t = (0.5 + 0.5 * ((xs * 0.3 + ys * 0.2) % 6.0) / 6.0)[..., None]
+        c_oil = np.concatenate([18.0 + 42.0 * t, 14.0 + 16.0 * t, 26.0 + 54.0 * t], axis=-1)
+        out = np.where(m_oil[..., None], c_oil, out)
+
+    m_gate = vis == GATE
+    out = np.where(m_gate[..., None], np.clip(b + (255.0 - b) * (0.15 + n * 0.15), 0, 255), out)
+
+    m_void = vis == VOID
+    out = np.where(m_void[..., None], 0.0, out)
+
     return out.astype(np.uint8)
 
 
 def write_outputs(spec: dict, outdir: str) -> dict:
+    grid = int(spec.get("grid", GRID))
+    vis_size = int(spec.get("visual_size", SIZE))
+    road_hw = float(spec.get("road_half_cells", ROAD_HALF_CELLS))
+
     svg_text, centre = build_svg(spec)
     stem = os.path.join(outdir, spec["name"].replace(" ", "_"))
 
@@ -826,7 +852,7 @@ def write_outputs(spec: dict, outdir: str) -> dict:
         f.write(svg_text)
 
     # Supersample, then majority-vote per cell.
-    fine = rasterise(svg_text, DATA_PX * SUPERSAMPLE)
+    fine = rasterise(svg_text, DATA_PX * SUPERSAMPLE, grid)
     codes = resolve_cells(fine, DATA_PX * SUPERSAMPLE)
 
     # Data image: flat exact palette colours, DATA_PX px per cell.
@@ -840,8 +866,8 @@ def write_outputs(spec: dict, outdir: str) -> dict:
     flat = lut[dat]
     Image.fromarray(flat, "RGB").save(stem + ".data.png")
 
-    # Visual image: painted from the code map, 1024x1024.
-    vis = paint_visual(codes, SIZE)
+    # Visual image: painted from the code map, vis_size x vis_size.
+    vis = paint_visual(codes, vis_size)
     vis_path = stem + ".visual.png"
     gen_path = stem + ".visual.gen.png"
     Image.fromarray(vis, "RGB").save(vis_path)
@@ -855,18 +881,18 @@ def write_outputs(spec: dict, outdir: str) -> dict:
         f.write(jpeg_bytes)
 
     with open(stem + ".palette.json", "w") as f:
-        json.dump({"cell_px": DATA_PX, "grid": GRID,
-                   "visual_size": SIZE,
-                   "visual_px_per_cell": SIZE // GRID,
+        json.dump({"cell_px": DATA_PX, "grid": grid,
+                   "visual_size": vis_size,
+                   "visual_px_per_cell": vis_size // grid,
                    "palette": {str(k): list(v) for k, v in RGB_TUPLE.items()}}, f)
 
     # Centreline sidecar, in cell units as the compiler expects.
     with open(stem + ".line.json", "w") as f:
         json.dump({
             "cell_px": DATA_PX,
-            "grid": GRID,
+            "grid": grid,
             "levels": 1,
-            "road_cells": ROAD_HALF_CELLS * 2,
+            "road_cells": road_hw * 2,
             "source": "svg",
             "samples": [[round(x, 3), round(y, 3), 0] for x, y in centre],
         }, f)
@@ -1459,6 +1485,27 @@ CIRCUITS = [
         "runoff": GRASS,
         "marks": standard_marks((1, 3, 5), (2, 4, 6)),
         "note": "The ultimate grand championship test combining every feature: long boost straights, technical chicanes, hairpin switchback, and championship bypass shortcut.",
+    },
+    {
+        "name": "Titan Circuit",
+        "grid": 128,
+        "visual_size": 4096,
+        "shape": "polygon",
+        "vertices": [
+            (36.0, 18.0),
+            (92.0, 18.0),
+            (110.0, 36.0),
+            (110.0, 92.0),
+            (92.0, 110.0),
+            (36.0, 110.0),
+            (18.0, 92.0),
+            (18.0, 36.0),
+        ],
+        "radii": [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+        "shortcuts": ["M 110.0 36.0 L 92.0 110.0"],
+        "runoff": GRASS,
+        "marks": standard_marks((1, 3, 5), (2, 4, 6)),
+        "note": "Colossal 4096x4096 championship endurance circuit spanning all sixteen 1024x1024 streaming sectors.",
     },
 ]
 

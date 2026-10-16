@@ -29,7 +29,7 @@ use arduracer_core::save::CdAudioMode;
 use arduracer_core::{
     compute_standings, grid_slot_offset_on, grid_slot_position_on, resolve_field, AiRacer,
     ChampionshipSession, Difficulty, Fixed, LapTimer, StartPhase, StartSequence, TrackDef, Vec2,
-    VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS, STAGES_PER_CUP,
+    VehicleState, AI_PROFILES, ALL_TRACKS, ALL_TRACK_VISUALS,
 };
 use audio::AudioSystem;
 use ghost_player::render_active_ghost;
@@ -1503,7 +1503,7 @@ impl ArduracerGame {
         match action {
             Some(ResultsAction::Continue) => {
                 let next_step = if let Some(ref mut champ) = self.state_mgr.championship {
-                    if champ.current_stage >= STAGES_PER_CUP - 1 {
+                    if champ.is_last_stage() {
                         None
                     } else {
                         champ.advance_stage();
@@ -1564,7 +1564,7 @@ impl ArduracerGame {
             }
             Some(ResultsAction::ExitToMenu) => {
                 if let Some(ref mut champ) = self.state_mgr.championship {
-                    if champ.current_stage >= STAGES_PER_CUP - 1 {
+                    if champ.is_last_stage() {
                         self.memcard.save_data.clear_championship();
                     } else {
                         champ.advance_stage();

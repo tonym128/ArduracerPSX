@@ -142,12 +142,18 @@ pub fn grid_slot_position_on(track: &crate::track::TrackDef, slot: usize) -> Vec
 /// Largest lateral magnitude any [`GRID_SLOT_OFFSETS`] entry asks for, in world
 /// units. The denominator that scales the stagger down to a narrower road.
 pub const GRID_SLOT_MAX_LATERAL: i32 = 16;
-/// Races in each cup.
+/// Races in each standard cup.
 pub const STAGES_PER_CUP: u8 = 6;
 /// Cups in the championship.
-pub const CUP_COUNT: usize = 4;
-/// Display names for the four cups.
-pub const CUP_NAMES: [&str; CUP_COUNT] = ["BRONZE CUP", "SILVER CUP", "GOLD CUP", "PLATINUM CUP"];
+pub const CUP_COUNT: usize = 5;
+/// Display names for the five cups.
+pub const CUP_NAMES: [&str; CUP_COUNT] = [
+    "BRONZE CUP",
+    "SILVER CUP",
+    "GOLD CUP",
+    "PLATINUM CUP",
+    "DIAMOND CUP",
+];
 /// Weight of one completed lap in the standings score, in Q20.12 raw units.
 /// Larger than [`STANDINGS_DISTANCE_CAP`] so a car a whole lap *behind* can never
 /// out-score one that is nearer to its next gate.
@@ -251,15 +257,32 @@ impl ChampionshipSession {
         }
     }
 
+    /// Total stages in `cup_index`.
+    pub fn total_stages_for_cup(cup_index: u8) -> u8 {
+        if cup_index == 4 {
+            1
+        } else {
+            STAGES_PER_CUP
+        }
+    }
+
+    /// Whether the session is currently on the last stage of its cup.
+    pub fn is_last_stage(&self) -> bool {
+        self.current_stage >= Self::total_stages_for_cup(self.cup_index).saturating_sub(1)
+    }
+
     /// Returns the global track index (0..TOTAL_TRACKS-1) for the current stage.
     ///
     /// `cup_index` is clamped by `new`, and `current_stage` is kept inside
-    /// `0..STAGES_PER_CUP` by [`ChampionshipSession::advance_stage`], so this
+    /// `0..total_stages_for_cup()` by [`ChampionshipSession::advance_stage`], so this
     /// can never index past `ALL_TRACKS`. The `min` is belt-and-braces for a
     /// hand-built session: `TOTAL_TRACKS` is a hard data limit, and a race
     /// screen that indexes `ALL_TRACKS[current_track_idx()]` would otherwise be
     /// an out-of-bounds read.
     pub fn current_track_idx(&self) -> usize {
+        if self.cup_index == 4 {
+            return 24;
+        }
         let raw =
             (self.cup_index as usize * STAGES_PER_CUP as usize) + (self.current_stage as usize);
         raw.min(TOTAL_TRACKS - 1)
@@ -310,16 +333,11 @@ impl ChampionshipSession {
     }
 
     /// Advances to the next stage in the cup. Returns true if championship finished.
-    ///
-    /// `current_stage` is clamped to `STAGES_PER_CUP - 1` so
-    /// [`ChampionshipSession::current_track_idx`] can never run past the end of a
-    /// cup: the old `current_stage += 1` left it at 6 (and 7, 8, ...) on
-    /// repeated calls, which resolved to track 24+ for the Platinum cup against a
-    /// 24-track `ALL_TRACKS`.
     pub fn advance_stage(&mut self) -> bool {
+        let max_stages = Self::total_stages_for_cup(self.cup_index);
         let next = self.current_stage.saturating_add(1);
-        if next >= STAGES_PER_CUP {
-            self.current_stage = STAGES_PER_CUP - 1;
+        if next >= max_stages {
+            self.current_stage = max_stages.saturating_sub(1);
             true
         } else {
             self.current_stage = next;
@@ -785,17 +803,16 @@ mod tests {
 
     #[test]
     fn advance_stage_never_runs_past_the_end_of_a_cup() {
-        // Reproduced: for cup_index 3, stage 6 -> track 24, 7 -> 25, 8 -> 26
-        // against a 24-track ALL_TRACKS.
         for cup in 0..CUP_COUNT as u8 {
             let mut session = ChampionshipSession::new(cup);
+            let stages = ChampionshipSession::total_stages_for_cup(cup);
             let mut finishes = 0;
             for _ in 0..40 {
                 if session.advance_stage() {
                     finishes += 1;
                 }
                 assert!(
-                    session.current_stage < STAGES_PER_CUP,
+                    session.current_stage < stages,
                     "cup {cup}: stage ran to {}",
                     session.current_stage
                 );
@@ -805,11 +822,9 @@ mod tests {
                     "cup {cup}: track index {idx} is out of range"
                 );
             }
-            // Five advances walk the stages, then the cup reports itself done
-            // for good.
             assert_eq!(
                 finishes,
-                40 - (STAGES_PER_CUP as usize - 1),
+                40 - (stages as usize - 1),
                 "cup {cup} reported itself finished {finishes} times"
             );
         }
@@ -817,19 +832,24 @@ mod tests {
 
     #[test]
     fn the_last_stage_of_the_last_cup_is_the_last_track() {
-        let mut session = ChampionshipSession::new(3);
+        let mut session = ChampionshipSession::new(4);
         while !session.advance_stage() {}
-        assert_eq!(session.current_stage, STAGES_PER_CUP - 1);
         assert_eq!(session.current_track_idx(), TOTAL_TRACKS - 1);
-        // Every stage of every cup walks a different track, and the last one is
+        assert_eq!(session.current_track_idx(), 24);
+        // Every stage of every cup walks a valid track, and the last one is
         // the last track shipped.
         for cup in 0..CUP_COUNT as u8 {
             let mut session = ChampionshipSession::new(cup);
-            for stage in 0..STAGES_PER_CUP {
-                assert_eq!(
-                    session.current_track_idx(),
-                    cup as usize * STAGES_PER_CUP as usize + stage as usize
-                );
+            let stages = ChampionshipSession::total_stages_for_cup(cup);
+            for stage in 0..stages {
+                if cup == 4 {
+                    assert_eq!(session.current_track_idx(), 24);
+                } else {
+                    assert_eq!(
+                        session.current_track_idx(),
+                        cup as usize * STAGES_PER_CUP as usize + stage as usize
+                    );
+                }
                 assert_eq!(session.current_stage, stage);
                 session.advance_stage();
             }

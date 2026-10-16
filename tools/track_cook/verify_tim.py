@@ -139,11 +139,12 @@ def check_packing_matches_runtime():
     )
 
 
-def check_tim4(circuit: int, name: str, offset: int):
+def check_tim4(circuit: int, name: str, offset: int, crop_im=None, shared_pal=None):
     """Verify a 4bpp block against a freshly quantised copy of the source."""
     path = os.path.join(ROOT, "assets", "TIM4TRACKS.BIN")
     pal_sector_bytes = SECTOR_SIZE
-    want_indices, want_palette = build_atlas.quantise_16(source_image(name))
+    im = crop_im if crop_im is not None else source_image(name)
+    want_indices, want_palette = build_atlas.quantise_16(im, shared_palette=shared_pal)
 
     with open(path, "rb") as f:
         # Palette sector.
@@ -193,11 +194,12 @@ def check_tim4(circuit: int, name: str, offset: int):
                 )
 
 
-def check_tim8(circuit: int, name: str, offset: int):
+def check_tim8(circuit: int, name: str, offset: int, crop_im=None, shared_pal=None):
     """Verify an 8bpp block against a freshly quantised copy of the source."""
     path = os.path.join(ROOT, "assets", "TIM8TRACKS.BIN")
     pal_sector_bytes = SECTOR_SIZE
-    want_indices, want_palette = build_atlas.quantise_256(source_image(name))
+    im = crop_im if crop_im is not None else source_image(name)
+    want_indices, want_palette = build_atlas.quantise_256(im, shared_palette=shared_pal)
 
     with open(path, "rb") as f:
         # Palette sector.
@@ -252,8 +254,6 @@ def source_image(name):
     else:
         im, _ = build_atlas.rasterise_svg_visual(name)
         assert im is not None, f"{name}: no visual source"
-    if im.size != (1024, 1024):
-        im = im.resize((1024, 1024), Image.Resampling.LANCZOS)
     return im
 
 
@@ -316,54 +316,86 @@ def main() -> int:
             f"{len(tim8_entries) * TIM8_BLOCK_SECTORS}"
         )
 
+    block_cursor = 0
+    checked_circuits = 0
+    checked_blocks = 0
     for idx, (name, _) in enumerate(names):
-        off, cnt, blen = entries[idx]
-        if cnt != BLOCK_SECTORS or blen != BLOCK_SECTORS * SECTOR_SIZE:
-            raise AssertionError(
-                f"circuit {idx} ({name}): sector_count {cnt}, byte_len {blen}; "
-                f"an uncompressed block is exactly {BLOCK_SECTORS} sectors")
+        full_im = source_image(name)
+        w, h = full_im.size
+        grid_bx = max(1, w // 1024)
+        grid_by = max(1, h // 1024)
 
-        # The table must be dense and in order, or the runtime's arithmetic
-        # (`block_lba + tile_index * 4`) lands on the wrong circuit's texels.
-        assert off == idx * BLOCK_SECTORS, (
-            f"circuit {idx} ({name}): offset {off}, expected {idx * BLOCK_SECTORS}")
+        shared_pal16 = None
+        shared_pal256 = None
+        if grid_bx > 1 or grid_by > 1:
+            small = full_im.resize((1024, 1024), Image.Resampling.LANCZOS)
+            pal16_im = small.quantize(colors=16, method=Image.Quantize.MEDIANCUT)
+            raw16 = pal16_im.getpalette() or []
+            shared_pal16 = [(raw16[i * 3], raw16[i * 3 + 1], raw16[i * 3 + 2]) for i in range(16)]
+            while len(shared_pal16) < 16:
+                shared_pal16.append((0, 0, 0))
 
-        tim4_off, tim4_cnt, tim4_len = tim4_entries[idx]
-        assert (
-            tim4_cnt == TIM4_BLOCK_SECTORS
-            and tim4_len == TIM4_BLOCK_SECTORS * SECTOR_SIZE
-        ), (
-            f"circuit {idx} ({name}): 4bpp sector_count {tim4_cnt}, byte_len "
-            f"{tim4_len}; expected {TIM4_BLOCK_SECTORS} sectors")
-        assert tim4_off == idx * TIM4_BLOCK_SECTORS, (
-            f"circuit {idx} ({name}): 4bpp offset {tim4_off}, "
-            f"expected {idx * TIM4_BLOCK_SECTORS}")
+            pal256_im = small.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
+            raw256 = pal256_im.getpalette() or []
+            shared_pal256 = [(raw256[i * 3], raw256[i * 3 + 1], raw256[i * 3 + 2]) for i in range(len(raw256) // 3)]
+            while len(shared_pal256) < 256:
+                shared_pal256.append((0, 0, 0))
+            shared_pal256 = shared_pal256[:256]
 
-        tim8_off, tim8_cnt, tim8_len = tim8_entries[idx]
-        assert (
-            tim8_cnt == TIM8_BLOCK_SECTORS
-            and tim8_len == TIM8_BLOCK_SECTORS * SECTOR_SIZE
-        ), (
-            f"circuit {idx} ({name}): 8bpp sector_count {tim8_cnt}, byte_len "
-            f"{tim8_len}; expected {TIM8_BLOCK_SECTORS} sectors")
-        assert tim8_off == idx * TIM8_BLOCK_SECTORS, (
-            f"circuit {idx} ({name}): 8bpp offset {tim8_off}, "
-            f"expected {idx * TIM8_BLOCK_SECTORS}")
+        skip_circuit = (only is not None and only != idx)
 
-        if only is not None and only != idx:
-            continue
+        for by in range(grid_by):
+            for bx in range(grid_bx):
+                b_idx = block_cursor
+                block_cursor += 1
 
-        check_tiles_against_source(path, name, off, source_halfwords(name))
-        print(f"  ok  {name} (15bpp block {idx}, {cnt} sectors)")
-        if os.path.exists(tim4_path):
-            check_tim4(idx, name, tim4_off)
-            print(f"  ok  {name} (4bpp block {idx}, {TIM4_BLOCK_SECTORS} sectors)")
-        if os.path.exists(tim8_path):
-            check_tim8(idx, name, tim8_off)
-            print(f"  ok  {name} (8bpp block {idx}, {TIM8_BLOCK_SECTORS} sectors)")
+                off, cnt, blen = entries[b_idx]
+                if cnt != BLOCK_SECTORS or blen != BLOCK_SECTORS * SECTOR_SIZE:
+                    raise AssertionError(
+                        f"circuit {idx} ({name}) block ({bx},{by}): sector_count {cnt}, byte_len {blen}; "
+                        f"an uncompressed block is exactly {BLOCK_SECTORS} sectors")
 
-    checked = len(names) if only is None else 1
-    print(f"TIM/TIM4/TIM8 verified: {file_sectors} 15bpp sectors, {checked} circuits checked")
+                assert off == b_idx * BLOCK_SECTORS, (
+                    f"circuit {idx} ({name}) block ({bx},{by}): offset {off}, expected {b_idx * BLOCK_SECTORS}")
+
+                tim4_off, tim4_cnt, tim4_len = tim4_entries[b_idx]
+                assert (
+                    tim4_cnt == TIM4_BLOCK_SECTORS
+                    and tim4_len == TIM4_BLOCK_SECTORS * SECTOR_SIZE
+                ), (
+                    f"circuit {idx} ({name}) block ({bx},{by}): 4bpp sector_count {tim4_cnt}, byte_len "
+                    f"{tim4_len}; expected {TIM4_BLOCK_SECTORS} sectors")
+                assert tim4_off == b_idx * TIM4_BLOCK_SECTORS, (
+                    f"circuit {idx} ({name}) block ({bx},{by}): 4bpp offset {tim4_off}, "
+                    f"expected {b_idx * TIM4_BLOCK_SECTORS}")
+
+                tim8_off, tim8_cnt, tim8_len = tim8_entries[b_idx]
+                assert (
+                    tim8_cnt == TIM8_BLOCK_SECTORS
+                    and tim8_len == TIM8_BLOCK_SECTORS * SECTOR_SIZE
+                ), (
+                    f"circuit {idx} ({name}) block ({bx},{by}): 8bpp sector_count {tim8_cnt}, byte_len "
+                    f"{tim8_len}; expected {TIM8_BLOCK_SECTORS} sectors")
+                assert tim8_off == b_idx * TIM8_BLOCK_SECTORS, (
+                    f"circuit {idx} ({name}) block ({bx},{by}): 8bpp offset {tim8_off}, "
+                    f"expected {b_idx * TIM8_BLOCK_SECTORS}")
+
+                if skip_circuit:
+                    continue
+
+                crop = full_im.crop((bx * 1024, by * 1024, (bx + 1) * 1024, (by + 1) * 1024))
+                check_tiles_against_source(path, f"{name} block ({bx},{by})", off, expect_source_555(crop))
+                if os.path.exists(tim4_path):
+                    check_tim4(idx, f"{name} block ({bx},{by})", tim4_off, crop_im=crop, shared_pal=shared_pal16)
+                if os.path.exists(tim8_path):
+                    check_tim8(idx, f"{name} block ({bx},{by})", tim8_off, crop_im=crop, shared_pal=shared_pal256)
+                checked_blocks += 1
+
+        if not skip_circuit:
+            print(f"  ok  {name} ({grid_bx}x{grid_by} = {grid_bx * grid_by} blocks)")
+            checked_circuits += 1
+
+    print(f"TIM/TIM4/TIM8 verified: {file_sectors} 15bpp sectors across {checked_blocks} blocks ({checked_circuits} circuits)")
     return 0
 
 

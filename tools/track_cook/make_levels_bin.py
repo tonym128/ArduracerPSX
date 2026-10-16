@@ -43,11 +43,14 @@ CIRCUITS = [
     "Dragon's_Spine", "Redwood_Pass", "Thunder_Basin", "Canyon_Mirage",
     "Apex_Predator", "Viper's_Tail", "Frostpeak_Summit", "Golden_Horizon",
     "Phantom_Ravine", "Frost_Cascade", "Lunar_Gorge", "Onyx_Run",
+    "Titan_Circuit",
 ]
 
 CITIES = ["capetown", "melbourne", "london"]
 
-CIRCUIT_CELLS = 80 * 80
+def circuit_cells(name):
+    return 128 * 128 if name == "Titan_Circuit" else 80 * 80
+
 CITY_CELLS = 240 * 240
 
 
@@ -56,9 +59,10 @@ def circuit_path(name):
 
 
 def city_path(city):
-    return os.path.join(
-        ROOT, "tracks", f"{city}_10km", f"{city}_10km_collision.bin"
-    )
+    p1 = os.path.join(ROOT, "tracks", f"{city}_10km", f"{city}_10km_collision.bin")
+    if os.path.exists(p1):
+        return p1
+    return os.path.join(ROOT, "build", "cities", city, "levelgrid.bin")
 
 
 def main():
@@ -74,9 +78,10 @@ def main():
     parts = []
     for name in CIRCUITS:
         raw = open(circuit_path(name), "rb").read()
-        if len(raw) != CIRCUIT_CELLS:
+        expected = circuit_cells(name)
+        if len(raw) != expected:
             print(
-                f"ERROR: {name} grid is {len(raw)} bytes, expected {CIRCUIT_CELLS}",
+                f"ERROR: {name} grid is {len(raw)} bytes, expected {expected}",
                 file=sys.stderr,
             )
             return 1
