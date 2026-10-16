@@ -452,25 +452,34 @@ const TIM_TILE_SECTORS: u32 = visual_tex::TIM_TILE_SECTORS;
 /// disc has no matching `.BIN`, the circuit is one of the three 10 km^2 cities
 /// (which ship JPEG only), or the cooker recorded no block for it.
 #[inline]
-fn uncompressed_block_for(codec: Codec, circuit: usize) -> Option<(u32, u32)> {
-    if active_city() != 0 || circuit >= visual_tex::COUNT {
+fn uncompressed_block_for(
+    codec: Codec,
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+) -> Option<(u32, u32)> {
+    if active_city() != 0 {
+        return None;
+    }
+    let block_idx = visual_tex::circuit_block_index(circuit, block_x, block_y);
+    if block_idx >= visual_tex::COUNT {
         return None;
     }
     let (enabled, bin_lba, entry) = match codec {
         Codec::Tim => (
             TIM_ENABLED,
             unsafe { TIMTRACKS_BIN_LBA },
-            visual_tex::CIRCUIT_TIM_SECTORS[circuit],
+            visual_tex::CIRCUIT_TIM_SECTORS[block_idx],
         ),
         Codec::Tim4 => (
             TIM4_ENABLED,
             unsafe { TIM4TRACKS_BIN_LBA },
-            visual_tex::CIRCUIT_TIM4_SECTORS[circuit],
+            visual_tex::CIRCUIT_TIM4_SECTORS[block_idx],
         ),
         Codec::Tim8 => (
             TIM8_ENABLED,
             unsafe { TIM8TRACKS_BIN_LBA },
-            visual_tex::CIRCUIT_TIM8_SECTORS[circuit],
+            visual_tex::CIRCUIT_TIM8_SECTORS[block_idx],
         ),
         _ => return None,
     };
@@ -482,18 +491,18 @@ fn uncompressed_block_for(codec: Codec, circuit: usize) -> Option<(u32, u32)> {
 }
 
 #[inline]
-fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
-    uncompressed_block_for(Codec::Tim, circuit)
+fn tim_block_for(circuit: usize, block_x: usize, block_y: usize) -> Option<(u32, u32)> {
+    uncompressed_block_for(Codec::Tim, circuit, block_x, block_y)
 }
 
 #[inline]
-fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
-    uncompressed_block_for(Codec::Tim4, circuit)
+fn tim4_block_for(circuit: usize, block_x: usize, block_y: usize) -> Option<(u32, u32)> {
+    uncompressed_block_for(Codec::Tim4, circuit, block_x, block_y)
 }
 
 #[inline]
-fn tim8_block_for(circuit: usize) -> Option<(u32, u32)> {
-    uncompressed_block_for(Codec::Tim8, circuit)
+fn tim8_block_for(circuit: usize, block_x: usize, block_y: usize) -> Option<(u32, u32)> {
+    uncompressed_block_for(Codec::Tim8, circuit, block_x, block_y)
 }
 
 /// Whether `circuit` is served by the uncompressed TIM path.
@@ -505,7 +514,7 @@ fn tim8_block_for(circuit: usize) -> Option<(u32, u32)> {
 fn codec_is_tim(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim(
         unsafe { TEXTURE_FORMAT },
-        tim_block_for(circuit).is_some(),
+        tim_block_for(circuit, 0, 0).is_some(),
     )
 }
 
@@ -514,7 +523,7 @@ fn codec_is_tim(circuit: usize) -> bool {
 fn codec_is_tim4(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim4(
         unsafe { TEXTURE_FORMAT },
-        tim4_block_for(circuit).is_some(),
+        tim4_block_for(circuit, 0, 0).is_some(),
     )
 }
 
@@ -523,7 +532,7 @@ fn codec_is_tim4(circuit: usize) -> bool {
 fn codec_is_tim8(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim8(
         unsafe { TEXTURE_FORMAT },
-        tim8_block_for(circuit).is_some(),
+        tim8_block_for(circuit, 0, 0).is_some(),
     )
 }
 
@@ -760,7 +769,12 @@ fn codec_for_circuit(circuit: usize) -> Codec {
     let have_qoi_asset = unsafe { QOITRACKS_BIN_LBA }.is_some();
     let have_svg_asset = unsafe { SVGTRACKS_BIN_LBA }.is_some();
     let have_jpeg_asset = unsafe { TRACKS_BIN_LBA }.is_some();
-    let known = circuit < visual_tex::COUNT;
+    let known = circuit < visual_tex::CIRCUIT_COUNT;
+    let base_block = if known {
+        visual_tex::circuit_block_index(circuit, 0, 0)
+    } else {
+        0
+    };
 
     // A pinned format is honoured first, but only if this build can actually
     // decode it and the disc carries it. Pinning something unavailable therefore
@@ -772,25 +786,25 @@ fn codec_for_circuit(circuit: usize) -> Codec {
                 SVG_ENABLED
                     && have_svg_asset
                     && known
-                    && visual_tex::CIRCUIT_ARSV_SECTORS[circuit].sector_count > 0
+                    && visual_tex::CIRCUIT_ARSV_SECTORS[base_block].sector_count > 0
             }
             TextureFormat::Qoi => {
                 QOI_ENABLED
                     && have_qoi_asset
                     && known
-                    && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
+                    && visual_tex::CIRCUIT_QOI_SECTORS[base_block].sector_count > 0
             }
             // Availability check, which is the right question here: this arm
             // *is* the place that decides whether a TIM pin can be honoured.
             // The decode paths ask `codec_is_tim` instead, because they need to
             // know what was selected, not what exists.
-            TextureFormat::Tim => tim_block_for(circuit).is_some(),
-            TextureFormat::Tim4 => tim4_block_for(circuit).is_some(),
-            TextureFormat::Tim8 => tim8_block_for(circuit).is_some(),
+            TextureFormat::Tim => tim_block_for(circuit, 0, 0).is_some(),
+            TextureFormat::Tim4 => tim4_block_for(circuit, 0, 0).is_some(),
+            TextureFormat::Tim8 => tim8_block_for(circuit, 0, 0).is_some(),
             TextureFormat::Jpeg => {
                 have_jpeg_asset
                     && known
-                    && visual_tex::CIRCUIT_BLOCK_SECTORS[circuit].sector_count > 0
+                    && visual_tex::CIRCUIT_BLOCK_SECTORS[base_block].sector_count > 0
             }
             TextureFormat::Auto => false,
         };
@@ -802,13 +816,13 @@ fn codec_for_circuit(circuit: usize) -> Codec {
     if SVG_ENABLED
         && have_svg_asset
         && known
-        && visual_tex::CIRCUIT_ARSV_SECTORS[circuit].sector_count > 0
+        && visual_tex::CIRCUIT_ARSV_SECTORS[base_block].sector_count > 0
     {
         Codec::Arsv
     } else if QOI_ENABLED
         && have_qoi_asset
         && known
-        && visual_tex::CIRCUIT_QOI_SECTORS[circuit].sector_count > 0
+        && visual_tex::CIRCUIT_QOI_SECTORS[base_block].sector_count > 0
     {
         Codec::Qoi
     } else {
@@ -875,7 +889,7 @@ pub fn reset_texture_caches() {
 /// dimensions would require the grid to already exist -- which is the thing being
 /// loaded. A mismatch here is the one failure that produces a plausible-looking
 /// level that is quietly the wrong terrain, so it is pinned by a host test.
-pub const LEVEL_DIMS: [(u8, u8); 27] = [
+pub const LEVEL_DIMS: [(u8, u8); 28] = [
     // 24 circuits
     (80, 80),
     (80, 80),
@@ -901,6 +915,8 @@ pub const LEVEL_DIMS: [(u8, u8); 27] = [
     (80, 80),
     (80, 80),
     (80, 80),
+    // Map 25 (Titan Circuit)
+    (128, 128),
     // 3 free-roam cities
     (240, 240),
     (240, 240),
@@ -911,11 +927,11 @@ pub const LEVEL_DIMS: [(u8, u8); 27] = [
 ///
 /// Call after `init_track_texture`, which is what locates the asset.
 pub fn load_level_grid(circuit: usize, track: &'static arduracer_core::TrackDef) -> bool {
-    // 24 circuits occupy 0..23; the cities follow at 24..26.
+    // 25 circuits occupy 0..24; the cities follow at 25..27.
     let index = match circuit {
-        97 => 24,
-        98 => 25,
-        99 => 26,
+        97 => 25,
+        98 => 26,
+        99 => 27,
         c => c,
     };
     if index >= LEVEL_DIMS.len() {
@@ -1132,7 +1148,7 @@ fn decode_row(
 fn ensure_uncompressed_palette(codec: Codec, circuit: usize) -> bool {
     let (block_lba, clut, entries_count, clut_circuit_ptr) = match codec {
         Codec::Tim4 => {
-            let Some((lba, _)) = tim4_block_for(circuit) else {
+            let Some((lba, _)) = tim4_block_for(circuit, 0, 0) else {
                 return false;
             };
             (
@@ -1143,7 +1159,7 @@ fn ensure_uncompressed_palette(codec: Codec, circuit: usize) -> bool {
             )
         }
         Codec::Tim8 => {
-            let Some((lba, _)) = tim8_block_for(circuit) else {
+            let Some((lba, _)) = tim8_block_for(circuit, 0, 0) else {
                 return false;
             };
             (
@@ -1263,13 +1279,15 @@ fn mark_vram_slot_resident(
 fn uncompressed_tile_lba(
     codec: Codec,
     circuit: usize,
+    block_x: usize,
+    block_y: usize,
     tile_x: usize,
     tile_y: usize,
 ) -> Option<(u32, u32, u32, crate::async_tile::Codec)> {
     if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
         return None;
     }
-    let (block_lba, block_sectors) = uncompressed_block_for(codec, circuit)?;
+    let (block_lba, block_sectors) = uncompressed_block_for(codec, circuit, block_x, block_y)?;
     let (palette_sectors, tile_sectors, async_codec) = match codec {
         Codec::Tim => (0, TIM_TILE_SECTORS, crate::async_tile::Codec::Tim),
         Codec::Tim4 => (
@@ -1310,13 +1328,15 @@ enum TileStepResult {
 fn upload_uncompressed_tile_async(
     codec: Codec,
     circuit: usize,
+    block_x: usize,
+    block_y: usize,
     tile_x: usize,
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
 ) -> TileStepResult {
     let Some((tile_lba, available, tile_sectors, async_codec)) =
-        uncompressed_tile_lba(codec, circuit, tile_x, tile_y)
+        uncompressed_tile_lba(codec, circuit, block_x, block_y, tile_x, tile_y)
     else {
         return TileStepResult::Failed;
     };
@@ -1338,7 +1358,15 @@ fn upload_uncompressed_tile_async(
     crate::prof::count(crate::prof::C_CD_SECTORS, tile_sectors);
 
     upload_tile_to_vram(codec, target_slot, src);
-    mark_vram_slot_resident(target_slot, circuit, 0, 0, tile_x, tile_y, current_frame);
+    mark_vram_slot_resident(
+        target_slot,
+        circuit,
+        block_x,
+        block_y,
+        tile_x,
+        tile_y,
+        current_frame,
+    );
     TileStepResult::Uploaded
 }
 
@@ -1362,6 +1390,8 @@ fn paint_fallback_row(start_y: usize, scratch: &mut [u16; TILE_PIXELS]) {
 fn upload_uncompressed_tile_sync(
     codec: Codec,
     circuit: usize,
+    block_x: usize,
+    block_y: usize,
     tile_x: usize,
     tile_y: usize,
     target_slot: usize,
@@ -1370,7 +1400,7 @@ fn upload_uncompressed_tile_sync(
         return false;
     }
     let Some((tile_lba, _, tile_sectors, _)) =
-        uncompressed_tile_lba(codec, circuit, tile_x, tile_y)
+        uncompressed_tile_lba(codec, circuit, block_x, block_y, tile_x, tile_y)
     else {
         return false;
     };
@@ -1381,7 +1411,7 @@ fn upload_uncompressed_tile_sync(
     }
     let src = scratch_words() as *const u32;
     upload_tile_to_vram(codec, target_slot, src);
-    mark_vram_slot_resident(target_slot, circuit, 0, 0, tile_x, tile_y, 1);
+    mark_vram_slot_resident(target_slot, circuit, block_x, block_y, tile_x, tile_y, 1);
     true
 }
 
@@ -1395,7 +1425,7 @@ fn decode_and_upload_full_tile(
     target_slot: usize,
 ) {
     if let Some(codec) = uncompressed_codec_for(circuit) {
-        if !upload_uncompressed_tile_sync(codec, circuit, sub_tx, sub_ty, target_slot) {
+        if !upload_uncompressed_tile_sync(codec, circuit, bx, by, sub_tx, sub_ty, target_slot) {
             let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
             slot[target_slot] = VramSlot::empty();
         }
@@ -1439,15 +1469,24 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     }
 
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
-    let block_wu_x = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_w.max(1)
+    let (block_wu_x, block_wu_y) = if active_circuit >= 97 {
+        let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_w.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_h.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        (bx, by)
     } else {
-        BLOCK_DIM as i32 * 5 / 2
-    };
-    let block_wu_y = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_h.max(1)
-    } else {
-        BLOCK_DIM as i32 * 5 / 2
+        let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
+        (
+            (world_w / g_bx as i32).max(1),
+            (world_h / g_by as i32).max(1),
+        )
     };
 
     let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
@@ -1533,7 +1572,7 @@ fn block_location(
             )
         }
         _ => {
-            let c = circuit % visual_tex::COUNT;
+            let c = visual_tex::circuit_block_index(circuit, block_x, block_y);
             if use_arsv {
                 (
                     unsafe { SVGTRACKS_BIN_LBA },
@@ -1920,6 +1959,8 @@ fn step_decode_job(current_frame: u32) -> StepResult {
         match upload_uncompressed_tile_async(
             codec,
             job.circuit,
+            job.block_x,
+            job.block_y,
             job.tile_x,
             job.tile_y,
             job.target_slot,
@@ -2278,17 +2319,26 @@ pub fn render_track_extents(
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
 
     // Compute exact world units per 64x64 tile along X and Y axes.
-    // For single tracks: 1 block (1024x1024) covers the entire track (world_w x world_h).
-    // For large cities (> 2560 world units): partitioned into blocks of 2560 world units.
-    let block_wu_x = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_w.max(1)
+    // For standard circuits (< 97): block grid comes from visual_tex::circuit_block_grid (1x1 for single tracks, 4x4 for multi-block tracks).
+    // For large cities (>= 97): partitioned into blocks of 2560 world units.
+    let (block_wu_x, block_wu_y) = if active_circuit >= 97 {
+        let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_w.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
+            world_h.max(1)
+        } else {
+            BLOCK_DIM as i32 * 5 / 2
+        };
+        (bx, by)
     } else {
-        BLOCK_DIM as i32 * 5 / 2
-    };
-    let block_wu_y = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-        world_h.max(1)
-    } else {
-        BLOCK_DIM as i32 * 5 / 2
+        let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
+        (
+            (world_w / g_bx as i32).max(1),
+            (world_h / g_by as i32).max(1),
+        )
     };
 
     let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
@@ -2475,9 +2525,22 @@ pub fn render_track_extents(
             for i in 1..prefetch_count {
                 let mut j = i;
                 while j > 0 {
-                    let prev_idx =
-                        prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j - 1].4;
-                    let curr_idx = prefetch_tiles[j].5 * TILES_PER_BLOCK_AXIS + prefetch_tiles[j].4;
+                    let prev_b = visual_tex::circuit_block_index(
+                        active_circuit,
+                        prefetch_tiles[j - 1].2,
+                        prefetch_tiles[j - 1].3,
+                    );
+                    let curr_b = visual_tex::circuit_block_index(
+                        active_circuit,
+                        prefetch_tiles[j].2,
+                        prefetch_tiles[j].3,
+                    );
+                    let prev_idx = prev_b * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS)
+                        + prefetch_tiles[j - 1].5 * TILES_PER_BLOCK_AXIS
+                        + prefetch_tiles[j - 1].4;
+                    let curr_idx = curr_b * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS)
+                        + prefetch_tiles[j].5 * TILES_PER_BLOCK_AXIS
+                        + prefetch_tiles[j].4;
                     if prev_idx > curr_idx {
                         prefetch_tiles.swap(j - 1, j);
                         j -= 1;

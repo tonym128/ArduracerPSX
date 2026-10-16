@@ -13,7 +13,7 @@
 use std::path::PathBuf;
 
 /// Grid dimensions, mirroring `game::gpu::tracktex::LEVEL_DIMS`.
-const LEVEL_DIMS: [(u8, u8); 27] = [
+const LEVEL_DIMS: [(u8, u8); 28] = [
     (80, 80),
     (80, 80),
     (80, 80),
@@ -38,6 +38,7 @@ const LEVEL_DIMS: [(u8, u8); 27] = [
     (80, 80),
     (80, 80),
     (80, 80),
+    (128, 128),
     (240, 240),
     (240, 240),
     (240, 240),
@@ -89,8 +90,8 @@ fn asset_length_is_exactly_the_sum_of_the_grids() {
         .sum();
     assert_eq!(asset().len(), expected);
     assert_eq!(
-        expected, 326_400,
-        "24 circuits at 6,400 plus 3 cities at 57,600"
+        expected, 342_784,
+        "24 circuits at 6,400 plus 1 circuit at 16,384 plus 3 cities at 57,600"
     );
 }
 

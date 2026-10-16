@@ -19,10 +19,10 @@ use crate::TrackTile;
 /// Shared staging, one grid at a time. Kept per-level so several levels can be
 /// bound at once, which is what the existing tests assume.
 const MAX: usize = 57_600;
-static mut BUFFERS: [TrackTile; 27 * MAX] = [TrackTile::OffRoad; 27 * MAX];
+static mut BUFFERS: [TrackTile; 28 * MAX] = [TrackTile::OffRoad; 28 * MAX];
 
 /// Grid dimensions, mirroring `game::gpu::tracktex::LEVEL_DIMS`.
-const LEVEL_DIMS: [(u8, u8); 27] = [
+const LEVEL_DIMS: [(u8, u8); 28] = [
     (80, 80),
     (80, 80),
     (80, 80),
@@ -47,6 +47,7 @@ const LEVEL_DIMS: [(u8, u8); 27] = [
     (80, 80),
     (80, 80),
     (80, 80),
+    (128, 128),
     (240, 240),
     (240, 240),
     (240, 240),
@@ -94,13 +95,13 @@ pub fn ensure_installed() {
     });
 }
 
-/// The `TrackDef` for a level index: circuits 0..23, then the three cities.
+/// The `TrackDef` for a level index: circuits 0..24, then the three cities.
 fn def_for(i: usize) -> Option<&'static crate::TrackDef> {
     match i {
-        0..=23 => Some(crate::levels::ALL_TRACKS[i]),
-        24 => Some(&crate::capetown::TRACK_CAPETOWN),
-        25 => Some(&crate::melbourne::TRACK_MELBOURNE),
-        26 => Some(&crate::london::TRACK_LONDON),
+        0..=24 => Some(crate::levels::ALL_TRACKS[i]),
+        25 => Some(&crate::capetown::TRACK_CAPETOWN),
+        26 => Some(&crate::melbourne::TRACK_MELBOURNE),
+        27 => Some(&crate::london::TRACK_LONDON),
         _ => None,
     }
 }

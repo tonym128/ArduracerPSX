@@ -1852,7 +1852,7 @@ fn test_save_block_round_trip() {
 }
 
 fn test_all_24_tracks_integrity() {
-    assert_eq!(ALL_TRACKS.len(), 24, "Must have exactly 24 official tracks");
+    assert_eq!(ALL_TRACKS.len(), 25, "Must have exactly 25 official tracks");
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
@@ -2249,11 +2249,11 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
-    assert_eq!(visual_tex::COUNT, 24);
+    assert_eq!(visual_tex::COUNT, 40);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
     assert_eq!(visual_tex::BLOCK_SECTORS, 250);
     assert_eq!(visual_tex::BLOCK_MAX_BYTES, 512000);
-    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 24);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 40);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

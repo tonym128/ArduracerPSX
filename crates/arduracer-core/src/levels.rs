@@ -10372,9 +10372,9 @@ pub static TRACK_LUNAR_GORGE: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 1029,
-        silver_ticks: 900,
-        gold_ticks: 804,
+        bronze_ticks: 1028,
+        silver_ticks: 899,
+        gold_ticks: 803,
         dev_platinum_ticks: 626,
     },
     checkpoint_count: 6,
@@ -11254,13 +11254,483 @@ pub static TRACK_ONYX_RUN: TrackDef = TrackDef {
     half_width: 128,
 };
 
-/// Authored circuits: 24.
-pub const AUTHORED_TRACK_COUNT: usize = 24;
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_TITAN_CIRCUIT: TrackDef = TrackDef {
+    name: "Titan Circuit",
+    width: 128,
+    height: 128,
+    start_pos: Vec2 {
+        x: Fixed(4390912),
+        y: Fixed(2818048),
+    },
+    start_heading: 519,
+    start_gate: CheckpointGate {
+        x: 33,
+        y: 21,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 7885,
+        silver_ticks: 6899,
+        gold_ticks: 6160,
+        dev_platinum_ticks: 4644,
+    },
+    checkpoint_count: 6,
+    checkpoints: [
+        CheckpointGate {
+            x: 78,
+            y: 18,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 110,
+            y: 44,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 110,
+            y: 90,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 73,
+            y: 110,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 29,
+            y: 103,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 18,
+            y: 61,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(8716288),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(9109504),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(9633792),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(10027008),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(10420224),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(10944512),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(11337728),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(11730944),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(12255232),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(12517376),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(12910592),
+            y: Fixed(3211264),
+        },
+        Vec2 {
+            x: Fixed(13172736),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(13434880),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(13828096),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(14090240),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(14352384),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(8716288),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(9109504),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(9502720),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(10027008),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(10420224),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(10944512),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(11337728),
+        },
+        Vec2 {
+            x: Fixed(14483456),
+            y: Fixed(11730944),
+        },
+        Vec2 {
+            x: Fixed(14352384),
+            y: Fixed(12124160),
+        },
+        Vec2 {
+            x: Fixed(14090240),
+            y: Fixed(12517376),
+        },
+        Vec2 {
+            x: Fixed(13828096),
+            y: Fixed(12779520),
+        },
+        Vec2 {
+            x: Fixed(13434880),
+            y: Fixed(13172736),
+        },
+        Vec2 {
+            x: Fixed(13172736),
+            y: Fixed(13434880),
+        },
+        Vec2 {
+            x: Fixed(12779520),
+            y: Fixed(13828096),
+        },
+        Vec2 {
+            x: Fixed(12517376),
+            y: Fixed(14090240),
+        },
+        Vec2 {
+            x: Fixed(12124160),
+            y: Fixed(14352384),
+        },
+        Vec2 {
+            x: Fixed(11730944),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(11337728),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(10813440),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(10420224),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(10027008),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(9502720),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(9109504),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(8716288),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(14483456),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(14352384),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(14090240),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(13828096),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(13434880),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(13172736),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(12779520),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(12517376),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(12124160),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(11730944),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(11337728),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(10813440),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(10420224),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(10027008),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(9502720),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(9109504),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(8716288),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(3080192),
+        },
+    ],
+    half_width: 96,
+};
+
+/// Authored circuits: 25.
+pub const AUTHORED_TRACK_COUNT: usize = 25;
 
 /// The authored circuits, deduplicated.
 ///
-/// `ALL_TRACKS` is a fixed 24 slots and currently holds these
-/// 24 repeated round-robin, so anything that wants *the circuits*
+/// `ALL_TRACKS` is a fixed 25 slots and currently holds these
+/// 25 repeated round-robin, so anything that wants *the circuits*
 /// rather than *the slots* wants this. Without it a caller iterating
 /// `ALL_TRACKS` to validate circuits walks the same oval many times and
 /// reports many passes where there is one thing that could have passed.
@@ -11289,9 +11759,10 @@ pub const AUTHORED_TRACKS: [&TrackDef; AUTHORED_TRACK_COUNT] = [
     &TRACK_FROST_CASCADE,
     &TRACK_LUNAR_GORGE,
     &TRACK_ONYX_RUN,
+    &TRACK_TITAN_CIRCUIT,
 ];
 
-pub const ALL_TRACKS: [&TrackDef; 24] = [
+pub const ALL_TRACKS: [&TrackDef; 25] = [
     &TRACK_CASCADE_FALLS,
     &TRACK_COPPER_GORGE,
     &TRACK_LONGBOW,
@@ -11316,12 +11787,13 @@ pub const ALL_TRACKS: [&TrackDef; 24] = [
     &TRACK_FROST_CASCADE,
     &TRACK_LUNAR_GORGE,
     &TRACK_ONYX_RUN,
+    &TRACK_TITAN_CIRCUIT,
 ];
 
 /// Authored-circuit index for each `ALL_TRACKS` slot, for the renderer.
 ///
 /// `gpu::tracktex::init_track_texture` takes one of these and uploads the
 /// matching entry of `visual_tex::PACKED`.
-pub const ALL_TRACK_VISUALS: [usize; 24] = [
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+pub const ALL_TRACK_VISUALS: [usize; 25] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
 ];

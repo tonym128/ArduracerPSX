@@ -21,14 +21,14 @@
 //! | 0      | 16   | `magic` |
 //! | 16     | 2    | `version` |
 //! | 18     | 6    | progress flags and preferences |
-//! | 24     | 96   | `best_lap_ticks` (24 × `u32`) |
-//! | 120    | 24   | `medals_earned` |
-//! | 144    | 15   | `tuning_slots` (3 × 5 sliders) |
-//! | 159    | 12   | `champ_points` (6 × `u16`) |
-//! | 171    | 6    | `champ_grid` (6 × `u8`) |
-//! | 177    | 2    | `texture_format`, `framerate` |
-//! | 179    | 1    | `cd_audio` |
-//! | 180    | 2    | `checksum` (CRC over bytes 0..180) |
+//! | 24     | 100  | `best_lap_ticks` (25 × `u32`) |
+//! | 124    | 25   | `medals_earned` |
+//! | 149    | 15   | `tuning_slots` (3 × 5 sliders) |
+//! | 164    | 12   | `champ_points` (6 × `u16`) |
+//! | 176    | 6    | `champ_grid` (6 × `u8`) |
+//! | 182    | 2    | `texture_format`, `framerate` |
+//! | 184    | 1    | `cd_audio` |
+//! | 185    | 2    | `checksum` (CRC over bytes 0..185) |
 //!
 //! # A valid checksum is not a valid save
 //!
@@ -49,7 +49,7 @@ use crate::championship::{
 use crate::timing::{Medal, MIN_PLAUSIBLE_LAP_TICKS, NO_BEST_LAP};
 use crate::tuning::CarTuning;
 
-pub const TOTAL_TRACKS: usize = 24;
+pub const TOTAL_TRACKS: usize = 25;
 pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 /// Payload version.
 ///
@@ -63,7 +63,8 @@ pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 /// - v4 added the CD-audio preference (1 byte). The byte could not be stolen
 ///   from anywhere else in the payload: every other slot is either a live
 ///   preference or the packed championship progression in `_reserved0`.
-pub const SAVE_VERSION: u16 = 4;
+/// - v5 expanded to 25 tracks for Map 25 (Titan Circuit, 4096x4096).
+pub const SAVE_VERSION: u16 = 5;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -79,11 +80,11 @@ pub const MAX_VOLUME: u8 = 8;
 
 /// On-card payload length: every field is written explicitly, so this is the
 /// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 182;
+pub const PAYLOAD_SIZE: usize = 187;
 
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 180;
+pub const CHECKSUM_OFFSET: usize = 185;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
 const OFF_BEST_LAPS: usize = 24;
@@ -430,18 +431,17 @@ impl SaveData {
         // _reserved0 stores Grand Prix progression when active.
         // A valid active championship has:
         // - active flag bit 0 set (0x01)
-        // - cup index (bits 1..=2) < CUP_COUNT (4)
-        // - stage index (bits 3..=5) < STAGES_PER_CUP (6)
-        // - difficulty (bits 6..=7) <= 2
+        // - cup_stage (bits 1..=5) < 30 (5 cups × 6 stages)
+        // - difficulty (bits 6..=7) encoded as 1..=3
         // If inactive or invalid, clear to 0.
-        // To prevent an arbitrary corrupt byte (like 9 = active=1, cup=0, stage=1, diff=0)
+        // To prevent an arbitrary corrupt byte (like 9 = active=1, cup_stage=4, diff=0)
         // from being treated as a valid save when raw reserved bytes are tested,
-        // we can store difficulty encoded as (diff + 1) in bits 6..=7 (so diff+1 is 1, 2, or 3, never 0)
+        // we store difficulty encoded as (diff + 1) in bits 6..=7 (so diff+1 is 1, 2, or 3, never 0)
         // when active.
         if (self._reserved0 & 0x01) != 0 {
-            let stage = (self._reserved0 >> 3) & 0x07;
+            let cup_stage = (self._reserved0 >> 1) & 0x1F;
             let diff_code = (self._reserved0 >> 6) & 0x03;
-            if stage >= STAGES_PER_CUP || diff_code == 0 || diff_code > 3 {
+            if cup_stage >= 30 || diff_code == 0 {
                 self._reserved0 = 0;
             }
         } else {
@@ -562,13 +562,14 @@ impl SaveData {
         if !self.has_saved_championship() {
             return None;
         }
-        let cup = (self._reserved0 >> 1) & 0x03;
-        let stage = (self._reserved0 >> 3) & 0x07;
+        let cup_stage = ((self._reserved0 >> 1) & 0x1F) as usize;
         let diff_code = (self._reserved0 >> 6) & 0x03;
-        if diff_code == 0 || diff_code > 3 {
+        if diff_code == 0 || cup_stage >= 30 {
             return None;
         }
         let difficulty = Difficulty::from_u8(diff_code - 1);
+        let cup = (cup_stage / 6) as u8;
+        let stage = (cup_stage % 6) as u8;
 
         if cup as usize >= CUP_COUNT || stage >= STAGES_PER_CUP {
             return None;
@@ -596,10 +597,10 @@ impl SaveData {
     /// Saves the current championship session state and recomputes the checksum.
     pub fn save_championship(&mut self, session: &ChampionshipSession) {
         let active = 1u8;
-        let cup = (session.cup_index & 0x03) << 1;
-        let stage = (session.current_stage & 0x07) << 3;
+        let cup_stage =
+            (((session.cup_index as usize * 6 + session.current_stage as usize) & 0x1F) as u8) << 1;
         let diff_code = ((session.difficulty as u8 + 1) & 0x03) << 6;
-        self._reserved0 = active | cup | stage | diff_code;
+        self._reserved0 = active | cup_stage | diff_code;
 
         // The bracket position above is only half the session. Without these the
         // resumed cup comes back with every competitor on zero points and the

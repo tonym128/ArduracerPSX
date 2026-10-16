@@ -147,7 +147,8 @@ impl TrackSelectScreen {
             0 => "BRONZE CUP (AMATEUR)",
             1 => "SILVER CUP (PRO)",
             2 => "GOLD CUP (CHAMPION)",
-            _ => "PLATINUM CUP (SUPER SPEEDWAYS)",
+            3 => "PLATINUM CUP (SUPER SPEEDWAYS)",
+            _ => "DIAMOND CUP (TITAN CIRCUIT)",
         };
         draw_text(50, 46, cup_name, (0, 220, 255), 1);
 
@@ -155,7 +156,7 @@ impl TrackSelectScreen {
         gpu::draw_rect_flat(24, 62, 272, 34, 35, 42, 55);
         gpu::draw_rect_flat(26, 64, 268, 30, 20, 25, 35);
 
-        // Track Index Number: e.g. "TRACK 01 / 24"
+        // Track Index Number: e.g. "TRACK 01 / 25"
         let track_num = (self.selected_track_idx + 1) as u8;
         let num_str = [
             b'T',
@@ -170,7 +171,7 @@ impl TrackSelectScreen {
             b'/',
             b' ',
             b'2',
-            b'4',
+            b'5',
             0,
         ];
         let mut cur_x = 34u16;
