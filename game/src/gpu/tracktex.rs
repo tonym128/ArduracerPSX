@@ -303,6 +303,16 @@ impl AsyncBlockJob {
 /// 1-slot unified RAM block holding the 1024x1024 compressed map (<= 500 KB).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
+/// Maximum background staging sectors for compressed blocks during driving (58 sectors = 116 KB).
+pub const STAGING_SECTORS: usize = 58;
+
+#[repr(align(4))]
+struct StagingData([u8; STAGING_SECTORS * 2048]);
+
+/// Background staging buffer for compressed blocks so the current resident block
+/// remains valid and decodable while the next block streams in.
+static mut BLOCK_STAGING: StagingData = StagingData([0u8; STAGING_SECTORS * 2048]);
+
 /// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
 static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];
 
@@ -1788,24 +1798,28 @@ fn start_async_block_load(
         return false;
     }
 
-    // Cancel any active decode job that was working on the previous resident block
-    let active_job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
-    if active_job.active
-        && (active_job.circuit != circuit
-            || active_job.block_x != block_x
-            || active_job.block_y != block_y)
-    {
-        active_job.active = false;
+    let sectors_to_read = (entry.byte_len as usize).div_ceil(2048);
+    let staging_available = sectors_to_read <= STAGING_SECTORS;
+
+    if !staging_available {
+        // Fallback for massive blocks: invalidate RAM_BLOCKS[0] and active job directly
+        let active_job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+        if active_job.active
+            && (active_job.circuit != circuit
+                || active_job.block_x != block_x
+                || active_job.block_y != block_y)
+        {
+            active_job.active = false;
+        }
+
+        let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
+        ram_slot.valid = false;
+        ram_slot.resident_circuit = circuit;
+        ram_slot.resident_block_x = block_x;
+        ram_slot.resident_block_y = block_y;
+        ram_slot.byte_len = 0;
     }
 
-    let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
-    ram_slot.valid = false;
-    ram_slot.resident_circuit = circuit;
-    ram_slot.resident_block_x = block_x;
-    ram_slot.resident_block_y = block_y;
-    ram_slot.byte_len = 0;
-
-    let sectors_to_read = (entry.byte_len as usize).div_ceil(2048);
     crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
     crate::prof::count(crate::prof::C_CD_SECTORS, sectors_to_read as u32);
 
@@ -1845,14 +1859,21 @@ fn step_async_block_load(current_frame: u32) {
 
     let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[job.slot_idx] };
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+    let staging_available = job.sectors_total <= STAGING_SECTORS;
 
     while job.sectors_read < job.sectors_total {
         let offset = job.sectors_read * 2048;
-        if offset + 2048 > ram_slot.block_data.0.len() {
-            break;
-        }
-        let dst =
-            unsafe { &mut *(ram_slot.block_data.0.as_mut_ptr().add(offset) as *mut [u32; 512]) };
+        let dst = if staging_available {
+            unsafe {
+                &mut *(((*core::ptr::addr_of_mut!(BLOCK_STAGING)).0.as_mut_ptr()).add(offset)
+                    as *mut [u32; 512])
+            }
+        } else {
+            if offset + 2048 > ram_slot.block_data.0.len() {
+                break;
+            }
+            unsafe { &mut *(ram_slot.block_data.0.as_mut_ptr().add(offset) as *mut [u32; 512]) }
+        };
         match reader.try_tile_sector(dst) {
             SectorPoll::Filled => {
                 job.sectors_read += 1;
@@ -1864,7 +1885,9 @@ fn step_async_block_load(current_frame: u32) {
                 reader.stop_stream();
                 crate::drive::release(crate::drive::Owner::Texture);
                 job.active = false;
-                ram_slot.valid = false;
+                if !staging_available {
+                    ram_slot.valid = false;
+                }
                 return;
             }
         }
@@ -1876,6 +1899,19 @@ fn step_async_block_load(current_frame: u32) {
         crate::drive::release(crate::drive::Owner::Texture);
 
         let byte_len = job.byte_len;
+        if staging_available {
+            let active_job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+            if active_job.active {
+                active_job.active = false;
+            }
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    (*core::ptr::addr_of!(BLOCK_STAGING)).0.as_ptr(),
+                    ram_slot.block_data.0.as_mut_ptr(),
+                    byte_len,
+                );
+            }
+        }
         ram_slot.byte_len = byte_len;
         ram_slot.codec = if job.use_arsv {
             Codec::Arsv
@@ -2135,8 +2171,14 @@ fn tile_priority_key(
             (2 * wx0 + candidates.tile_wu.0) * 8 - cam_qx,
             (2 * wy0 + candidates.tile_wu.1) * 8 - cam_qy,
         );
-        // Prioritize closer tiles to the camera first (z_q4 >> 4 is integer depth 70..240)
-        (z_q4 >> 4).clamp(0, 255) as u32
+        let z = z_q4 >> 4;
+        if z < 140 {
+            0u32
+        } else if z < 210 {
+            1u32
+        } else {
+            2u32
+        }
     } else {
         0u32
     };
@@ -2226,6 +2268,10 @@ fn step_or_schedule_decode_row(
         let Some((bx, by, sub_tx, sub_ty)) = candidate else {
             return false;
         };
+
+        if !uncompressed && !is_ram_block_resident(active_circuit, bx, by) {
+            return false;
+        }
 
         // Find oldest VRAM slot not currently visible in this frame. `used_slots`
         // holds both visible residents and in-flight decode targets, so this can
@@ -2381,25 +2427,25 @@ pub fn render_track_extents(
     // Compute exact world units per 64x64 tile along X and Y axes.
     // For standard circuits (< 97): block grid comes from visual_tex::circuit_block_grid (1x1 for single tracks, 4x4 for multi-block tracks).
     // For large cities (>= 97): partitioned into blocks of 2560 world units.
-    let (block_wu_x, block_wu_y) = if active_circuit >= 97 {
+    let (g_bx, g_by) = if active_circuit >= 97 {
         let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-            world_w.max(1)
+            1
         } else {
-            BLOCK_DIM as i32 * 5 / 2
+            ((world_w + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1) as usize
         };
         let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-            world_h.max(1)
+            1
         } else {
-            BLOCK_DIM as i32 * 5 / 2
+            ((world_h + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1) as usize
         };
         (bx, by)
     } else {
-        let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
-        (
-            (world_w / g_bx as i32).max(1),
-            (world_h / g_by as i32).max(1),
-        )
+        visual_tex::circuit_block_grid(active_circuit)
     };
+    let (block_wu_x, block_wu_y) = (
+        (world_w / g_bx as i32).max(1),
+        (world_h / g_by as i32).max(1),
+    );
 
     let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
     let tile_wu_y = (block_wu_y / (TILES_PER_BLOCK_AXIS as i32)).max(1);
@@ -2680,41 +2726,43 @@ pub fn render_track_extents(
     if !codec_is_uncompressed(active_circuit) {
         let async_job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
         if !async_job.active {
-            let current_block_still_needed = (0..vis_count).any(|i| {
-                if slot_for_tile[i] == usize::MAX {
-                    let (_, _, bx, by, _, _) = visible_tiles[i];
-                    is_ram_block_resident(active_circuit, bx, by)
-                } else {
-                    false
-                }
-            });
+            let car_bx = ((cam_x / block_wu_x) as usize).min(g_bx.saturating_sub(1));
+            let car_by = ((cam_y / block_wu_y) as usize).min(g_by.saturating_sub(1));
+            let mut needed_block = if !is_ram_block_resident(active_circuit, car_bx, car_by) {
+                Some((car_bx, car_by))
+            } else {
+                None
+            };
 
-            if !current_block_still_needed {
-                let mut needed_block = None;
+            if needed_block.is_none() {
+                let mut closest_z = i32::MAX;
                 for i in 0..vis_count {
                     if slot_for_tile[i] == usize::MAX {
                         let (_, _, bx, by, _, _) = visible_tiles[i];
+                        if !is_ram_block_resident(active_circuit, bx, by) {
+                            let z = vis_depths[i];
+                            if z < closest_z {
+                                closest_z = z;
+                                needed_block = Some((bx, by));
+                            }
+                        }
+                    }
+                }
+            }
+            if needed_block.is_none() {
+                for i in 0..prefetch_count {
+                    let tile = &prefetch_tiles[i];
+                    if !tile_resident(vram_slots, active_circuit, tile) {
+                        let (_, _, bx, by, _, _) = *tile;
                         if !is_ram_block_resident(active_circuit, bx, by) {
                             needed_block = Some((bx, by));
                             break;
                         }
                     }
                 }
-                if needed_block.is_none() {
-                    for i in 0..prefetch_count {
-                        let tile = &prefetch_tiles[i];
-                        if !tile_resident(vram_slots, active_circuit, tile) {
-                            let (_, _, bx, by, _, _) = *tile;
-                            if !is_ram_block_resident(active_circuit, bx, by) {
-                                needed_block = Some((bx, by));
-                                break;
-                            }
-                        }
-                    }
-                }
-                if let Some((bx, by)) = needed_block {
-                    start_async_block_load(active_circuit, bx, by, 0, current_frame);
-                }
+            }
+            if let Some((bx, by)) = needed_block {
+                start_async_block_load(active_circuit, bx, by, 0, current_frame);
             }
         }
     }
@@ -2885,15 +2933,20 @@ const M7_SCAN_RADIUS: i32 = 360;
 fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> Option<i32> {
     let cam_qx = camera.pos.x.raw() >> 8;
     let cam_qy = camera.pos.y.raw() >> 8;
-    let (right, z) =
-        camera.view_from_offset_q4((2 * wx0 + tw) * 8 - cam_qx, (2 * wy0 + th) * 8 - cam_qy);
-    // 0.75 * the larger edge, in Q4 units: bounds the half-diagonal.
-    let rad = tw.max(th) * 12;
-    if z + rad < (M7_Z_NEAR << 4) || z - rad > (M7_Z_FAR << 4) {
+    let (_, z0) = camera.view_from_offset_q4(wx0 * 16 - cam_qx, wy0 * 16 - cam_qy);
+    let (_, z1) = camera.view_from_offset_q4((wx0 + tw) * 16 - cam_qx, wy0 * 16 - cam_qy);
+    let (_, z2) = camera.view_from_offset_q4(wx0 * 16 - cam_qx, (wy0 + th) * 16 - cam_qy);
+    let (_, z3) = camera.view_from_offset_q4((wx0 + tw) * 16 - cam_qx, (wy0 + th) * 16 - cam_qy);
+    let zmin = z0.min(z1).min(z2).min(z3);
+    let zmax = z0.max(z1).max(z2).max(z3);
+    if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
         return None;
     }
+    let (right, z) =
+        camera.view_from_offset_q4((2 * wx0 + tw) * 8 - cam_qx, (2 * wy0 + th) * 8 - cam_qy);
+    let rad = tw.max(th) * 12;
     if (right.abs() - rad) * 5 <= (z + rad).max(0) * 7 {
-        Some(z)
+        Some(zmin)
     } else {
         None
     }
@@ -2938,7 +2991,7 @@ fn draw_tile_m7(
     let cam_qy = camera.pos.y.raw() >> 8;
 
     let textured = s_idx != usize::MAX;
-    let (nx, ny) = if textured {
+    let (nx, ny) = {
         let (_, zc) =
             camera.view_from_offset_q4((2 * wx0 + cw) * 8 - cam_qx, (2 * wy0 + ch) * 8 - cam_qy);
         let target = if zc < (160 << 4) { 64 } else { 128 };
@@ -2946,8 +2999,6 @@ fn draw_tile_m7(
             ((cw + target - 1) / target).clamp(1, 3),
             ((ch + target - 1) / target).clamp(1, 3),
         )
-    } else {
-        (1, 1)
     };
 
     // Projected grid corners, row stride 4 (since nx, ny <= 3).
@@ -2976,14 +3027,41 @@ fn draw_tile_m7(
 
     if !textured {
         let checker = ((tx ^ ty) & 1) != 0;
-        let (pr, pg, pb) = texlayout::placeholder_tile_colour(true, checker);
-        let (a, b, c, d) = (
-            0usize,
-            nx as usize,
-            (ny * 4) as usize,
-            (ny * 4 + nx) as usize,
-        );
-        gpu::draw_quad_flat([pts[a], pts[b], pts[c], pts[d]], pr, pg, pb);
+        let (cr, cg, cb) = texlayout::placeholder_tile_colour(true, checker);
+        for j in 0..ny {
+            let row_a = (j * 4) as usize;
+            let row_c = row_a + 4;
+            for i in 0..nx {
+                let a = row_a + i as usize;
+                let b = a + 1;
+                let c = row_c + i as usize;
+                let d = c + 1;
+                let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
+                let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
+                if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
+                    continue;
+                }
+                let (mut pa, mut pb, mut pc, mut pd) = (pts[a], pts[b], pts[c], pts[d]);
+                let min_x = pa.0.min(pb.0).min(pc.0).min(pd.0);
+                let max_x = pa.0.max(pb.0).max(pc.0).max(pd.0);
+                let min_y = pa.1.min(pb.1).min(pc.1).min(pd.1);
+                let max_y = pa.1.max(pb.1).max(pc.1).max(pd.1);
+                if max_x < 0 || min_x > 320 || max_y < 0 || min_y > 240 {
+                    continue;
+                }
+                if max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500 {
+                    pa.0 = pa.0.clamp(-300, 620);
+                    pb.0 = pb.0.clamp(-300, 620);
+                    pc.0 = pc.0.clamp(-300, 620);
+                    pd.0 = pd.0.clamp(-300, 620);
+                    pa.1 = pa.1.clamp(-100, 340);
+                    pb.1 = pb.1.clamp(-100, 340);
+                    pc.1 = pc.1.clamp(-100, 340);
+                    pd.1 = pd.1.clamp(-100, 340);
+                }
+                gpu::draw_quad_flat([pa, pb, pc, pd], cr, cg, cb);
+            }
+        }
         return;
     }
 
@@ -3020,7 +3098,7 @@ fn draw_tile_m7(
             if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
                 continue;
             }
-            let (pa, pb, pc, pd) = (pts[a], pts[b], pts[c], pts[d]);
+            let (mut pa, mut pb, mut pc, mut pd) = (pts[a], pts[b], pts[c], pts[d]);
             let min_x = pa.0.min(pb.0).min(pc.0).min(pd.0);
             let max_x = pa.0.max(pb.0).max(pc.0).max(pd.0);
             let min_y = pa.1.min(pb.1).min(pc.1).min(pd.1);
@@ -3030,7 +3108,14 @@ fn draw_tile_m7(
                 continue;
             }
             if max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500 {
-                continue;
+                pa.0 = pa.0.clamp(-300, 620);
+                pb.0 = pb.0.clamp(-300, 620);
+                pc.0 = pc.0.clamp(-300, 620);
+                pd.0 = pd.0.clamp(-300, 620);
+                pa.1 = pa.1.clamp(-100, 340);
+                pb.1 = pb.1.clamp(-100, 340);
+                pc.1 = pc.1.clamp(-100, 340);
+                pd.1 = pd.1.clamp(-100, 340);
             }
 
             let u0 = u_coords[i as usize];

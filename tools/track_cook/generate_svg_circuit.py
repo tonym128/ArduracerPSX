@@ -916,7 +916,7 @@ def write_outputs(spec: dict, outdir: str) -> dict:
         "schema": "arduracer.level/1",
         "name": spec["name"],
         "stem": os.path.basename(stem),
-        "grid": GRID,
+        "grid": int(spec.get("grid", GRID)),
         "road_half_cells": road_hw,
         "half_width_world": int(round(road_hw * WORLD_PER_CELL)),
     }

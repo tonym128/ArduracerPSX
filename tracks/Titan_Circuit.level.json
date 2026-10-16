@@ -2,7 +2,7 @@
  "schema": "arduracer.level/1",
  "name": "Titan Circuit",
  "stem": "Titan_Circuit",
- "grid": 80,
+ "grid": 160,
  "road_half_cells": 3.0,
  "half_width_world": 96
 }
