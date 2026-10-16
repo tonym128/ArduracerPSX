@@ -1738,13 +1738,10 @@ fn decode_and_upload_full_tile(
         return;
     }
 
-    let ram_slot_idx = if is_ram_block_resident(circuit, bx, by) {
-        0
-    } else if load_block_sync(circuit, bx, by, 0) {
-        0
-    } else {
+    if !is_ram_block_resident(circuit, bx, by) && !load_block_sync(circuit, bx, by, 0) {
         return;
-    };
+    }
+    let ram_slot_idx = 0;
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *scratch() };
 
@@ -1939,7 +1936,7 @@ fn load_block_sync(circuit: usize, block_x: usize, block_y: usize, slot_idx: usi
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
 
     // Read only the actual compressed payload sectors instead of full 250 sectors
-    let sectors_to_read = ((entry.byte_len as usize) + 2047) / 2048;
+    let sectors_to_read = (entry.byte_len as usize).div_ceil(2048);
     crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
     crate::prof::count(crate::prof::C_CD_SECTORS, sectors_to_read as u32);
     let claimed = crate::drive::claim(crate::drive::Owner::Texture);
@@ -2067,7 +2064,7 @@ fn start_async_block_load(
     ram_slot.resident_block_y = block_y;
     ram_slot.byte_len = 0;
 
-    let sectors_to_read = ((entry.byte_len as usize) + 2047) / 2048;
+    let sectors_to_read = (entry.byte_len as usize).div_ceil(2048);
     crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
     crate::prof::count(crate::prof::C_CD_SECTORS, sectors_to_read as u32);
 
@@ -2188,8 +2185,7 @@ fn step_async_block_load(current_frame: u32) {
 #[inline]
 fn is_ram_block_resident(circuit: usize, block_x: usize, block_y: usize) -> bool {
     let blocks = unsafe { &*core::ptr::addr_of!(RAM_BLOCKS) };
-    for i in 0..RAM_CACHE_BLOCKS {
-        let b = &blocks[i];
+    for b in blocks.iter().take(RAM_CACHE_BLOCKS) {
         if b.valid
             && b.resident_circuit == circuit
             && b.resident_block_x == block_x
@@ -2213,8 +2209,7 @@ fn ensure_ram_block(
     current_frame: u32,
 ) -> Option<usize> {
     let blocks = unsafe { &mut *core::ptr::addr_of_mut!(RAM_BLOCKS) };
-    for i in 0..RAM_CACHE_BLOCKS {
-        let b = &mut blocks[i];
+    for (i, b) in blocks.iter_mut().enumerate().take(RAM_CACHE_BLOCKS) {
         if b.valid
             && b.resident_circuit == circuit
             && b.resident_block_x == block_x
