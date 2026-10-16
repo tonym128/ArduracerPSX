@@ -433,51 +433,62 @@ const TIM_ENABLED: bool = false;
 /// texels and the circuit renders as scrambled noise.
 const TIM_TILE_SECTORS: u32 = visual_tex::TIM_TILE_SECTORS;
 
-/// Whether `circuit` has a TIM block on this disc, and where it starts.
+/// Whether `circuit` has an uncompressed block (`TIM`, `TIM4`, or `TIM8`) on
+/// this disc, and where it starts `(block_lba, sector_count)`.
 ///
 /// `None` covers every way the path can be unavailable: the feature is off, the
-/// disc has no `TIMTRACKS.BIN`, the circuit is one of the three 10 km^2 cities
+/// disc has no matching `.BIN`, the circuit is one of the three 10 km^2 cities
 /// (which ship JPEG only), or the cooker recorded no block for it.
-///
-/// This is the only place the per-tile sector arithmetic lives. A block is 256
-/// tiles laid out row-major, four sectors each, so a tile's offset is pure
-/// arithmetic on its coordinates -- there is no per-tile table to stream or
-/// index, which is what makes a 2 MB uncompressed block affordable at all.
+#[inline]
+fn uncompressed_block_for(codec: Codec, circuit: usize) -> Option<(u32, u32)> {
+    if active_city() != 0 || circuit >= visual_tex::COUNT {
+        return None;
+    }
+    let (enabled, bin_lba, entry) = match codec {
+        Codec::Tim => (
+            TIM_ENABLED,
+            unsafe { TIMTRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_TIM_SECTORS[circuit],
+        ),
+        Codec::Tim4 => (
+            TIM4_ENABLED,
+            unsafe { TIM4TRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_TIM4_SECTORS[circuit],
+        ),
+        Codec::Tim8 => (
+            TIM8_ENABLED,
+            unsafe { TIM8TRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_TIM8_SECTORS[circuit],
+        ),
+        _ => return None,
+    };
+    if !enabled || entry.sector_count == 0 {
+        return None;
+    }
+    let lba = bin_lba?;
+    Some((lba + entry.sector_offset, entry.sector_count))
+}
+
 #[inline]
 fn tim_block_for(circuit: usize) -> Option<(u32, u32)> {
-    if !TIM_ENABLED {
-        return None;
-    }
-    // The three cities are 10 km^2 procedurally cooked JPEG maps. They have no
-    // SVG or QOI counterpart either, and TIM is no different: there is no art
-    // to convert, only a generator to re-run.
-    if active_city() != 0 {
-        return None;
-    }
-    let lba = unsafe { TIMTRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
-        return None;
-    }
-    let entry = visual_tex::CIRCUIT_TIM_SECTORS[circuit];
-    if entry.sector_count == 0 {
-        return None;
-    }
-    Some((lba + entry.sector_offset, entry.sector_count))
+    uncompressed_block_for(Codec::Tim, circuit)
+}
+
+#[inline]
+fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
+    uncompressed_block_for(Codec::Tim4, circuit)
+}
+
+#[inline]
+fn tim8_block_for(circuit: usize) -> Option<(u32, u32)> {
+    uncompressed_block_for(Codec::Tim8, circuit)
 }
 
 /// Whether `circuit` is served by the uncompressed TIM path.
 ///
-/// Built from [`selects_tim`] rather than from [`tim_block_for`] alone, and the
-/// difference is the whole bug this replaced.
-///
-/// Asking `tim_block_for(circuit).is_some()` means "does this disc carry a TIM
-/// block for this circuit", which is true for *every* circuit on any disc
-/// mastered with `TIMTRACKS.BIN`. Using it as the decode-path selector meant a
-/// circuit pinned to QOI, JPEG or SVG still took the TIM branch: the RAM block
-/// was loaded and never decoded from, every visible tile miss became a fresh
-/// four-sector CD read, and CD-DA spent the race losing the drive to the
-/// texture streamer. Availability is necessary, not sufficient -- `selects_tim`
-/// asks about the pin too, and keeps that question out of the render loop.
+/// Built from [`selects_tim`] rather than from [`tim_block_for`] alone:
+/// availability is necessary, not sufficient -- `selects_tim` asks about the
+/// pin too, and keeps that question out of the render loop.
 #[inline]
 fn codec_is_tim(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim(
@@ -487,17 +498,43 @@ fn codec_is_tim(circuit: usize) -> bool {
 }
 
 /// Whether `circuit` is served by the uncompressed 4bpp path.
-///
-/// Same rule and same reason as [`codec_is_tim`]: availability alone is not a
-/// selection. A disc carrying `TIM4TRACKS.BIN` reports availability for every
-/// circuit, so a predicate reading only that would send SVG, QOI, JPEG and 15bpp
-/// TIM down the 4bpp path and leave their RAM block undecoded.
 #[inline]
 fn codec_is_tim4(circuit: usize) -> bool {
     arduracer_core::texture_format::selects_tim4(
         unsafe { TEXTURE_FORMAT },
         tim4_block_for(circuit).is_some(),
     )
+}
+
+/// Whether `circuit` is served by the uncompressed 8bpp path.
+#[inline]
+fn codec_is_tim8(circuit: usize) -> bool {
+    arduracer_core::texture_format::selects_tim8(
+        unsafe { TEXTURE_FORMAT },
+        tim8_block_for(circuit).is_some(),
+    )
+}
+
+/// Returns the active uncompressed streaming codec (`Tim`, `Tim4`, or `Tim8`)
+/// for `circuit`, or `None` if `circuit` uses a RAM-block compressed codec
+/// (`Arsv`, `Qoi`, or `Jpeg`).
+#[inline]
+fn uncompressed_codec_for(circuit: usize) -> Option<Codec> {
+    if codec_is_tim(circuit) {
+        Some(Codec::Tim)
+    } else if codec_is_tim4(circuit) {
+        Some(Codec::Tim4)
+    } else if codec_is_tim8(circuit) {
+        Some(Codec::Tim8)
+    } else {
+        None
+    }
+}
+
+/// Whether `circuit` uses any direct-from-disc uncompressed/paletted format.
+#[inline]
+fn codec_is_uncompressed(circuit: usize) -> bool {
+    uncompressed_codec_for(circuit).is_some()
 }
 
 /// Whether the uncompressed TIM4 texture path is compiled in for this build.
@@ -533,21 +570,7 @@ const TIM4_TILE_RECT: (u16, u16) = (
 );
 
 /// Three different divisions of the same 64x64 tile meet here, and they are all
-/// easy to confuse with each other or with the 8bpp case. The 8bpp figure is
-/// the trap: 8bpp packs *two* texels per halfword, 4bpp packs *four*, so the
-/// 8bpp conversion produces a 32x32 halfword rect whose *area* is right and
-/// whose shape is not -- which renders as a sheared, striped track rather than
-/// an obvious failure:
-///
-/// * 4096 texels
-/// * 2048 *bytes* (four texels share a halfword)
-/// * 1024 *halfwords* (four texels share a halfword)
-/// * a 32x32 rect of halfwords, because the GPU counts width in words and
-///   height in rows, and 4bpp packs two texel rows into each
-///
-/// These pin the relationship. The halfword count shipped once as 2048 -- the
-/// 8bpp figure -- which would have made the FIFO fallback upload twice the tile
-/// and overrun the slot by 2 KB.
+/// easy to confuse with each other or with the 8bpp case.
 const _: () = assert!(
     visual_tex::TIM4_TILE_HALFWORDS == TIM4_TILE_RECT.0 as usize * TIM4_TILE_RECT.1 as usize,
     "the 4bpp upload rect must hold exactly one tile's halfwords"
@@ -556,9 +579,6 @@ const _: () = assert!(
     visual_tex::TIM4_TILE_HALFWORDS * 2 == visual_tex::TIM4_TILE_BYTES,
     "halfword count and byte count must describe the same tile"
 );
-// The area assert above cannot catch the shape, because halving the width and
-// halving the height cancel: 32x32 and 16x64 are both 1024 halfwords. Only one
-// of them matches where the GPU later samples. These two pin the shape.
 const _: () = assert!(
     TIM4_TILE_RECT.0 as usize == visual_tex::TIM4_TILE_HALFWORDS_WIDE,
     "the 4bpp upload rect must be as wide as 4 texels-per-halfword makes it"
@@ -571,40 +591,6 @@ const _: () = assert!(
     visual_tex::TIM4_TILE_BYTES as u32 == TIM4_TILE_SECTORS * 2048,
     "a 4bpp tile must be a whole number of CD sectors"
 );
-
-/// Whether `circuit` has a TIM4 block on this disc, and where it starts.
-///
-/// `None` covers every way the path can be unavailable: the feature is off, the
-/// disc has no `TIM4TRACKS.BIN`, the circuit is one of the three 10 km^2 cities
-/// (no art to convert, only a generator to re-run), or the cooker recorded no
-/// block for it.
-#[inline]
-fn tim4_block_for(circuit: usize) -> Option<(u32, u32)> {
-    if !TIM4_ENABLED {
-        return None;
-    }
-    if active_city() != 0 {
-        return None;
-    }
-    let lba = unsafe { TIM4TRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
-        return None;
-    }
-    let entry = visual_tex::CIRCUIT_TIM4_SECTORS[circuit];
-    if entry.sector_count == 0 {
-        return None;
-    }
-    Some((lba + entry.sector_offset, entry.sector_count))
-}
-
-/// Whether `circuit` is served by the uncompressed 8bpp path.
-#[inline]
-fn codec_is_tim8(circuit: usize) -> bool {
-    arduracer_core::texture_format::selects_tim8(
-        unsafe { TEXTURE_FORMAT },
-        tim8_block_for(circuit).is_some(),
-    )
-}
 
 /// Whether the uncompressed TIM8 texture path is compiled in for this build.
 #[cfg(feature = "tim8-track-stream")]
@@ -650,26 +636,6 @@ const _: () = assert!(
     visual_tex::TIM8_TILE_BYTES as u32 == TIM8_TILE_SECTORS * 2048,
     "an 8bpp tile must be a whole number of CD sectors"
 );
-
-/// Whether `circuit` has a TIM8 block on this disc, and where it starts.
-#[inline]
-fn tim8_block_for(circuit: usize) -> Option<(u32, u32)> {
-    if !TIM8_ENABLED {
-        return None;
-    }
-    if active_city() != 0 {
-        return None;
-    }
-    let lba = unsafe { TIM8TRACKS_BIN_LBA }?;
-    if circuit >= visual_tex::COUNT {
-        return None;
-    }
-    let entry = visual_tex::CIRCUIT_TIM8_SECTORS[circuit];
-    if entry.sector_count == 0 {
-        return None;
-    }
-    Some((lba + entry.sector_offset, entry.sector_count))
-}
 
 /// Reads `ACTIVE_CITY` without taking a reference to a mutable static.
 ///
@@ -1069,36 +1035,16 @@ pub fn init_track_texture(circuit: usize) {
         }
         crate::dbg::println("");
 
-        // TIM keeps no RAM block, so there is nothing to preload: its tiles come
-        // from the disc one 8 KB at a time, on demand. Streaming a compressed
-        // block here would read 500 KB of data nothing is going to decode.
-        // `codec_is_tim`, not `tim_block_for`: see its note for why the
-        // availability question is the wrong one.
-        if !codec_is_tim(circuit) && !codec_is_tim4(circuit) && !codec_is_tim8(circuit) {
+        // TIM/TIM4/TIM8 keep no RAM block, so there is nothing to preload: their tiles come
+        // from the disc one at a time, on demand.
+        if !codec_is_uncompressed(circuit) {
             load_block_sync(circuit, init_bx, init_by, 0);
         }
 
-        // The 4bpp path's palette is circuit state, not tile state: it must be
-        // in VRAM before the first tile is drawn against it, and it is not
-        // re-read per tile. If it cannot be read the format is unusable here,
-        // so fall back rather than draw every tile through a stale palette.
-        if codec_is_tim4(circuit) {
-            // Raw pointer rather than a method call on the static: taking a
-            // mutable reference to a mutable static is UB by the reference
-            // rules, and this is single threaded.
+        if let Some(codec) = uncompressed_codec_for(circuit) {
             crate::async_tile::cancel();
-            TIM4_CLUT_CIRCUIT = usize::MAX;
-            if !upload_tim4_palette(circuit) {
-                crate::dbg::println("  TIM4 palette unreadable, falling back");
-                set_texture_format(TextureFormat::Auto);
-            }
-        }
-
-        if codec_is_tim8(circuit) {
-            crate::async_tile::cancel();
-            TIM8_CLUT_CIRCUIT = usize::MAX;
-            if !upload_tim8_palette(circuit) {
-                crate::dbg::println("  TIM8 palette unreadable, falling back");
+            if !ensure_uncompressed_palette(codec, circuit) {
+                crate::dbg::println("  Uncompressed palette unreadable, falling back");
                 set_texture_format(TextureFormat::Auto);
             }
         }
@@ -1169,20 +1115,36 @@ fn decode_row(
     }
 }
 
-/// Reads `circuit`'s 16-colour palette from sector 0 of its TIM4 block and
-/// uploads it to the TIM4 CLUT row.
-///
-/// Runs once per circuit, not once per tile. The disc holds the palette as
-/// BGR555 halfwords already, so it is a straight copy: no decode, no quantise.
-///
-/// Returns false if the read or the upload did not happen, in which case the
-/// caller should refuse the format rather than draw every tile through whatever
-/// the CLUT happened to contain.
-fn upload_tim4_palette(circuit: usize) -> bool {
-    let Some((block_lba, _)) = tim4_block_for(circuit) else {
-        return false;
+/// Ensures the circuit's CLUT palette is loaded into VRAM for indexed formats
+/// (`TIM4` and `TIM8`). Direct-color formats (`TIM`, `ARSV`, `QOI`, `JPEG`) return true.
+fn ensure_uncompressed_palette(codec: Codec, circuit: usize) -> bool {
+    let (block_lba, clut, entries_count, clut_circuit_ptr) = match codec {
+        Codec::Tim4 => {
+            let Some((lba, _)) = tim4_block_for(circuit) else {
+                return false;
+            };
+            (
+                lba,
+                TIM4_CLUT,
+                visual_tex::TIM4_PALETTE_ENTRIES,
+                core::ptr::addr_of_mut!(TIM4_CLUT_CIRCUIT),
+            )
+        }
+        Codec::Tim8 => {
+            let Some((lba, _)) = tim8_block_for(circuit) else {
+                return false;
+            };
+            (
+                lba,
+                TIM8_CLUT,
+                visual_tex::TIM8_PALETTE_ENTRIES,
+                core::ptr::addr_of_mut!(TIM8_CLUT_CIRCUIT),
+            )
+        }
+        _ => return true,
     };
-    if unsafe { TIM4_CLUT_CIRCUIT } == circuit {
+
+    if unsafe { *clut_circuit_ptr } == circuit {
         return true;
     }
 
@@ -1203,73 +1165,122 @@ fn upload_tim4_palette(circuit: usize) -> bool {
         return false;
     }
 
-    // SAFETY: the read above filled 16 halfwords' worth of bytes at the start
-    // of the staging buffer, and `scratch` borrows it for the rest of this
-    // scope. The disc holds the palette as BGR555 halfwords already, so this is
-    // a reinterpretation, not a conversion.
-    let entries = unsafe { core::slice::from_raw_parts(scratch.as_ptr().cast::<u16>(), 16) };
-    let rect = VramRect::new(
-        TIM4_CLUT.x(),
-        TIM4_CLUT.y(),
-        visual_tex::TIM4_PALETTE_ENTRIES as u16,
-        1,
-    );
+    let entries = unsafe { core::slice::from_raw_parts(scratch.as_ptr().cast::<u16>(), entries_count) };
+    let rect = VramRect::new(clut.x(), clut.y(), entries_count as u16, 1);
     upload_16bpp(rect, entries);
-    unsafe { TIM4_CLUT_CIRCUIT = circuit };
+    unsafe { *clut_circuit_ptr = circuit };
     true
 }
 
-/// Reads `circuit`'s 256-colour palette from sector 0 of its TIM8 block and
-/// uploads it to the TIM8 CLUT row.
-fn upload_tim8_palette(circuit: usize) -> bool {
-    let Some((block_lba, _)) = tim8_block_for(circuit) else {
-        return false;
-    };
-    if unsafe { TIM8_CLUT_CIRCUIT } == circuit {
-        return true;
+/// Computes the VRAM destination rectangle and 32-bit word count for a 64x64 tile
+/// across all 6 texture formats.
+#[inline]
+fn tile_vram_rect_and_words(codec: Codec, target_slot: usize) -> (VramRect, usize) {
+    match codec {
+        Codec::Tim4 => {
+            let (vx, vy, _, _, _) = texlayout::vram_slot_coords_tim4(target_slot);
+            (
+                VramRect::new(vx, vy, TIM4_TILE_RECT.0, TIM4_TILE_RECT.1),
+                visual_tex::TIM4_TILE_HALFWORDS / 2,
+            )
+        }
+        Codec::Tim8 => {
+            let (vx, vy, _, _, _) = texlayout::vram_slot_coords_tim8(target_slot);
+            (
+                VramRect::new(vx, vy, TIM8_TILE_RECT.0, TIM8_TILE_RECT.1),
+                visual_tex::TIM8_TILE_HALFWORDS / 2,
+            )
+        }
+        _ => {
+            let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
+            (
+                VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM),
+                TILE_PIXELS / 2,
+            )
+        }
     }
-
-    let scratch = unsafe { &mut *scratch() };
-    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-    crate::prof::count(crate::prof::C_CD_SECTORS, 1);
-    let claimed = crate::drive::claim(crate::drive::Owner::Texture);
-    let read = {
-        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        reader.read_sectors(block_lba, 1, unsafe {
-            core::slice::from_raw_parts_mut(scratch.as_mut_ptr().cast::<u8>(), 2048)
-        })
-    };
-    if claimed {
-        crate::drive::release(crate::drive::Owner::Texture);
-    }
-    if !read {
-        return false;
-    }
-
-    let entries = unsafe {
-        core::slice::from_raw_parts(
-            scratch.as_ptr().cast::<u16>(),
-            visual_tex::TIM8_PALETTE_ENTRIES,
-        )
-    };
-    let rect = VramRect::new(
-        TIM8_CLUT.x(),
-        TIM8_CLUT.y(),
-        visual_tex::TIM8_PALETTE_ENTRIES as u16,
-        1,
-    );
-    upload_16bpp(rect, entries);
-    unsafe { TIM8_CLUT_CIRCUIT = circuit };
-    true
 }
 
-/// Pulls one 4bpp tile for `circuit` into the FIFO and DMAs it into VRAM slot
-/// `target_slot`.
+/// Unified VRAM tile uploader for ALL codecs (TIM, TIM4, TIM8, SVG, QOI, JPEG).
 ///
-/// A FIFO hit costs no CD access at all; a miss refills from the requested
-/// tile's own sector, taking as many following sectors as the buffer holds. The
-/// common case is a horizontal run of visible tiles, whose sectors are
-/// consecutive, so a single read usually serves the next three.
+/// Uses GPU Block DMA (Channel 2) first (~1,924 cycles) and automatically falls
+/// back to GP0 FIFO if the DMA channel did not report complete.
+#[inline(never)]
+fn upload_tile_to_vram(codec: Codec, target_slot: usize, src: *const u32) {
+    let (rect, word_count) = tile_vram_rect_and_words(codec, target_slot);
+    let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
+    let via_dma = dma_copy_to_vram(rect, src);
+    crate::note_upload_path(via_dma);
+    crate::prof::count(
+        if via_dma {
+            crate::prof::C_UPLOAD_DMA
+        } else {
+            crate::prof::C_UPLOAD_FIFO
+        },
+        1,
+    );
+    if !via_dma {
+        upload_words(rect, unsafe {
+            core::slice::from_raw_parts(src, word_count)
+        });
+    }
+}
+
+#[inline(always)]
+fn mark_vram_slot_resident(
+    target_slot: usize,
+    circuit: usize,
+    bx: usize,
+    by: usize,
+    sub_tx: usize,
+    sub_ty: usize,
+    frame: u32,
+) {
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[target_slot].resident_circuit = circuit;
+    vram_slots[target_slot].resident_block_x = bx;
+    vram_slots[target_slot].resident_block_y = by;
+    vram_slots[target_slot].resident_tile_x = sub_tx;
+    vram_slots[target_slot].resident_tile_y = sub_ty;
+    vram_slots[target_slot].last_used = frame;
+}
+
+/// Resolves LBA, available remaining sectors, and tile sector count for any uncompressed format.
+fn uncompressed_tile_lba(
+    codec: Codec,
+    circuit: usize,
+    tile_x: usize,
+    tile_y: usize,
+) -> Option<(u32, u32, u32, crate::async_tile::Codec)> {
+    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
+        return None;
+    }
+    let (block_lba, block_sectors) = uncompressed_block_for(codec, circuit)?;
+    let (palette_sectors, tile_sectors, async_codec) = match codec {
+        Codec::Tim => (0, TIM_TILE_SECTORS, crate::async_tile::Codec::Tim),
+        Codec::Tim4 => (
+            visual_tex::TIM4_PALETTE_SECTORS,
+            TIM4_TILE_SECTORS,
+            crate::async_tile::Codec::Tim4,
+        ),
+        Codec::Tim8 => (
+            visual_tex::TIM8_PALETTE_SECTORS,
+            TIM8_TILE_SECTORS,
+            crate::async_tile::Codec::Tim8,
+        ),
+        _ => return None,
+    };
+    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
+    let tile_lba = block_lba
+        .wrapping_add(palette_sectors)
+        .wrapping_add(tile_index * tile_sectors);
+    let block_end = block_lba + block_sectors;
+    if tile_lba + tile_sectors > block_end {
+        return None;
+    }
+    Some((tile_lba, block_end - tile_lba, tile_sectors, async_codec))
+}
+
 /// Outcome of attempting to upload an uncompressed or paletted tile to VRAM.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum TileStepResult {
@@ -1282,42 +1293,27 @@ enum TileStepResult {
 }
 
 #[inline(never)]
-fn upload_tile_dma4(
+fn upload_uncompressed_tile_async(
+    codec: Codec,
     circuit: usize,
     tile_x: usize,
     tile_y: usize,
     target_slot: usize,
     current_frame: u32,
 ) -> TileStepResult {
-    let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
+    let Some((tile_lba, available, tile_sectors, async_codec)) =
+        uncompressed_tile_lba(codec, circuit, tile_x, tile_y)
+    else {
         return TileStepResult::Failed;
     };
-    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return TileStepResult::Failed;
-    }
 
-    // The palette leads the block, so tile N is one sector further on than in
-    // the 15bpp layout.
-    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
-    let tile_lba = block_lba
-        .wrapping_add(visual_tex::TIM4_PALETTE_SECTORS)
-        .wrapping_add(tile_index * TIM4_TILE_SECTORS);
-    let block_end = block_lba + block_sectors;
-    if tile_lba + TIM4_TILE_SECTORS > block_end {
-        return TileStepResult::Failed;
-    }
-
-    // Asynchronous: one seek covers a window of sectors, of which this tile is
-    // one. A run of adjacent tiles costs one seek between them rather than one
-    // each, which is the whole point -- a per-tile seek is ~150 ms and the tiles
-    // the row-scan wants are contiguous on the disc.
     let src = {
         let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
         match crate::async_tile::fetch(
             disc_reader(),
-            crate::async_tile::Codec::Tim4,
+            async_codec,
             tile_lba,
-            block_end - tile_lba,
+            available,
             current_frame,
         ) {
             crate::async_tile::FetchStatus::Ready(p) => p,
@@ -1325,224 +1321,10 @@ fn upload_tile_dma4(
             crate::async_tile::FetchStatus::Failed => return TileStepResult::Failed,
         }
     };
-    crate::prof::count(crate::prof::C_CD_SECTORS, TIM4_TILE_SECTORS);
+    crate::prof::count(crate::prof::C_CD_SECTORS, tile_sectors);
 
-    // The 4bpp slot origin, not the 15bpp one: at this depth a 64-texel tile is
-    // 16 halfwords across, so the slot grid steps a quarter as far.
-    let (vx, vy, tpage_idx, _, _) = texlayout::vram_slot_coords_tim4(target_slot);
-    let rect = VramRect::new(vx, vy, TIM4_TILE_RECT.0, TIM4_TILE_RECT.1);
-    {
-        let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
-        // DMA first, GP0 FIFO if the channel did not report done. The FIFO path
-        // re-emits GP0(A0h) from the rect origin, so it rewrites the whole tile
-        // rather than leaving the aborted transfer's partial result behind.
-        let via_dma = dma_copy_to_vram(rect, src);
-        crate::note_upload_path(via_dma);
-        crate::prof::count(
-            if via_dma {
-                crate::prof::C_UPLOAD_DMA
-            } else {
-                crate::prof::C_UPLOAD_FIFO
-            },
-            1,
-        );
-        if !via_dma {
-            upload_words(rect, unsafe {
-                core::slice::from_raw_parts(src, visual_tex::TIM4_TILE_HALFWORDS / 2)
-            });
-        }
-    }
-    let _ = tpage_idx;
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
-    vram_slots[target_slot].resident_tile_x = tile_x;
-    vram_slots[target_slot].resident_tile_y = tile_y;
-    vram_slots[target_slot].last_used = current_frame;
-    TileStepResult::Uploaded
-}
-
-/// Pulls one 8bpp tile for `circuit` into the FIFO and DMAs it into VRAM slot
-/// `target_slot`.
-#[inline(never)]
-fn upload_tile_dma8(
-    circuit: usize,
-    tile_x: usize,
-    tile_y: usize,
-    target_slot: usize,
-    current_frame: u32,
-) -> TileStepResult {
-    let Some((block_lba, block_sectors)) = tim8_block_for(circuit) else {
-        return TileStepResult::Failed;
-    };
-    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return TileStepResult::Failed;
-    }
-
-    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
-    let tile_lba = block_lba
-        .wrapping_add(visual_tex::TIM8_PALETTE_SECTORS)
-        .wrapping_add(tile_index * TIM8_TILE_SECTORS);
-    let block_end = block_lba + block_sectors;
-    if tile_lba + TIM8_TILE_SECTORS > block_end {
-        return TileStepResult::Failed;
-    }
-
-    let src = {
-        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        match crate::async_tile::fetch(
-            disc_reader(),
-            crate::async_tile::Codec::Tim8,
-            tile_lba,
-            block_end - tile_lba,
-            current_frame,
-        ) {
-            crate::async_tile::FetchStatus::Ready(p) => p,
-            crate::async_tile::FetchStatus::Pending => return TileStepResult::Pending,
-            crate::async_tile::FetchStatus::Failed => return TileStepResult::Failed,
-        }
-    };
-    crate::prof::count(crate::prof::C_CD_SECTORS, TIM8_TILE_SECTORS);
-
-    let (vx, vy, tpage_idx, _, _) = texlayout::vram_slot_coords_tim8(target_slot);
-    let rect = VramRect::new(vx, vy, TIM8_TILE_RECT.0, TIM8_TILE_RECT.1);
-    {
-        let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
-        let via_dma = dma_copy_to_vram(rect, src);
-        crate::note_upload_path(via_dma);
-        crate::prof::count(
-            if via_dma {
-                crate::prof::C_UPLOAD_DMA
-            } else {
-                crate::prof::C_UPLOAD_FIFO
-            },
-            1,
-        );
-        if !via_dma {
-            upload_words(rect, unsafe {
-                core::slice::from_raw_parts(src, visual_tex::TIM8_TILE_HALFWORDS / 2)
-            });
-        }
-    }
-    let _ = tpage_idx;
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
-    vram_slots[target_slot].resident_tile_x = tile_x;
-    vram_slots[target_slot].resident_tile_y = tile_y;
-    vram_slots[target_slot].last_used = current_frame;
-    TileStepResult::Uploaded
-}
-
-/// Streams one 64x64 15bpp tile from `TIMTRACKS.BIN` into VRAM slot
-/// `target_slot`, and marks the slot resident on success.
-///
-/// This is the whole of the TIM path. There is no header, no entropy coding and
-/// no inverse DCT: four sectors are read straight into the staging buffer and
-/// the GPU's block-mode DMA moves them into VRAM. What the player is buying is
-/// a tile upload that costs a CD read and nothing else.
-///
-/// The buffer is the same 8 KB the decoders use, so this format costs no extra
-/// main RAM despite being the only one that needs its data resident at upload
-/// time.
-///
-/// Returns false if the tile could not be read or transferred, leaving the slot
-/// unclaimed so the caller paints its fallback and retries next frame.
-#[inline(never)]
-fn upload_tile_dma(
-    circuit: usize,
-    tile_x: usize,
-    tile_y: usize,
-    target_slot: usize,
-    current_frame: u32,
-) -> TileStepResult {
-    let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
-        return TileStepResult::Failed;
-    };
-    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return TileStepResult::Failed;
-    }
-
-    // Row-major over the 16x16 tile grid, four sectors each. The cooker lays
-    // the block out in exactly this order, which is why there is no index.
-    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
-    let block_end = block_lba + block_sectors;
-    let tile_lba = block_lba + tile_index * TIM_TILE_SECTORS;
-    if tile_lba + TIM_TILE_SECTORS > block_end {
-        return TileStepResult::Failed;
-    }
-
-    // Four 2048-byte sectors exactly fill the 8 KB tile with no partial
-    // sector and no repacking.
-    let tile_bytes = TIM_TILE_SECTORS as usize * 2048;
-    if tile_bytes != TILE_PIXELS * 2 {
-        return TileStepResult::Failed;
-    }
-    // Asynchronous, like the TIM4 path: issue the seek on one frame and take
-    // the sectors on the next few. The blocking form waited here, inside the
-    // render path, and that wait is what cost 8.6x a frame budget in the worst
-    // measured case.
-    let src = {
-        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-        match crate::async_tile::fetch(
-            disc_reader(),
-            crate::async_tile::Codec::Tim,
-            tile_lba,
-            block_end - tile_lba,
-            current_frame,
-        ) {
-            crate::async_tile::FetchStatus::Ready(p) => p,
-            crate::async_tile::FetchStatus::Pending => return TileStepResult::Pending,
-            crate::async_tile::FetchStatus::Failed => return TileStepResult::Failed,
-        }
-    };
-    crate::prof::count(crate::prof::C_CD_SECTORS, TIM_TILE_SECTORS);
-
-    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
-    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
-    {
-        let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
-        // Block-mode DMA is the point of the format, but it is not safe enough
-        // to be the only way to get the pixels in: a wedged DMA channel is a
-        // documented outcome on this hardware, and the FIFO path costs the same
-        // GP0 command stream with none of that risk. So DMA first, FIFO if the
-        // channel did not report done.
-        //
-        // Falling back is correct rather than merely defensive: `dma_copy_to_vram`
-        // aborts before returning false, and the FIFO path re-emits the
-        // GP0(A0) header from the rect origin, so the whole tile is rewritten
-        // rather than leaving the partial transfer the aborted one left behind.
-        // Count the path taken, not just the outcome: "the DMA channel wedged"
-        // and "the DMA path is fine but this tile's rect cannot be DMA'd" both
-        // return false, and only the first is a silicon story.
-        let via_dma = dma_copy_to_vram(rect, src);
-        crate::note_upload_path(via_dma);
-        crate::prof::count(
-            if via_dma {
-                crate::prof::C_UPLOAD_DMA
-            } else {
-                crate::prof::C_UPLOAD_FIFO
-            },
-            1,
-        );
-        if !via_dma {
-            upload_words(rect, unsafe {
-                core::slice::from_raw_parts(src, TILE_PIXELS / 2)
-            });
-        }
-    }
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
-    vram_slots[target_slot].resident_tile_x = tile_x;
-    vram_slots[target_slot].resident_tile_y = tile_y;
-    vram_slots[target_slot].last_used = current_frame;
+    upload_tile_to_vram(codec, target_slot, src);
+    mark_vram_slot_resident(target_slot, circuit, 0, 0, tile_x, tile_y, current_frame);
     TileStepResult::Uploaded
 }
 
@@ -1563,138 +1345,29 @@ fn paint_fallback_row(start_y: usize, scratch: &mut [u16; TILE_PIXELS]) {
 }
 
 #[inline(never)]
-fn upload_tile_sync(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
-    let Some((block_lba, block_sectors)) = tim_block_for(circuit) else {
+fn upload_uncompressed_tile_sync(
+    codec: Codec,
+    circuit: usize,
+    tile_x: usize,
+    tile_y: usize,
+    target_slot: usize,
+) -> bool {
+    if !ensure_uncompressed_palette(codec, circuit) {
+        return false;
+    }
+    let Some((tile_lba, _, tile_sectors, _)) =
+        uncompressed_tile_lba(codec, circuit, tile_x, tile_y)
+    else {
         return false;
     };
-    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return false;
-    }
-
-    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
-    let block_end = block_lba + block_sectors;
-    let tile_lba = block_lba + tile_index * TIM_TILE_SECTORS;
-    if tile_lba + TIM_TILE_SECTORS > block_end {
-        return false;
-    }
-
-    let byte_count = TIM_TILE_SECTORS as usize * 2048;
+    let byte_count = tile_sectors as usize * 2048;
     let dst = unsafe { core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count) };
-    if !disc_reader().read_sectors(tile_lba, TIM_TILE_SECTORS as usize, dst) {
+    if !disc_reader().read_sectors(tile_lba, tile_sectors as usize, dst) {
         return false;
     }
-
-    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
-    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
     let src = scratch_words() as *const u32;
-    let via_dma = dma_copy_to_vram(rect, src);
-    if !via_dma {
-        upload_words(rect, unsafe {
-            core::slice::from_raw_parts(src, TILE_PIXELS / 2)
-        });
-    }
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
-    vram_slots[target_slot].resident_tile_x = tile_x;
-    vram_slots[target_slot].resident_tile_y = tile_y;
-    vram_slots[target_slot].last_used = 1;
-    true
-}
-
-#[inline(never)]
-fn upload_tile_sync4(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
-    let Some((block_lba, block_sectors)) = tim4_block_for(circuit) else {
-        return false;
-    };
-    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return false;
-    }
-    if !upload_tim4_palette(circuit) {
-        return false;
-    }
-
-    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
-    let tile_lba = block_lba
-        .wrapping_add(visual_tex::TIM4_PALETTE_SECTORS)
-        .wrapping_add(tile_index * TIM4_TILE_SECTORS);
-    let block_end = block_lba + block_sectors;
-    if tile_lba + TIM4_TILE_SECTORS > block_end {
-        return false;
-    }
-
-    let byte_count = TIM4_TILE_SECTORS as usize * 2048;
-    let dst = unsafe { core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count) };
-    if !disc_reader().read_sectors(tile_lba, TIM4_TILE_SECTORS as usize, dst) {
-        return false;
-    }
-
-    let (vx, vy, _, _, _) = texlayout::vram_slot_coords_tim4(target_slot);
-    let rect = VramRect::new(vx, vy, TIM4_TILE_RECT.0, TIM4_TILE_RECT.1);
-    let src = scratch_words() as *const u32;
-    let via_dma = dma_copy_to_vram(rect, src);
-    if !via_dma {
-        upload_words(rect, unsafe {
-            core::slice::from_raw_parts(src, visual_tex::TIM4_TILE_HALFWORDS / 2)
-        });
-    }
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
-    vram_slots[target_slot].resident_tile_x = tile_x;
-    vram_slots[target_slot].resident_tile_y = tile_y;
-    vram_slots[target_slot].last_used = 1;
-    true
-}
-
-#[inline(never)]
-fn upload_tile_sync8(circuit: usize, tile_x: usize, tile_y: usize, target_slot: usize) -> bool {
-    let Some((block_lba, block_sectors)) = tim8_block_for(circuit) else {
-        return false;
-    };
-    if tile_x >= TILES_PER_BLOCK_AXIS || tile_y >= TILES_PER_BLOCK_AXIS {
-        return false;
-    }
-    if !upload_tim8_palette(circuit) {
-        return false;
-    }
-
-    let tile_index = (tile_y * TILES_PER_BLOCK_AXIS + tile_x) as u32;
-    let tile_lba = block_lba
-        .wrapping_add(visual_tex::TIM8_PALETTE_SECTORS)
-        .wrapping_add(tile_index * TIM8_TILE_SECTORS);
-    let block_end = block_lba + block_sectors;
-    if tile_lba + TIM8_TILE_SECTORS > block_end {
-        return false;
-    }
-
-    let byte_count = TIM8_TILE_SECTORS as usize * 2048;
-    let dst = unsafe { core::slice::from_raw_parts_mut(scratch() as *mut u8, byte_count) };
-    if !disc_reader().read_sectors(tile_lba, TIM8_TILE_SECTORS as usize, dst) {
-        return false;
-    }
-
-    let (vx, vy, _, _, _) = texlayout::vram_slot_coords_tim8(target_slot);
-    let rect = VramRect::new(vx, vy, TIM8_TILE_RECT.0, TIM8_TILE_RECT.1);
-    let src = scratch_words() as *const u32;
-    let via_dma = dma_copy_to_vram(rect, src);
-    if !via_dma {
-        upload_words(rect, unsafe {
-            core::slice::from_raw_parts(src, visual_tex::TIM8_TILE_HALFWORDS / 2)
-        });
-    }
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = 0;
-    vram_slots[target_slot].resident_block_y = 0;
-    vram_slots[target_slot].resident_tile_x = tile_x;
-    vram_slots[target_slot].resident_tile_y = tile_y;
-    vram_slots[target_slot].last_used = 1;
+    upload_tile_to_vram(codec, target_slot, src);
+    mark_vram_slot_resident(target_slot, circuit, 0, 0, tile_x, tile_y, 1);
     true
 }
 
@@ -1707,42 +1380,18 @@ fn decode_and_upload_full_tile(
     sub_ty: usize,
     target_slot: usize,
 ) {
-    // TIM has no block to decode out of: the tile comes straight off the disc.
-    // During prewarm, read synchronously so the race starts with all visible tiles resident.
-    if codec_is_tim(circuit) {
-        if upload_tile_sync(circuit, sub_tx, sub_ty, target_slot) {
-            return;
+    if let Some(codec) = uncompressed_codec_for(circuit) {
+        if !upload_uncompressed_tile_sync(codec, circuit, sub_tx, sub_ty, target_slot) {
+            let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+            slot[target_slot] = VramSlot::empty();
         }
-        let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-        slot[target_slot] = VramSlot::empty();
-        return;
-    }
-
-    // Same rule for the 4bpp path.
-    if codec_is_tim4(circuit) {
-        if upload_tile_sync4(circuit, sub_tx, sub_ty, target_slot) {
-            return;
-        }
-        let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-        slot[target_slot] = VramSlot::empty();
-        return;
-    }
-
-    // Same rule for the 8bpp path.
-    if codec_is_tim8(circuit) {
-        if upload_tile_sync8(circuit, sub_tx, sub_ty, target_slot) {
-            return;
-        }
-        let slot = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-        slot[target_slot] = VramSlot::empty();
         return;
     }
 
     if !is_ram_block_resident(circuit, bx, by) && !load_block_sync(circuit, bx, by, 0) {
         return;
     }
-    let ram_slot_idx = 0;
-    let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
+    let ram_slot = unsafe { &RAM_BLOCKS[0] };
     let scratch = unsafe { &mut *scratch() };
 
     for row in 0..4 {
@@ -1751,17 +1400,8 @@ fn decode_and_upload_full_tile(
         }
     }
 
-    let (vx, vy, _, _, _) = texlayout::vram_slot_coords(target_slot);
-    let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
-    upload_16bpp(rect, scratch);
-
-    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-    vram_slots[target_slot].resident_circuit = circuit;
-    vram_slots[target_slot].resident_block_x = bx;
-    vram_slots[target_slot].resident_block_y = by;
-    vram_slots[target_slot].resident_tile_x = sub_tx;
-    vram_slots[target_slot].resident_tile_y = sub_ty;
-    vram_slots[target_slot].last_used = 1;
+    upload_tile_to_vram(ram_slot.codec, target_slot, scratch_words() as *const u32);
+    mark_vram_slot_resident(target_slot, circuit, bx, by, sub_tx, sub_ty, 1);
 }
 
 /// Pre-warms the starting grid tiles directly into VRAM so the race starts with 100% texture residency.
@@ -1830,10 +1470,7 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
 
     // For uncompressed disc streaming, sort by tile_index (disc LBA)
     // so the disc head sweeps monotonically forward without backwards seeks!
-    if codec_is_tim(active_circuit)
-        || codec_is_tim4(active_circuit)
-        || codec_is_tim8(active_circuit)
-    {
+    if codec_is_uncompressed(active_circuit) {
         for i in 1..count {
             let mut j = i;
             while j > 0 && tiles[j - 1].4 > tiles[j].4 {
@@ -2264,64 +1901,10 @@ fn step_decode_job(current_frame: u32) -> StepResult {
         return StepResult::Failed;
     }
 
-    // `codec_is_tim`, not `tim_block_for`: asking only whether a TIM block exists
-    // sends every codec on a TIM-bearing disc down this path and abandons its
-    // RAM block. See `codec_is_tim`.
-    if codec_is_tim(job.circuit) {
+    if let Some(codec) = uncompressed_codec_for(job.circuit) {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        match upload_tile_dma(
-            job.circuit,
-            job.tile_x,
-            job.tile_y,
-            job.target_slot,
-            current_frame,
-        ) {
-            TileStepResult::Uploaded => {
-                crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-                job.active = false;
-                return StepResult::Done;
-            }
-            TileStepResult::Pending => {
-                return StepResult::Pending;
-            }
-            TileStepResult::Failed => {
-                let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-                slots[job.target_slot] = VramSlot::empty();
-                job.active = false;
-                return StepResult::Failed;
-            }
-        }
-    }
-
-    if codec_is_tim4(job.circuit) {
-        crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        match upload_tile_dma4(
-            job.circuit,
-            job.tile_x,
-            job.tile_y,
-            job.target_slot,
-            current_frame,
-        ) {
-            TileStepResult::Uploaded => {
-                crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-                job.active = false;
-                return StepResult::Done;
-            }
-            TileStepResult::Pending => {
-                return StepResult::Pending;
-            }
-            TileStepResult::Failed => {
-                let slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-                slots[job.target_slot] = VramSlot::empty();
-                job.active = false;
-                return StepResult::Failed;
-            }
-        }
-    }
-
-    if codec_is_tim8(job.circuit) {
-        crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        match upload_tile_dma8(
+        match upload_uncompressed_tile_async(
+            codec,
             job.circuit,
             job.tile_x,
             job.tile_y,
@@ -2363,22 +1946,18 @@ fn step_decode_job(current_frame: u32) -> StepResult {
 
     job.next_row += 1;
     if job.next_row >= 4 {
-        // All 4 MCU rows (64x64 pixels) complete! Upload to VRAM.
+        // All 4 MCU rows (64x64 pixels) complete! Upload to VRAM via DMA.
         crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-        let (vx, vy, _, _, _) = texlayout::vram_slot_coords(job.target_slot);
-        let rect = VramRect::new(vx, vy, VRAM_TILE_DIM, VRAM_TILE_DIM);
-        {
-            let _s = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
-            upload_16bpp(rect, scratch);
-        }
-
-        let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
-        vram_slots[job.target_slot].resident_circuit = job.circuit;
-        vram_slots[job.target_slot].resident_block_x = job.block_x;
-        vram_slots[job.target_slot].resident_block_y = job.block_y;
-        vram_slots[job.target_slot].resident_tile_x = job.tile_x;
-        vram_slots[job.target_slot].resident_tile_y = job.tile_y;
-        vram_slots[job.target_slot].last_used = current_frame;
+        upload_tile_to_vram(ram_slot.codec, job.target_slot, scratch_words() as *const u32);
+        mark_vram_slot_resident(
+            job.target_slot,
+            job.circuit,
+            job.block_x,
+            job.block_y,
+            job.tile_x,
+            job.tile_y,
+            current_frame,
+        );
 
         job.active = false;
         StepResult::Done
@@ -2430,22 +2009,46 @@ fn tile_resident(vram_slots: &[VramSlot; VRAM_SLOT_COUNT], circuit: usize, tile:
     })
 }
 
-/// Index of the first entry of `list` that is not resident, as `(index, tile)`.
-///
-/// Used for the prefetch list, which has no `slot_for_tile` probe result of its
-/// own. Visible tiles go through `slot_for_tile` instead, so their existing scan
-/// order and slot bookkeeping are untouched.
-fn first_missing_tile(
-    list: &[TileRef],
-    vram_slots: &[VramSlot; VRAM_SLOT_COUNT],
-    circuit: usize,
-) -> Option<(usize, TileRef)> {
-    for (i, tile) in list.iter().enumerate() {
-        if !tile_resident(vram_slots, circuit, tile) {
-            return Some((i, *tile));
+/// Unified priority key across all 6 texture codecs:
+///   - Needs RAM block (0 = already resident in RAM or uncompressed, 1 = requires async block switch)
+///   - In Mode 7: depth tier (0 = near [z < 150], 1 = mid [150 <= z < 220], 2 = far [z >= 220])
+///   - Sub-tile index in disc / span order (sub_ty * 16 + sub_tx)
+#[inline(always)]
+fn tile_priority_key(
+    candidates: &TileCandidates<'_>,
+    active_circuit: usize,
+    uncompressed: bool,
+    tile: &TileRef,
+) -> u32 {
+    let (tx, ty, bx, by, sub_tx, sub_ty) = *tile;
+    let needs_ram_block = if uncompressed || is_ram_block_resident(active_circuit, bx, by) {
+        0u32
+    } else {
+        1u32
+    };
+
+    let tier = if candidates.camera.mode7 {
+        let cam_qx = candidates.camera.pos.x.raw() >> 8;
+        let cam_qy = candidates.camera.pos.y.raw() >> 8;
+        let wx0 = tx * candidates.tile_wu.0;
+        let wy0 = ty * candidates.tile_wu.1;
+        let (_, z_q4) = candidates.camera.view_from_offset_q4(
+            (2 * wx0 + candidates.tile_wu.0) * 8 - cam_qx,
+            (2 * wy0 + candidates.tile_wu.1) * 8 - cam_qy,
+        );
+        if z_q4 < (150 << 4) {
+            0u32
+        } else if z_q4 < (220 << 4) {
+            1u32
+        } else {
+            2u32
         }
-    }
-    None
+    } else {
+        0u32
+    };
+
+    let idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
+    (needs_ram_block << 26) | (tier << 24) | (idx & 0x00FF_FFFF)
 }
 
 /// The tile lists one frame's decode scheduler draws candidates from.
@@ -2483,96 +2086,42 @@ fn step_or_schedule_decode_row(
     let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
     if !job.active {
         // No active decode job running: pick the next tile that needs one.
-        // For uncompressed disc streaming, pick the missing visible tile with the
-        // lowest key: in Mode 7, bucket by depth tier (near/mid/far) so the road
-        // directly in front of the car always streams before the horizon, while
-        // maintaining monotonic ascending disc LBA order within each tier.
-        let candidate = if codec_is_tim(active_circuit)
-            || codec_is_tim4(active_circuit)
-            || codec_is_tim8(active_circuit)
-        {
-            let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
-            for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
-                if slot == usize::MAX {
-                    let (tx, ty, bx, by, sub_tx, sub_ty) = candidates.visible[i];
-                    let idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
-                    let tier = if candidates.camera.mode7 {
-                        let cam_qx = candidates.camera.pos.x.raw() >> 8;
-                        let cam_qy = candidates.camera.pos.y.raw() >> 8;
-                        let wx0 = tx * candidates.tile_wu.0;
-                        let wy0 = ty * candidates.tile_wu.1;
-                        let (_, z_q4) = candidates.camera.view_from_offset_q4(
-                            (2 * wx0 + candidates.tile_wu.0) * 8 - cam_qx,
-                            (2 * wy0 + candidates.tile_wu.1) * 8 - cam_qy,
-                        );
-                        if z_q4 < (150 << 4) {
-                            0u32
-                        } else if z_q4 < (220 << 4) {
-                            1u32
-                        } else {
-                            2u32
-                        }
-                    } else {
-                        0u32
-                    };
-                    let key = (tier << 24) | (idx & 0x00FF_FFFF);
-                    if best_vis.is_none() || key < best_vis.unwrap().4 {
-                        best_vis = Some((bx, by, sub_tx, sub_ty, key));
-                    }
+        // We evaluate candidate tiles using a unified priority key:
+        //   - For uncompressed disc streaming: depth tier (near/mid/far) ensures the
+        //     road in front of the car loads first, with ascending disc LBA within each tier.
+        //   - For compressed codecs (SVG, QOI, JPEG): tiles from an ALREADY resident RAM block
+        //     are prioritized over ones needing an async block switch, and within the block,
+        //     Mode 7 depth tiers ensure foreground road decodes before distant horizon tiles.
+        let uncompressed = codec_is_uncompressed(active_circuit);
+
+        // 1. Check visible tiles first (highest priority)
+        let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
+        for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
+            if slot == usize::MAX {
+                let tile = candidates.visible[i];
+                let key = tile_priority_key(candidates, active_circuit, uncompressed, &tile);
+                if best_vis.is_none() || key < best_vis.unwrap().4 {
+                    let (_, _, bx, by, sub_tx, sub_ty) = tile;
+                    best_vis = Some((bx, by, sub_tx, sub_ty, key));
                 }
             }
-            if let Some((bx, by, sub_tx, sub_ty, _)) = best_vis {
-                Some((bx, by, sub_tx, sub_ty))
-            } else {
-                first_missing_tile(
-                    &candidates.prefetch[..candidates.prefetch_count],
-                    vram_slots,
-                    active_circuit,
-                )
-                .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty))
-            }
+        }
+
+        let candidate = if let Some((bx, by, sub_tx, sub_ty, _)) = best_vis {
+            Some((bx, by, sub_tx, sub_ty))
         } else {
-            // Compressed codecs (ARSV, QOI, JPEG):
-            // Prioritize tiles whose 1024x1024 block is ALREADY resident in RAM.
-            // This allows all tiles in the current resident block to finish decoding
-            // before we initiate an async block switch for an adjacent block.
-            let resident_vis_miss = (0..vis_count).find(|&i| {
-                if slot_for_tile[i] == usize::MAX {
-                    let (_, _, bx, by, _, _) = candidates.visible[i];
-                    is_ram_block_resident(active_circuit, bx, by)
-                } else {
-                    false
-                }
-            });
-
-            if let Some(i) = resident_vis_miss {
-                let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
-                Some((bx, by, sub_tx, sub_ty))
-            } else {
-                let any_vis_miss = (0..vis_count).find(|&i| slot_for_tile[i] == usize::MAX);
-                if let Some(i) = any_vis_miss {
-                    let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
-                    Some((bx, by, sub_tx, sub_ty))
-                } else {
-                    let resident_prefetch_miss = candidates.prefetch[..candidates.prefetch_count]
-                        .iter()
-                        .find(|tile| {
-                            !tile_resident(vram_slots, active_circuit, tile)
-                                && is_ram_block_resident(active_circuit, tile.2, tile.3)
-                        });
-
-                    if let Some(&(_, _, bx, by, sub_tx, sub_ty)) = resident_prefetch_miss {
-                        Some((bx, by, sub_tx, sub_ty))
-                    } else {
-                        first_missing_tile(
-                            &candidates.prefetch[..candidates.prefetch_count],
-                            vram_slots,
-                            active_circuit,
-                        )
-                        .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty))
+            // 2. All visible tiles are resident: consider prefetch lookahead
+            let mut best_prefetch: Option<(usize, usize, usize, usize, u32)> = None;
+            for tile in &candidates.prefetch[..candidates.prefetch_count] {
+                if !tile_resident(vram_slots, active_circuit, tile) {
+                    let key = tile_priority_key(candidates, active_circuit, uncompressed, tile);
+                    if best_prefetch.is_none() || key < best_prefetch.unwrap().4 {
+                        let (_, _, bx, by, sub_tx, sub_ty) = *tile;
+                        best_prefetch = Some((bx, by, sub_tx, sub_ty, key));
                     }
                 }
             }
+            best_prefetch.map(|(bx, by, sub_tx, sub_ty, _)| (bx, by, sub_tx, sub_ty))
         };
         let Some((bx, by, sub_tx, sub_ty)) = candidate else {
             return false;
@@ -2908,11 +2457,8 @@ pub fn render_track_extents(
             }
         }
 
-        // For TIM/TIM4/TIM8 streaming, sort prefetch candidates in ascending disc LBA order
-        if codec_is_tim(active_circuit)
-            || codec_is_tim4(active_circuit)
-            || codec_is_tim8(active_circuit)
-        {
+        // For uncompressed streaming, sort prefetch candidates in ascending disc LBA order
+        if codec_is_uncompressed(active_circuit) {
             for i in 1..prefetch_count {
                 let mut j = i;
                 while j > 0 {
@@ -2976,10 +2522,7 @@ pub fn render_track_extents(
     // Lookahead block streaming: if no async block load is active and all visible tiles from
     // the currently resident block are already in VRAM, check if upcoming visible or prefetch
     // tiles need a different block. If so, start streaming it in the background now!
-    if !codec_is_tim(active_circuit)
-        && !codec_is_tim4(active_circuit)
-        && !codec_is_tim8(active_circuit)
-    {
+    if !codec_is_uncompressed(active_circuit) {
         let async_job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
         if !async_job.active {
             let current_block_still_needed = (0..vis_count).any(|i| {
