@@ -75,7 +75,7 @@ const M7_K: i32 = 15_600;
 /// Nearest depth projected. Clamping here keeps the divide bounded.
 pub const M7_Z_NEAR: i32 = 70;
 /// Farthest depth that is drawn. Bounds the number of streamed tiles.
-pub const M7_Z_FAR: i32 = 270;
+pub const M7_Z_FAR: i32 = 240;
 /// The heading eases by 1/this of the remaining angle each tick.
 const M7_HEADING_EASE_DIV: i32 = 6;
 /// Position ease in chase mode. Stiffer than top-down because there is no

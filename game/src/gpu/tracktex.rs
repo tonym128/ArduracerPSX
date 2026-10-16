@@ -3072,7 +3072,7 @@ pub fn render_track_extents(
 
 /// Half-width of the square of world units scanned for Mode 7 tiles. It must
 /// reach the far corner of the frustum: `M7_Z_FAR` deep and ~1.33x that wide.
-const M7_SCAN_RADIUS: i32 = 440;
+const M7_SCAN_RADIUS: i32 = 360;
 
 /// True if any part of the tile can fall inside the Mode 7 frustum.
 ///
@@ -3216,12 +3216,12 @@ fn draw_tile_m7(
             let v0 = ((v_base as u32 + lv0 as u32).min(255)) as u8;
             let v1 = ((v_base as u32 + lv1 as u32).min(255)) as u8;
 
-            // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
+            // Fog: full brightness out to 150 units, fading to ~55% at the far plane (240).
             let z_units = (zmax + zmin) >> 5;
             let shade = if z_units <= 150 {
                 128
             } else {
-                (128 - (z_units - 150) * 58 / 120).max(70)
+                (128 - (z_units - 150) * 58 / 90).max(70)
             } as u8;
             let material = TextureMaterial::opaque(clut_word, tpage_word, (shade, shade, shade));
             gpu::draw_quad_textured_material(
