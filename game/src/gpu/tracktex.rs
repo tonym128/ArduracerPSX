@@ -45,7 +45,7 @@ pub use arduracer_core::texture_format::{Codec, Framerate, TextureFormat};
 use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2};
 
-use crate::cd_fs::DiscReader;
+use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{Camera, M7_HORIZON, M7_Z_FAR, M7_Z_NEAR};
 use crate::gpu::texlayout::{
     self, BLOCK_DIM, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
@@ -134,6 +134,11 @@ const TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
     ),
 ];
 
+#[repr(C, align(4))]
+struct AlignedBlockData([u8; visual_tex::BLOCK_MAX_BYTES]);
+
+const _: () = assert!(core::mem::align_of::<AlignedBlockData>() >= 4);
+
 /// An in-RAM resident 1024x1024 compressed image block.
 ///
 /// `block_data` is shared by both codecs: only one is loaded per circuit, and
@@ -150,7 +155,7 @@ struct RamBlock {
     qoi_header: arduracer_core::qoi::QoiHeader,
     /// Parsed `ARSV` header and base-raster segment index.
     arsv_block: arduracer_core::svgtex::SvgBlock,
-    block_data: [u8; visual_tex::BLOCK_MAX_BYTES],
+    block_data: AlignedBlockData,
     byte_len: usize,
     valid: bool,
 }
@@ -182,7 +187,7 @@ impl RamBlock {
                 segment_height: 0,
             },
             arsv_block: arduracer_core::svgtex::SvgBlock::empty(),
-            block_data: [0u8; visual_tex::BLOCK_MAX_BYTES],
+            block_data: AlignedBlockData([0u8; visual_tex::BLOCK_MAX_BYTES]),
             byte_len: 0,
             valid: false,
         }
@@ -241,6 +246,45 @@ impl DecodeJob {
     }
 }
 
+/// Active background block streaming job for compressed sheets (SVG/ARSV, QOI, JPEG).
+#[derive(Copy, Clone)]
+#[allow(dead_code)]
+struct AsyncBlockJob {
+    active: bool,
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    slot_idx: usize,
+    block_lba: u32,
+    sectors_total: usize,
+    sectors_read: usize,
+    byte_len: usize,
+    codec: Codec,
+    use_arsv: bool,
+    use_qoi: bool,
+    start_frame: u32,
+}
+
+impl AsyncBlockJob {
+    const fn empty() -> Self {
+        Self {
+            active: false,
+            circuit: usize::MAX,
+            block_x: usize::MAX,
+            block_y: usize::MAX,
+            slot_idx: 0,
+            block_lba: 0,
+            sectors_total: 0,
+            sectors_read: 0,
+            byte_len: 0,
+            codec: Codec::Jpeg,
+            use_arsv: false,
+            use_qoi: false,
+            start_frame: 0,
+        }
+    }
+}
+
 /// 1-slot unified RAM block holding the 1024x1024 compressed map (<= 500 KB).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
@@ -249,6 +293,9 @@ static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SL
 
 /// Active incremental decode job stepping 1 MCU row per frame (~20% frame budget).
 static mut ACTIVE_JOB: DecodeJob = DecodeJob::empty();
+
+/// Active background block streaming job for compressed sheets.
+static mut ASYNC_BLOCK_JOB: AsyncBlockJob = AsyncBlockJob::empty();
 
 /// 64x64 tile staging buffer: 4096 halfwords (8 KB), shared by every codec.
 ///
@@ -836,6 +883,7 @@ pub fn reset_texture_caches() {
         // Nothing buffered across a format switch any more: a tile in
         // flight dies with the decoder that asked for it.
         crate::async_tile::cancel();
+        cancel_async_block_load();
     }
 }
 
@@ -1027,7 +1075,7 @@ pub fn init_track_texture(circuit: usize) {
         // `codec_is_tim`, not `tim_block_for`: see its note for why the
         // availability question is the wrong one.
         if !codec_is_tim(circuit) && !codec_is_tim4(circuit) && !codec_is_tim8(circuit) {
-            load_block_into_ram(circuit, init_bx, init_by, 0);
+            load_block_sync(circuit, init_bx, init_by, 0);
         }
 
         // The 4bpp path's palette is circuit state, not tile state: it must be
@@ -1080,7 +1128,7 @@ fn decode_row(
     if !ram_slot.valid || ram_slot.byte_len == 0 {
         return false;
     }
-    let data = &ram_slot.block_data[..ram_slot.byte_len];
+    let data = &ram_slot.block_data.0[..ram_slot.byte_len];
 
     match ram_slot.codec {
         Codec::Jpeg => {
@@ -1690,7 +1738,13 @@ fn decode_and_upload_full_tile(
         return;
     }
 
-    let ram_slot_idx = ensure_ram_block(circuit, bx, by, 0);
+    let ram_slot_idx = if is_ram_block_resident(circuit, bx, by) {
+        0
+    } else if load_block_sync(circuit, bx, by, 0) {
+        0
+    } else {
+        return;
+    };
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *scratch() };
 
@@ -1797,30 +1851,14 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     }
 }
 
-/// Streams a 1024x1024 compressed block (<= 500 KB) from CD-ROM into the
-/// specified RAM cache slot.
-#[inline(never)]
-fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) {
-    let city = unsafe { ACTIVE_CITY };
-    let codec = codec_for_circuit(circuit);
-
-    // TIM/TIM4/TIM8 have no block: their tiles are read individually, and
-    // the RAM buffer would only ever hold a fragment. Mark
-    // the slot invalid so a stray `ensure_ram_block` paints fallbacks instead of
-    // handing a decoder texels to interpret.
-    if codec == Codec::Tim || codec == Codec::Tim4 || codec == Codec::Tim8 {
-        let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
-        ram_slot.resident_circuit = circuit;
-        ram_slot.resident_block_x = block_x;
-        ram_slot.resident_block_y = block_y;
-        ram_slot.byte_len = 0;
-        ram_slot.valid = false;
-        return;
-    }
-
-    // City blocks (Cape Town / Melbourne / London) are shipped as JPEG only;
-    // their 10 km^2 art is procedurally generated at cook time and has no
-    // SVG or QOI counterpart, so they always take the JPEG table.
+/// Resolves the CD-ROM LBA, sector entry, and codec flags for a compressed block.
+fn block_location(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    codec: Codec,
+    city: usize,
+) -> Option<(u32, visual_tex::TileSectorEntry, bool, bool)> {
     let use_arsv = codec == Codec::Arsv && city == 0;
     let use_qoi = codec == Codec::Qoi && city == 0;
 
@@ -1866,89 +1904,314 @@ fn load_block_into_ram(circuit: usize, block_x: usize, block_y: usize, slot_idx:
             }
         }
     };
-    let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
-    let mut loaded = false;
+    let lba = bin_lba?;
+    Some((lba + entry.sector_offset, entry, use_arsv, use_qoi))
+}
 
-    if let Some(lba) = bin_lba {
-        let block_lba = lba + entry.sector_offset;
-        let sector_count = entry.sector_count as usize;
-        let byte_len = entry.byte_len as usize;
-        let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-
-        crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
-        crate::prof::count(crate::prof::C_CD_SECTORS, sector_count as u32);
-        let claimed = crate::drive::claim(crate::drive::Owner::Texture);
-        let read_ok = {
-            let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
-            sector_count <= visual_tex::BLOCK_SECTORS
-                && reader.read_sectors(block_lba, sector_count, &mut ram_slot.block_data)
-        };
-        if claimed {
-            crate::drive::release(crate::drive::Owner::Texture);
-        }
-        if read_ok {
-            ram_slot.byte_len = byte_len;
-            ram_slot.codec = if use_arsv {
-                Codec::Arsv
-            } else if use_qoi {
-                Codec::Qoi
-            } else {
-                Codec::Jpeg
-            };
-
-            // The header parse and the index walk are separated from the sector
-            // read because they are different work at different scales: the
-            // read is bounded by the drive, the index walk is CPU work over the
-            // whole compressed block. QOI's index is O(segments); JPEG's is a
-            // linear scan of the entire entropy-coded segment.
-            let _index = crate::prof::span(crate::prof::TRACK_BLOCK_INDEX);
-            let block = &ram_slot.block_data[..byte_len];
-
-            if use_arsv {
-                // `parse_block` does the header parse and the base-raster
-                // segment index together; both are once-per-CD-load work, same
-                // as the JPEG restart scan, so they share one profiled span.
-                if let Some(svg_block) = arduracer_core::svgtex::parse_block(block) {
-                    debug_assert_eq!(svg_block.offsets.len(), BLOCK_SPANS);
-                    ram_slot.arsv_block = svg_block;
-                    loaded = true;
-                }
-            } else if use_qoi {
-                if let Some(header) = arduracer_core::qoi::QoiHeader::parse(block) {
-                    debug_assert_eq!(header.segment_count as usize, BLOCK_SPANS);
-                    arduracer_core::qoi::index_segments(block, &header, &mut ram_slot.offsets);
-                    ram_slot.qoi_header = header;
-                    loaded = true;
-                }
-            } else if let Some(header) = arduracer_core::jpeg::JpegHeader::parse(block) {
-                header.index_restarts(block, &mut ram_slot.offsets);
-                ram_slot.jpeg_header = header;
-                loaded = true;
-            }
-
-            if loaded {
-                ram_slot.resident_circuit = circuit;
-                ram_slot.resident_block_x = block_x;
-                ram_slot.resident_block_y = block_y;
-                ram_slot.valid = true;
-            }
-        }
-    }
-
-    if !loaded {
-        // Fallback pattern if disc read fails
+/// Synchronously reads a compressed block into RAM during loading screens.
+#[inline(never)]
+fn load_block_sync(circuit: usize, block_x: usize, block_y: usize, slot_idx: usize) -> bool {
+    let codec = codec_for_circuit(circuit);
+    if codec == Codec::Tim || codec == Codec::Tim4 || codec == Codec::Tim8 {
+        let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
         ram_slot.resident_circuit = circuit;
         ram_slot.resident_block_x = block_x;
         ram_slot.resident_block_y = block_y;
         ram_slot.byte_len = 0;
         ram_slot.valid = false;
+        return false;
+    }
+
+    let city = unsafe { ACTIVE_CITY };
+    let Some((block_lba, entry, use_arsv, use_qoi)) =
+        block_location(circuit, block_x, block_y, codec, city)
+    else {
+        let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
+        ram_slot.resident_circuit = circuit;
+        ram_slot.resident_block_x = block_x;
+        ram_slot.resident_block_y = block_y;
+        ram_slot.byte_len = 0;
+        ram_slot.valid = false;
+        return false;
+    };
+
+    let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
+    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+
+    // Read only the actual compressed payload sectors instead of full 250 sectors
+    let sectors_to_read = ((entry.byte_len as usize) + 2047) / 2048;
+    crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
+    crate::prof::count(crate::prof::C_CD_SECTORS, sectors_to_read as u32);
+    let claimed = crate::drive::claim(crate::drive::Owner::Texture);
+    let read_ok = {
+        let _read = crate::prof::span(crate::prof::TRACK_CD_READ);
+        sectors_to_read <= visual_tex::BLOCK_SECTORS
+            && reader.read_sectors(block_lba, sectors_to_read, &mut ram_slot.block_data.0)
+    };
+    if claimed {
+        crate::drive::release(crate::drive::Owner::Texture);
+    }
+
+    if read_ok {
+        let byte_len = entry.byte_len as usize;
+        ram_slot.byte_len = byte_len;
+        ram_slot.codec = if use_arsv {
+            Codec::Arsv
+        } else if use_qoi {
+            Codec::Qoi
+        } else {
+            Codec::Jpeg
+        };
+
+        let block = &ram_slot.block_data.0[..byte_len];
+        let mut loaded = false;
+
+        let _index = crate::prof::span(crate::prof::TRACK_BLOCK_INDEX);
+        if use_arsv {
+            if let Some(svg_block) = arduracer_core::svgtex::parse_block(block) {
+                debug_assert_eq!(svg_block.offsets.len(), BLOCK_SPANS);
+                ram_slot.arsv_block = svg_block;
+                loaded = true;
+            }
+        } else if use_qoi {
+            if let Some(header) = arduracer_core::qoi::QoiHeader::parse(block) {
+                debug_assert_eq!(header.segment_count as usize, BLOCK_SPANS);
+                arduracer_core::qoi::index_segments(block, &header, &mut ram_slot.offsets);
+                ram_slot.qoi_header = header;
+                loaded = true;
+            }
+        } else if let Some(header) = arduracer_core::jpeg::JpegHeader::parse(block) {
+            header.index_restarts(block, &mut ram_slot.offsets);
+            ram_slot.jpeg_header = header;
+            loaded = true;
+        }
+
+        if loaded {
+            ram_slot.resident_circuit = circuit;
+            ram_slot.resident_block_x = block_x;
+            ram_slot.resident_block_y = block_y;
+            ram_slot.valid = true;
+            return true;
+        }
+    }
+
+    ram_slot.resident_circuit = circuit;
+    ram_slot.resident_block_x = block_x;
+    ram_slot.resident_block_y = block_y;
+    ram_slot.byte_len = 0;
+    ram_slot.valid = false;
+    false
+}
+
+/// Cancels any in-flight asynchronous compressed block streaming job and releases the drive.
+pub fn cancel_async_block_load() {
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ASYNC_BLOCK_JOB) };
+    if job.active {
+        let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+        reader.stop_stream();
+        crate::drive::release(crate::drive::Owner::Texture);
+        job.active = false;
     }
 }
 
-/// Ensures the required 1024x1024 block is resident in RAM, returning its RAM slot index.
+/// Begins streaming a 1024x1024 compressed block (SVG/ARSV, QOI, JPEG) asynchronously in the background.
+fn start_async_block_load(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    slot_idx: usize,
+    current_frame: u32,
+) -> bool {
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ASYNC_BLOCK_JOB) };
+    if job.active {
+        return false;
+    }
+    let codec = codec_for_circuit(circuit);
+    if codec == Codec::Tim || codec == Codec::Tim4 || codec == Codec::Tim8 {
+        return false;
+    }
+    let city = unsafe { ACTIVE_CITY };
+    let Some((block_lba, entry, use_arsv, use_qoi)) =
+        block_location(circuit, block_x, block_y, codec, city)
+    else {
+        return false;
+    };
+    if entry.byte_len == 0 {
+        return false;
+    }
+
+    if !crate::drive::claim(crate::drive::Owner::Texture) {
+        return false;
+    }
+
+    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+    if !reader.begin_tile_stream(block_lba) {
+        crate::drive::release(crate::drive::Owner::Texture);
+        return false;
+    }
+
+    // Cancel any active decode job that was working on the previous resident block
+    let active_job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+    if active_job.active
+        && (active_job.circuit != circuit
+            || active_job.block_x != block_x
+            || active_job.block_y != block_y)
+    {
+        active_job.active = false;
+    }
+
+    let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
+    ram_slot.valid = false;
+    ram_slot.resident_circuit = circuit;
+    ram_slot.resident_block_x = block_x;
+    ram_slot.resident_block_y = block_y;
+    ram_slot.byte_len = 0;
+
+    let sectors_to_read = ((entry.byte_len as usize) + 2047) / 2048;
+    crate::prof::count(crate::prof::C_CD_BLOCKS, 1);
+    crate::prof::count(crate::prof::C_CD_SECTORS, sectors_to_read as u32);
+
+    *job = AsyncBlockJob {
+        active: true,
+        circuit,
+        block_x,
+        block_y,
+        slot_idx,
+        block_lba,
+        sectors_total: sectors_to_read,
+        sectors_read: 0,
+        byte_len: entry.byte_len as usize,
+        codec,
+        use_arsv,
+        use_qoi,
+        start_frame: current_frame,
+    };
+    true
+}
+
+/// Drains arrived sectors from the CD drive for the in-flight compressed block fetch.
+fn step_async_block_load(current_frame: u32) {
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ASYNC_BLOCK_JOB) };
+    if !job.active {
+        return;
+    }
+
+    // 5-second stall watchdog
+    if current_frame.wrapping_sub(job.start_frame) > 300 {
+        let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+        reader.stop_stream();
+        crate::drive::release(crate::drive::Owner::Texture);
+        job.active = false;
+        return;
+    }
+
+    let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[job.slot_idx] };
+    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+
+    while job.sectors_read < job.sectors_total {
+        let offset = job.sectors_read * 2048;
+        if offset + 2048 > ram_slot.block_data.0.len() {
+            break;
+        }
+        let dst =
+            unsafe { &mut *(ram_slot.block_data.0.as_mut_ptr().add(offset) as *mut [u32; 512]) };
+        match reader.try_tile_sector(dst) {
+            SectorPoll::Filled => {
+                job.sectors_read += 1;
+            }
+            SectorPoll::Empty => {
+                return;
+            }
+            SectorPoll::Fault => {
+                reader.stop_stream();
+                crate::drive::release(crate::drive::Owner::Texture);
+                job.active = false;
+                ram_slot.valid = false;
+                return;
+            }
+        }
+    }
+
+    // All payload sectors have arrived: parse headers and index offsets
+    if job.sectors_read >= job.sectors_total {
+        reader.stop_stream();
+        crate::drive::release(crate::drive::Owner::Texture);
+
+        let byte_len = job.byte_len;
+        ram_slot.byte_len = byte_len;
+        ram_slot.codec = if job.use_arsv {
+            Codec::Arsv
+        } else if job.use_qoi {
+            Codec::Qoi
+        } else {
+            Codec::Jpeg
+        };
+
+        let block = &ram_slot.block_data.0[..byte_len];
+        let mut loaded = false;
+
+        let _index = crate::prof::span(crate::prof::TRACK_BLOCK_INDEX);
+        if job.use_arsv {
+            if let Some(svg_block) = arduracer_core::svgtex::parse_block(block) {
+                debug_assert_eq!(svg_block.offsets.len(), BLOCK_SPANS);
+                ram_slot.arsv_block = svg_block;
+                loaded = true;
+            }
+        } else if job.use_qoi {
+            if let Some(header) = arduracer_core::qoi::QoiHeader::parse(block) {
+                debug_assert_eq!(header.segment_count as usize, BLOCK_SPANS);
+                arduracer_core::qoi::index_segments(block, &header, &mut ram_slot.offsets);
+                ram_slot.qoi_header = header;
+                loaded = true;
+            }
+        } else if let Some(header) = arduracer_core::jpeg::JpegHeader::parse(block) {
+            header.index_restarts(block, &mut ram_slot.offsets);
+            ram_slot.jpeg_header = header;
+            loaded = true;
+        }
+
+        if loaded {
+            ram_slot.resident_circuit = job.circuit;
+            ram_slot.resident_block_x = job.block_x;
+            ram_slot.resident_block_y = job.block_y;
+            ram_slot.valid = true;
+            ram_slot.last_used = current_frame;
+        } else {
+            ram_slot.valid = false;
+        }
+
+        job.active = false;
+    }
+}
+
+/// Returns whether `(circuit, block_x, block_y)` is currently valid and resident in RAM.
+#[inline]
+fn is_ram_block_resident(circuit: usize, block_x: usize, block_y: usize) -> bool {
+    let blocks = unsafe { &*core::ptr::addr_of!(RAM_BLOCKS) };
+    for i in 0..RAM_CACHE_BLOCKS {
+        let b = &blocks[i];
+        if b.valid
+            && b.resident_circuit == circuit
+            && b.resident_block_x == block_x
+            && b.resident_block_y == block_y
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Ensures the required 1024x1024 block is resident in RAM.
+///
+/// Returns `Some(slot_idx)` if the block is already resident and valid, or
+/// `None` if it is still streaming in the background across frames.
 #[inline(never)]
-#[allow(clippy::needless_range_loop)]
-fn ensure_ram_block(circuit: usize, block_x: usize, block_y: usize, current_frame: u32) -> usize {
+fn ensure_ram_block(
+    circuit: usize,
+    block_x: usize,
+    block_y: usize,
+    current_frame: u32,
+) -> Option<usize> {
     let blocks = unsafe { &mut *core::ptr::addr_of_mut!(RAM_BLOCKS) };
     for i in 0..RAM_CACHE_BLOCKS {
         let b = &mut blocks[i];
@@ -1958,27 +2221,21 @@ fn ensure_ram_block(circuit: usize, block_x: usize, block_y: usize, current_fram
             && b.resident_block_y == block_y
         {
             b.last_used = current_frame;
-            return i;
+            return Some(i);
         }
     }
 
-    // Find least recently used RAM slot
-    let mut best_slot = 0;
-    let mut oldest_age = u32::MAX;
-    for i in 0..RAM_CACHE_BLOCKS {
-        if !blocks[i].valid {
-            best_slot = i;
-            break;
-        }
-        if blocks[i].last_used < oldest_age {
-            oldest_age = blocks[i].last_used;
-            best_slot = i;
-        }
+    let job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
+    if job.active && job.circuit == circuit && job.block_x == block_x && job.block_y == block_y {
+        return None;
     }
 
-    load_block_into_ram(circuit, block_x, block_y, best_slot);
-    blocks[best_slot].last_used = current_frame;
-    best_slot
+    if job.active {
+        cancel_async_block_load();
+    }
+
+    start_async_block_load(circuit, block_x, block_y, 0, current_frame);
+    None
 }
 
 /// Advances the active time-sliced decode job by 1 MCU row (64x16 pixels).
@@ -2093,7 +2350,10 @@ fn step_decode_job(current_frame: u32) -> StepResult {
         }
     }
 
-    let ram_slot_idx = ensure_ram_block(job.circuit, job.block_x, job.block_y, current_frame);
+    let Some(ram_slot_idx) = ensure_ram_block(job.circuit, job.block_x, job.block_y, current_frame)
+    else {
+        return StepResult::Pending;
+    };
     let ram_slot = unsafe { &RAM_BLOCKS[ram_slot_idx] };
     let scratch = unsafe { &mut *scratch() };
 
@@ -2253,18 +2513,46 @@ fn step_or_schedule_decode_row(
                 .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty))
             }
         } else {
-            let visible_miss = (0..vis_count).find(|&i| slot_for_tile[i] == usize::MAX);
-            match visible_miss {
-                Some(i) => {
+            // Compressed codecs (ARSV, QOI, JPEG):
+            // Prioritize tiles whose 1024x1024 block is ALREADY resident in RAM.
+            // This allows all tiles in the current resident block to finish decoding
+            // before we initiate an async block switch for an adjacent block.
+            let resident_vis_miss = (0..vis_count).find(|&i| {
+                if slot_for_tile[i] == usize::MAX {
+                    let (_, _, bx, by, _, _) = candidates.visible[i];
+                    is_ram_block_resident(active_circuit, bx, by)
+                } else {
+                    false
+                }
+            });
+
+            if let Some(i) = resident_vis_miss {
+                let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
+                Some((bx, by, sub_tx, sub_ty))
+            } else {
+                let any_vis_miss = (0..vis_count).find(|&i| slot_for_tile[i] == usize::MAX);
+                if let Some(i) = any_vis_miss {
                     let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
                     Some((bx, by, sub_tx, sub_ty))
+                } else {
+                    let resident_prefetch_miss = candidates.prefetch[..candidates.prefetch_count]
+                        .iter()
+                        .find(|tile| {
+                            !tile_resident(vram_slots, active_circuit, tile)
+                                && is_ram_block_resident(active_circuit, tile.2, tile.3)
+                        });
+
+                    if let Some(&(_, _, bx, by, sub_tx, sub_ty)) = resident_prefetch_miss {
+                        Some((bx, by, sub_tx, sub_ty))
+                    } else {
+                        first_missing_tile(
+                            &candidates.prefetch[..candidates.prefetch_count],
+                            vram_slots,
+                            active_circuit,
+                        )
+                        .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty))
+                    }
                 }
-                None => first_missing_tile(
-                    &candidates.prefetch[..candidates.prefetch_count],
-                    vram_slots,
-                    active_circuit,
-                )
-                .map(|(_, (_, _, bx, by, sub_tx, sub_ty))| (bx, by, sub_tx, sub_ty)),
             }
         };
         let Some((bx, by, sub_tx, sub_ty)) = candidate else {
@@ -2572,6 +2860,58 @@ pub fn render_track_extents(
     let job = unsafe { &*core::ptr::addr_of!(ACTIVE_JOB) };
     if job.active {
         used_slots[job.target_slot] = true;
+    }
+
+    // Phase 1.5: Pump asynchronous block streaming for compressed codecs (ARSV/SVG, QOI, JPEG).
+    // Polls arriving disc sectors into RAM_BLOCKS[0] and finalizes block indexing when complete.
+    step_async_block_load(current_frame);
+
+    // Lookahead block streaming: if no async block load is active and all visible tiles from
+    // the currently resident block are already in VRAM, check if upcoming visible or prefetch
+    // tiles need a different block. If so, start streaming it in the background now!
+    if !codec_is_tim(active_circuit)
+        && !codec_is_tim4(active_circuit)
+        && !codec_is_tim8(active_circuit)
+    {
+        let async_job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
+        if !async_job.active {
+            let current_block_still_needed = (0..vis_count).any(|i| {
+                if slot_for_tile[i] == usize::MAX {
+                    let (_, _, bx, by, _, _) = visible_tiles[i];
+                    is_ram_block_resident(active_circuit, bx, by)
+                } else {
+                    false
+                }
+            });
+
+            if !current_block_still_needed {
+                let mut needed_block = None;
+                for i in 0..vis_count {
+                    if slot_for_tile[i] == usize::MAX {
+                        let (_, _, bx, by, _, _) = visible_tiles[i];
+                        if !is_ram_block_resident(active_circuit, bx, by) {
+                            needed_block = Some((bx, by));
+                            break;
+                        }
+                    }
+                }
+                if needed_block.is_none() {
+                    for i in 0..prefetch_count {
+                        let tile = &prefetch_tiles[i];
+                        if !tile_resident(vram_slots, active_circuit, tile) {
+                            let (_, _, bx, by, _, _) = *tile;
+                            if !is_ram_block_resident(active_circuit, bx, by) {
+                                needed_block = Some((bx, by));
+                                break;
+                            }
+                        }
+                    }
+                }
+                if let Some((bx, by)) = needed_block {
+                    start_async_block_load(active_circuit, bx, by, 0, current_frame);
+                }
+            }
+        }
     }
 
     // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
