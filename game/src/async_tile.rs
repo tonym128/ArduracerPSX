@@ -306,8 +306,8 @@ pub fn fetch(
 
     // Nothing open and the tile is not covered. A finished window is just cached
     // sectors now -- keyed by LBA, with no owner -- so it is free to overwrite.
-    // Stream exactly one tile's sectors and close immediately when they land.
-    let total = need.min(available);
+    // Stream up to WINDOW_SECTORS and close immediately when they land.
+    let total = WINDOW_SECTORS.min(available);
     unsafe { SEEKED = SEEKED.wrapping_add(1) };
     if !reader.begin_tile_stream(tile_lba) {
         crate::drive::release(crate::drive::Owner::Texture);

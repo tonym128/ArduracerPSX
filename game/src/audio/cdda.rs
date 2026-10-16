@@ -227,9 +227,17 @@ impl CddaController {
         let ok = cdrom::try_play_track(track, 50_000);
         crate::dbg::print("[CDDA] try_play_track returned ");
         crate::dbg::println(if ok.is_some() { "OK" } else { "TIMEOUT/ERROR" });
-        self.state = CddaState::Playing;
-        unsafe {
-            core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), track);
+        if ok.is_some() {
+            self.state = CddaState::Playing;
+            unsafe {
+                core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), track);
+            }
+        } else {
+            self.state = CddaState::Stopped;
+            self.policy.clear();
+            unsafe {
+                core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
+            }
         }
     }
 
@@ -263,15 +271,25 @@ impl CddaController {
                 return;
             }
             cdrom::try_demute(50_000);
-            if !seek_to_saved_position() {
-                cdrom::try_play_track(self.current_track, 50_000);
-            }
-            self.state = CddaState::Playing;
-            unsafe {
-                core::ptr::write_volatile(
-                    core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK),
-                    self.current_track,
-                );
+            let resumed = if !seek_to_saved_position() {
+                cdrom::try_play_track(self.current_track, 50_000).is_some()
+            } else {
+                true
+            };
+            if resumed {
+                self.state = CddaState::Playing;
+                unsafe {
+                    core::ptr::write_volatile(
+                        core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK),
+                        self.current_track,
+                    );
+                }
+            } else {
+                self.state = CddaState::Stopped;
+                self.policy.clear();
+                unsafe {
+                    core::ptr::write_volatile(core::ptr::addr_of_mut!(ACTIVE_CDDA_TRACK), 0);
+                }
             }
         }
     }
