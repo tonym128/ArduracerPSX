@@ -2441,12 +2441,14 @@ pub fn render_track_extents(
         let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
             1
         } else {
-            ((world_w + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1) as usize
+            ((world_w + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1)
+                as usize
         };
         let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
             1
         } else {
-            ((world_h + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1) as usize
+            ((world_h + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1)
+                as usize
         };
         (bx, by)
     } else {

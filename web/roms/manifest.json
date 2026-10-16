@@ -1,32 +1,32 @@
 {
   "version": 1,
-  "build_id": "73992284f3-36fd7312b98da887",
-  "commit": "73992284f3f9adf92fb5bf9e81dc49a9223c3187",
-  "build_time": "2026-10-15T06:09:55.836258+00:00",
+  "build_id": "8c2d021a68-e50fb48a0684caf4",
+  "commit": "8c2d021a68d4f3a14b3b768aee8e9fc0dab98a43",
+  "build_time": "2026-10-16T21:05:33.165000+00:00",
   "files": {
     "arduracer.bin": {
       "path": "arduracer.bin",
-      "size": 193520208,
-      "sha256": "d47f23ad024ea41ddf6cbd4f459967bd44c8ba893693168e0b4b76b413cd451c",
-      "modified": 1791078898
+      "size": 413436912,
+      "sha256": "e7f121d789a6d361797780efc84e0ecd90d3e803317a24b855208384cd07928f",
+      "modified": 1792184731
     },
     "arduracer.cue": {
       "path": "arduracer.cue",
       "size": 438,
-      "sha256": "da72b551a4d014cb54ab8874322afc2d4050526dc0b9457dbdd800d4a858e670",
-      "modified": 1791078898
+      "sha256": "1ab9d88c19bba4e3cb840ba879255cc23530a64dfad46e0f88f42836856e0b17",
+      "modified": 1792184731
     },
     "arduracer.exe": {
       "path": "arduracer.exe",
-      "size": 327680,
-      "sha256": "df0ec9676540fb50a7d6aec02d08881b104b28cf4128b7dd5c5acde8a05294cd",
-      "modified": 1791078898
+      "size": 677888,
+      "sha256": "40127a03107ef55ba5eec7c4df9e904a4d40362cd548a63db27663cbd164f5e3",
+      "modified": 1792184731
     },
     "arduracer.iso": {
       "path": "arduracer.iso",
-      "size": 2097152,
-      "sha256": "1d839fbf12768dbca4bab9adcf665598ba2ce79cdac1aacf9df1e16b94ae7304",
-      "modified": 1791078898
+      "size": 147308544,
+      "sha256": "f6e677e8540d8dfdb088329bfb03e087ffa91647a617b246fdf006595c925a34",
+      "modified": 1792184731
     }
   }
 }
