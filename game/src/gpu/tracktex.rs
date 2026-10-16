@@ -1958,6 +1958,16 @@ fn step_async_block_load(current_frame: u32) {
     }
 }
 
+/// Continuously drains arriving CD-ROM sectors for background compressed block loads
+/// and uncompressed TIM tile fetches. Call during VBlank waits and intra-frame checkpoints
+/// so sectors are serviced within <13.33ms to avoid CD controller FIFO overruns.
+pub fn pump_cd_streams() {
+    let frame = unsafe { FRAME_COUNTER };
+    let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
+    crate::async_tile::pump(reader, frame);
+    step_async_block_load(frame);
+}
+
 /// Returns whether `(circuit, block_x, block_y)` is currently valid and resident in RAM.
 #[inline]
 fn is_ram_block_resident(circuit: usize, block_x: usize, block_y: usize) -> bool {
@@ -2412,11 +2422,11 @@ pub fn render_track_extents(
         FRAME_COUNTER = FRAME_COUNTER.wrapping_add(1);
     }
     let current_frame = unsafe { FRAME_COUNTER };
-    // Advance any tile fetch already in flight before deciding what this frame
+    // Advance any tile or block fetch already in flight before deciding what this frame
     // wants. The drive pushes on its own clock, so this cannot be left to the
     // tile request below: a frame that asks for nothing would leave the sectors
     // sitting in the drive's two-slot FIFO and overrun it.
-    crate::async_tile::pump(disc_reader(), current_frame);
+    pump_cd_streams();
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
     // Sampling parameters for whichever codec this circuit selected: tpage
     // depth, CLUT handle, and how many texels a U unit spans. Bound once here
@@ -2718,7 +2728,7 @@ pub fn render_track_extents(
 
     // Phase 1.5: Pump asynchronous block streaming for compressed codecs (ARSV/SVG, QOI, JPEG).
     // Polls arriving disc sectors into RAM_BLOCKS[0] and finalizes block indexing when complete.
-    step_async_block_load(current_frame);
+    pump_cd_streams();
 
     // Lookahead block streaming: if no async block load is active and all visible tiles from
     // the currently resident block are already in VRAM, check if upcoming visible or prefetch
@@ -2794,6 +2804,8 @@ pub fn render_track_extents(
             break;
         }
 
+        pump_cd_streams();
+
         let did_work = step_or_schedule_decode_row(
             current_frame,
             active_circuit,
@@ -2835,6 +2847,9 @@ pub fn render_track_extents(
         draw_m7_backdrop();
     }
     for i in 0..vis_count {
+        if (i & 3) == 0 {
+            pump_cd_streams();
+        }
         let (tx, ty, _, _, _, _) = visible_tiles[i];
         let s_idx = slot_for_tile[i];
 

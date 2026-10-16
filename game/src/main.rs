@@ -675,12 +675,16 @@ impl ArduracerGame {
                 #[cfg(target_arch = "mips")]
                 {
                     if first_frame {
-                        psx_rt::interrupts::wait_vblank();
+                        psx_rt::interrupts::wait_vblank_with(|| {
+                            crate::gpu::tracktex::pump_cd_streams();
+                        });
                         self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                     } else {
                         let mut wait_spins = 0u32;
                         while psx_rt::interrupts::gp1_queue_pending() && wait_spins < 8 {
-                            psx_rt::interrupts::wait_vblank();
+                            psx_rt::interrupts::wait_vblank_with(|| {
+                                crate::gpu::tracktex::pump_cd_streams();
+                            });
                             wait_spins += 1;
                         }
                         if psx_rt::interrupts::gp1_queue_pending() {
@@ -694,7 +698,9 @@ impl ArduracerGame {
                 }
                 #[cfg(not(target_arch = "mips"))]
                 {
-                    psx_rt::interrupts::wait_vblank();
+                    psx_rt::interrupts::wait_vblank_with(|| {
+                        crate::gpu::tracktex::pump_cd_streams();
+                    });
                 }
             }
             psx_gpu_mod::arm_draw_done();
@@ -1129,6 +1135,8 @@ impl ArduracerGame {
                         t_checkpoint = t_now;
                     }
 
+                    crate::gpu::tracktex::pump_cd_streams();
+
                     // Render Pass:
                     // a. Clear background
                     {
@@ -1161,6 +1169,7 @@ impl ArduracerGame {
                         t_track_ticks = t_now.wrapping_sub(t_checkpoint);
                         t_checkpoint = t_now;
                     }
+                    crate::gpu::tracktex::pump_cd_streams();
                     // c. Skidmarks on track
                     {
                         let _s = prof::span(prof::SKIDMARKS);
@@ -1185,6 +1194,7 @@ impl ArduracerGame {
                         t_cars_ticks = t_now.wrapping_sub(t_checkpoint);
                         t_checkpoint = t_now;
                     }
+                    crate::gpu::tracktex::pump_cd_streams();
                     // g. Particle effects
                     // h. Start lights
                     {
@@ -1219,6 +1229,7 @@ impl ArduracerGame {
                         let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
                         t_misc_ticks = t_now.wrapping_sub(t_checkpoint);
                     }
+                    crate::gpu::tracktex::pump_cd_streams();
                 }
                 GameState::Results => {
                     self.handle_results_screen(&pad);
@@ -1772,6 +1783,7 @@ impl ArduracerGame {
     }
 
     fn close_frame(&mut self) {
+        crate::gpu::tracktex::pump_cd_streams();
         psx_gpu_mod::signal_draw_done();
         #[cfg(target_arch = "mips")]
         {
@@ -1782,9 +1794,12 @@ impl ArduracerGame {
             while psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank) + 1
                 < period
             {
-                psx_rt::interrupts::wait_vblank();
+                psx_rt::interrupts::wait_vblank_with(|| {
+                    crate::gpu::tracktex::pump_cd_streams();
+                });
             }
         }
+        crate::gpu::tracktex::pump_cd_streams();
         let flip = self.fb.begin_deferred_swap();
         psx_rt::interrupts::queue_gp1_at_vblank(flip);
     }
