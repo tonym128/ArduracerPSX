@@ -194,9 +194,20 @@ impl RamBlock {
     }
 }
 
+/// Packs circuit and tile coordinates into a single 32-bit key for fast single-cycle cache probing.
+#[inline(always)]
+fn pack_tile_key(circuit: usize, bx: usize, by: usize, tx: usize, ty: usize) -> u32 {
+    ((circuit as u32 & 0xFF) << 24)
+        | ((bx as u32 & 0x0F) << 20)
+        | ((by as u32 & 0x0F) << 16)
+        | ((tx as u32 & 0xFF) << 8)
+        | (ty as u32 & 0xFF)
+}
+
 /// A resident 64x64 tile in the VRAM cache.
 #[derive(Copy, Clone)]
 struct VramSlot {
+    key: u32,
     resident_circuit: usize,
     resident_block_x: usize,
     resident_block_y: usize,
@@ -208,6 +219,7 @@ struct VramSlot {
 impl VramSlot {
     const fn empty() -> Self {
         Self {
+            key: u32::MAX,
             resident_circuit: usize::MAX,
             resident_block_x: usize::MAX,
             resident_block_y: usize::MAX,
@@ -1237,6 +1249,7 @@ fn mark_vram_slot_resident(
     frame: u32,
 ) {
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    vram_slots[target_slot].key = pack_tile_key(circuit, bx, by, sub_tx, sub_ty);
     vram_slots[target_slot].resident_circuit = circuit;
     vram_slots[target_slot].resident_block_x = bx;
     vram_slots[target_slot].resident_block_y = by;
@@ -2000,13 +2013,8 @@ const PREFETCH_MAX: usize = 16;
 #[inline]
 fn tile_resident(vram_slots: &[VramSlot; VRAM_SLOT_COUNT], circuit: usize, tile: &TileRef) -> bool {
     let (_, _, bx, by, sub_tx, sub_ty) = *tile;
-    vram_slots.iter().any(|slot| {
-        slot.resident_circuit == circuit
-            && slot.resident_block_x == bx
-            && slot.resident_block_y == by
-            && slot.resident_tile_x == sub_tx
-            && slot.resident_tile_y == sub_ty
-    })
+    let target_key = pack_tile_key(circuit, bx, by, sub_tx, sub_ty);
+    vram_slots.iter().any(|slot| slot.key == target_key)
 }
 
 /// Unified priority key across all 6 texture codecs:
@@ -2484,16 +2492,11 @@ pub fn render_track_extents(
         let _probe = crate::prof::span(crate::prof::TRACK_CACHE_PROBE);
         for i in 0..vis_count {
             let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+            let target_key = pack_tile_key(active_circuit, bx, by, sub_tx, sub_ty);
             let mut found = None;
 
-            for s_idx in 0..VRAM_SLOT_COUNT {
-                let slot = &vram_slots[s_idx];
-                if slot.resident_circuit == active_circuit
-                    && slot.resident_block_x == bx
-                    && slot.resident_block_y == by
-                    && slot.resident_tile_x == sub_tx
-                    && slot.resident_tile_y == sub_ty
-                {
+            for (s_idx, slot) in vram_slots.iter().enumerate() {
+                if slot.key == target_key {
                     found = Some(s_idx);
                     break;
                 }
@@ -2778,15 +2781,25 @@ fn draw_tile_m7(
         (1, 1)
     };
 
-    // Projected grid corners, row stride 9 (max 8 cells + 1).
-    let mut pts = [(0i16, 0i16); 81];
-    let mut pz = [0i32; 81];
+    // Projected grid corners, row stride 4 (since nx, ny <= 3).
+    let mut pts = [(0i16, 0i16); 16];
+    let mut pz = [0i32; 16];
+
+    let mut wx = [0i32; 4];
+    for i in 0..=nx {
+        wx[i as usize] = wx0 + cw * i / nx;
+    }
+    let mut wy = [0i32; 4];
     for j in 0..=ny {
+        wy[j as usize] = wy0 + ch * j / ny;
+    }
+
+    for j in 0..=ny {
+        let wy_q = wy[j as usize] * 16 - cam_qy;
+        let row_k = (j * 4) as usize;
         for i in 0..=nx {
-            let wx = wx0 + cw * i / nx;
-            let wy = wy0 + ch * j / ny;
-            let (r, z) = camera.view_from_offset_q4(wx * 16 - cam_qx, wy * 16 - cam_qy);
-            let k = (j * 9 + i) as usize;
+            let (r, z) = camera.view_from_offset_q4(wx[i as usize] * 16 - cam_qx, wy_q);
+            let k = row_k + i as usize;
             pts[k] = Camera::project_rz(r, z);
             pz[k] = z;
         }
@@ -2798,8 +2811,8 @@ fn draw_tile_m7(
         let (a, b, c, d) = (
             0usize,
             nx as usize,
-            (ny * 9) as usize,
-            (ny * 9 + nx) as usize,
+            (ny * 4) as usize,
+            (ny * 4 + nx) as usize,
         );
         gpu::draw_quad_flat([pts[a], pts[b], pts[c], pts[d]], pr, pg, pb);
         return;
@@ -2812,11 +2825,26 @@ fn draw_tile_m7(
     let u_shift = tex.u_shift;
     let clut_word = tex.clut_word;
 
+    let mut u_coords = [0u8; 4];
+    for i in 0..=nx {
+        let lu = ((cw * i / nx) * 64 / tw) as u32;
+        u_coords[i as usize] = (((u_base as u32 + lu) >> u_shift).min(255)) as u8;
+    }
+    let mut v_coords = [0u8; 4];
+    for j in 0..=ny {
+        let lv = ((ch * j / ny) * 64 / th) as u32;
+        v_coords[j as usize] = ((v_base as u32 + lv).min(255)) as u8;
+    }
+
     for j in 0..ny {
+        let v0 = v_coords[j as usize];
+        let v1 = v_coords[(j + 1) as usize];
+        let row_a = (j * 4) as usize;
+        let row_c = row_a + 4;
         for i in 0..nx {
-            let a = (j * 9 + i) as usize;
+            let a = row_a + i as usize;
             let b = a + 1;
-            let c = a + 9;
+            let c = row_c + i as usize;
             let d = c + 1;
             let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
             let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
@@ -2836,14 +2864,8 @@ fn draw_tile_m7(
                 continue;
             }
 
-            let lu0 = ((cw * i / nx) * 64 / tw) as u16;
-            let lu1 = ((cw * (i + 1) / nx) * 64 / tw) as u16;
-            let lv0 = ((ch * j / ny) * 64 / th) as u16;
-            let lv1 = ((ch * (j + 1) / ny) * 64 / th) as u16;
-            let u0 = (((u_base as u32 + lu0 as u32) >> u_shift).min(255)) as u8;
-            let u1 = (((u_base as u32 + lu1 as u32) >> u_shift).min(255)) as u8;
-            let v0 = ((v_base as u32 + lv0 as u32).min(255)) as u8;
-            let v1 = ((v_base as u32 + lv1 as u32).min(255)) as u8;
+            let u0 = u_coords[i as usize];
+            let u1 = u_coords[(i + 1) as usize];
 
             // Fog: full brightness out to 150 units, fading to ~55% at the far plane (240).
             let z_units = (zmax + zmin) >> 5;
