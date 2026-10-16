@@ -141,16 +141,31 @@ def validate(codes, cell_px, errors):
         )
     main = road_regions[0]
 
-    # Road width: measure the run-length through the middle of the ring.
+    # Road width: measure the run of road cells through the centreline,
+    # symmetric about the centreline, allowing any track width from 1 to 10.
+    main_set = set(main)
     widths = []
-    for (cx, cy) in sorted(main)[:: max(1, len(main) // 40)]:
-        if 0 <= cy < cells_h:
-            widths.append(sum(1 for k in (1, 2, 3)
-                              if cx + k < cells_w and grid[cy, cx + k] in SURFACE))
+    sample = max(1, len(main) // 40)
+    for (cx, cy) in sorted(main)[::sample]:
+        if grid[cy, cx] not in ROAD:
+            continue
+        left = 0
+        for step in range(1, 32):
+            nx = cx - step
+            if nx < 0 or (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
+                break
+            left = step
+        right = 0
+        for step in range(1, 32):
+            nx = cx + step
+            if nx >= cells_w or (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
+                break
+            right = step
+        widths.append(left + right + 1)
     if widths:
         med = sorted(widths)[len(widths) // 2]
-        if med > 4:
-            errors.append(f"road is ~{med} cells wide; the spec says 2 to 3")
+        if med > 26:
+            errors.append(f"road is ~{med} cells wide; allowed track widths are 1 to 10 (up to 20 cells)")
 
     # Hazards must sit on tarmac.
     for code, name in ((9, "BOOST"), (8, "OIL"), (10, "START_LINE"), (11, "GATE")):

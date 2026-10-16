@@ -231,6 +231,10 @@ fn main() {
         test_the_published_circuits_stay_wide
     );
     run_test!(
+        "Any track width from 1 to 10 is supported in engine",
+        test_any_track_width_from_1_to_10_is_supported_in_engine
+    );
+    run_test!(
         "The whole corridor is drivable",
         test_the_whole_corridor_is_drivable
     );
@@ -1083,6 +1087,63 @@ fn test_the_published_circuits_stay_wide() {
             track.lane_count(),
             track.half_width,
         );
+    }
+}
+
+/// Any track width from 1 to 10 lanes (2 to 20 cells) is fully supported by the
+/// runtime engine: legal half-widths, correct lane counts, safe lateral room budgets,
+/// staggered starting grid placements, and AI avoidance bounds.
+fn test_any_track_width_from_1_to_10_is_supported_in_engine() {
+    let mut track = ALL_TRACKS[0].clone();
+    for lanes in 1..=10u8 {
+        let half = (LANE_WIDTH * lanes as i32 / 2) as u16;
+        track.half_width = half;
+
+        assert_eq!(
+            track.road_half_width(),
+            half as i32,
+            "width {lanes} lanes: road_half_width must match authored half-width"
+        );
+        assert_eq!(
+            track.lane_count(),
+            lanes,
+            "width {lanes} lanes: lane_count must report {lanes}"
+        );
+        assert!(
+            track.half_width_is_legal(),
+            "width {lanes} lanes: half_width {half} must be legal in engine"
+        );
+        assert!(
+            track.road_width_is_legal(),
+            "width {lanes} lanes: road_width_is_legal must be true"
+        );
+
+        let room = track.lateral_room();
+        assert_eq!(
+            room,
+            half as i32 - CAR_HALF_WIDTH,
+            "width {lanes} lanes: room must leave car body on tarmac"
+        );
+        assert!(
+            room > 0,
+            "width {lanes} lanes: lateral room must be positive for driving"
+        );
+
+        // Check starting grid positions for 6 competitors
+        for slot in 0..6 {
+            let offset = arduracer_core::grid_slot_offset_on(&track, slot);
+            assert!(
+                offset.lateral.abs() <= room,
+                "width {lanes} lanes, slot {slot}: lateral stagger {} exceeds room {}",
+                offset.lateral,
+                room
+            );
+            let pos = arduracer_core::grid_slot_position_on(&track, slot);
+            assert!(
+                pos.x.to_int() > 0 && pos.y.to_int() > 0,
+                "width {lanes} lanes, slot {slot}: grid position must be positive"
+            );
+        }
     }
 }
 

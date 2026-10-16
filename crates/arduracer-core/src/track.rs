@@ -903,8 +903,8 @@ mod tests {
                 "half_width {zero}"
             );
         }
-        // ...and a real width is passed through untouched, one lane and up.
-        for lanes in 1..=4u8 {
+        // ...and a real width is passed through untouched, one lane and up to 10 lanes.
+        for lanes in 1..=10u8 {
             let mut track = scratch_track(4);
             track.half_width = (LANE_WIDTH * lanes as i32 / 2) as u16;
             assert_eq!(track.road_half_width(), LANE_WIDTH * lanes as i32 / 2);
@@ -925,7 +925,7 @@ mod tests {
     fn lateral_room_leaves_the_car_on_the_road() {
         // The point of the accessor: whatever the road is, a swerve clamped to
         // this budget leaves the car on the racing surface.
-        for lanes in 1..=4u8 {
+        for lanes in 1..=10u8 {
             let mut track = scratch_track(4);
             let half = LANE_WIDTH * lanes as i32 / 2;
             track.half_width = half as u16;
@@ -953,7 +953,16 @@ mod tests {
     #[test]
     fn half_width_legality_rejects_what_the_cooker_cannot_represent() {
         let mut track = scratch_track(4);
-        // Whole cells only.
+        // Whole cells only: widths 1 through 10 (lanes) and up to MAX_ROAD_HALF_WIDTH.
+        for lanes in 1..=10u8 {
+            let good = (LANE_WIDTH * lanes as i32 / 2) as u16;
+            track.half_width = good;
+            assert!(
+                track.half_width_is_legal(),
+                "{good} (lane {lanes}) should be legal"
+            );
+            assert!(track.road_width_is_legal());
+        }
         for good in [
             MIN_ROAD_HALF_WIDTH as u16,
             (LANE_WIDTH * 3 / 2) as u16,

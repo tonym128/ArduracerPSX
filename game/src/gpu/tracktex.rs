@@ -1177,7 +1177,8 @@ fn ensure_uncompressed_palette(codec: Codec, circuit: usize) -> bool {
         return false;
     }
 
-    let entries = unsafe { core::slice::from_raw_parts(scratch.as_ptr().cast::<u16>(), entries_count) };
+    let entries =
+        unsafe { core::slice::from_raw_parts(scratch.as_ptr().cast::<u16>(), entries_count) };
     let rect = VramRect::new(clut.x(), clut.y(), entries_count as u16, 1);
     upload_16bpp(rect, entries);
     unsafe { *clut_circuit_ptr = circuit };
@@ -1961,7 +1962,11 @@ fn step_decode_job(current_frame: u32) -> StepResult {
     if job.next_row >= 4 {
         // All 4 MCU rows (64x64 pixels) complete! Upload to VRAM via DMA.
         crate::prof::count(crate::prof::C_TILE_DECODES, 1);
-        upload_tile_to_vram(ram_slot.codec, job.target_slot, scratch_words() as *const u32);
+        upload_tile_to_vram(
+            ram_slot.codec,
+            job.target_slot,
+            scratch_words() as *const u32,
+        );
         mark_vram_slot_resident(
             job.target_slot,
             job.circuit,
@@ -2768,11 +2773,7 @@ fn draw_tile_m7(
     let (nx, ny) = if textured {
         let (_, zc) =
             camera.view_from_offset_q4((2 * wx0 + cw) * 8 - cam_qx, (2 * wy0 + ch) * 8 - cam_qy);
-        let target = if zc < (160 << 4) {
-            64
-        } else {
-            128
-        };
+        let target = if zc < (160 << 4) { 64 } else { 128 };
         (
             ((cw + target - 1) / target).clamp(1, 3),
             ((ch + target - 1) / target).clamp(1, 3),

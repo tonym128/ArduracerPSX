@@ -1549,6 +1549,31 @@ mod tests {
     }
 
     #[test]
+    fn all_ten_track_widths_yield_bounded_avoidance_dodges() {
+        for lanes in 1..=10u8 {
+            let half = (crate::track::LANE_WIDTH * lanes as i32) / 2;
+            let track = narrow_ring(half);
+            assert_eq!(track.lane_count(), lanes);
+            let racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
+            let pack = [
+                racer.state.position + Vec2::new(Fixed::from_int(10), Fixed::ZERO),
+                racer.state.position + Vec2::new(Fixed::from_int(20), Fixed::ZERO),
+                racer.state.position + Vec2::new(Fixed::from_int(30), Fixed::ZERO),
+            ];
+            let offset = racer.avoidance_offset(&track, &pack).abs();
+            assert!(
+                offset <= track.lateral_room(),
+                "width {lanes} lanes has {room} room, got dodge {offset}",
+                room = track.lateral_room()
+            );
+            assert!(
+                offset < track.road_half_width(),
+                "width {lanes} lanes: dodge reaches past road edge"
+            );
+        }
+    }
+
+    #[test]
     fn the_avoidance_dodge_never_leaves_the_road() {
         for track in ALL_TRACKS.iter() {
             let racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
