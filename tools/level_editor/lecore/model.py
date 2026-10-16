@@ -183,6 +183,11 @@ class Level:
     def border_cells(self) -> float:
         return self.road_half_cells + self.kerb_cells + self.runoff_cells + self.wall_cells
 
+    @property
+    def half_width_world(self) -> int:
+        """Road half-width converted to world units, rounded to integer."""
+        return int(round(self.road_half_cells * C.WORLD_PER_CELL))
+
     # --- cross-section ------------------------------------------------------
 
     def half_widths(self) -> dict[str, float]:

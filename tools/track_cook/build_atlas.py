@@ -259,7 +259,16 @@ def discover_circuits() -> list[tuple[str, float]]:
                       file=sys.stderr)
             continue
         seen.add(stem)
-        out.append((spec["name"], default_half))
+        half = float(spec.get("road_half_cells", spec.get("width", default_half)))
+        side = os.path.join(tracks_dir, stem + LEVEL_SIDECAR_SUFFIX)
+        if os.path.exists(side):
+            try:
+                with open(side, encoding="utf-8") as f:
+                    meta = json.load(f)
+                half = float(meta.get("road_half_cells", half))
+            except (ValueError, OSError, json.JSONDecodeError):
+                pass
+        out.append((spec["name"], half))
 
     if not os.path.isdir(tracks_dir):
         return out

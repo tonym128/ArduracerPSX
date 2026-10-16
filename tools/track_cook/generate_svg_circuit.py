@@ -206,6 +206,9 @@ WALL_CELLS = 1.0           # barrier band outside the runoff
 
 ROAD_HALF_CELLS = ROAD_HALF_WORLD / WORLD_PER_CELL   # 3.0 at 32 units per cell
 
+#: Allowed road half-widths in cells (1 to 10 lanes / 2 to 20 cells wide).
+ROAD_HALF_CHOICES = tuple(float(w) for w in range(1, 11))
+
 #: Everything between the centreline and the outside of the barrier, in cells.
 #: The single number the `CIRCUITS` sizing has to fit inside the grid: a stadium
 #: or rounded rectangle of half-extent `h` and corner radius `r` has its outer
@@ -585,10 +588,10 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
     centre = shape_centreline(spec, cx, cy)
     path = shape_path(spec, cx, cy)
 
-    road_hw = ROAD_HALF_CELLS
-    kerb_hw = road_hw + KERB_CELLS
-    runoff_hw = kerb_hw + RUNOFF_CELLS
-    wall_hw = runoff_hw + WALL_CELLS
+    road_hw = float(spec.get("road_half_cells", spec.get("width", ROAD_HALF_CELLS)))
+    kerb_hw = road_hw + float(spec.get("kerb_cells", KERB_CELLS))
+    runoff_hw = kerb_hw + float(spec.get("runoff_cells", RUNOFF_CELLS))
+    wall_hw = runoff_hw + float(spec.get("wall_cells", WALL_CELLS))
 
     out = svg_header(SIZE)
     out.append(f'<!-- {spec["name"]}: authored circuit, cell units. -->')
@@ -645,7 +648,16 @@ def build_svg(spec: dict) -> tuple[str, list[tuple[float, float]]]:
 
     # Markings, placed at fractions of the lap.
     n = len(centre)
-    for frac, code, half_len, half_thick in spec["marks"]:
+    marks = spec.get("marks")
+    if marks is None:
+        marks = standard_marks(road_half=road_hw)
+    for frac, code, half_len, half_thick in marks:
+        # Scale default span to match custom road width if requested.
+        if "road_half_cells" in spec or "width" in spec:
+            if abs(half_len - (ROAD_HALF_CELLS + KERB_CELLS)) < 1e-4:
+                half_len = kerb_hw
+            elif abs(half_len - ROAD_HALF_CELLS) < 1e-4:
+                half_len = road_hw
         i = int(n * frac) % n
         out.append(transverse_band(cx, cy, centre[i], centre[(i + 1) % n],
                                    half_len, half_thick, code))
@@ -861,15 +873,37 @@ def write_outputs(spec: dict, outdir: str) -> dict:
                    "palette": {str(k): list(v) for k, v in RGB_TUPLE.items()}}, f)
 
     # Centreline sidecar, in cell units as the compiler expects.
+    road_hw = float(spec.get("road_half_cells", spec.get("width", ROAD_HALF_CELLS)))
     with open(stem + ".line.json", "w") as f:
         json.dump({
             "cell_px": DATA_PX,
             "grid": GRID,
             "levels": 1,
-            "road_cells": ROAD_HALF_CELLS * 2,
+            "road_cells": road_hw * 2,
             "source": "svg",
             "samples": [[round(x, 3), round(y, 3), 0] for x, y in centre],
         }, f)
+
+    # Level sidecar for atlas cooker
+    level_json_path = stem + ".level.json"
+    meta = {
+        "schema": "arduracer.level/1",
+        "name": spec["name"],
+        "stem": os.path.basename(stem),
+        "grid": GRID,
+        "road_half_cells": road_hw,
+        "half_width_world": int(round(road_hw * WORLD_PER_CELL)),
+    }
+    if os.path.exists(level_json_path):
+        try:
+            with open(level_json_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+                existing.update(meta)
+                meta = existing
+        except Exception:
+            pass
+    with open(level_json_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=1)
 
     counts: dict[str, int] = {}
     for code, rgb in RGB_TUPLE.items():
@@ -975,7 +1009,8 @@ GATES = 6
 
 
 def standard_marks(boost_at: tuple[int, ...] = (1, 4),
-                   oil_at: tuple[int, ...] = ()) -> list[tuple]:
+                   oil_at: tuple[int, ...] = (),
+                   road_half: float = ROAD_HALF_CELLS) -> list[tuple]:
     """Gates evenly spaced round the lap, plus boost pads and oil slicks.
 
     Gates sit at fractions `i / (GATES + 1)` for `i` in `1..=GATES`.
@@ -983,13 +1018,13 @@ def standard_marks(boost_at: tuple[int, ...] = (1, 4),
     Oil slicks sit at `(i - 0.25) / (GATES + 1)` as high-risk hazards.
     """
     step = 1.0 / (GATES + 1)
-    across = ROAD_HALF_CELLS + KERB_CELLS
+    across = road_half + KERB_CELLS
     marks: list[tuple] = [(0.0, START_LINE, across, 1.2)]
     for i in range(1, GATES + 1):
         marks.append((i * step, GATE, across, 0.7))
     for i in boost_at:
         assert 1 <= i <= GATES, f"boost interval {i} is not between two gates"
-        marks.append(((i - 0.5) * step, BOOST, ROAD_HALF_CELLS, 1.0))
+        marks.append(((i - 0.5) * step, BOOST, road_half, 1.0))
     for i in oil_at:
         assert 1 <= i <= GATES, f"oil interval {i} is not between two gates"
         marks.append(((i - 0.25) * step, OIL, 1.5, 0.8))

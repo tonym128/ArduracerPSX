@@ -126,17 +126,14 @@ OUTSIDE = GRASS
 #: `MIN_ROAD_HALF_WIDTH` (one lane) and `build_atlas` requires a whole number of
 #: cells, so the legal set is integral.
 #:
+#: Widths 1 through 10 represent 1 to 10 lanes (2 to 20 cells wide).
 #: 1 is one lane -- a single-car technical circuit, a go-kart track. 2 is two
 #: lanes, enough to pass. 3 is the width the shipped circuits were designed at
-#: and what every one of them uses. 4 is a wide, flowing circuit.
+#: and what every one of them uses. 4 to 10 offer progressively wider, flowing,
+#: multi-lane circuits up to 10 full lanes.
 #:
-#: All four are publishable. They were not always: 1 and 2 were offered by every
-#: chooser and then refused downstream, because the floor lived in a *test*
-#: constant (`MIN_HALF_WIDTH` in `tools/test_game_logic`) that encoded a taste
-#: decision about the shipped 24 rather than a limit of the engine. That floor is
-#: now the engine's own one-lane floor, so the widths this module offers and the
-#: widths the game accepts are the same set.
-ROAD_HALF_CHOICES = (1.0, 2.0, 3.0, 4.0)
+#: All widths from 1 to 10 are publishable and accepted by the engine.
+ROAD_HALF_CHOICES = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 
 #: Human-readable name for each road half-width, used by the width choosers.
 #:
@@ -144,10 +141,8 @@ ROAD_HALF_CHOICES = (1.0, 2.0, 3.0, 4.0)
 #: the AI's swerve budget, the starting grid -- so the editor should speak it
 #: too, rather than making an author work out that "2 cells" means one lane.
 ROAD_HALF_LABELS = {
-    1.0: "1 lane  (2 cells)",
-    2.0: "2 lanes  (4 cells)",
-    3.0: "3 lanes  (6 cells)",
-    4.0: "4 lanes  (8 cells)",
+    float(w): f"{w} lane{'s' if w > 1 else ''}  ({2*w} cells)"
+    for w in range(1, 11)
 }
 
 #: Half-width the shipped circuits were authored at, in cells. The default for a

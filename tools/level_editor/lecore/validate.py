@@ -54,11 +54,9 @@ GATE_NEIGHBOURS = tuple(
 )
 
 #: How far the road-width measurement will walk from the centreline before it
-#: gives up, in cells. A cap rather than an unbounded walk because a road that
-#: folds back on itself is an infinite run of road cells, and this is a
-#: measurement rather than a proof -- the single-ring check is what catches the
-#: fold.
-MAX_MEASURED_ROAD_CELLS = 24
+#: gives up, in cells. Sized to accommodate any road width from 1 to 10 (up to
+#: 20 cells across, or more along corner diagonals).
+MAX_MEASURED_ROAD_CELLS = 32
 
 
 def gate_cells(level: Level, centreline: list) -> list[tuple[int, int]]:
