@@ -2459,6 +2459,8 @@ struct TileCandidates<'a> {
     /// One tile row above and below the visible rectangle. Decode-only.
     prefetch: &'a [TileRef],
     prefetch_count: usize,
+    camera: &'a Camera,
+    tile_wu: (i32, i32),
 }
 
 /// Helper that steps the active MCU row decode job or schedules the next tile
@@ -2482,7 +2484,9 @@ fn step_or_schedule_decode_row(
     if !job.active {
         // No active decode job running: pick the next tile that needs one.
         // For uncompressed disc streaming, pick the missing visible tile with the
-        // lowest tile_index (disc LBA) to keep CD seeks monotonic and sequential.
+        // lowest key: in Mode 7, bucket by depth tier (near/mid/far) so the road
+        // directly in front of the car always streams before the horizon, while
+        // maintaining monotonic ascending disc LBA order within each tier.
         let candidate = if codec_is_tim(active_circuit)
             || codec_is_tim4(active_circuit)
             || codec_is_tim8(active_circuit)
@@ -2490,10 +2494,30 @@ fn step_or_schedule_decode_row(
             let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
             for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
                 if slot == usize::MAX {
-                    let (_, _, bx, by, sub_tx, sub_ty) = candidates.visible[i];
+                    let (tx, ty, bx, by, sub_tx, sub_ty) = candidates.visible[i];
                     let idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
-                    if best_vis.is_none() || idx < best_vis.unwrap().4 {
-                        best_vis = Some((bx, by, sub_tx, sub_ty, idx));
+                    let tier = if candidates.camera.mode7 {
+                        let cam_qx = candidates.camera.pos.x.raw() >> 8;
+                        let cam_qy = candidates.camera.pos.y.raw() >> 8;
+                        let wx0 = tx * candidates.tile_wu.0;
+                        let wy0 = ty * candidates.tile_wu.1;
+                        let (_, z_q4) = candidates.camera.view_from_offset_q4(
+                            (2 * wx0 + candidates.tile_wu.0) * 8 - cam_qx,
+                            (2 * wy0 + candidates.tile_wu.1) * 8 - cam_qy,
+                        );
+                        if z_q4 < (150 << 4) {
+                            0u32
+                        } else if z_q4 < (220 << 4) {
+                            1u32
+                        } else {
+                            2u32
+                        }
+                    } else {
+                        0u32
+                    };
+                    let key = (tier << 24) | (idx & 0x00FF_FFFF);
+                    if best_vis.is_none() || key < best_vis.unwrap().4 {
+                        best_vis = Some((bx, by, sub_tx, sub_ty, key));
                     }
                 }
             }
@@ -2942,6 +2966,8 @@ pub fn render_track_extents(
                 visible_count: vis_count,
                 prefetch: &prefetch_tiles,
                 prefetch_count,
+                camera,
+                tile_wu: (tile_wu_x, tile_wu_y),
             },
             &mut slot_for_tile,
             &mut used_slots,
