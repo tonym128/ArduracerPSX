@@ -3134,16 +3134,14 @@ fn draw_tile_m7(
     let (nx, ny) = if textured {
         let (_, zc) =
             camera.view_from_offset_q4((2 * wx0 + cw) * 8 - cam_qx, (2 * wy0 + ch) * 8 - cam_qy);
-        let target = if zc < (150 << 4) {
-            32
-        } else if zc < (210 << 4) {
+        let target = if zc < (160 << 4) {
             64
         } else {
             128
         };
         (
-            ((cw + target - 1) / target).clamp(1, 4),
-            ((ch + target - 1) / target).clamp(1, 4),
+            ((cw + target - 1) / target).clamp(1, 3),
+            ((ch + target - 1) / target).clamp(1, 3),
         )
     } else {
         (1, 1)
