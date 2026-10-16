@@ -2583,15 +2583,43 @@ fn step_or_schedule_decode_row(
         // only evict a tile nothing on screen needs.
         let mut best_slot = 0;
         let mut oldest_age = u32::MAX;
+        let cam_tx = if candidates.tile_wu.0 > 0 {
+            candidates.camera.pos.x.to_int() / candidates.tile_wu.0
+        } else {
+            0
+        };
+        let cam_ty = if candidates.tile_wu.1 > 0 {
+            candidates.camera.pos.y.to_int() / candidates.tile_wu.1
+        } else {
+            0
+        };
+
         for s_idx in 0..VRAM_SLOT_COUNT {
             if !used_slots[s_idx] {
                 let slot = &vram_slots[s_idx];
-                if slot.resident_circuit == usize::MAX {
+                if slot.resident_circuit != active_circuit {
                     best_slot = s_idx;
                     break;
                 }
-                if slot.last_used < oldest_age {
-                    oldest_age = slot.last_used;
+                // In Mode 7, protect tiles in the immediate neighborhood of the vehicle
+                // so steering back or camera oscillations don't force immediate re-streams.
+                let effective_age = if candidates.camera.mode7 {
+                    let d_tx = (slot.resident_tile_x as i32 - cam_tx).abs();
+                    let d_ty = (slot.resident_tile_y as i32 - cam_ty).abs();
+                    let tile_dist = d_tx.max(d_ty);
+                    if tile_dist <= 2 {
+                        slot.last_used.saturating_add(500)
+                    } else if tile_dist >= 4 {
+                        slot.last_used.saturating_sub(500)
+                    } else {
+                        slot.last_used
+                    }
+                } else {
+                    slot.last_used
+                };
+
+                if effective_age < oldest_age {
+                    oldest_age = effective_age;
                     best_slot = s_idx;
                 }
             }
