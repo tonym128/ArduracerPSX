@@ -2249,11 +2249,11 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
-    assert_eq!(visual_tex::COUNT, 40);
+    assert_eq!(visual_tex::COUNT, 28);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
     assert_eq!(visual_tex::BLOCK_SECTORS, 250);
     assert_eq!(visual_tex::BLOCK_MAX_BYTES, 512000);
-    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 40);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 28);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -2314,16 +2314,7 @@ fn test_visual_track_aligns_with_collision_data() {
     let tracks_bin = std::fs::read(&tracks_bin_path).expect("Failed to read TRACKS.BIN");
 
     for (c, track) in AUTHORED_TRACKS.iter().enumerate() {
-        let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[c];
-        let byte_offset = (entry.sector_offset as usize) * 2048;
-        let byte_len = entry.byte_len as usize;
-        let jpeg_data = &tracks_bin[byte_offset..byte_offset + byte_len];
-
-        let header = JpegHeader::parse(jpeg_data).expect("Valid JPEG header");
-        let mut restart_offsets = [0u32; 1024];
-        header.index_restarts(jpeg_data, &mut restart_offsets);
-
-        // Check start gate alignment: start gate cell in TrackDef
+        // Convert gate cell center to world coordinates
         let gate_cx = track.start_gate.x as usize;
         let gate_cy = track.start_gate.y as usize;
 
@@ -2335,21 +2326,35 @@ fn test_visual_track_aligns_with_collision_data() {
             track.name
         );
 
-        // Convert gate cell center to world coordinates
         let wx = (gate_cx as i32) * 32 + 16;
         let wy = (gate_cy as i32) * 32 + 16;
 
         // Project through renderer coordinate mapping:
         let world_w = track.world_width();
         let world_h = track.world_height();
-        let tile_wu_x = (world_w / 16).max(1);
-        let tile_wu_y = (world_h / 16).max(1);
+        let (g_bx, g_by) = visual_tex::circuit_block_grid(c);
+        let block_wu_x = (world_w / g_bx as i32).max(1);
+        let block_wu_y = (world_h / g_by as i32).max(1);
+        let tile_wu_x = (block_wu_x / 16).max(1);
+        let tile_wu_y = (block_wu_y / 16).max(1);
 
-        let tx = (wx / tile_wu_x).clamp(0, 15) as usize;
-        let ty = (wy / tile_wu_y).clamp(0, 15) as usize;
+        let bx = (wx / block_wu_x).clamp(0, (g_bx - 1) as i32) as usize;
+        let by = (wy / block_wu_y).clamp(0, (g_by - 1) as i32) as usize;
+        let sub_tx = (((wx % block_wu_x) / tile_wu_x).clamp(0, 15)) as usize;
+        let sub_ty = (((wy % block_wu_y) / tile_wu_y).clamp(0, 15)) as usize;
 
-        let wx0 = (tx as i32) * tile_wu_x;
-        let wy0 = (ty as i32) * tile_wu_y;
+        let b_idx = visual_tex::circuit_block_index(c, bx, by);
+        let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[b_idx];
+        let byte_offset = (entry.sector_offset as usize) * 2048;
+        let byte_len = entry.byte_len as usize;
+        let jpeg_data = &tracks_bin[byte_offset..byte_offset + byte_len];
+
+        let header = JpegHeader::parse(jpeg_data).expect("Valid JPEG header");
+        let mut restart_offsets = [0u32; 1024];
+        header.index_restarts(jpeg_data, &mut restart_offsets);
+
+        let wx0 = (bx as i32) * block_wu_x + (sub_tx as i32) * tile_wu_x;
+        let wy0 = (by as i32) * block_wu_y + (sub_ty as i32) * tile_wu_y;
 
         let local_u = (((wx - wx0) * 64) / tile_wu_x).clamp(0, 63) as usize;
         let local_v = (((wy - wy0) * 64) / tile_wu_y).clamp(0, 63) as usize;
@@ -2360,8 +2365,8 @@ fn test_visual_track_aligns_with_collision_data() {
             jpeg_data,
             &header,
             &restart_offsets,
-            tx,
-            ty,
+            sub_tx,
+            sub_ty,
             &mut tile_pixels,
         );
 

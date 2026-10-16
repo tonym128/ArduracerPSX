@@ -49,7 +49,7 @@ CIRCUITS = [
 CITIES = ["capetown", "melbourne", "london"]
 
 def circuit_cells(name):
-    return 128 * 128 if name == "Titan_Circuit" else 80 * 80
+    return 160 * 160 if name == "Titan_Circuit" else 80 * 80
 
 CITY_CELLS = 240 * 240
 

@@ -27,6 +27,6 @@
       { "track": "Frost Cascade", "dev": 1181, "gold": 1533, "silver": 1717, "bronze": 1962, "tuned_ticks": 1181, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Lunar Gorge", "dev": 626, "gold": 803, "silver": 899, "bronze": 1028, "tuned_ticks": 626, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Onyx Run", "dev": 907, "gold": 1164, "silver": 1304, "bronze": 1490, "tuned_ticks": 907, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Titan Circuit", "dev": 4644, "gold": 6160, "silver": 6899, "bronze": 7885, "tuned_ticks": 4644, "tuning": [7, 5, 4, 2, 2] }
+      { "track": "Titan Circuit", "dev": 8227, "gold": 10466, "silver": 11722, "bronze": 13396, "tuned_ticks": 8227, "tuning": [6, 6, 3, 3, 2] }
   ]
 }

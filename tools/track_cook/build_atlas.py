@@ -708,7 +708,8 @@ def pack_visual(
         f_dist.write(blocks[0][0])
 
     print(
-        f"  packed visual: {clean_name} ({grid_bx}x{grid_by} = {len(blocks)} blocks from {src_desc})"
+        f"  packed visual: {clean_name} ({grid_bx}x{grid_by} = {len(blocks)} blocks from {src_desc})",
+        flush=True,
     )
     return name, grid_bx, grid_by, blocks
 
@@ -746,81 +747,37 @@ def compress_1024_qoi_500kb(im: Image.Image) -> bytes | None:
     return data
 
 
-def _nearest_palette_lut(palette: np.ndarray) -> np.ndarray:
-    """A 32x32x32 lookup from quantised RGB to the nearest palette index.
-
-    Floyd-Steinberg is inherently sequential -- each pixel's error changes the
-    next few -- so it cannot be vectorised across pixels. What *can* be hoisted
-    out of the inner loop is the nearest-colour search, and this is that: one
-    table lookup replaces a 16-entry distance scan per pixel, which is the
-    difference between a few seconds per circuit and a few minutes.
-
-    The grid is 5 bits per channel, so each bucket is 8 RGB units wide and the
-    bucket centre is the nearest representable colour in it. Error is therefore
-    quantised to the palette at 5-bit precision, which is the same precision the
-    VRAM stores it at -- the extra bits would never survive the trip.
-    """
-    lut = np.zeros((32, 32, 32), dtype=np.uint8)
-    step = 32 * 32 * 32 // 16
-    for start in range(0, 32 * 32 * 32, step):
-        g = np.arange(start, start + step)
-        r = (g // 1024) * 8 + 4
-        gr = ((g // 32) % 32) * 8 + 4
-        b = (g % 32) * 8 + 4
-        probes = np.stack([r, gr, b], axis=1).astype(np.int32)
-        dist = ((probes[:, None, :] - palette[None, :, :]) ** 2).sum(axis=-1)
-        lut.reshape(-1)[start : start + step] = dist.argmin(axis=1).astype(np.uint8)
-    return lut
-
-
 def quantise_16(im: Image.Image, shared_palette=None) -> tuple[np.ndarray, list[tuple[int, int, int]]]:
     """Reduces an image to 16 palette indices with Floyd-Steinberg dithering.
 
     Returns `(indices, palette)` where `indices` is an HxW `uint8` array of
-    palette entries.
+    palette entries (0..15) and `palette` is a 16-entry list of `(r, g, b)` tuples.
     """
     rgb_im = im.convert("RGB")
     if shared_palette is not None:
-        palette = list(shared_palette)
-    else:
-        base = rgb_im.quantize(colors=16, method=Image.Quantize.MEDIANCUT)
-        raw = base.getpalette() or []
-        palette = [(raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]) for i in range(16)]
+        palette = list(shared_palette)[:16]
         while len(palette) < 16:
             palette.append((0, 0, 0))
+        pal_im = Image.new("P", (1, 1))
+        flat_pal = []
+        for r, g, b in palette:
+            flat_pal.extend([r, g, b])
+        while len(flat_pal) < 768:
+            flat_pal.extend(flat_pal[:48])
+        pal_im.putpalette(flat_pal[:768])
+        q = rgb_im.quantize(palette=pal_im, dither=Image.Dither.FLOYDSTEINBERG)
+        indices = (np.array(q, dtype=np.uint8) % 16).astype(np.uint8)
+        return indices, palette
 
-    pal = np.array(palette, dtype=np.int32)
-    lut = _nearest_palette_lut(pal)
-
-    work = np.array(rgb_im, dtype=np.int32)
-    h, w, _ = work.shape
-    out = np.zeros((h, w), dtype=np.uint8)
-
-    for y in range(h):
-        row = work[y]
-        idx = np.zeros(w, dtype=np.uint8)
-        for x in range(w):
-            r, g, b = row[x]
-            r = 0 if r < 0 else (255 if r > 255 else r)
-            g = 0 if g < 0 else (255 if g > 255 else g)
-            b = 0 if b < 0 else (255 if b > 255 else b)
-            i = int(lut[(r >> 3) & 31, (g >> 3) & 31, (b >> 3) & 31])
-            idx[x] = i
-            er = r - pal[i, 0]
-            eg = g - pal[i, 1]
-            eb = b - pal[i, 2]
-            if x + 1 < w:
-                row[x + 1] += (er * 7) // 16, (eg * 7) // 16, (eb * 7) // 16
-            if y + 1 < h:
-                if x:
-                    work[y + 1][x - 1] += (er * 3) // 16, (eg * 3) // 16, (eb * 3) // 16
-                work[y + 1][x] += (er * 5) // 16, (eg * 5) // 16, (eb * 5) // 16
-                if x + 1 < w:
-                    work[y + 1][x + 1] += (er * 1) // 16, (eg * 1) // 16, (eb * 1) // 16
-        out[y] = idx
-
-    assert int(out.max(initial=0)) <= 15, "dithered index outside the 4-bit range"
-    return out, palette
+    q = rgb_im.quantize(colors=16, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG)
+    raw = q.getpalette() or []
+    palette: list[tuple[int, int, int]] = []
+    for i in range(min(16, len(raw) // 3)):
+        palette.append((raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]))
+    while len(palette) < 16:
+        palette.append((0, 0, 0))
+    indices = (np.array(q, dtype=np.uint8) % 16).astype(np.uint8)
+    return indices, palette
 
 
 def pack_tim4_block(im: Image.Image, shared_palette=None) -> bytes | None:
@@ -1575,7 +1532,11 @@ def main() -> int:
     out = os.path.join(ROOT, "crates", "arduracer-core", "src", "levels.rs")
     with open(out, "w") as f:
         f.write("\n".join(code))
-    emit_visual_tex([pack_visual(n) for n, _, _, _ in results])
+    import concurrent.futures
+    track_names = [n for n, _, _, _ in results]
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        visual_packs = list(executor.map(pack_visual, track_names))
+    emit_visual_tex(visual_packs)
     # Last, so it covers both generated files. `visual_tex.rs` in particular is
     # one 200 KB byte array, which `rustfmt` reflows -- emitting it unformatted and
     # formatting only `levels.rs` left the other one failing `fmt-check`.

@@ -324,7 +324,7 @@ pub fn fetch(
     // a window that opens late does not cost a further frame.
     step(reader, current_frame);
     let job = unsafe { &mut *core::ptr::addr_of_mut!(PENDING) };
-    if job.have >= need && tile_lba >= job.base_lba {
+    if job.have >= need && tile_lba >= job.base_lba && tile_lba + need <= job.base_lba + job.have {
         let at = (tile_lba - job.base_lba) as usize * SECTOR_WORDS;
         unsafe { LANDED = LANDED.wrapping_add(1) };
         FetchStatus::Ready(unsafe { (window() as *mut u32).add(at) })

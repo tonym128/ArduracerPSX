@@ -61,6 +61,9 @@ pub const RAM_CACHE_BLOCKS: usize = 1;
 /// Maximum number of 64x64 tiles decompressed per frame (staggers decoding to eliminate frame drops).
 pub const MAX_DECODES_PER_FRAME: usize = 1;
 
+/// Maximum number of visible tiles tracked per frame (bounded to VRAM cache capacity of 64 slots).
+pub const VISIBLE_TILES_MAX: usize = VRAM_SLOT_COUNT;
+
 /// Texels per 64x64 VRAM tile.
 const TILE_TEXELS: usize = 64;
 /// Halfwords per 64x64 VRAM tile.
@@ -916,7 +919,7 @@ pub const LEVEL_DIMS: [(u8, u8); 28] = [
     (80, 80),
     (80, 80),
     // Map 25 (Titan Circuit)
-    (128, 128),
+    (160, 160),
     // 3 free-roam cities
     (240, 240),
     (240, 240),
@@ -1048,7 +1051,25 @@ pub fn init_track_texture(circuit: usize) {
             99 => (1, 1),
             98 => (1, 2),
             97 => (1, 1),
-            _ => (0, 0),
+            _ => {
+                if circuit < visual_tex::CIRCUIT_COUNT {
+                    let (g_bx, g_by) = visual_tex::circuit_block_grid(circuit);
+                    if g_bx > 1 || g_by > 1 {
+                        let trk = arduracer_core::levels::ALL_TRACKS[circuit];
+                        let b_wu_x = (trk.world_width() / g_bx as i32).max(1);
+                        let b_wu_y = (trk.world_height() / g_by as i32).max(1);
+                        let bx =
+                            (trk.start_pos.x.to_int() / b_wu_x).clamp(0, g_bx as i32 - 1) as usize;
+                        let by =
+                            (trk.start_pos.y.to_int() / b_wu_y).clamp(0, g_by as i32 - 1) as usize;
+                        (bx, by)
+                    } else {
+                        (0, 0)
+                    }
+                } else {
+                    (0, 0)
+                }
+            }
         };
         crate::dbg::print("[TRACKTEX] circuit ");
         crate::dbg::print_dec(circuit as u32);
@@ -1497,39 +1518,69 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     let min_ty = (y0 / tile_wu_y).max(0);
     let max_ty = (y1 - 1).max(0) / tile_wu_y;
 
-    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); VRAM_SLOT_COUNT];
-    let mut count = 0;
+    let mut candidates = [(0usize, 0usize, 0usize, 0usize, 0u32, 0i32); 128];
+    let mut cand_count = 0;
     for ty in min_ty..=max_ty {
         for tx in min_tx..=max_tx {
             let wx0 = tx * tile_wu_x;
             let wy0 = ty * tile_wu_y;
-            if camera.mode7 && !m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
-                continue;
-            }
+            let depth = if camera.mode7 {
+                match m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
+                    Some(z) => z,
+                    None => continue,
+                }
+            } else {
+                0
+            };
+
             let bx = (wx0 / block_wu_x) as usize;
             let by = (wy0 / block_wu_y) as usize;
             let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
                 .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
             let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
                 .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
-            let tile_idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
+            let b_idx = if active_circuit >= 97 {
+                (by * 3 + bx).min(8) as u32
+            } else {
+                visual_tex::circuit_block_index(active_circuit, bx, by) as u32
+            };
+            let tile_idx = b_idx * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS) as u32
+                + (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
 
-            if count < VRAM_SLOT_COUNT {
-                tiles[count] = (bx, by, sub_tx, sub_ty, tile_idx);
-                count += 1;
+            if cand_count < candidates.len() {
+                candidates[cand_count] = (bx, by, sub_tx, sub_ty, tile_idx, depth);
+                cand_count += 1;
             }
         }
     }
 
-    // For uncompressed disc streaming, sort by tile_index (disc LBA)
-    // so the disc head sweeps monotonically forward without backwards seeks!
-    if codec_is_uncompressed(active_circuit) {
-        for i in 1..count {
+    // In Mode 7, sort candidates by depth ascending so the nearest tiles to the car
+    // are chosen first to fill the 64 VRAM cache slots.
+    if camera.mode7 {
+        for i in 1..cand_count {
             let mut j = i;
-            while j > 0 && tiles[j - 1].4 > tiles[j].4 {
-                tiles.swap(j - 1, j);
+            while j > 0 && candidates[j - 1].5 > candidates[j].5 {
+                candidates.swap(j - 1, j);
                 j -= 1;
             }
+        }
+    }
+
+    let count = cand_count.min(VRAM_SLOT_COUNT);
+    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); VRAM_SLOT_COUNT];
+    for (i, c) in candidates[..count].iter().enumerate() {
+        tiles[i] = (c.0, c.1, c.2, c.3, c.4);
+    }
+
+    // Sort by tile_idx (disc LBA / block index) across ALL formats:
+    // - For uncompressed disc streaming: CD laser moves strictly forward without backwards seeks.
+    // - For compressed formats: groups decodes by block so each compressed block is loaded into RAM
+    //   once rather than repeatedly reloading blocks across boundary transitions!
+    for i in 1..count {
+        let mut j = i;
+        while j > 0 && tiles[j - 1].4 > tiles[j].4 {
+            tiles.swap(j - 1, j);
+            j -= 1;
         }
     }
 
@@ -1911,12 +1962,10 @@ fn ensure_ram_block(
     }
 
     let job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
-    if job.active && job.circuit == circuit && job.block_x == block_x && job.block_y == block_y {
-        return None;
-    }
-
     if job.active {
-        cancel_async_block_load();
+        // If an async block load is already active:
+        // Do NOT cancel it to chase a different block; let it finish streaming!
+        return None;
     }
 
     start_async_block_load(circuit, block_x, block_y, 0, current_frame);
@@ -2043,7 +2092,7 @@ type TileRef = (i32, i32, usize, usize, usize, usize);
 /// the real count is `2 * tiles-per-row` (a 320-unit-wide window over 160-unit
 /// tiles is ~3). The cap is a hard bound so a wide window (zoomed out, or a
 /// small-tile circuit) degrades to "prefetch fewer" instead of growing the
-/// stack without limit. `visible_tiles` uses the same shape at 48.
+/// stack without limit. `visible_tiles` uses the same shape at `VISIBLE_TILES_MAX`.
 const PREFETCH_MAX: usize = 16;
 
 /// Whether `tile` currently has its pixels resident in a VRAM slot.
@@ -2069,10 +2118,15 @@ fn tile_priority_key(
     let needs_ram_block = if uncompressed || is_ram_block_resident(active_circuit, bx, by) {
         0u32
     } else {
-        1u32
+        let job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
+        if job.active && job.circuit == active_circuit && job.block_x == bx && job.block_y == by {
+            1u32
+        } else {
+            2u32
+        }
     };
 
-    let tier = if candidates.camera.mode7 {
+    let depth_tier = if candidates.camera.mode7 {
         let cam_qx = candidates.camera.pos.x.raw() >> 8;
         let cam_qy = candidates.camera.pos.y.raw() >> 8;
         let wx0 = tx * candidates.tile_wu.0;
@@ -2081,19 +2135,20 @@ fn tile_priority_key(
             (2 * wx0 + candidates.tile_wu.0) * 8 - cam_qx,
             (2 * wy0 + candidates.tile_wu.1) * 8 - cam_qy,
         );
-        if z_q4 < (150 << 4) {
-            0u32
-        } else if z_q4 < (220 << 4) {
-            1u32
-        } else {
-            2u32
-        }
+        // Prioritize closer tiles to the camera first (z_q4 >> 4 is integer depth 70..240)
+        (z_q4 >> 4).clamp(0, 255) as u32
     } else {
         0u32
     };
 
-    let idx = (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
-    (needs_ram_block << 26) | (tier << 24) | (idx & 0x00FF_FFFF)
+    let b_idx = if active_circuit >= 97 {
+        (by * 3 + bx).min(8) as u32
+    } else {
+        visual_tex::circuit_block_index(active_circuit, bx, by) as u32
+    };
+    let idx = b_idx * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS) as u32
+        + (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
+    (needs_ram_block << 28) | (depth_tier << 20) | (idx & 0x000F_FFFF)
 }
 
 /// The tile lists one frame's decode scheduler draws candidates from.
@@ -2123,7 +2178,7 @@ fn step_or_schedule_decode_row(
     current_frame: u32,
     active_circuit: usize,
     candidates: &TileCandidates<'_>,
-    slot_for_tile: &mut [usize; 48],
+    slot_for_tile: &mut [usize; VISIBLE_TILES_MAX],
     used_slots: &mut [bool; VRAM_SLOT_COUNT],
     vram_slots: &mut [VramSlot; VRAM_SLOT_COUNT],
 ) -> bool {
@@ -2175,7 +2230,7 @@ fn step_or_schedule_decode_row(
         // Find oldest VRAM slot not currently visible in this frame. `used_slots`
         // holds both visible residents and in-flight decode targets, so this can
         // only evict a tile nothing on screen needs.
-        let mut best_slot = 0;
+        let mut best_slot = usize::MAX;
         let mut oldest_age = u32::MAX;
         let cam_tx = if candidates.tile_wu.0 > 0 {
             candidates.camera.pos.x.to_int() / candidates.tile_wu.0
@@ -2198,8 +2253,14 @@ fn step_or_schedule_decode_row(
                 // In Mode 7, protect tiles in the immediate neighborhood of the vehicle
                 // so steering back or camera oscillations don't force immediate re-streams.
                 let effective_age = if candidates.camera.mode7 {
-                    let d_tx = (slot.resident_tile_x as i32 - cam_tx).abs();
-                    let d_ty = (slot.resident_tile_y as i32 - cam_ty).abs();
+                    let slot_world_tx = slot.resident_block_x as i32
+                        * (TILES_PER_BLOCK_AXIS as i32)
+                        + slot.resident_tile_x as i32;
+                    let slot_world_ty = slot.resident_block_y as i32
+                        * (TILES_PER_BLOCK_AXIS as i32)
+                        + slot.resident_tile_y as i32;
+                    let d_tx = (slot_world_tx - cam_tx).abs();
+                    let d_ty = (slot_world_ty - cam_ty).abs();
                     let tile_dist = d_tx.max(d_ty);
                     if tile_dist <= 2 {
                         slot.last_used.saturating_add(500)
@@ -2218,6 +2279,14 @@ fn step_or_schedule_decode_row(
                 }
             }
         }
+
+        if best_slot == usize::MAX {
+            return false;
+        }
+
+        // Invalidate the slot immediately so Phase 1 in this or subsequent frames
+        // will not hit the old tile key and draw stale/wrong textures!
+        vram_slots[best_slot] = VramSlot::empty();
 
         // Reserve this slot so subsequent decodes in this frame won't evict it
         used_slots[best_slot] = true;
@@ -2340,8 +2409,9 @@ pub fn render_track_extents(
     let min_ty = (y0 / tile_wu_y).max(0);
     let max_ty = (y1 - 1).max(0) / tile_wu_y;
 
-    // Maximum 48 visible tiles per frame on standard screen resolution (320x240)
-    let mut visible_tiles: [(i32, i32, usize, usize, usize, usize); 48] = [(0, 0, 0, 0, 0, 0); 48];
+    // Maximum 64 visible tiles per frame (bounded to VRAM cache capacity of 64 slots)
+    let mut visible_tiles: [TileRef; VISIBLE_TILES_MAX] = [(0, 0, 0, 0, 0, 0); VISIBLE_TILES_MAX];
+    let mut vis_depths = [0i32; VISIBLE_TILES_MAX];
     let mut vis_count = 0;
 
     {
@@ -2358,11 +2428,16 @@ pub fn render_track_extents(
                 let ty0 = y0.max(wy0);
                 let ty1 = y1.min(wy0 + tile_wu_y);
 
-                if tx0 < tx1
-                    && ty0 < ty1
-                    && vis_count < 48
-                    && (!camera.mode7 || m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y))
-                {
+                if tx0 < tx1 && ty0 < ty1 {
+                    let depth = if camera.mode7 {
+                        match m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
+                            Some(z) => z,
+                            None => continue,
+                        }
+                    } else {
+                        0
+                    };
+
                     let bx = (wx0 / block_wu_x) as usize;
                     let by = (wy0 / block_wu_y) as usize;
                     let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
@@ -2372,8 +2447,26 @@ pub fn render_track_extents(
                         .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
                         as usize;
 
-                    visible_tiles[vis_count] = (tx, ty, bx, by, sub_tx, sub_ty);
-                    vis_count += 1;
+                    let tile_ref = (tx, ty, bx, by, sub_tx, sub_ty);
+                    if vis_count < VISIBLE_TILES_MAX {
+                        visible_tiles[vis_count] = tile_ref;
+                        vis_depths[vis_count] = depth;
+                        vis_count += 1;
+                    } else if camera.mode7 {
+                        // Keep the 64 nearest tiles to the camera: replace the furthest entry if this tile is closer
+                        let mut max_idx = 0;
+                        let mut max_z = vis_depths[0];
+                        for k in 1..VISIBLE_TILES_MAX {
+                            if vis_depths[k] > max_z {
+                                max_z = vis_depths[k];
+                                max_idx = k;
+                            }
+                        }
+                        if depth < max_z {
+                            visible_tiles[max_idx] = tile_ref;
+                            vis_depths[max_idx] = depth;
+                        }
+                    }
                 }
             }
         }
@@ -2543,7 +2636,7 @@ pub fn render_track_extents(
         }
     }
 
-    let mut slot_for_tile = [usize::MAX; 48];
+    let mut slot_for_tile = [usize::MAX; VISIBLE_TILES_MAX];
     let mut used_slots = [false; VRAM_SLOT_COUNT];
 
     // Phase 1: Match already-resident 64x64 tiles in VRAM LRU cache
@@ -2627,27 +2720,29 @@ pub fn render_track_extents(
     }
 
     // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
-    // Up to `max_decode_rows` can be processed, provided the frame stays inside its own
+    // Up to `max_rows` can be processed, provided the frame stays inside its own
     // VBlank period. If the period elapses during decode, or the budget is exhausted, stop.
     let mut rows_decoded = 0;
     let period = frame_period();
-    while rows_decoded < max_decode_rows {
+    let rows_per_budget =
+        if active_circuit >= 97 || visual_tex::circuit_block_grid(active_circuit).0 > 1 {
+            8
+        } else {
+            4
+        };
+    let min_rows = {
+        let job = unsafe { &*core::ptr::addr_of!(ACTIVE_JOB) };
+        if job.active || (0..vis_count).any(|i| slot_for_tile[i] == usize::MAX) {
+            1
+        } else {
+            0
+        }
+    };
+    let max_rows = (max_decode_rows * rows_per_budget).max(min_rows);
+    while rows_decoded < max_rows {
         let elapsed_vblanks = psx_rt::interrupts::vblank_count().wrapping_sub(last_flip_vblank);
-        // Stop once the frame's own period has run out.
-        //
-        // `last_flip_vblank` is stamped in the frame's step 1, right after the
-        // previous flip is applied, so `elapsed` counts VBlanks *since that
-        // stamp*: the frame body runs at elapsed == 0 and ends when the next
-        // VBlank lands at elapsed == period. The test must therefore be
-        // `elapsed >= period`.
-        //
-        // It was `elapsed >= period || elapsed + 1 >= period`, and the second
-        // clause is the bug: at 60 FPS the period is 1, so `0 + 1 >= 1` was
-        // true on the very first iteration of every frame and the loop never
-        // decoded anything at all. At 30 FPS the clause reduces to
-        // `elapsed >= 1`, which happened to match the old hardcoded behaviour,
-        // which is why only 60 FPS was affected.
-        if elapsed_vblanks >= period {
+        // Only stop if we have exceeded the frame period and have already processed min_rows
+        if elapsed_vblanks >= period && rows_decoded >= min_rows {
             break;
         }
 
@@ -2670,6 +2765,20 @@ pub fn render_track_extents(
             break;
         }
         rows_decoded += 1;
+    }
+
+    // In Mode 7, sort visible tiles by depth descending (far to near) so painter's algorithm
+    // renders background and distant horizon tiles first, and near foreground tiles over them!
+    if camera.mode7 && vis_count > 1 {
+        for i in 1..vis_count {
+            let mut j = i;
+            while j > 0 && vis_depths[j - 1] < vis_depths[j] {
+                vis_depths.swap(j - 1, j);
+                visible_tiles.swap(j - 1, j);
+                slot_for_tile.swap(j - 1, j);
+                j -= 1;
+            }
+        }
     }
 
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
@@ -2767,12 +2876,13 @@ pub fn render_track_extents(
 /// reach the far corner of the frustum: `M7_Z_FAR` deep and ~1.33x that wide.
 const M7_SCAN_RADIUS: i32 = 360;
 
-/// True if any part of the tile can fall inside the Mode 7 frustum.
+/// True if any part of the tile can fall inside the Mode 7 frustum, returning its projected depth.
 ///
 /// A conservative circle-vs-trapezoid test on the tile centre: the tile's
 /// bounding radius pads both the depth range and the lateral edge test
 /// (screen half-width is `1.33 * z`, tested as `5 * lateral <= 7 * z`).
-fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> bool {
+#[inline(always)]
+fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> Option<i32> {
     let cam_qx = camera.pos.x.raw() >> 8;
     let cam_qy = camera.pos.y.raw() >> 8;
     let (right, z) =
@@ -2780,9 +2890,13 @@ fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> boo
     // 0.75 * the larger edge, in Q4 units: bounds the half-diagonal.
     let rad = tw.max(th) * 12;
     if z + rad < (M7_Z_NEAR << 4) || z - rad > (M7_Z_FAR << 4) {
-        return false;
+        return None;
     }
-    (right.abs() - rad) * 5 <= (z + rad).max(0) * 7
+    if (right.abs() - rad) * 5 <= (z + rad).max(0) * 7 {
+        Some(z)
+    } else {
+        None
+    }
 }
 
 /// Sky bands above the horizon and distant haze down to where the tiles start.

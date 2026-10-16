@@ -38,7 +38,7 @@ const LEVEL_DIMS: [(u8, u8); 28] = [
     (80, 80),
     (80, 80),
     (80, 80),
-    (128, 128),
+    (160, 160),
     (240, 240),
     (240, 240),
     (240, 240),
@@ -90,8 +90,8 @@ fn asset_length_is_exactly_the_sum_of_the_grids() {
         .sum();
     assert_eq!(asset().len(), expected);
     assert_eq!(
-        expected, 342_784,
-        "24 circuits at 6,400 plus 1 circuit at 16,384 plus 3 cities at 57,600"
+        expected, 352_000,
+        "24 circuits at 6,400 plus 1 circuit at 25,600 plus 3 cities at 57,600"
     );
 }
 

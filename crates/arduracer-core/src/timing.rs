@@ -174,11 +174,7 @@ impl ParTimes {
     /// still gets a usable floor instead of rejecting every lap.
     pub fn min_plausible_lap_ticks(&self) -> u32 {
         let from_par = self.dev_platinum_ticks / 2;
-        if from_par > MIN_PLAUSIBLE_LAP_TICKS {
-            from_par
-        } else {
-            MIN_PLAUSIBLE_LAP_TICKS
-        }
+        from_par.clamp(MIN_PLAUSIBLE_LAP_TICKS, MAX_PLAUSIBLE_LAP_TICKS)
     }
 }
 
@@ -317,7 +313,7 @@ pub const NO_BEST_LAP: u32 = u32::MAX;
 /// (60 s). The longest shipped circuit's reference lap is 38 s, so this only
 /// ever clamps a nonsense bound handed in by a caller -- without it, passing
 /// `u32::MAX` would silently switch the anti-cheat off.
-const MAX_PLAUSIBLE_LAP_TICKS: u32 = 3_600;
+pub const MAX_PLAUSIBLE_LAP_TICKS: u32 = 10_800;
 
 impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
     /// Builds a timer from a track's start gate and checkpoint list.
