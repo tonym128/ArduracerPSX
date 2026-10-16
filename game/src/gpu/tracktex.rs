@@ -43,7 +43,7 @@
 
 pub use arduracer_core::texture_format::{Codec, Framerate, TextureFormat};
 use arduracer_core::visual_tex;
-use arduracer_core::{Fixed, TrackDef, Vec2};
+use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 
 use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{Camera, M7_HORIZON, M7_Z_FAR, M7_Z_NEAR};
@@ -2794,57 +2794,117 @@ pub fn render_track_extents(
         let world_max_tx = (world_w - 1).max(0) / tile_wu_x;
         let world_max_ty = (world_h - 1).max(0) / tile_wu_y;
 
-        // Vertical lookahead: rows immediately above and below the frustum
-        for ty in [min_ty.saturating_sub(1), max_ty + 1] {
-            if !(0..=world_max_ty).contains(&ty) || (min_ty..=max_ty).contains(&ty) {
-                continue;
-            }
-            for tx in min_tx..=max_tx {
-                if prefetch_count >= PREFETCH_MAX {
-                    break;
-                }
-                let wx0 = tx * tile_wu_x;
-                let wy0 = ty * tile_wu_y;
-                if camera.mode7 && !m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
-                    continue;
-                }
-                let bx = (wx0 / block_wu_x) as usize;
-                let by = (wy0 / block_wu_y) as usize;
-                let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
-                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                    as usize;
-                let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
-                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                    as usize;
-                prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
-                prefetch_count += 1;
-            }
-        }
+        if camera.mode7 {
+            // Mode 7 forward heading lookahead:
+            // The camera faces along heading vector (sin(h), -cos(h)).
+            // Scan tile distances beyond the far plane along the viewing cone,
+            // covering forward travel and slight turns.
+            let fwd_sin = camera.hsin() as i64;
+            let fwd_cos = camera.hcos() as i64;
+            let right_cos = fwd_cos;
+            let right_sin = fwd_sin;
 
-        // Horizontal lookahead: columns immediately left and right of the frustum
-        for tx in [min_tx.saturating_sub(1), max_tx + 1] {
-            if !(0..=world_max_tx).contains(&tx) || (min_tx..=max_tx).contains(&tx) {
-                continue;
-            }
-            for ty in min_ty..=max_ty {
-                if prefetch_count >= PREFETCH_MAX {
-                    break;
+            // Distances beyond far plane: M7_Z0 = 120, M7_Z_FAR = 240, so far plane is at fwd = 120.
+            // Sample ahead at fwd offsets of 140, 190, 240 world units.
+            let fwd_dists = [140i32, 190, 240];
+            let lat_offsets = [-tile_wu_x, 0, tile_wu_x];
+
+            'm7_prefetch: for &fwd_dist in &fwd_dists {
+                for &lat_offset in &lat_offsets {
+                    if prefetch_count >= PREFETCH_MAX {
+                        break 'm7_prefetch;
+                    }
+                    let dx = ((fwd_dist as i64 * fwd_sin + lat_offset as i64 * right_cos)
+                        >> FP_SHIFT) as i32;
+                    let dy = ((-fwd_dist as i64 * fwd_cos + lat_offset as i64 * right_sin)
+                        >> FP_SHIFT) as i32;
+                    let px = cam_x + dx;
+                    let py = cam_y + dy;
+                    if px < 0 || py < 0 || px >= world_w || py >= world_h {
+                        continue;
+                    }
+                    let tx = px / tile_wu_x;
+                    let ty = py / tile_wu_y;
+                    if tx < 0 || tx > world_max_tx || ty < 0 || ty > world_max_ty {
+                        continue;
+                    }
+                    if visible_tiles[..vis_count]
+                        .iter()
+                        .any(|t| t.0 == tx && t.1 == ty)
+                    {
+                        continue;
+                    }
+                    if prefetch_tiles[..prefetch_count]
+                        .iter()
+                        .any(|t| t.0 == tx && t.1 == ty)
+                    {
+                        continue;
+                    }
+                    let wx0 = tx * tile_wu_x;
+                    let wy0 = ty * tile_wu_y;
+                    let bx = (wx0 / block_wu_x) as usize;
+                    let by = (wy0 / block_wu_y) as usize;
+                    let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    let tile_ref = (tx, ty, bx, by, sub_tx, sub_ty);
+                    if tile_resident(vram_slots, active_circuit, &tile_ref) {
+                        continue;
+                    }
+                    prefetch_tiles[prefetch_count] = tile_ref;
+                    prefetch_count += 1;
                 }
-                let wx0 = tx * tile_wu_x;
-                let wy0 = ty * tile_wu_y;
-                if camera.mode7 && !m7_tile_visible(camera, wx0, wy0, tile_wu_x, tile_wu_y) {
+            }
+        } else {
+            // Vertical lookahead: rows immediately above and below the frustum
+            for ty in [min_ty.saturating_sub(1), max_ty + 1] {
+                if !(0..=world_max_ty).contains(&ty) || (min_ty..=max_ty).contains(&ty) {
                     continue;
                 }
-                let bx = (wx0 / block_wu_x) as usize;
-                let by = (wy0 / block_wu_y) as usize;
-                let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
-                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                    as usize;
-                let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
-                    .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                    as usize;
-                prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
-                prefetch_count += 1;
+                for tx in min_tx..=max_tx {
+                    if prefetch_count >= PREFETCH_MAX {
+                        break;
+                    }
+                    let wx0 = tx * tile_wu_x;
+                    let wy0 = ty * tile_wu_y;
+                    let bx = (wx0 / block_wu_x) as usize;
+                    let by = (wy0 / block_wu_y) as usize;
+                    let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                    prefetch_count += 1;
+                }
+            }
+
+            // Horizontal lookahead: columns immediately left and right of the frustum
+            for tx in [min_tx.saturating_sub(1), max_tx + 1] {
+                if !(0..=world_max_tx).contains(&tx) || (min_tx..=max_tx).contains(&tx) {
+                    continue;
+                }
+                for ty in min_ty..=max_ty {
+                    if prefetch_count >= PREFETCH_MAX {
+                        break;
+                    }
+                    let wx0 = tx * tile_wu_x;
+                    let wy0 = ty * tile_wu_y;
+                    let bx = (wx0 / block_wu_x) as usize;
+                    let by = (wy0 / block_wu_y) as usize;
+                    let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                        as usize;
+                    prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                    prefetch_count += 1;
+                }
             }
         }
 

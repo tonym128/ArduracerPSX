@@ -173,6 +173,18 @@ impl Camera {
         self.set_heading(h as u16);
     }
 
+    /// View heading sine in Q20.12 (FP_ONE = 4096).
+    #[inline]
+    pub fn hsin(&self) -> i32 {
+        self.hsin
+    }
+
+    /// View heading cosine in Q20.12 (FP_ONE = 4096).
+    #[inline]
+    pub fn hcos(&self) -> i32 {
+        self.hcos
+    }
+
     /// Camera-space `(right, depth)` of a world point, both in Q4 world units
     /// (1/16 unit). Depth includes the pivot offset, so it is the `z` of the
     /// projection and is not clamped. Offsets are clamped so the `i32`
