@@ -472,13 +472,9 @@ const fn selects_codec(pinned: TextureFormat, want: Codec) -> bool {
 /// real loop is in `game/src/gpu/tracktex.rs`, where nothing can test it.
 pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -> usize {
     let period = if period == 0 { 1 } else { period };
-    if ticks_to_run >= 3 || elapsed_vblanks >= period {
-        0
-    } else if ticks_to_run == 2 || elapsed_vblanks + 1 >= period {
-        1
-    } else {
-        period as usize
-    }
+    let catchup_ticks = ticks_to_run.saturating_sub(period);
+    let vblanks_left = period.saturating_sub(elapsed_vblanks);
+    vblanks_left.saturating_sub(catchup_ticks) as usize
 }
 
 #[cfg(test)]
@@ -597,22 +593,27 @@ mod budget_tests {
         assert_eq!(decode_row_budget(1, 1, 1), 0);
     }
 
-    /// 30 FPS keeps exactly the behaviour it had before the generalisation:
+    /// 30 FPS runs 2 simulation ticks on a normal frame (`period == 2`):
     /// two rows early in the frame, one in its second half, none at the end.
     #[test]
     fn thirty_fps_matches_its_original_budget() {
+        assert_eq!(decode_row_budget(2, 0, 2), 2);
+        assert_eq!(decode_row_budget(2, 1, 2), 1);
+        assert_eq!(decode_row_budget(2, 2, 2), 0);
         assert_eq!(decode_row_budget(1, 0, 2), 2);
         assert_eq!(decode_row_budget(1, 1, 2), 1);
         assert_eq!(decode_row_budget(1, 2, 2), 0);
     }
 
-    /// Simulation pressure overrides pacing: a catch-up frame does no decoding.
+    /// Simulation pressure overrides pacing: a catch-up frame (`ticks > period`)
+    /// reduces or drops decode work so a missed VBlank does not spiral.
     #[test]
     fn simulation_pressure_still_wins_over_pacing() {
         assert_eq!(decode_row_budget(3, 0, 1), 0);
+        assert_eq!(decode_row_budget(2, 0, 1), 0);
         assert_eq!(decode_row_budget(4, 0, 2), 0);
-        assert_eq!(decode_row_budget(2, 0, 1), 1);
-        assert_eq!(decode_row_budget(2, 0, 2), 1);
+        assert_eq!(decode_row_budget(3, 0, 2), 1);
+        assert_eq!(decode_row_budget(2, 0, 2), 2);
     }
 
     /// Whatever the mode, the first iteration of a frame must admit work

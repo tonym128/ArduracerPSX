@@ -601,7 +601,7 @@ pub fn report_window() {
         dbg::print(" (");
         dbg::print_dec(worst_total * 100 / active_budget_cycles());
         dbg::print("% of ");
-        dbg::print_dec(BUDGET_CYCLES);
+        dbg::print_dec(active_budget_cycles());
         dbg::print(")\n");
         // `VBLANK` is excluded from `worst-frame` above because it is the
         // *complement* of the frame's work: the slack left after the frame
