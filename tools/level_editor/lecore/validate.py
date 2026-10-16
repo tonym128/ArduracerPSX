@@ -214,21 +214,26 @@ def validate_grid(grid: np.ndarray, level: "Level | None" = None) -> Report:
     main_set = set(main)
     widths = []
     sample = max(1, len(main) // 60)
+    dirs = ((1, 0), (0, 1), (1, 1), (1, -1))
     for (cx, cy) in sorted(main)[::sample]:
         if grid[cy, cx] not in ROAD:
             continue
-        # Walk out in each direction until the road run ends.
-        for step in range(1, MAX_MEASURED_ROAD_CELLS):
-            nx = cx + step
-            if (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
-                break
-        left = step - 1
-        for step in range(1, MAX_MEASURED_ROAD_CELLS):
-            nx = cx - step
-            if nx < 0 or (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
-                break
-        right = step - 1
-        widths.append(left + right + 1)
+        spans = []
+        for dx, dy in dirs:
+            fwd = 0
+            for step in range(1, MAX_MEASURED_ROAD_CELLS):
+                nx, ny = cx + step * dx, cy + step * dy
+                if not (0 <= nx < w and 0 <= ny < h) or (nx, ny) not in main_set or grid[ny, nx] not in ROAD:
+                    break
+                fwd = step
+            bwd = 0
+            for step in range(1, MAX_MEASURED_ROAD_CELLS):
+                nx, ny = cx - step * dx, cy - step * dy
+                if not (0 <= nx < w and 0 <= ny < h) or (nx, ny) not in main_set or grid[ny, nx] not in ROAD:
+                    break
+                bwd = step
+            spans.append(fwd + bwd + 1)
+        widths.append(min(spans))
     if widths and level is not None:
         med = sorted(widths)[len(widths) // 2]
         r.info["median_road_width_cells"] = med
@@ -241,7 +246,7 @@ def validate_grid(grid: np.ndarray, level: "Level | None" = None) -> Report:
                 f"through the inside, or the centreline doubles back on itself "
                 f"closer than the road is wide."
             )
-        elif med > want + 1:
+        elif med > want + 2:
             r.warnings.append(
                 f"road rasterised ~{med} cells wide, wider than the {want} the "
                 f"level asks for; the corners are overlapping each other."

@@ -141,27 +141,33 @@ def validate(codes, cell_px, errors):
         )
     main = road_regions[0]
 
-    # Road width: measure the run of road cells through the centreline,
-    # symmetric about the centreline, allowing any track width from 1 to 10.
+    # Road width: measure the run of road cells through the centreline
+    # across cardinal and diagonal axes (taking the minimum continuous span
+    # to measure width rather than track length along straightaways),
+    # allowing any track width from 1 to 10 (up to 20 cells across).
     main_set = set(main)
     widths = []
     sample = max(1, len(main) // 40)
+    dirs = ((1, 0), (0, 1), (1, 1), (1, -1))
     for (cx, cy) in sorted(main)[::sample]:
         if grid[cy, cx] not in ROAD:
             continue
-        left = 0
-        for step in range(1, 32):
-            nx = cx - step
-            if nx < 0 or (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
-                break
-            left = step
-        right = 0
-        for step in range(1, 32):
-            nx = cx + step
-            if nx >= cells_w or (nx, cy) not in main_set or grid[cy, nx] not in ROAD:
-                break
-            right = step
-        widths.append(left + right + 1)
+        spans = []
+        for dx, dy in dirs:
+            fwd = 0
+            for step in range(1, 32):
+                nx, ny = cx + step * dx, cy + step * dy
+                if not (0 <= nx < cells_w and 0 <= ny < cells_h) or (nx, ny) not in main_set or grid[ny, nx] not in ROAD:
+                    break
+                fwd = step
+            bwd = 0
+            for step in range(1, 32):
+                nx, ny = cx - step * dx, cy - step * dy
+                if not (0 <= nx < cells_w and 0 <= ny < cells_h) or (nx, ny) not in main_set or grid[ny, nx] not in ROAD:
+                    break
+                bwd = step
+            spans.append(fwd + bwd + 1)
+        widths.append(min(spans))
     if widths:
         med = sorted(widths)[len(widths) // 2]
         if med > 26:
