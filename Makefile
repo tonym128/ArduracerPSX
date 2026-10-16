@@ -516,11 +516,12 @@ assets:
 .PHONY: music-xa
 music-xa:
 	@mkdir -p $(ROOT)/assets/music
-	@for i in 1 2 3 4 5 6; do \
-		src=$$(ls $(ROOT)/assets/cdda/track0$$((i+1))_*.raw); \
+	@for i in 2 3 4 5 6 7; do \
+		src=$$(ls $(ROOT)/assets/cdda/track0$${i}_*.raw); \
 		python3 $(ROOT)/tools/track_cook/make_music_xa.py $$src \
 			$(ROOT)/assets/music/MUSIC$$i.XA $$i || exit 1; \
 	done
+	@cp -f $(ROOT)/assets/music/MUSIC2.XA $(ROOT)/assets/music/MUSIC1.XA
 
 disc: assets music-xa exe
 	@mkdir -p $(DIST)
@@ -550,7 +551,8 @@ disc: assets music-xa exe
 		--xa-file $(ROOT)/assets/music/MUSIC3.XA \
 		--xa-file $(ROOT)/assets/music/MUSIC4.XA \
 		--xa-file $(ROOT)/assets/music/MUSIC5.XA \
-		--xa-file $(ROOT)/assets/music/MUSIC6.XA
+		--xa-file $(ROOT)/assets/music/MUSIC6.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC7.XA
 	@echo "SUCCESS! Bootable PS1 Disc Mastered:"
 	@echo "  CUE: $(DIST)/arduracer.cue"
 	@echo "  BIN: $(DIST)/arduracer.bin"

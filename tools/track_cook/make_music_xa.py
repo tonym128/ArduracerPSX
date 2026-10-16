@@ -24,6 +24,22 @@ from make_xa import encode_sector
 SRC_HZ = 44_100
 DST_HZ = 37_800
 FRAMES_PER_SECTOR = 2016
+# 1:4 interleave for single-speed (1x, 75 sectors/s) CD-XA playback.
+# 75 sectors/s / 4 = 18.75 audio sectors/s = 37,800 frames/s.
+INTERLEAVE_STRIDE = 4
+
+
+def make_dummy_sector(file_num=1, channel_num=255):
+    """A non-matching Form 2 XA audio sector dropped by the CD-ROM filter."""
+    raw = bytearray(2336)
+    # CD-XA Mode 2 Form 2 subheader (repeated twice across 8 bytes):
+    # File, Channel, Submode (0x64: Form 2 | Real-time | Audio), Coding (0x01: 4-bit stereo 37.8kHz)
+    subheader = bytes([
+        file_num, channel_num, 0x64, 0x01,
+        file_num, channel_num, 0x64, 0x01,
+    ])
+    raw[0:8] = subheader
+    return bytes(raw)
 
 
 def resample(stereo_i16, src_hz=SRC_HZ, dst_hz=DST_HZ):
@@ -54,8 +70,13 @@ def main():
     src_path, dst_path = args[0], args[1]
     track = int(args[2]) if len(args) > 2 else 0
 
+    this_mtime = os.path.getmtime(__file__)
     if not force and os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
-        if os.path.exists(src_path) and os.path.getmtime(dst_path) >= os.path.getmtime(src_path):
+        if (
+            os.path.exists(src_path)
+            and os.path.getmtime(dst_path) >= os.path.getmtime(src_path)
+            and os.path.getmtime(dst_path) >= this_mtime
+        ):
             size_mb = os.path.getsize(dst_path) / 1e6
             print(f"{dst_path}: cached -> track {track} ({size_mb:.1f} MB)")
             return
@@ -67,10 +88,15 @@ def main():
     stereo = list(struct.unpack(f"<{len(raw) // 2}h", raw))
 
     resampled = resample(stereo)
+    dummy = make_dummy_sector(file_num=1, channel_num=255)
     sectors = []
+    audio_sectors = 0
     offset = 0
     while offset + FRAMES_PER_SECTOR <= len(resampled) // 2:
-        sectors.append(encode_sector(resampled, offset))
+        sectors.append(encode_sector(resampled, offset, file_num=1, channel_num=0))
+        audio_sectors += 1
+        for _ in range(INTERLEAVE_STRIDE - 1):
+            sectors.append(dummy)
         offset += FRAMES_PER_SECTOR
 
     if not sectors:
@@ -79,10 +105,10 @@ def main():
     with open(dst_path, "wb") as f:
         f.write(b"".join(sectors))
 
-    seconds = (len(sectors) * FRAMES_PER_SECTOR) / DST_HZ
+    seconds = (audio_sectors * FRAMES_PER_SECTOR) / DST_HZ
     src_seconds = (len(stereo) // 2) / SRC_HZ
     print(
-        f"{dst_path}: track {track}, {len(sectors)} sectors, "
+        f"{dst_path}: track {track}, {len(sectors)} sectors ({audio_sectors} audio, 1:{INTERLEAVE_STRIDE} interleave), "
         f"{seconds:.1f}s (from {src_seconds:.1f}s), "
         f"{len(sectors) * 2336 / 1e6:.1f} MB"
     )

@@ -175,7 +175,7 @@ impl DiscReader {
         crate::audio::cdda::pause_for_cd_read();
         let ok = unsafe {
             self.reader.demute()
-                && self.reader.prepare_xa(true)
+                && self.reader.prepare_xa(false)
                 && self
                     .reader
                     .set_filter(crate::audio::xa::XA_FILE, crate::audio::xa::XA_CHANNEL)

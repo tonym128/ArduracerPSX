@@ -28,11 +28,10 @@
 //!
 //! # Interleaving
 //!
-//! Real XA discs interleave audio with video, so only every Nth sector is audio.
-//! Our music files are authored contiguously, so `N = 1` and the drive streams
-//! without gaps. That is also what makes the 18.75 sectors/s figure hold: with
-//! interleaving, the drive would seek between audio sectors and the seek --
-//! not the transfer -- would dominate, as it does for the texture streamer.
+//! Real XA discs interleave audio sectors (every Nth sector is audio).
+//! At single speed (75 sectors/s), 1:4 interleave matches the 37.8 kHz stereo
+//! 4-bit XA consumption rate of 18.75 sectors/s precisely (75 / 4 = 18.75).
+//! Dummy sectors (channel 255) fill the gaps and are discarded by the hardware filter.
 
 use crate::cd_fs::DiscReader;
 
@@ -159,7 +158,8 @@ impl XaPlayer {
             return false;
         }
         let from = if self.stopped_at.valid {
-            self.stopped_at.lba
+            let offset = self.stopped_at.lba.saturating_sub(self.track_lba);
+            self.track_lba + (offset & !3)
         } else {
             self.track_lba
         };
