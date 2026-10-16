@@ -1327,17 +1327,17 @@ enum TileStepResult {
 #[inline(never)]
 fn upload_uncompressed_tile_async(
     codec: Codec,
-    circuit: usize,
-    block_x: usize,
-    block_y: usize,
-    tile_x: usize,
-    tile_y: usize,
-    target_slot: usize,
+    job: &DecodeJob,
     current_frame: u32,
 ) -> TileStepResult {
-    let Some((tile_lba, available, tile_sectors, async_codec)) =
-        uncompressed_tile_lba(codec, circuit, block_x, block_y, tile_x, tile_y)
-    else {
+    let Some((tile_lba, available, tile_sectors, async_codec)) = uncompressed_tile_lba(
+        codec,
+        job.circuit,
+        job.block_x,
+        job.block_y,
+        job.tile_x,
+        job.tile_y,
+    ) else {
         return TileStepResult::Failed;
     };
 
@@ -1357,14 +1357,14 @@ fn upload_uncompressed_tile_async(
     };
     crate::prof::count(crate::prof::C_CD_SECTORS, tile_sectors);
 
-    upload_tile_to_vram(codec, target_slot, src);
+    upload_tile_to_vram(codec, job.target_slot, src);
     mark_vram_slot_resident(
-        target_slot,
-        circuit,
-        block_x,
-        block_y,
-        tile_x,
-        tile_y,
+        job.target_slot,
+        job.circuit,
+        job.block_x,
+        job.block_y,
+        job.tile_x,
+        job.tile_y,
         current_frame,
     );
     TileStepResult::Uploaded
@@ -1956,16 +1956,7 @@ fn step_decode_job(current_frame: u32) -> StepResult {
 
     if let Some(codec) = uncompressed_codec_for(job.circuit) {
         crate::prof::count(crate::prof::C_DECODE_ROWS, 1);
-        match upload_uncompressed_tile_async(
-            codec,
-            job.circuit,
-            job.block_x,
-            job.block_y,
-            job.tile_x,
-            job.tile_y,
-            job.target_slot,
-            current_frame,
-        ) {
+        match upload_uncompressed_tile_async(codec, job, current_frame) {
             TileStepResult::Uploaded => {
                 crate::prof::count(crate::prof::C_TILE_DECODES, 1);
                 job.active = false;
