@@ -35,9 +35,10 @@ use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
-    bake_minimap, init_track_texture, prewarm_starting_tiles, render_car, render_hud, render_track,
-    reset_texture_caches, set_frame_period, set_texture_format, texture_format, Camera,
-    DebugOverlay, Framerate, ParticleSystem, SkidmarkBuffer, TextureFormat, TextureSlot,
+    bake_minimap, init_track_texture, prewarm_starting_tiles, render_car, render_hud,
+    render_replay_hud, render_track, reset_texture_caches, set_frame_period, set_texture_format,
+    texture_format, Camera, DebugOverlay, Framerate, ParticleSystem, SkidmarkBuffer, TextureFormat,
+    TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -321,6 +322,10 @@ pub struct ArduracerGame {
     pub debug_overlay: DebugOverlay,
     /// Edge detection state for racing gameplay buttons (e.g. Triangle view toggle).
     pub prev_pad_racing: psx_pad::ButtonState,
+    /// Playback tick counter for Post-Race Action Replay Theater (`NO1-027`).
+    pub replay_tick: u32,
+    /// Active camera angle in Action Replay Theater (`0 = Broadcast TV, 1 = Chase, 2 = Helicopter`).
+    pub replay_camera_mode: u8,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -450,6 +455,8 @@ impl ArduracerGame {
             debug_metrics: 0,
             debug_overlay: DebugOverlay::new(),
             prev_pad_racing: psx_pad::ButtonState::from_bits(0),
+            replay_tick: 0,
+            replay_camera_mode: 0,
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -504,6 +511,8 @@ impl ArduracerGame {
         self.current_track_idx = idx;
         self.current_track = ALL_TRACKS[idx];
         self.ghost.reset(idx as u8);
+        self.ghost
+            .load_from_card_block(&self.memcard.block, idx as u8);
         self.reset_race();
         self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
@@ -1268,11 +1277,12 @@ impl ArduracerGame {
                         let _s = prof::span(prof::SKIDMARKS);
                         self.skidmarks.render(&self.camera);
                     }
-                    // d. Active ghost car playback
+                    // d. Active ghost car playback (Dev Platinum Author Ghost + Personal Best Ghost)
                     {
                         let _s = prof::span(prof::GHOST_CAR);
                         render_active_ghost(
                             &self.ghost,
+                            track,
                             &self.camera,
                             self.timer.current_lap_ticks,
                         );
@@ -1323,6 +1333,9 @@ impl ArduracerGame {
                         t_misc_ticks = t_now.wrapping_sub(t_checkpoint);
                     }
                     crate::gpu::tracktex::pump_cd_streams();
+                }
+                GameState::Replay => {
+                    self.handle_replay_theater(&pad);
                 }
                 GameState::Results => {
                     self.handle_results_screen(&pad);
@@ -1506,6 +1519,9 @@ impl ArduracerGame {
             let lap_ticks = self.timer.last_completed_lap_ticks;
             let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
             self.ghost.finish_lap(lap_ticks, is_record);
+            if is_record {
+                self.ghost.save_to_card_block(&mut self.memcard.block);
+            }
             self.ghost.start_lap();
 
             // Record completed lap times and trophies earned
@@ -1606,6 +1622,7 @@ impl ArduracerGame {
             // Every scored lap already promoted itself; this only
             // closes out the in-progress final lap.
             self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+            self.ghost.save_to_card_block(&mut self.memcard.block);
             // Persist the record before leaving the race screen.
             if self.memcard.is_dirty {
                 self.memcard.flush();
@@ -1695,6 +1712,118 @@ impl ArduracerGame {
         (player_rank, standings)
     }
 
+    /// Post-Race Action Replay Theater with Broadcast TV Cameras (`NO1-027`).
+    #[inline(never)]
+    fn handle_replay_theater(&mut self, pad: &psx_pad::PadState) {
+        let track = self.current_track;
+        let b = pad.buttons;
+        let prev = self.prev_pad_racing;
+        self.prev_pad_racing = b;
+
+        if b.pressed_since(prev, psx_pad::button::TRIANGLE)
+            || b.pressed_since(prev, psx_pad::button::SELECT)
+        {
+            self.replay_camera_mode = (self.replay_camera_mode + 1) % 3;
+        }
+        if b.pressed_since(prev, psx_pad::button::CROSS)
+            || b.pressed_since(prev, psx_pad::button::START)
+            || b.pressed_since(prev, psx_pad::button::CIRCLE)
+        {
+            if let Some(ref mut results) = self.state_mgr.results {
+                results.prev_buttons = b.bits();
+            }
+            self.state_mgr.current = GameState::Results;
+            return;
+        }
+
+        let ticks_to_run = self.compute_ticks_to_run();
+        let (frames, clip_ticks) = self.ghost.active_replay_clip();
+        let total_ticks = if !frames.is_empty() {
+            clip_ticks.max(1)
+        } else {
+            track.par_times.dev_platinum_ticks.max(1)
+        };
+
+        self.replay_tick = self.replay_tick.saturating_add(ticks_to_run);
+        if self.replay_tick > total_ticks {
+            self.replay_tick = 0;
+        }
+
+        let sample = if !frames.is_empty() {
+            arduracer_core::GhostPlayer::new(frames, total_ticks).sample_at_tick(self.replay_tick)
+        } else {
+            arduracer_core::sample_author_ghost(track, self.replay_tick).unwrap_or_default()
+        };
+
+        self.player.position = sample.position;
+        self.player.heading = sample.heading;
+        self.player.visual_angle = sample.heading;
+        self.player.is_drifting = (sample.flags & arduracer_core::FLAG_DRIFTING) != 0;
+        self.player.boost_ticks = if (sample.flags & arduracer_core::FLAG_BOOSTING) != 0 {
+            6
+        } else {
+            0
+        };
+        if self.player.is_drifting {
+            self.particles
+                .emit_smoke_at(self.player.position, self.player.visual_angle);
+            self.skidmarks
+                .emit(self.player.position, self.player.visual_angle);
+        }
+        self.particles.tick();
+        self.skidmarks.tick();
+
+        match self.replay_camera_mode {
+            0 => {
+                self.camera
+                    .update_broadcast_tv(track, sample.position, sample.heading);
+            }
+            1 => {
+                self.camera.mode7 = true;
+                self.camera.rotating = false;
+                self.camera.follow_heading(sample.heading);
+                self.camera.update(
+                    sample.position,
+                    Vec2::ZERO,
+                    Fixed::from_int(3),
+                    track.world_width(),
+                    track.world_height(),
+                );
+            }
+            _ => {
+                self.camera.mode7 = false;
+                self.camera.rotating = true;
+                self.camera.follow_heading(sample.heading);
+                self.camera.update(
+                    sample.position,
+                    Vec2::ZERO,
+                    Fixed::from_int(3),
+                    track.world_width(),
+                    track.world_height(),
+                );
+            }
+        }
+
+        self.fb.clear(18, 20, 26);
+        let elapsed = psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
+        let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
+            ticks_to_run,
+            elapsed,
+            self.framerate.vblanks_per_frame(),
+        );
+        render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+        self.skidmarks.render(&self.camera);
+        render_active_ghost(&self.ghost, track, &self.camera, self.replay_tick);
+        render_car(&self.player, &self.camera, false, (220, 25, 45));
+        self.particles.render(&self.camera);
+        render_replay_hud(
+            track.name,
+            self.replay_tick,
+            total_ticks,
+            self.replay_camera_mode,
+        );
+    }
+
     #[inline(never)]
     fn handle_results_screen(&mut self, pad: &psx_pad::PadState) {
         self.fb.clear(14, 16, 22);
@@ -1705,6 +1834,12 @@ impl ArduracerGame {
             results.render(self.state_mgr.championship.as_ref());
         }
         match action {
+            Some(ResultsAction::WatchReplay) => {
+                self.replay_tick = 0;
+                self.replay_camera_mode = 0;
+                self.prev_pad_racing = pad.buttons;
+                self.state_mgr.current = GameState::Replay;
+            }
             Some(ResultsAction::Continue) => {
                 let next_step = if let Some(ref mut champ) = self.state_mgr.championship {
                     if champ.is_last_stage() {

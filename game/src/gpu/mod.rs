@@ -20,7 +20,7 @@ pub use camera::Camera;
 pub use car_renderer::render_car;
 pub use debug_overlay::DebugOverlay;
 pub use effects_sim::{Particle, ParticleSystem, ParticleType, Skidmark, SkidmarkBuffer};
-pub use hud_renderer::{bake_minimap, draw_ui_minimap, render_hud};
+pub use hud_renderer::{bake_minimap, draw_ui_minimap, render_hud, render_replay_hud};
 pub use texpipe::TextureSlot;
 pub use tracktex::{
     init_track_texture, reset_texture_caches, set_frame_period, set_texture_format, texture_format,

@@ -22,6 +22,7 @@ pub enum GameState {
     CitySelect,
     Garage,
     Racing,
+    Replay,
     Results,
     Victory,
 }

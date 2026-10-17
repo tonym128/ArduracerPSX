@@ -14,6 +14,7 @@ use psx_pad::{button, PadState};
 pub enum ResultsAction {
     Continue,
     RestartRace,
+    WatchReplay,
     ExitToMenu,
 }
 
@@ -69,6 +70,8 @@ impl ResultsScreen {
             Some(ResultsAction::Continue)
         } else if b.pressed_since(prev, button::SQUARE) {
             Some(ResultsAction::RestartRace)
+        } else if b.pressed_since(prev, button::TRIANGLE) {
+            Some(ResultsAction::WatchReplay)
         } else if b.pressed_since(prev, button::CIRCLE) {
             Some(ResultsAction::ExitToMenu)
         } else {
@@ -169,7 +172,13 @@ impl ResultsScreen {
             1,
         );
 
-        draw_text(76, 190, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
+        draw_text(
+            42,
+            190,
+            "TRIANGLE: REPLAY   CIRCLE: MAIN MENU",
+            (130, 150, 170),
+            1,
+        );
     }
 
     fn render_grand_prix(&self, champ: &ChampionshipSession) {
@@ -302,6 +311,12 @@ impl ResultsScreen {
             1,
         );
 
-        draw_text(90, 194, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
+        draw_text(
+            42,
+            194,
+            "TRIANGLE: REPLAY   CIRCLE: MAIN MENU",
+            (130, 150, 170),
+            1,
+        );
     }
 }

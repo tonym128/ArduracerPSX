@@ -57,8 +57,10 @@ pub use contact::{
 };
 pub use drift::{DriftState, DRIFT_BOOST_LEVEL1_TICKS, DRIFT_BOOST_LEVEL2_TICKS, SPINOUT_TICKS};
 pub use ghost::{
-    GhostFrame, GhostPlaybackState, GhostPlayer, GhostRecorder, FLAG_BOOSTING, FLAG_BRAKING,
-    FLAG_DRIFTING, FLAG_SKIDMARK, GHOST_MAGIC, GHOST_SAMPLE_INTERVAL_TICKS, GHOST_VERSION,
+    author_ghost_time_gap_ticks, decode_compressed_ghost, encode_compressed_ghost,
+    ghost_distance_units, sample_author_ghost, GhostFrame, GhostPlaybackState, GhostPlayer,
+    GhostRecorder, FLAG_BOOSTING, FLAG_BRAKING, FLAG_DRIFTING, FLAG_SKIDMARK, GHOST_CRC_SIZE,
+    GHOST_HEADER_SIZE, GHOST_MAGIC, GHOST_SAMPLE_INTERVAL_TICKS, GHOST_VERSION,
 };
 pub use levels::{ALL_TRACKS, ALL_TRACK_VISUALS, AUTHORED_TRACK_COUNT};
 pub use london::TRACK_LONDON;

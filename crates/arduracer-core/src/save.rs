@@ -503,6 +503,31 @@ impl SaveData {
         self.write_payload(&mut block[..PAYLOAD_SIZE]);
     }
 
+    /// Writes a delta-compressed Personal Best ghost clip into the unused 7,804 bytes
+    /// (`block[PAYLOAD_SIZE..8192]`) of the 8 KB Memory Card block (`NO1-024`).
+    pub fn write_ghost_to_block(
+        block: &mut [u8; 8192],
+        track_id: u8,
+        lap_time_ticks: u32,
+        frames: &[crate::ghost::GhostFrame],
+    ) -> Option<usize> {
+        crate::ghost::encode_compressed_ghost(
+            track_id,
+            lap_time_ticks,
+            frames,
+            &mut block[PAYLOAD_SIZE..],
+        )
+    }
+
+    /// Reads a delta-compressed Personal Best ghost clip from `block[PAYLOAD_SIZE..8192]`
+    /// if present and valid (`NO1-024`).
+    pub fn read_ghost_from_block(
+        block: &[u8; 8192],
+        out_frames: &mut [crate::ghost::GhostFrame],
+    ) -> Option<(u8, u32, usize)> {
+        crate::ghost::decode_compressed_ghost(&block[PAYLOAD_SIZE..], out_frames)
+    }
+
     /// Attempts to deserialize save data from a Memory Card block buffer.
     /// Returns Some(SaveData) if magic, version, and checksum are valid, None otherwise.
     /// Fields outside their legal range are clamped; see [`SaveData::sanitised`].

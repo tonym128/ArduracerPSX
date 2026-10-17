@@ -230,8 +230,8 @@ pub fn render_hud<const N: usize>(
             _ => ("BRNZ", (210, 130, 50)),
         };
         if timer.best_lap_ticks != u32::MAX {
-            gpu::draw_rect_flat(8, 46, 84, 28, 14, 16, 24);
-            gpu::draw_rect_flat(9, 47, 82, 26, 22, 26, 36);
+            gpu::draw_rect_flat(8, 46, 84, 38, 14, 16, 24);
+            gpu::draw_rect_flat(9, 47, 82, 36, 22, 26, 36);
             let mut best_buf = [b' '; 8];
             format_time(&mut best_buf, timer.best_lap_ticks);
             draw_text(12, 50, "BEST", (150, 150, 165), 1);
@@ -241,13 +241,45 @@ pub fn render_hud<const N: usize>(
             format_time(&mut targ_buf, target_ticks);
             draw_text(12, 61, medal_label, medal_col, 1);
             blit(&targ_buf, 40, 61, medal_col, 1);
+
+            if let Some(gap) = arduracer_core::author_ghost_time_gap_ticks(
+                track,
+                player.position,
+                timer.current_lap_ticks,
+            ) {
+                let mut g_buf = [b' '; 6];
+                format_delta(&mut g_buf, gap);
+                let g_col = if gap <= 0 {
+                    (60, 245, 110)
+                } else {
+                    (255, 150, 55)
+                };
+                draw_text(12, 72, "GHST", (150, 165, 190), 1);
+                blit(&g_buf, 46, 72, g_col, 1);
+            }
         } else if target_ticks > 0 {
-            gpu::draw_rect_flat(8, 46, 84, 18, 14, 16, 24);
-            gpu::draw_rect_flat(9, 47, 82, 16, 22, 26, 36);
+            gpu::draw_rect_flat(8, 46, 84, 28, 14, 16, 24);
+            gpu::draw_rect_flat(9, 47, 82, 26, 22, 26, 36);
             let mut targ_buf = [b' '; 8];
             format_time(&mut targ_buf, target_ticks);
-            draw_text(12, 51, medal_label, medal_col, 1);
-            blit(&targ_buf, 40, 51, medal_col, 1);
+            draw_text(12, 50, medal_label, medal_col, 1);
+            blit(&targ_buf, 40, 50, medal_col, 1);
+
+            if let Some(gap) = arduracer_core::author_ghost_time_gap_ticks(
+                track,
+                player.position,
+                timer.current_lap_ticks,
+            ) {
+                let mut g_buf = [b' '; 6];
+                format_delta(&mut g_buf, gap);
+                let g_col = if gap <= 0 {
+                    (60, 245, 110)
+                } else {
+                    (255, 150, 55)
+                };
+                draw_text(12, 61, "GHST", (150, 165, 190), 1);
+                blit(&g_buf, 46, 61, g_col, 1);
+            }
         }
     }
 
@@ -559,4 +591,46 @@ pub fn draw_ui_minimap(x: i16, y: i16, w: u16, h: u16, track: &TrackDef) {
     let sx = inner_x + ((track.start_gate.x as i32 * inner_w) / track.width as i32) as i16;
     let sy = inner_y + ((track.start_gate.y as i32 * inner_h) / track.height as i32) as i16;
     gpu::draw_rect_flat(sx - 1, sy - 1, 3, 3, 255, 230, 40);
+}
+
+/// Renders the Broadcast TV Action Replay Theater letterbox HUD overlay (`NO1-027`).
+pub fn render_replay_hud(track_name: &str, replay_tick: u32, total_ticks: u32, camera_mode: u8) {
+    // Top cinema letterbox bar
+    gpu::draw_rect_flat(0, 0, 320, 24, 10, 12, 18);
+    gpu::draw_rect_flat(0, 24, 320, 2, 220, 40, 60);
+
+    // Blinking REC/PLAY dot
+    if ((replay_tick >> 4) & 1) == 0 {
+        gpu::draw_rect_flat(10, 8, 8, 8, 255, 50, 50);
+    }
+    draw_text(24, 8, "ACTION REPLAY", (255, 220, 40), 1);
+    draw_text(120, 8, track_name, (200, 215, 235), 1);
+
+    let mut cur_buf = [b' '; 8];
+    format_time(&mut cur_buf, replay_tick);
+    blit(&cur_buf, 260, 8, (0, 225, 255), 1);
+
+    // Bottom cinema letterbox bar
+    gpu::draw_rect_flat(0, 214, 320, 2, 220, 40, 60);
+    gpu::draw_rect_flat(0, 216, 320, 24, 10, 12, 18);
+
+    // Timeline progress bar
+    let bar_w = if total_ticks > 0 {
+        ((replay_tick.min(total_ticks) as u64 * 300) / (total_ticks as u64)) as u16
+    } else {
+        0
+    };
+    gpu::draw_rect_flat(10, 219, 300, 3, 30, 36, 50);
+    if bar_w > 0 {
+        gpu::draw_rect_flat(10, 219, bar_w, 3, 0, 220, 255);
+    }
+
+    let cam_label = match camera_mode {
+        0 => "CAM: BROADCAST TV",
+        1 => "CAM: MODE 7 CHASE",
+        _ => "CAM: HELICOPTER",
+    };
+    draw_text(10, 226, cam_label, (80, 235, 255), 1);
+    draw_text(132, 226, "TRIANGLE: CAM", (255, 220, 40), 1);
+    draw_text(224, 226, "CROSS: RESULTS", (220, 225, 235), 1);
 }

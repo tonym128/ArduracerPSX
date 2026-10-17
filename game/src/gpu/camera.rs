@@ -425,6 +425,80 @@ impl Camera {
         self.pos.x = clamp_axis(self.pos.x, half_w, world_w);
         self.pos.y = clamp_axis(self.pos.y, half_h, world_h);
     }
+
+    /// Updates the camera as a dynamic **Trackside Broadcast TV Camera** (`NO1-027`).
+    ///
+    /// Selects the nearest route/checkpoint vantage point ahead of `target_pos`,
+    /// stands slightly off the racing line, and pans in Mode 7 perspective as the
+    /// vehicle approaches and sweeps past the camera pod.
+    pub fn update_broadcast_tv(
+        &mut self,
+        track: &arduracer_core::TrackDef,
+        target_pos: Vec2,
+        target_heading: u16,
+    ) {
+        self.mode7 = true;
+        self.rotating = false;
+
+        let n = if !track.route.is_empty() {
+            track.route.len()
+        } else {
+            track.route_len()
+        };
+
+        let mut vantage = target_pos;
+        if n > 0 {
+            let node_at = |idx: usize| -> Vec2 {
+                if !track.route.is_empty() {
+                    track.route[idx % n]
+                } else {
+                    arduracer_core::TrackDef::gate_centre(&track.route_node(idx % n))
+                }
+            };
+            let mut best_idx = 0usize;
+            let mut best_d2 = i64::MAX;
+            for i in 0..n {
+                let p = node_at(i);
+                let dx = (p.x.raw() - target_pos.x.raw()) >> 8;
+                let dy = (p.y.raw() - target_pos.y.raw()) >> 8;
+                let d2 = (dx as i64) * (dx as i64) + (dy as i64) * (dy as i64);
+                if d2 < best_d2 {
+                    best_d2 = d2;
+                    best_idx = i;
+                }
+            }
+            // Pick the node 1 step ahead of the closest node as the broadcast camera stand
+            let cam_node = node_at((best_idx + 1) % n);
+            let next_node = node_at((best_idx + 2) % n);
+            let seg_h = arduracer_core::heading_towards(cam_node, next_node);
+            // Offset 24 units to the outside of the track segment
+            let side_x = (cos(seg_h).raw() * 24) >> FP_SHIFT;
+            let side_y = (sin(seg_h).raw() * 24) >> FP_SHIFT;
+            vantage = Vec2::new(
+                cam_node.x + Fixed::from_int(side_x),
+                cam_node.y + Fixed::from_int(side_y),
+            );
+        }
+
+        let aim_heading = if (target_pos - vantage).length().to_int() < 8 {
+            target_heading
+        } else {
+            arduracer_core::heading_towards(vantage, target_pos)
+        };
+        self.set_heading(aim_heading);
+
+        // Keep `target_pos` inside the Mode 7 frustum depth [85..185] while panning:
+        // Since `z = fwd + M7_Z0 (120)`, placing `self.pos` at `target_pos - aim_dir * (depth - 120)`
+        // puts `target_pos` at exact camera depth `depth`.
+        let raw_dist = (target_pos - vantage).length().to_int().clamp(85, 185);
+        let fwd_offset = raw_dist - M7_Z0;
+        let world_w = track.world_width().max(0);
+        let world_h = track.world_height().max(0);
+        let pivot_x = target_pos.x - Fixed::from_raw(self.hsin * fwd_offset);
+        let pivot_y = target_pos.y + Fixed::from_raw(self.hcos * fwd_offset);
+        self.pos.x = pivot_x.clamp(Fixed::ZERO, Fixed::from_int(world_w));
+        self.pos.y = pivot_y.clamp(Fixed::ZERO, Fixed::from_int(world_h));
+    }
 }
 
 /// Clamps a camera axis so the visible rectangle stays within `0..world`.

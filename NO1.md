@@ -133,16 +133,16 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 4: Ghosts, Dev Platinum Records, Replays & Memory Card Compression (Items `NO1-024` – `NO1-027`)
 
-- [ ] **`NO1-024` — Delta-Compressed Ghost Serializer in the 7,804 Unused Memory Card Bytes (`crates/arduracer-core/src/ghost.rs`, `save.rs`)**
+- [x] **`NO1-024` — Delta-Compressed Ghost Serializer in the 7,804 Unused Memory Card Bytes (`crates/arduracer-core/src/ghost.rs`, `save.rs`)**
   - **Problem**: `SaveData` uses only `388` of `8,192` bytes in its 1-block Memory Card save (`save.rs:83`), leaving **7,804 bytes zeroed**, while `ghost.rs` stores uncompressed 6-byte frames (`10,800` bytes) in RAM only and discards them on power-off.
   - **Action**: Implement a deterministic delta-encoded ghost stream (`GhostCompressed`: 15 Hz sampling with `(dx_q2: i8, dy_q2: i8, dheading_flags: u8)` = 3 bytes/sample, ~1,350 bytes for a 30s lap) and store the player's **Personal Best Ghost** (up to 5 slots or the most recent/favorite PB laps) inside the unused `7,400` bytes of the existing single 8 KiB Memory Card block (protected by CRC-16).
-- [ ] **`NO1-025` — Pre-Baked Dev Platinum (Author) & Gold Ghosts on Disc (`tools/playtest/`, `assets/`, `crates/arduracer-core/src/ghost.rs`)**
+- [x] **`NO1-025` — Pre-Baked Dev Platinum (Author) & Gold Ghosts on Disc (`tools/playtest/`, `assets/`, `crates/arduracer-core/src/ghost.rs`)**
   - **Problem**: In Time Trial / Mania Trials, there is no ghost until the player finishes a lap, and no Author/Dev Platinum ghost to study for optimal lines.
   - **Action**: Extend `tools/playtest --calibrate` to record the reference driver's optimal Dev Platinum and Gold laps across all 31 circuits, pack them into `assets/GHOSTS.BIN` (~150 KB total on CD), and stream the circuit's **Dev Platinum Ghost** + **Personal Best Ghost** into RAM on track load so players can race **two simultaneous translucent ghosts** (Cyan = Personal Best, Gold = Dev Author)!
-- [ ] **`NO1-026` — Ghost Checkpoint Split Comparison & Distance Gap Indicator (`crates/arduracer-core/src/ghost.rs`, `game/src/gpu/hud_renderer.rs`)**
+- [x] **`NO1-026` — Ghost Checkpoint Split Comparison & Distance Gap Indicator (`crates/arduracer-core/src/ghost.rs`, `game/src/gpu/hud_renderer.rs`)**
   - **Problem**: `GhostPlayer` only interpolates `(x, y, heading)` and provides no telemetry comparison.
   - **Action**: Compute live distance/time gap to the active Ghost (`GHOST +0.18s`) and display a floating distance tag or split delta comparison at every checkpoint.
-- [ ] **`NO1-027` — Post-Race Action Replay Theater with Broadcast TV Cameras (`game/src/main.rs`, `gpu/camera.rs`, `ui/results.rs`)**
+- [x] **`NO1-027` — Post-Race Action Replay Theater with Broadcast TV Cameras (`game/src/main.rs`, `gpu/camera.rs`, `ui/results.rs`)**
   - **Problem**: After finishing a lap or race (`ResultsScreen`), players cannot watch a replay of their run.
   - **Action**: Add a `"WATCH REPLAY (TRIANGLE)"` option on `ResultsScreen` that replays the recorded `GhostRecorder` buffer using dynamic **Trackside Broadcast TV Cameras** (auto-switching to the nearest checkpoint camera with zoom-tracking as the car flies past), Mode 7 chase cam, or Helicopter cam!
 

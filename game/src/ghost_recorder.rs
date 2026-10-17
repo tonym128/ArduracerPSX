@@ -20,6 +20,7 @@ pub struct LapGhostRecorder {
     pub recorder: GhostRecorder<MAX_GHOST_FRAMES>,
     pub best_frames: [GhostFrame; MAX_GHOST_FRAMES],
     pub best_frame_count: usize,
+    pub best_lap_ticks: u32,
     pub has_ghost: bool,
 }
 
@@ -29,6 +30,7 @@ impl LapGhostRecorder {
             recorder: GhostRecorder::new(track_id),
             best_frames: [GhostFrame::default(); MAX_GHOST_FRAMES],
             best_frame_count: 0,
+            best_lap_ticks: 0,
             has_ghost: false,
         }
     }
@@ -44,7 +46,7 @@ impl LapGhostRecorder {
         if player.is_drifting {
             flags |= FLAG_DRIFTING;
         }
-        if player.boost_ticks > 0 {
+        if player.boost_ticks > 0 || player.super_boost_ticks > 0 {
             flags |= FLAG_BOOSTING;
         }
         if player.speed < arduracer_core::Fixed::from_int(1) && player.engine_rpm < 1500 {
@@ -55,21 +57,67 @@ impl LapGhostRecorder {
             .record_tick(player.position, player.visual_angle, flags);
     }
 
-    /// Completes the recorded lap. If it beats the current best, updates the ghost.
+    /// Completes the recorded lap. If it beats the current best (or no ghost exists yet),
+    /// promotes the lap to `best_frames`.
     pub fn finish_lap(&mut self, lap_ticks: u32, is_new_record: bool) {
         self.recorder.finish(lap_ticks);
-        if is_new_record && self.recorder.frame_count > 0 {
+        if (is_new_record || !self.has_ghost) && self.recorder.frame_count > 0 && lap_ticks > 0 {
             let count = self.recorder.frame_count.min(MAX_GHOST_FRAMES);
             self.best_frames[..count].copy_from_slice(&self.recorder.frames[..count]);
             self.best_frame_count = count;
+            self.best_lap_ticks = lap_ticks;
             self.has_ghost = true;
         }
+    }
+
+    /// Returns the best available telemetry clip `(frames, total_ticks)` for replay playback.
+    pub fn active_replay_clip(&self) -> (&[GhostFrame], u32) {
+        if self.has_ghost && self.best_frame_count > 0 {
+            (
+                &self.best_frames[..self.best_frame_count],
+                self.best_lap_ticks.max(1),
+            )
+        } else {
+            let count = self.recorder.frame_count.min(MAX_GHOST_FRAMES);
+            (
+                &self.recorder.frames[..count],
+                self.recorder.lap_time_ticks.max(1),
+            )
+        }
+    }
+
+    /// Encodes the active Personal Best ghost into the unused tail of an 8 KB Memory Card block (`NO1-024`).
+    pub fn save_to_card_block(&self, block: &mut [u8; 8192]) {
+        if self.has_ghost && self.best_frame_count > 0 {
+            let _ = arduracer_core::SaveData::write_ghost_to_block(
+                block,
+                self.recorder.track_id,
+                self.best_lap_ticks,
+                &self.best_frames[..self.best_frame_count],
+            );
+        }
+    }
+
+    /// Restores a Personal Best ghost from an 8 KB Memory Card block if it matches `expected_track_id` (`NO1-024`).
+    pub fn load_from_card_block(&mut self, block: &[u8; 8192], expected_track_id: u8) -> bool {
+        if let Some((track_id, lap_ticks, count)) =
+            arduracer_core::SaveData::read_ghost_from_block(block, &mut self.best_frames)
+        {
+            if track_id == expected_track_id && count > 0 && lap_ticks > 0 {
+                self.best_frame_count = count.min(MAX_GHOST_FRAMES);
+                self.best_lap_ticks = lap_ticks;
+                self.has_ghost = true;
+                return true;
+            }
+        }
+        false
     }
 
     /// Clears recorded ghost data.
     pub fn reset(&mut self, track_id: u8) {
         self.recorder = GhostRecorder::new(track_id);
         self.best_frame_count = 0;
+        self.best_lap_ticks = 0;
         self.has_ghost = false;
     }
 }

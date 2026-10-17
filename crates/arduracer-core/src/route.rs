@@ -381,7 +381,7 @@ fn isqrt(n: u64) -> u64 {
 /// spans onto a single point.
 ///
 /// `i64` intermediates: the cubic terms overflow `i32` in Q20.12.
-fn catmull_rom(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: Fixed) -> Vec2 {
+pub(crate) fn catmull_rom(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: Fixed) -> Vec2 {
     let t = t.raw() as i64;
     let t2 = (t * t) >> FP_SHIFT;
     let t3 = (t2 * t) >> FP_SHIFT;
