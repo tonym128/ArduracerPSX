@@ -1,0 +1,180 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Falcon_Crest",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0057,
+      "y": 22.7621,
+      "r": 8.5225
+    },
+    {
+      "x": 19.3813,
+      "y": 19.5496,
+      "r": 4.3646
+    },
+    {
+      "x": 23.0,
+      "y": 18.0,
+      "r": 9.5923
+    },
+    {
+      "x": 57.2379,
+      "y": 18.0057,
+      "r": 8.5227
+    },
+    {
+      "x": 60.4504,
+      "y": 19.3813,
+      "r": 4.5197
+    },
+    {
+      "x": 61.9943,
+      "y": 22.7621,
+      "r": 8.3433
+    },
+    {
+      "x": 61.832,
+      "y": 39.1472,
+      "r": 4.5849
+    },
+    {
+      "x": 59.3681,
+      "y": 41.7588,
+      "r": 4.451
+    },
+    {
+      "x": 52.7879,
+      "y": 42.0732,
+      "r": 4.7056
+    },
+    {
+      "x": 50.6406,
+      "y": 43.4816,
+      "r": 2.5591
+    },
+    {
+      "x": 49.9749,
+      "y": 54.5246,
+      "r": 6.7165
+    },
+    {
+      "x": 48.8323,
+      "y": 56.9021,
+      "r": 5.2079
+    },
+    {
+      "x": 39.1409,
+      "y": 63.9193,
+      "r": 18.6086
+    },
+    {
+      "x": 22.7621,
+      "y": 63.9943,
+      "r": 8.4211
+    },
+    {
+      "x": 19.5496,
+      "y": 62.6187,
+      "r": 4.3646
+    },
+    {
+      "x": 18.0,
+      "y": 59.0,
+      "r": 9.5925
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.072398,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.143288,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.285068,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "oil",
+      "frac": 0.393665,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.014
+    },
+    {
+      "kind": "gate",
+      "frac": 0.429864,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.573152,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.644042,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.713424,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.820513,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.856712,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Falcon_Crest.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Falcon_Crest.svg"
+  }
+}

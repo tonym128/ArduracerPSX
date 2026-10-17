@@ -1,0 +1,183 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Cascade_Falls",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.2025,
+      "y": 23.5913,
+      "r": 5.1195
+    },
+    {
+      "x": 19.9092,
+      "y": 21.0697,
+      "r": 4.5945
+    },
+    {
+      "x": 22.5247,
+      "y": 20.0226,
+      "r": 7.2115
+    },
+    {
+      "x": 58.4087,
+      "y": 20.2025,
+      "r": 4.8423
+    },
+    {
+      "x": 60.7787,
+      "y": 21.7257,
+      "r": 4.6095
+    },
+    {
+      "x": 61.9096,
+      "y": 24.0537,
+      "r": 5.5503
+    },
+    {
+      "x": 61.832,
+      "y": 37.1472,
+      "r": 4.6219
+    },
+    {
+      "x": 59.1472,
+      "y": 39.832,
+      "r": 5.2065
+    },
+    {
+      "x": 50.3919,
+      "y": 40.5878,
+      "r": 7.9493
+    },
+    {
+      "x": 44.971,
+      "y": 51.1344,
+      "r": 2.9071
+    },
+    {
+      "x": 43.1227,
+      "y": 51.9702,
+      "r": 4.3683
+    },
+    {
+      "x": 38.2102,
+      "y": 51.8149,
+      "r": 3.6262
+    },
+    {
+      "x": 36.3055,
+      "y": 50.2557,
+      "r": 5.5695
+    },
+    {
+      "x": 31.7438,
+      "y": 40.8079,
+      "r": 2.702
+    },
+    {
+      "x": 29.8026,
+      "y": 40.0276,
+      "r": 5.7311
+    },
+    {
+      "x": 21.8212,
+      "y": 39.8591,
+      "r": 5.9214
+    },
+    {
+      "x": 18.9271,
+      "y": 37.9003,
+      "r": 4.2324
+    },
+    {
+      "x": 18.0057,
+      "y": 35.2379,
+      "r": 7.9648
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.072356,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.142857,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.283859,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.391466,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.426716,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.499072,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.569573,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.004
+    },
+    {
+      "kind": "gate",
+      "frac": 0.71243,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.002
+    },
+    {
+      "kind": "gate",
+      "frac": 0.855288,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Cascade_Falls.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Cascade_Falls.svg"
+  }
+}

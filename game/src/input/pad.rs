@@ -157,23 +157,38 @@ impl ControllerDriver {
             }
         }
 
-        // Digital D-Pad Steering: Smooth ramp-up over 8 frames (~130ms)
+        // Digital D-Pad Steering: Instant tap bite + progressive ramp-up while held
+        // Enables precision rhythmic tapping for cornering (Micro Machines / Super Sprint feel)
         let b = pad.buttons;
         let left = b.is_held(button::LEFT);
         let right = b.is_held(button::RIGHT);
 
+        const TAP_INITIAL_BITE: i32 = 1600; // ~39% steering lock on first tap frame
+        const RAMP_RATE: i32 = 400; // Ramp to full 100% lock over ~6 frames if held
+        const CENTER_DECAY: i32 = 1600; // Fast centering decay on release
+
         if left && !right {
-            // Ramp toward -4096
-            self.dpad_steer_acc = (self.dpad_steer_acc - 640).max(-4096);
+            if self.dpad_steer_acc >= 0 {
+                // Immediate crisp tap bite
+                self.dpad_steer_acc = -TAP_INITIAL_BITE;
+            } else {
+                // Progressive ramp toward full lock
+                self.dpad_steer_acc = (self.dpad_steer_acc - RAMP_RATE).max(-4096);
+            }
         } else if right && !left {
-            // Ramp toward +4096
-            self.dpad_steer_acc = (self.dpad_steer_acc + 640).min(4096);
+            if self.dpad_steer_acc <= 0 {
+                // Immediate crisp tap bite
+                self.dpad_steer_acc = TAP_INITIAL_BITE;
+            } else {
+                // Progressive ramp toward full lock
+                self.dpad_steer_acc = (self.dpad_steer_acc + RAMP_RATE).min(4096);
+            }
         } else {
-            // Self-centering spring decay towards 0
+            // Rapid self-centering spring decay towards 0
             if self.dpad_steer_acc > 0 {
-                self.dpad_steer_acc = (self.dpad_steer_acc - 1024).max(0);
+                self.dpad_steer_acc = (self.dpad_steer_acc - CENTER_DECAY).max(0);
             } else if self.dpad_steer_acc < 0 {
-                self.dpad_steer_acc = (self.dpad_steer_acc + 1024).min(0);
+                self.dpad_steer_acc = (self.dpad_steer_acc + CENTER_DECAY).min(0);
             }
         }
 

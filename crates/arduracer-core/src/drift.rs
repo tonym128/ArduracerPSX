@@ -13,21 +13,37 @@ pub const SPINOUT_TICKS: u16 = 60;
 pub const DRIFT_BOOST_LEVEL1_TICKS: u16 = 45;
 /// Ticks of sustained drift needed to earn Level 2 Super-Turbo (Orange sparks).
 pub const DRIFT_BOOST_LEVEL2_TICKS: u16 = 90;
-/// Side-slip unwound per tick at *full* opposite lock, in BAMs (4096 = 360 deg).
+/// Side-slip moved per tick at *full* steering lock, in BAMs (4096 = 360 deg),
+/// scaled linearly by however much lock is applied.
 ///
-/// The old code applied a flat 32 BAM/tick recovery that saturated at a
-/// hard-coded floor of +/-128, so no amount of counter-steering ever took the
-/// slide past 128, the 640 spin-out threshold was unreachable from a
-/// counter-steer, and `ticks` charged forever: endless Super-Turbos with the
-/// handbrake held and one steering direction, without taking a corner.
-const COUNTER_RECOVERY_FULL_LOCK: i32 = 8;
+/// One number for both ends of the lever, deliberately. The steering wheel is a
+/// single axis: winding it further into the slide and winding it back out are the
+/// same action, so they are given the same authority and the driver shapes the
+/// angle by how much lock they hold at each end. It must not go back to being
+/// flat and unconditional: flat 24 BAM/tick against a 640 spin-out threshold and a
+/// 256 starting angle meant 16 ticks - a quarter of a second - separated
+/// "handbrake plus a feather of lock into the corner" from "spun", *identically at
+/// every speed and every lock*. Measured across speeds 1.0-3.4 u/tick and locks
+/// 0.2-1.0, all 25 combinations spun at tick 15. The handbrake was unusable for
+/// opening a corner; the only survivable drift was to stab it and counter-steer
+/// instantly, which is a tap, not a drift.
+///
+/// At 8 BAM/tick, and with the one-BAM floor both ends share, the mechanic has
+/// three distinct regimes instead of one: a light touch (below an eighth of lock)
+/// moves the angle a degree a second and so holds a slide for as long as the
+/// corner lasts, a committed over-rotation winds it to a spin-out in 48 ticks at
+/// full lock and 192 at a quarter, and the driver can always unwind what they wound
+/// in because both ends answer the wheel equally hard.
+const DRIFT_SLIP_PER_LOCK_PER_TICK: i32 = 8;
 /// Side-slip that decays on its own per tick when the driver lets go of the
 /// wheel entirely (a slide always bleeds off; it does not sit at a fixed angle).
 const COUNTER_RECOVERY_COAST: i32 = 3;
-/// Slide depth at which the car is spinning into the corner.
-const DRIFT_SPIN_SLIP: i16 = 640;
-/// Side-slip added per tick when the driver keeps steering into the slide.
-const DRIFT_DEEPEN_PER_TICK: i16 = 24;
+/// Slide depth at which the car is spinning into the corner (640 BAM = 56 deg).
+///
+/// Published because the vehicle model prices the *cost* of a slide off this
+/// number: a slide at the spin-out threshold is the most a slide can be, and
+/// costs the most speed to hold.
+pub const DRIFT_SPIN_SLIP: i16 = 640;
 /// Initial slip angle a handbrake stab throws the car into (256 BAM = 22.5 deg).
 const DRIFT_INITIAL_SLIP: i16 = 256;
 
@@ -146,43 +162,44 @@ impl DriftState {
                 // Counter-steering dynamics.
                 //
                 // Sliding right (direction > 0) and steering left (steer < 0)
-                // means the driver is counter-steering: the slide unwinds at a
-                // rate proportional to how much opposite lock is applied, and a
+                // means the driver is counter-steering: the slide unwinds, and a
                 // car with a high `drift_stability` slider resists being snapped
-                // straight (so it holds a slide longer). Steering *into* the
-                // slide deepens it. Hands off the wheel, it bleeds off on its own.
+                // straight (so it holds a slide longer). Steering *into* the slide
+                // winds it in at exactly the same rate, so the wheel is one lever
+                // with equal authority at both ends. Hands off the wheel entirely,
+                // it bleeds off on its own. See
+                // `DRIFT_SLIP_PER_LOCK_PER_TICK` for what each regime feels like.
                 let is_counter_steering = (direction > 0 && steer_input < Fixed::ZERO)
                     || (direction < 0 && steer_input > Fixed::ZERO);
                 let stability = CarTuning::scale_factor(tuning.drift_stability).raw().max(1);
-                // 256 == "recovery as specified"; drift_stability 4 gives exactly 256.
+                // 256 == "as specified"; drift_stability 4 gives exactly 256.
                 let stability_numerator = ((math::FP_ONE as i64) << 8) / stability as i64;
 
-                if is_counter_steering {
-                    // `saturating_abs`, not `Fixed::abs`: the latter negates and
-                    // overflows for `Fixed::from_raw(i32::MIN)`.
-                    let opposite_lock = steer_input.raw().saturating_abs() as i64;
-                    let proportional =
-                        (opposite_lock * COUNTER_RECOVERY_FULL_LOCK as i64) >> math::FP_SHIFT;
-                    let recovery = ((proportional * stability_numerator) >> 8).max(1) as i16;
-                    if direction > 0 {
-                        *slip_angle = (*slip_angle - recovery).max(-DRIFT_SPIN_SLIP);
-                    } else {
-                        *slip_angle = (*slip_angle + recovery).min(DRIFT_SPIN_SLIP);
-                    }
-                } else if steer_input.raw() != 0 {
-                    // Hard cornering deepens the drift angle.
-                    if direction > 0 {
-                        *slip_angle = (*slip_angle + DRIFT_DEEPEN_PER_TICK).min(DRIFT_SPIN_SLIP);
-                    } else {
-                        *slip_angle = (*slip_angle - DRIFT_DEEPEN_PER_TICK).max(-DRIFT_SPIN_SLIP);
-                    }
-                } else {
+                if steer_input.raw() == 0 {
                     let recovery =
                         ((COUNTER_RECOVERY_COAST as i64 * stability_numerator) >> 8).max(1) as i16;
                     if direction > 0 {
                         *slip_angle = (*slip_angle - recovery).max(-DRIFT_SPIN_SLIP);
                     } else {
                         *slip_angle = (*slip_angle + recovery).min(DRIFT_SPIN_SLIP);
+                    }
+                } else {
+                    // Both ends of the lever, one rate: winding the wheel in and
+                    // winding it back out are the same action on the same axis, and
+                    // the driver holds an angle by balancing them. `saturating_abs`,
+                    // not `Fixed::abs`: the latter negates and overflows for
+                    // `Fixed::from_raw(i32::MIN)`.
+                    let lock = steer_input.raw().saturating_abs() as i64;
+                    let proportional =
+                        (lock * DRIFT_SLIP_PER_LOCK_PER_TICK as i64) >> math::FP_SHIFT;
+                    let moved = ((proportional * stability_numerator) >> 8).max(1) as i16;
+                    let signed = if is_counter_steering { -moved } else { moved };
+                    if direction > 0 {
+                        *slip_angle =
+                            (*slip_angle + signed).clamp(-DRIFT_SPIN_SLIP, DRIFT_SPIN_SLIP);
+                    } else {
+                        *slip_angle =
+                            (*slip_angle - signed).clamp(-DRIFT_SPIN_SLIP, DRIFT_SPIN_SLIP);
                     }
                 }
 

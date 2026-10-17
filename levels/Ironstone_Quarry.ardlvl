@@ -1,0 +1,215 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Ironstone_Quarry",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0,
+      "y": 20.5,
+      "r": 8.6076
+    },
+    {
+      "x": 19.4889,
+      "y": 17.1558,
+      "r": 3.7651
+    },
+    {
+      "x": 22.2645,
+      "y": 16.0062,
+      "r": 7.5552
+    },
+    {
+      "x": 57.25,
+      "y": 16.0,
+      "r": 9.7735
+    },
+    {
+      "x": 60.8442,
+      "y": 17.4889,
+      "r": 3.7538
+    },
+    {
+      "x": 62.0,
+      "y": 20.5,
+      "r": 8.6843
+    },
+    {
+      "x": 61.9932,
+      "y": 30.2326,
+      "r": 6.5194
+    },
+    {
+      "x": 61.2085,
+      "y": 32.3886,
+      "r": 3.1519
+    },
+    {
+      "x": 58.4644,
+      "y": 33.973,
+      "r": 6.1918
+    },
+    {
+      "x": 48.3279,
+      "y": 34.2021,
+      "r": 3.2704
+    },
+    {
+      "x": 46.6406,
+      "y": 35.4816,
+      "r": 3.336
+    },
+    {
+      "x": 46.0,
+      "y": 37.5,
+      "r": 6.7388
+    },
+    {
+      "x": 46.0326,
+      "y": 44.9766,
+      "r": 4.9474
+    },
+    {
+      "x": 47.2912,
+      "y": 47.215,
+      "r": 2.9792
+    },
+    {
+      "x": 49.2612,
+      "y": 47.9918,
+      "r": 5.6842
+    },
+    {
+      "x": 58.6946,
+      "y": 48.0608,
+      "r": 5.4306
+    },
+    {
+      "x": 61.4641,
+      "y": 50.0,
+      "r": 3.4748
+    },
+    {
+      "x": 61.9938,
+      "y": 59.7355,
+      "r": 6.7524
+    },
+    {
+      "x": 60.5111,
+      "y": 62.8442,
+      "r": 3.9132
+    },
+    {
+      "x": 57.7355,
+      "y": 63.9938,
+      "r": 7.5552
+    },
+    {
+      "x": 22.75,
+      "y": 64.0,
+      "r": 9.7735
+    },
+    {
+      "x": 19.1558,
+      "y": 62.5111,
+      "r": 3.6267
+    },
+    {
+      "x": 18.0062,
+      "y": 59.7355,
+      "r": 7.5548
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.072482,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.143735,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.250614,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.286241,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.427518,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "boost",
+      "frac": 0.498771,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.570025,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.002
+    },
+    {
+      "kind": "oil",
+      "frac": 0.678133,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.713759,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.856265,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Ironstone_Quarry.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Ironstone_Quarry.svg"
+  }
+}

@@ -24,7 +24,7 @@ graph TD
         AUD[Audio Assets<br/>WAV / MP3] -->|tools/audio_cook| VAG[SPU ADPCM .vag<br/>CD-DA .cdda]
         VID[Cinematics<br/>MP4] -->|tools/encode_mdec| STR[MDEC Stream<br/>.STR]
         
-        COOK[tools/track_cook/convert_levels.py<br/>FX CSV + Super Stage Cookbook<br/>Validates gates & surfaces]
+        COOK[tools/track_cook/build_atlas.py<br/>Authored circuit images in tracks/*.png<br/>Validates gates & surfaces]
         CORE[crates/arduracer-core<br/>Pure #![no_std] Game Engine<br/>Physics, Collision, Timing, AI, Saves]
         TEST[tools/test_game_logic<br/>Host Test Suite<br/>Sweeps, Fuzzers, Bit-flip Verification]
         PLAY[tools/playtest<br/>Circuit Playability Verifier<br/>Simulates real laps on all 24 tracks]
@@ -87,13 +87,140 @@ graph TD
     actually playable" defects; run it with `make playtest`.
   - `--render` dumps every circuit as ASCII for geometry review.
   - `--calibrate` re-measures reference laps and rewrites
-    `tools/track_cook/par_calibration.json` (`make calibrate-tracks`).
+    `tools/track_cook/par_calibration.json` (`make atlas-and-calibrate`, which
+    then folds the table into `levels.rs`).
 - **`tools/`**:
   - Asset cooking scripts and CLI tools (track compiler, VAG audio compiler, MDEC movie encoder, disc masterer).
-  - `tools/track_cook/convert_levels.py` is the **single source of truth** for
-    `crates/arduracer-core/src/levels.rs`. Never hand-edit that file: the cooker
-    fails the build on an unreachable gate, an off-road gate, or a start box
-    outside the racing surface.
+  - `tools/track_cook/build_atlas.py` is the **single source of truth** for
+    `crates/arduracer-core/src/levels.rs` and `visual_tex.rs`, compiled from the
+    authored circuit images in `tracks/`. Never hand-edit those files: run
+    `make atlas`, which validates every circuit first and refuses to emit on an
+    unreachable gate, an off-road gate, or a start box outside the racing
+    surface. `make circuits` redraws the images from
+    `tools/track_cook/generate_svg_circuit.py`.
+
+### 2.1 Circuit Texture Codecs (SVG, QOI, JPEG, TIM, TIM4)
+
+`make atlas` emits **five** disc assets per circuit, and the runtime picks per
+circuit. `gpu::tracktex` streams one 1024x1024 compressed block at a time into a
+single 500 KB RAM buffer, then decodes 64x16 MCU rows from it into VRAM.
+
+| Asset | Codec | Flag | Decoder | Notes |
+| --- | --- | --- | --- | --- |
+| `assets/SVGTRACKS.BIN` | `ARSV`: SVG raster + code map + per-surface detail | `svg-track-texture` | `arduracer_core::svgtex` | Preferred. Straight vector edges, synthesised detail. |
+| `assets/TRACKS.BIN` | Baseline JPEG, `DRI=4` | always | `arduracer_core::jpeg` | Always present; last-resort fallback. |
+| `assets/QOITRACKS.BIN` | Segmented QOI | `qoi-track-stream` | `arduracer_core::qoi` | Lossless copy of the SVG raster, no detail pass. |
+| `assets/TIMTRACKS.BIN` | Uncompressed 15bpp, DMA'd | `tim-track-stream` | none | 2 MB/circuit, 4 sectors per tile. Explicitly selected; never chosen by `Auto`. |
+| `assets/TIM4TRACKS.BIN` | Uncompressed 4bpp + 16-colour CLUT, DMA'd | `tim4-track-stream` | none | 512 KB/circuit, **1 sector per tile**. Explicitly selected; never chosen by `Auto`. |
+
+`codec_for_circuit` steps down SVG -> QOI -> JPEG. Every step down is a pure
+fallback: the feature off, the disc missing the asset, or the circuit's table
+entry empty all fall through, so no combination of flags can remove content. The
+three 10 km^2 city maps are JPEG-only, since their art is generated procedurally
+at cook time.
+
+### 2.2 The uncompressed paths (TIM and TIM4)
+
+Both have no decoder. A tile is read from disc into a RAM staging buffer and
+moved into VRAM over the GPU's block-mode DMA: no header, no entropy coding, no
+inverse DCT.
+
+**Why neither is in the `Auto` walk.** A 1024x1024 15bpp block is 2,097,152
+bytes — twice the machine's main RAM — so it cannot be streamed as a block at
+all; each VRAM tile miss becomes its own 4-sector read where SVG/QOI/JPEG do one
+500 KB read to serve 256 tiles. Every read makes `cd_fs::read_sectors` hand the
+drive away from CD-DA, which is audible. That trade is worth offering and is not
+worth making on the player's behalf.
+
+**TIM4 is the better-behaved of the two.** A 64x64 4bpp tile is 2048 bytes,
+which is *exactly one CD sector*, so a tile miss is a single short read — a
+quarter of the 15bpp path — and a whole circuit drops from 2 MB to 512 KB, the
+same disc footprint as the compressed formats. It costs 16 colours per circuit,
+mitigated at cook time by an adaptive median-cut palette and Floyd–Steinberg
+dithering. Its tiles are pulled through a 4-sector FIFO in the same staging
+buffer, so a horizontal run of visible tiles comes back in one `read_sectors`
+call; TIM-4 adds no static RAM.
+
+**Why the tile grid is arithmetic, not a table.** A block is 256 tiles laid out
+row-major at a fixed sectors-per-tile, so a tile's LBA is
+`base + tile_y * 16 + tile_x` scaled by that constant. TIM4's palette leads its
+block, adding `TIM4_PALETTE_SECTORS`. No per-tile index is shipped or streamed,
+which is what makes a 2 MB uncompressed block affordable at all.
+
+**Three divisions of the same 4bpp tile, all easy to confuse.** 4096 texels,
+2048 *bytes*, 1024 *halfwords*, and a 32x32 rect — because four indices share a
+16-bit word and `GP0(A0h)` counts width in words and height in rows. The
+halfword count shipped once as the 8bpp figure (2048) and the rect width once
+as the texel width, either of which moves twice the tile. Three `const assert`s
+in `tracktex.rs` now pin the relationship.
+
+**Why DMA uses BS = 16 words and not one row.** The GPU command FIFO is 64 bytes,
+so a block size wider than 16 words can wedge real hardware (CL2 probe,
+2026-07-31). But block mode advances MADR by *BS words after each block*, so
+laying BS-word blocks back to back walks a contiguous address range for any BS.
+`psx_vram::dma_block_params` therefore clamps BS to the FIFO width and lets BA
+carry the count: a 64x64 tile is BS = 16, BA = 128, moving the same 2048 words as
+the row-shaped BS = 32 / BA = 64 that used to be refused outright. It also falls
+back to the GP0 FIFO path if the channel does not report done, which is the
+documented CL2 failure mode.
+
+**Selection must ask about the pin, not availability.** Both decode paths branch
+on `selects_tim*` / `selects_tim4*` in `arduracer_core::texture_format`, which
+take *the pin and* whether the block exists. Branching on existence alone was a
+shipped bug: a disc carrying the asset reports availability for **every**
+circuit, so SVG, QOI and JPEG all took the uncompressed path, loaded their RAM
+block and never decoded it, and turned every tile miss into a CD read — which
+presents as "CD audio stopped and the game stutters", with nothing pointing at
+the predicate. With two uncompressed formats the confusion is worse still, since
+neither availability flag distinguishes them.
+
+`tools/track_cook/verify_tim.py` checks both disc assets against the source
+raster, and the 15bpp cooker against `texlayout::pack_bgr555`. These paths have
+no decoder, so a swapped channel or a host-endian leak ships a disc that boots,
+renders, and is subtly wrong everywhere, and nothing in the game can report it.
+
+### 2.3 The SVG texture path (`ARSV`)
+
+`.visual.png` is painted from the 80x80 code map
+(`generate_svg_circuit.paint_visual`), which quantises geometry to 12.8 px cells
+and adds a per-pixel grain hash. That grain is what makes the old images
+expensive: it was ~325 KB of a 396 KB QOI block, as incompressible noise.
+
+`ARSV` instead stores the SVG rasterised at the full 1024 visual resolution,
+which is smoother *and* about four times cheaper, because the extra pixels are
+smooth runs rather than noise. It stores that raster in a segmented-QOI payload
+(the decoder core is shared with `qoi::decode_segment_rgb`, not reimplemented)
+plus the 80x80 code map packed one nibble per cell.
+
+The detail comes back at decode time instead. `svgtex::detail_delta` picks a
+function from the texel's surface code and evaluates it per texel: tarmac
+aggregate, grass clumps, gravel speckle, sand ripple, oil banding, boost
+chevrons, start-line checks, wall hatching, tunnel ribs, bridge planks, scenery.
+Deliberately integer-only, since the R3000A has no FPU, and deliberately
+evaluated per texel rather than per cell -- quantising detail to the cell would
+reintroduce exactly the blockiness the SVG raster exists to remove.
+
+**Why QOI is segmented.** Stock QOI is a single linear stream with no random
+access, so it cannot be sliced into MCU rows the way the VRAM streamer needs.
+`tools/track_cook/qoi_codec.py` therefore cuts each image into 1024 independently
+decodable 64x16 segments with a `u32` offset table, restarting QOI state per
+segment. That reproduces the JPEG restart-interval contract exactly — same
+partition, same order, `index = (tile_y * 4 + row) * 16 + tile_x` — so the two
+codecs are interchangeable call sites.
+
+**Why some circuits have no QOI block.** QOI is lossless, so the only way to
+force an over-budget image to fit is to discard detail first. For the one
+circuit whose art currently exceeds the budget (`Amber_Mesa.visual.gen.png`),
+JPEG reaches 486 KB at RMSE 3.7 while forcing QOI to fit needs 1-bit
+quantisation at RMSE 39. `compress_1024_qoi_500kb` returns `None` in that case
+rather than shipping a much worse image to save a decode win, and the runtime
+falls back automatically. Adding a circuit is therefore always safe: if it fits,
+it gets QOI; if not, it keeps JPEG.
+
+Changing the codec requires **no** change to `RamBlock`'s size: both codecs
+share the one 512 KB `block_data` buffer and the same 1024-entry offset array.
+A second per-codec buffer would cost another 512 KB of the 2 MB main RAM and
+would blow the `ci-game` static-RAM ceiling.
 
 ---
 

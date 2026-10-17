@@ -1,0 +1,1 @@
+"""PyQt6 front end for the Arduracer PSX level editor."""

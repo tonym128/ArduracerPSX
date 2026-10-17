@@ -1,18 +1,20 @@
 # Vendored ArduRacer FX level data
 
-The 20 legacy circuit layouts that `convert_levels.py` compiles into
-`crates/arduracer-core/src/levels.rs`. `levels.rs` is *generated*, so these
-files are generator inputs, not source-of-truth duplicates of it: they are
-tracked precisely so the generation pipeline is reproducible from a clean
-clone.
+The 20 legacy circuit layouts, kept as a **provenance record only**. The FX-CSV
+cooker that compiled them (`convert_levels.py`) has been deleted along with the
+par-table target that ran it: circuits are authored as images in `tracks/` and
+compiled by `build_atlas.py`, and nothing in the build reads `ArduRacerFx/` any
+more. `crates/arduracer-core/src/levels.rs` and `visual_tex.rs` cannot be
+regenerated from these files.
+
+They stay tracked because they are the pristine upstream record of where the
+original circuits came from, which is worth keeping once the code that consumed
+them is gone.
 
 Before this was committed, `.gitignore` excluded the whole `ArduRacerFx`
-reference directory and `git ls-files ArduRacerFx | wc -l` returned **0**. The
-consequence was that `make calibrate-tracks` — the documented remediation for a
-stale par table — could not run at all on a fresh checkout: the cooker died with
-a bare `FileNotFoundError` on `ArduRacerFx/Levels/Level1.csv`, *after*
-`tools/playtest --calibrate` had already rewritten `par_calibration.json`, so the
-failure read as "calibration failed" rather than "you are missing the inputs".
+reference directory and `git ls-files ArduRacerFx | wc -l` returned **0**. That
+made the pipeline unreproducible from a clean clone, which is why the files were
+committed while the cooker still existed.
 
 ## What this is
 
@@ -26,9 +28,9 @@ failure read as "calibration failed" rather than "you are missing the inputs".
 | Size | 47 files, 192 KB (the upstream tree is 3.9 MB) |
 
 Every vendored file is **byte-identical to the pin**; nothing has been edited
-upstream-side. Geometry changes are made in `convert_levels.py`, which is the
-single source of truth for the PSX circuits — the CSVs stay as the pristine
-upstream record.
+upstream-side, and nothing edits them now. Geometry changes are made in
+`generate_svg_circuit.py` and painted into `tracks/*.png`; the CSVs are only the
+historical record of the pre-image circuits.
 
 The upstream Arduboy tree is *not* vendored: not `racer.cpp`, not
 `ArduRacerFx.ino`, not the tone tables, not the packed `fxdata*.bin` blobs, not

@@ -1,0 +1,55 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Serpent Canyon",
+ "stem": "Serpent_Canyon",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.11
+  },
+  {
+   "kind": "gate",
+   "frac": 0.2287
+  },
+  {
+   "kind": "gate",
+   "frac": 0.334
+  },
+  {
+   "kind": "gate",
+   "frac": 0.4231
+  },
+  {
+   "kind": "gate",
+   "frac": 0.5121
+  },
+  {
+   "kind": "gate",
+   "frac": 0.6174
+  },
+  {
+   "kind": "gate",
+   "frac": 0.754
+  },
+  {
+   "kind": "gate",
+   "frac": 0.88
+  },
+  {
+   "kind": "boost",
+   "frac": 0.06
+  },
+  {
+   "kind": "boost",
+   "frac": 0.697
+  }
+ ]
+}

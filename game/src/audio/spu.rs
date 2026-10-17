@@ -34,18 +34,22 @@ pub const INTRO_ADPCM_DATA: &[u8] = include_bytes!("../../../assets/INTRO.ADPCM"
 /// Prepares and begins playback of intro attract audio via SPU Voice 5.
 pub fn play_intro_audio() {
     if INTRO_ADPCM_DATA.len() <= 16 {
+        crate::dbg::println("[SPU] INTRO.ADPCM data missing or empty. Skipping audio.");
         return;
     }
+    crate::dbg::println("[SPU] Initializing SPU hardware and uploading INTRO.ADPCM...");
     spu::init();
     spu::set_main_volume(Volume::MAX, Volume::MAX);
     spu::upload_adpcm(INTRO_ADDR, INTRO_ADPCM_DATA);
     VOICE_INTRO.configure_sample(INTRO_ADDR, INTRO_SAMPLE_RATE, Volume::MAX, Adsr::sample());
     Voice::key_on(VOICE_INTRO.mask());
+    crate::dbg::println("[SPU] Intro audio playback started (voice 5 keyed on).");
 }
 
 /// Immediately silences the intro attract audio.
 pub fn stop_intro_audio() {
     Voice::key_off(VOICE_INTRO.mask());
+    crate::dbg::println("[SPU] Intro audio stopped (voice 5 keyed off).");
 }
 
 /// SPU Sound RAM layout descriptor for all game sound effects.

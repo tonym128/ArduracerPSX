@@ -1,0 +1,197 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Amber_Mesa",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0,
+      "y": 21.0,
+      "r": 9.5429
+    },
+    {
+      "x": 19.7257,
+      "y": 17.2213,
+      "r": 4.0849
+    },
+    {
+      "x": 22.7621,
+      "y": 16.0057,
+      "r": 8.4849
+    },
+    {
+      "x": 57.2379,
+      "y": 16.0057,
+      "r": 8.5564
+    },
+    {
+      "x": 60.7787,
+      "y": 17.7257,
+      "r": 4.2301
+    },
+    {
+      "x": 61.9943,
+      "y": 20.7621,
+      "r": 8.1555
+    },
+    {
+      "x": 61.777,
+      "y": 35.2584,
+      "r": 3.5679
+    },
+    {
+      "x": 60.5033,
+      "y": 37.0615,
+      "r": 6.6587
+    },
+    {
+      "x": 52.5456,
+      "y": 42.8296,
+      "r": 5.27
+    },
+    {
+      "x": 51.4066,
+      "y": 45.5919,
+      "r": 3.4166
+    },
+    {
+      "x": 52.8424,
+      "y": 48.6954,
+      "r": 6.0702
+    },
+    {
+      "x": 61.571,
+      "y": 54.519,
+      "r": 5.4996
+    },
+    {
+      "x": 61.948,
+      "y": 59.9043,
+      "r": 5.6153
+    },
+    {
+      "x": 60.4235,
+      "y": 62.7566,
+      "r": 4.5194
+    },
+    {
+      "x": 57.4355,
+      "y": 63.9942,
+      "r": 7.8092
+    },
+    {
+      "x": 36.2649,
+      "y": 63.6624,
+      "r": 26.8214
+    },
+    {
+      "x": 19.305,
+      "y": 47.2974,
+      "r": 8.1557
+    },
+    {
+      "x": 18.0053,
+      "y": 44.1598,
+      "r": 8.5419
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073239,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.14507,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.252113,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.003
+    },
+    {
+      "kind": "gate",
+      "frac": 0.288732,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.428169,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "boost",
+      "frac": 0.502817,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571831,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.001
+    },
+    {
+      "kind": "oil",
+      "frac": 0.678873,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.712676,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "boost",
+      "frac": 0.785915,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.85493,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Amber_Mesa.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Amber_Mesa.svg"
+  }
+}

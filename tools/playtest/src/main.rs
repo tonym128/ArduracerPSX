@@ -9,7 +9,7 @@
 //! * checkpoints are reachable and ordered along the racing line.
 //!
 //! It also emits `tools/track_cook/par_calibration.json`, the par-time table
-//! consumed by `convert_levels.py`, so medal targets stay achievable instead of
+//! consumed by `build_atlas.py`, so medal targets stay achievable instead of
 //! being aspirational numbers inherited from the 8-bit original.
 //!
 //! # Par-time drift is a failure
@@ -22,8 +22,8 @@
 //!
 //! The escape hatch is the recalibration workflow itself: `--calibrate`
 //! rewrites `tools/track_cook/par_calibration.json` from the fresh
-//! measurements (and `make calibrate-tracks` then regenerates `levels.rs`), so
-//! a `--calibrate` run never fails on the drift it is about to fix.
+//! measurements (and `make atlas-and-calibrate` then regenerates `levels.rs`),
+//! so a `--calibrate` run never fails on the drift it is about to fix.
 //! `--allow-par-drift` prints the drift without failing, for the window between
 //! landing a physics change and re-committing the recalibrated table. Neither is
 //! used by CI: `make playtest` runs with the strict default.
@@ -36,7 +36,6 @@
 
 use std::fmt::Write as _;
 
-use arduracer_core::line::{RacingLine, DEFAULT_LOOKAHEAD_UNITS};
 use arduracer_core::*;
 
 #[cfg(test)]
@@ -71,7 +70,6 @@ const MIN_TUNING_GAIN_PCT: u32 = 5;
 struct ReferenceDriver {
     car: VehicleState,
     node: usize,
-    line: RacingLine,
 }
 
 impl ReferenceDriver {
@@ -79,31 +77,13 @@ impl ReferenceDriver {
         ReferenceDriver {
             car: VehicleState::new(track.start_pos, track.start_heading, tuning),
             node: 0,
-            line: RacingLine::new(),
         }
     }
 
     fn tick(&mut self, track: &TrackDef) {
         let route = track.route_len();
-        // Steer along the road, not at the gate: the circuit's centreline is the
-        // polyline the road was stamped along, so it is the only target
-        // guaranteed to be drivable. Aiming at the gate instead -- which is what
-        // this did before -- sends the car across the infield, because on a
-        // closed circuit the gates are 800-1300 units apart. Measured: the
-        // reference driver completed 0 of 5 laps on 6 of the 24 circuits.
-        //
-        // `RacingLine` is the same code the AI steers with, which is the point:
-        // the playability oracle and the thing it is checking have to agree on
-        // where the road is.
-        let fallback = TrackDef::gate_centre(&track.route_node(self.node % route));
-        let aim = self.line.aim(
-            track,
-            self.car.position,
-            self.car.heading,
-            DEFAULT_LOOKAHEAD_UNITS,
-            fallback,
-        );
-        let desired = heading_towards(self.car.position, aim);
+        let target = TrackDef::gate_centre(&track.route_node(self.node % route));
+        let desired = heading_towards(self.car.position, target);
         let err = angle_error(self.car.heading, desired);
         let abs_err = err.abs();
 
@@ -133,7 +113,7 @@ impl ReferenceDriver {
 
         let tx = TrackDef::tile_x_of(self.car.position.x);
         let ty = TrackDef::tile_y_of(self.car.position.y);
-        if track.route_node(self.node % route).touches_tile(tx, ty) {
+        if track.route_node(self.node % route).contains_tile(tx, ty) {
             self.node += 1;
         }
     }
@@ -283,7 +263,7 @@ fn par_drift(track: &TrackDef, dev: u32, gold: u32, silver: u32, bronze: u32) ->
         return None;
     }
     Some(format!(
-        "{}: par table is stale ({}); run `make calibrate-tracks`",
+        "{}: par table is stale ({}); run `make atlas-and-calibrate`",
         track.name,
         mismatched.join(", ")
     ))
@@ -296,11 +276,11 @@ fn par_drift(track: &TrackDef, dev: u32, gold: u32, silver: u32, bronze: u32) ->
 fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
     let label = format!("track {} ({})", idx + 1, track.name);
 
-    if track.tiles.len() != track.width as usize * track.height as usize {
+    if track.tile_grid().len() != track.width as usize * track.height as usize {
         errors.push(format!(
             "{}: tile array is {} entries, expected {}",
             label,
-            track.tiles.len(),
+            track.tile_grid().len(),
             track.width as usize * track.height as usize
         ));
         return;
@@ -328,7 +308,7 @@ fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
     if track.start_gate.width == 0 || track.start_gate.height == 0 {
         errors.push(format!("{}: start/finish gate is empty", label));
     }
-    if !track.start_gate.touches_tile(
+    if !track.start_gate.contains_tile(
         TrackDef::tile_x_of(track.start_pos.x),
         TrackDef::tile_y_of(track.start_pos.y),
     ) {
@@ -349,32 +329,11 @@ fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
         if !g.is_active() {
             errors.push(format!("{}: checkpoint {} is empty", label, i));
         }
-        // Every cell of the gate has to be racing surface. A gate is a rectangle
-        // spanning the road (`compile_circuit.gate_box`), so checking only its
-        // origin lets a gate whose far end has run off into the runoff pass
-        // here and then be uncrossable: the car drives the road and misses the
-        // gate. Foundry Spiral's checkpoint 0 spans (29,38)-(37,38) and cell
-        // (31,38) is a gap in the circuit, which is exactly this.
-        for dy in 0..g.height {
-            for dx in 0..g.width {
-                let tx = g.x.wrapping_add(dx);
-                let ty = g.y.wrapping_add(dy);
-                if tx >= track.width || ty >= track.height {
-                    continue;
-                }
-                if !track.tile_at(tx, ty).is_road() {
-                    errors.push(format!(
-                        "{}: checkpoint {} spans ({},{})-({},{}), which is off the \
-                         racing surface at ({tx},{ty})",
-                        label,
-                        i,
-                        g.x,
-                        g.y,
-                        g.x + g.width - 1,
-                        g.y + g.height - 1
-                    ));
-                }
-            }
+        if !track.is_line_tile(g.x, g.y) {
+            errors.push(format!(
+                "{}: checkpoint {} at ({},{}) is off the racing surface",
+                label, i, g.x, g.y
+            ));
         }
         if seen.contains(&g) {
             errors.push(format!(
@@ -578,9 +537,11 @@ fn main() {
             println!("       (--allow-par-drift: reported only, not failed)");
         } else if calibrate {
             println!("       (--calibrate: par_calibration.json has been rewritten from these");
-            println!("        measurements. Run `make calibrate-tracks` to regenerate levels.rs.)");
+            println!(
+                "        measurements. Run `make atlas-and-calibrate` to regenerate levels.rs."
+            );
         } else {
-            println!("       Fix with: make calibrate-tracks");
+            println!("       Fix with: make atlas-and-calibrate");
         }
     }
     println!("       (def_s = default tune reference lap, tuned_s = best swept tuning)");
@@ -603,7 +564,7 @@ fn main() {
                 "  \"_generated_by\": \"cargo run --manifest-path tools/playtest/Cargo.toml ",
                 "--release -- --calibrate\",\n",
                 "  \"_note\": \"Lap measurements from the real arduracer-core simulation ",
-                "(60 Hz ticks); consumed by convert_levels.py. ",
+                "(60 Hz ticks); consumed by build_atlas.py. ",
                 "dev = fastest swept tuning, gold = default tuning.\",\n",
                 "  \"factors\": {{ \"silver\": {}, \"bronze\": {} }},\n",
                 "  \"tracks\": [\n{}\n  ]\n",
@@ -637,7 +598,7 @@ fn render_ascii(idx: usize, track: &TrackDef) {
         let mut line = String::new();
         for tx in 0..track.width {
             let t = track.tile_at(tx, ty);
-            if track.start_gate.touches_tile(tx, ty) {
+            if track.start_gate.contains_tile(tx, ty) {
                 line.push('S');
             } else if route.contains(&(tx, ty)) {
                 line.push('C');

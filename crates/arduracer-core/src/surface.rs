@@ -6,11 +6,18 @@
 //! * [`SurfaceType::max_speed_factor`] – hard cap on forward speed (arcade
 //!   "off-road penalty", per GAME.md §3.1).
 //! * [`SurfaceType::traction`] – fraction of engine thrust actually delivered.
-//! * [`SurfaceType::lateral_hold`] – how quickly sideways velocity is scrubbed.
+//! * [`SurfaceType::lateral_hold`] – how quickly sideways velocity is scrubbed
+//!   off a car that is on line.
 //!
 //! Keeping them separate avoids the classic bug where multiplying engine thrust
 //! and drag together makes off-road speed collapse to a fraction of a percent of
 //! top speed (an unusable wall rather than a penalty).
+//!
+//! A *drift* deliberately appears nowhere on this list. Side load while sliding is
+//! the vehicle model's business (it generates the slide rather than scrubbing it),
+//! and [`SurfaceType::grip_factor`] is what decides how dear a slide is on a given
+//! surface. A coefficient that only ever applied while drifting was a way for a
+//! slide and a grip to end up with the same physics.
 
 use crate::math::Fixed;
 
@@ -76,36 +83,31 @@ impl SurfaceType {
         }
     }
 
-    /// Per-tick retention of sideways velocity while cornering (0..FP_ONE).
+    /// Per-tick retention of sideways velocity for a car on line (0..FP_ONE).
     ///
-    /// Tarmac holds the car on line; oil slicks and drifts let it slide. The
-    /// drifting branch used to return 3640 against 3641 for the gripping
-    /// branch -- a 1/4096 difference, so "sliding" changed nothing on tarmac and
-    /// the doc comment was a lie. Drifting on tarmac now genuinely lets the
-    /// back end go (0.62/tick), off-road slides less (0.72) than the dry tarmac
-    /// drift does, and an oil slick is hopeless either way.
+    /// Tarmac holds the car on line; an oil slick lets it slide. This is the
+    /// per-tick *scrub* only; how much side force the tyres can hold at all is
+    /// [`SurfaceType::grip_factor`], applied by the vehicle's friction circle.
     ///
-    /// This is the per-tick *scrub* only; how much side force the tyres can
-    /// hold at all is [`SurfaceType::grip_factor`], applied by the vehicle's
-    /// friction circle.
-    pub fn lateral_hold(self, drifting: bool) -> Fixed {
+    /// There is deliberately no "drifting" branch any more. It used to return 2540
+    /// against 3604 for the gripping case, and the doc comment called that "the
+    /// back end has let go" -- but retention is how much sideways velocity
+    /// *survives*, so the lower number scrubbed a slide away nearly three times
+    /// faster than gripping did. A handbrake stab therefore killed its own slide:
+    /// 1.4-7.5 degrees of real side-slip while the car was drawn at 25-40. Side
+    /// load while sliding is now the vehicle's business (it generates the slide
+    /// rather than scrubbing it), and a surface decides what a slide *costs*
+    /// through [`SurfaceType::grip_factor`] instead.
+    pub fn lateral_hold(self) -> Fixed {
         match self {
             SurfaceType::OilSlick => Fixed::from_raw(2048), // 0.50 - instant slide
             SurfaceType::Barrier => Fixed::ZERO,
-            SurfaceType::OffRoad => {
-                if drifting {
-                    Fixed::from_raw(2944) // 0.72
-                } else {
-                    Fixed::from_raw(3482) // 0.85
-                }
-            }
-            _ => {
-                if drifting {
-                    Fixed::from_raw(2540) // 0.62 - the back end has let go
-                } else {
-                    Fixed::from_raw(3604) // 0.88 - on line
-                }
-            }
+            // Off-road is loose but not frictionless: it scrubs sideways speed
+            // faster than tarmac does, which is what makes running wide there feel
+            // like running on a different surface rather than a different handling
+            // model.
+            SurfaceType::OffRoad => Fixed::from_raw(3482), // 0.85
+            _ => Fixed::from_raw(3604),                    // 0.88 - on line
         }
     }
 
@@ -147,10 +149,8 @@ mod tests {
             SurfaceType::BoostPad,
             SurfaceType::Barrier,
         ] {
-            assert!(surface.lateral_hold(false) >= Fixed::ZERO, "{surface:?}");
-            assert!(surface.lateral_hold(false) <= Fixed::ONE, "{surface:?}");
-            assert!(surface.lateral_hold(true) >= Fixed::ZERO, "{surface:?}");
-            assert!(surface.lateral_hold(true) <= Fixed::ONE, "{surface:?}");
+            assert!(surface.lateral_hold() >= Fixed::ZERO, "{surface:?}");
+            assert!(surface.lateral_hold() <= Fixed::ONE, "{surface:?}");
             assert!(surface.grip_factor() >= Fixed::ZERO, "{surface:?}");
             assert!(surface.grip_factor() <= Fixed::ONE, "{surface:?}");
             assert!(surface.traction() >= Fixed::ZERO, "{surface:?}");
@@ -161,29 +161,29 @@ mod tests {
         assert_eq!(SurfaceType::Barrier.max_speed_factor(), Fixed::ZERO);
         assert_eq!(SurfaceType::Barrier.traction(), Fixed::ZERO);
         assert_eq!(SurfaceType::Barrier.grip_factor(), Fixed::ZERO);
-        assert_eq!(SurfaceType::Barrier.lateral_hold(false), Fixed::ZERO);
+        assert_eq!(SurfaceType::Barrier.lateral_hold(), Fixed::ZERO);
         assert!(SurfaceType::Barrier.is_solid());
         assert_eq!(SurfaceType::Tarmac.max_speed_factor(), Fixed::ONE);
         assert_eq!(SurfaceType::Tarmac.grip_factor(), Fixed::ONE);
     }
 
-    /// Reproduced: the drifting branch returned 3640 against a gripping 3641 -- a
-    /// 1/4096 difference -- so "oil slicks and drifts let it slide" was not true
-    /// of tarmac at all.
+    /// Reproduced: the "drifting" branch returned 2540 against 3604 for the
+    /// gripping case, and its doc comment called the *lower* number "the back end
+    /// has let go". Retention is how much sideways velocity survives a tick, so
+    /// the branch scrubbed a slide away nearly three times faster than gripping
+    /// did -- the handbrake cancelled the slide it was supposed to cause, and a
+    /// tarmac drift ended up with the same physics as a tarmac grip.
+    ///
+    /// There is no branch to assert any more. What replaces it has to live in the
+    /// vehicle model, which is where this test's successor lives: `lateral_hold`
+    /// is now a single number per surface and says only what a car *on line* does.
     #[test]
-    fn drifting_really_does_change_grip_on_tarmac() {
-        let gripping = SurfaceType::Tarmac.lateral_hold(false);
-        let sliding = SurfaceType::Tarmac.lateral_hold(true);
-        assert!(
-            sliding + Fixed::from_raw(500) < gripping,
-            "tarmac drift ({}) is indistinguishable from tarmac grip ({})",
-            sliding.raw(),
-            gripping.raw()
-        );
-        assert!(
-            sliding < Fixed::from_raw(2816),
-            "a tarmac drift must be a real slide, not a rounding error"
-        );
+    fn there_is_no_longer_a_drift_only_lateral_hold() {
+        // Off-road still scrubs more than tarmac, which is what keeps running wide
+        // there feeling like a different surface rather than a different car.
+        assert!(SurfaceType::OffRoad.lateral_hold() < SurfaceType::Tarmac.lateral_hold());
+        // And the oil slick is still the one surface that lets a car on line go.
+        assert!(SurfaceType::OilSlick.lateral_hold() < SurfaceType::OffRoad.lateral_hold());
     }
 
     /// The documented order: tarmac grips hardest, an oil slick has almost none,
@@ -195,13 +195,7 @@ mod tests {
         assert!(SurfaceType::OffRoad.grip_factor() > SurfaceType::OilSlick.grip_factor());
         assert!(SurfaceType::OilSlick.grip_factor() > SurfaceType::Barrier.grip_factor());
 
-        assert!(
-            SurfaceType::OilSlick.lateral_hold(false) < SurfaceType::Tarmac.lateral_hold(false)
-        );
-        assert!(
-            SurfaceType::Tarmac.lateral_hold(true) < SurfaceType::Tarmac.lateral_hold(false),
-            "gripping must hold more than sliding"
-        );
+        assert!(SurfaceType::OilSlick.lateral_hold() < SurfaceType::Tarmac.lateral_hold());
         // Off-road is drivable and grippier than an oil slick, but the vehicle
         // model has to be able to tell them apart.
         assert!(SurfaceType::OffRoad.traction() > Fixed::ZERO);

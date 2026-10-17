@@ -12,7 +12,9 @@
 //! image that cannot change while the circuit does not (TASK-1202). The moving
 //! half -- the racer blips -- stays as primitives drawn on top.
 
-use crate::gpu::texlayout::{minimap_colour, minimap_px_tile, minimap_tile_px, MINIMAP_INNER, MINIMAP_SIZE};
+use crate::gpu::texlayout::{
+    minimap_colour, minimap_px_tile, minimap_tile_px, MINIMAP_INNER, MINIMAP_SIZE,
+};
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
 use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
@@ -23,6 +25,12 @@ use psx_gpu::material::BlendMode;
 ///
 /// Call once per track load, never per frame: the upload is a DMA transfer and
 /// the image is static for the whole race.
+///
+/// Multi-pass layered rasterisation guarantees road continuity:
+/// 1. Background terrain (OffRoad) fills the inner minimap box.
+/// 2. Barriers and non-drivable bounds are drawn.
+/// 3. Drivable roads, curbs, and speed/hazard pads are stamped on top.
+/// 4. Start/finish and checkpoint gates are stamped with highest priority.
 pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
     slot.begin_compose();
     // Per-pixel downsample: sample the tile that each minimap pixel belongs to.
@@ -109,80 +117,98 @@ pub fn render_hud<const N: usize>(
     rivals: &[AiRacer],
     minimap_texture: &TextureSlot,
 ) {
+    let is_freeroam = track.checkpoint_count == 0;
+
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
-    gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
-    gpu::draw_rect_flat(9, 7, 72, 36, 22, 26, 36);
+    if is_freeroam {
+        gpu::draw_rect_flat(8, 6, 88, 38, 14, 16, 24);
+        gpu::draw_rect_flat(9, 7, 86, 36, 22, 26, 36);
+        draw_text(13, 11, track.name, (255, 225, 40), 1);
+        draw_text(13, 23, "FREE ROAM", (140, 210, 255), 1);
+    } else {
+        gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
+        gpu::draw_rect_flat(9, 7, 72, 36, 22, 26, 36);
 
-    // Laps boxes (top-left)
-    for lap_idx in 0..5u16 {
-        let x = 13 + lap_idx * 12;
-        let is_current = lap_idx + 1 == timer.current_lap as u16;
-        let is_done = lap_idx + 1 < timer.current_lap as u16;
-        let (lr, lg, lb) = if is_current {
-            (255, 220, 0)
-        } else if is_done {
-            (40, 210, 70)
-        } else {
-            (50, 52, 62)
-        };
-        gpu::draw_rect_flat(x as i16, 10, 9, 9, lr, lg, lb);
-    }
+        // Laps boxes (top-left)
+        for lap_idx in 0..5u16 {
+            let x = 13 + lap_idx * 12;
+            let is_current = lap_idx + 1 == timer.current_lap as u16;
+            let is_done = lap_idx + 1 < timer.current_lap as u16;
+            let (lr, lg, lb) = if is_current {
+                (255, 220, 0)
+            } else if is_done {
+                (40, 210, 70)
+            } else {
+                (50, 52, 62)
+            };
+            gpu::draw_rect_flat(x as i16, 10, 9, 9, lr, lg, lb);
+        }
 
-    // Checkpoint progress dots
-    let cleared = timer.checkpoints_cleared();
-    let cp_count = (timer.total_checkpoints as u16).min(7);
-    for cp_idx in 0..cp_count {
-        let x = 13 + cp_idx * 9;
-        let is_passed = (cp_idx as u32) < cleared;
-        let (cr, cg, cb) = if is_passed {
-            (0, 220, 255)
-        } else {
-            (45, 48, 58)
-        };
-        gpu::draw_rect_flat(x as i16, 23, 7, 4, cr, cg, cb);
-    }
-    draw_text(13, 31, "LAPS", (150, 150, 165), 1);
+        // Checkpoint progress dots
+        let cleared = timer.checkpoints_cleared();
+        let cp_count = (timer.total_checkpoints as u16).min(7);
+        for cp_idx in 0..cp_count {
+            let x = 13 + cp_idx * 9;
+            let is_passed = (cp_idx as u32) < cleared;
+            let (cr, cg, cb) = if is_passed {
+                (0, 220, 255)
+            } else {
+                (45, 48, 58)
+            };
+            gpu::draw_rect_flat(x as i16, 23, 7, 4, cr, cg, cb);
+        }
+        draw_text(13, 31, "LAPS", (150, 150, 165), 1);
 
-    // Best lap record readout
-    if timer.best_lap_ticks != u32::MAX {
-        gpu::draw_rect_flat(8, 46, 74, 18, 14, 16, 24);
-        gpu::draw_rect_flat(9, 47, 72, 16, 22, 26, 36);
-        let mut best_buf = [b' '; 8];
-        format_time(&mut best_buf, timer.best_lap_ticks);
-        draw_text(12, 51, "BEST", (150, 150, 165), 1);
-        blit(&best_buf, 38, 51, (200, 215, 240), 1);
+        // Best lap record readout
+        if timer.best_lap_ticks != u32::MAX {
+            gpu::draw_rect_flat(8, 46, 74, 18, 14, 16, 24);
+            gpu::draw_rect_flat(9, 47, 72, 16, 22, 26, 36);
+            let mut best_buf = [b' '; 8];
+            format_time(&mut best_buf, timer.best_lap_ticks);
+            draw_text(12, 51, "BEST", (150, 150, 165), 1);
+            blit(&best_buf, 38, 51, (200, 215, 240), 1);
+        }
     }
 
     // ------------------------------------------------ 2. Race Position & Lap Timer
-    let has_best = timer.best_lap_ticks != u32::MAX;
-    let center_h = if has_best { 48 } else { 38 };
-    gpu::draw_rect_flat(108, 6, 104, center_h, 14, 16, 24);
-    gpu::draw_rect_flat(109, 7, 102, center_h - 2, 22, 26, 36);
+    if is_freeroam {
+        gpu::draw_rect_flat(108, 6, 104, 38, 14, 16, 24);
+        gpu::draw_rect_flat(109, 7, 102, 36, 22, 26, 36);
+        draw_text(138, 9, "CRUISING", (255, 215, 0), 1);
+        let mut time_buf = [b' '; 8];
+        format_time(&mut time_buf, timer.current_lap_ticks);
+        blit(&time_buf, 112, 23, (245, 245, 250), 2);
+    } else {
+        let has_best = timer.best_lap_ticks != u32::MAX;
+        let center_h = if has_best { 48 } else { 38 };
+        gpu::draw_rect_flat(108, 6, 104, center_h, 14, 16, 24);
+        gpu::draw_rect_flat(109, 7, 102, center_h - 2, 22, 26, 36);
 
-    let (rank_str, rank_col) = match rank {
-        1 => ("1ST", (255, 215, 0)),
-        2 => ("2ND", (220, 225, 235)),
-        3 => ("3RD", (210, 130, 50)),
-        4 => ("4TH", (180, 200, 220)),
-        5 => ("5TH", (160, 180, 200)),
-        _ => ("6TH", (140, 150, 170)),
-    };
-    draw_text(142, 9, rank_str, rank_col, 2);
-
-    let mut time_buf = [b' '; 8];
-    format_time(&mut time_buf, timer.current_lap_ticks);
-    blit(&time_buf, 112, 25, (245, 245, 250), 2);
-
-    if has_best {
-        let delta = timer.delta_ticks();
-        let mut delta_buf = [b' '; 6];
-        format_delta(&mut delta_buf, delta);
-        let delta_col = if delta < 0 {
-            (60, 240, 90) // Ahead of pace: vivid green
-        } else {
-            (245, 60, 60) // Behind pace: bright red
+        let (rank_str, rank_col) = match rank {
+            1 => ("1ST", (255, 215, 0)),
+            2 => ("2ND", (220, 225, 235)),
+            3 => ("3RD", (210, 130, 50)),
+            4 => ("4TH", (180, 200, 220)),
+            5 => ("5TH", (160, 180, 200)),
+            _ => ("6TH", (140, 150, 170)),
         };
-        blit(&delta_buf, 142, 40, delta_col, 1);
+        draw_text(142, 9, rank_str, rank_col, 2);
+
+        let mut time_buf = [b' '; 8];
+        format_time(&mut time_buf, timer.current_lap_ticks);
+        blit(&time_buf, 112, 25, (245, 245, 250), 2);
+
+        if has_best {
+            let delta = timer.delta_ticks();
+            let mut delta_buf = [b' '; 6];
+            format_delta(&mut delta_buf, delta);
+            let delta_col = if delta < 0 {
+                (60, 240, 90) // Ahead of pace: vivid green
+            } else {
+                (245, 60, 60) // Behind pace: bright red
+            };
+            blit(&delta_buf, 142, 40, delta_col, 1);
+        }
     }
 
     // ------------------------------------------------ 3. Gauges & Telemetry Cluster
@@ -267,20 +293,22 @@ pub fn render_hud<const N: usize>(
         BlendMode::Opaque,
     );
 
-    // Rival blips
-    for rival in rivals {
-        let r_tx = TrackDef::tile_x_of(rival.state.position.x) as i32;
-        let r_ty = TrackDef::tile_y_of(rival.state.position.y) as i32;
-        let (rc, gc, bc) = rival.profile.color;
-        gpu::draw_rect_flat(
-            map_x + 4 + minimap_tile_px(track.width, r_tx, MINIMAP_INNER) as i16,
-            map_y + 4 + minimap_tile_px(track.height, r_ty, MINIMAP_INNER) as i16,
-            2,
-            2,
-            rc,
-            gc,
-            bc,
-        );
+    // Rival blips (suppressed in free roam)
+    if !is_freeroam {
+        for rival in rivals {
+            let r_tx = TrackDef::tile_x_of(rival.state.position.x) as i32;
+            let r_ty = TrackDef::tile_y_of(rival.state.position.y) as i32;
+            let (rc, gc, bc) = rival.profile.color;
+            gpu::draw_rect_flat(
+                map_x + 4 + minimap_tile_px(track.width, r_tx, MINIMAP_INNER) as i16,
+                map_y + 4 + minimap_tile_px(track.height, r_ty, MINIMAP_INNER) as i16,
+                2,
+                2,
+                rc,
+                gc,
+                bc,
+            );
+        }
     }
 
     // Player position blip (bright golden dot)

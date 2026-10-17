@@ -1,0 +1,195 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Viper's_Tail",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 20.0,
+      "y": 22.5,
+      "r": 8.7419
+    },
+    {
+      "x": 21.0028,
+      "y": 19.6681,
+      "r": 3.6265
+    },
+    {
+      "x": 24.5,
+      "y": 18.0,
+      "r": 8.5577
+    },
+    {
+      "x": 55.7355,
+      "y": 18.0062,
+      "r": 7.507
+    },
+    {
+      "x": 58.3319,
+      "y": 19.0028,
+      "r": 3.7693
+    },
+    {
+      "x": 59.9753,
+      "y": 22.0296,
+      "r": 6.2731
+    },
+    {
+      "x": 59.5556,
+      "y": 32.9493,
+      "r": 3.1969
+    },
+    {
+      "x": 57.7063,
+      "y": 34.7348,
+      "r": 5.9108
+    },
+    {
+      "x": 49.1497,
+      "y": 37.7577,
+      "r": 4.1799
+    },
+    {
+      "x": 47.623,
+      "y": 40.6426,
+      "r": 3.0164
+    },
+    {
+      "x": 48.9453,
+      "y": 43.3883,
+      "r": 4.5539
+    },
+    {
+      "x": 56.1928,
+      "y": 47.1267,
+      "r": 5.7369
+    },
+    {
+      "x": 57.6718,
+      "y": 48.8854,
+      "r": 3.3028
+    },
+    {
+      "x": 57.9938,
+      "y": 59.7355,
+      "r": 6.9277
+    },
+    {
+      "x": 56.9972,
+      "y": 62.3319,
+      "r": 3.4855
+    },
+    {
+      "x": 53.5,
+      "y": 64.0,
+      "r": 8.5574
+    },
+    {
+      "x": 24.2645,
+      "y": 63.9938,
+      "r": 7.5073
+    },
+    {
+      "x": 21.6681,
+      "y": 62.9972,
+      "r": 3.4855
+    },
+    {
+      "x": 20.0,
+      "y": 59.5,
+      "r": 8.5616
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.144886,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.215909,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.288352,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.392045,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.002
+    },
+    {
+      "kind": "gate",
+      "frac": 0.428977,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.569602,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.002
+    },
+    {
+      "kind": "boost",
+      "frac": 0.640625,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.711648,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.821023,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.856534,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Viper's_Tail.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Viper's_Tail.svg"
+  }
+}

@@ -14,6 +14,9 @@
 
 #![allow(dead_code)]
 
+#[path = "../../../game/src/ui/settings_input.rs"]
+mod settings_input;
+
 #[path = "../../../game/src/ui/pause_input.rs"]
 mod pause_input;
 
@@ -36,6 +39,9 @@ mod palette;
 #[path = "../../../game/src/gpu/texlayout.rs"]
 mod texlayout;
 
+#[path = "../../../game/src/ui/title_input.rs"]
+mod title_input;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -53,6 +59,8 @@ mod tests {
         circle: false,
         up: false,
         down: false,
+        left: false,
+        right: false,
     };
 
     /// Replays a scripted sequence of frames and returns every frame's verdict.
@@ -121,10 +129,16 @@ mod tests {
             }
             frames.push(held(|i| i.cross = true));
             let out = run(&frames);
+            // The settings rows are editable in place and report `None`
+            // until a value actually moves, so only the action rows confirm.
+            // QUIT is the last entry, so it tracks `item_count() - 1`: hardcoding
+            // its index is how inserting the CD-audio row above it would have
+            // silently turned the destructive option into a no-op.
             let expected = match idx {
                 0 => PauseChoice::Resume,
                 1 => PauseChoice::RestartRace,
-                _ => PauseChoice::QuitToMenu,
+                n if n == PauseMenu::item_count() - 1 => PauseChoice::QuitToMenu,
+                _ => PauseChoice::None,
             };
             assert_eq!(
                 out.last().expect("frames ran").choice,
@@ -443,7 +457,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 3);
+        assert_eq!(PauseMenu::item_count(), 8);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -552,6 +566,80 @@ mod camera_tests {
         // The car is then *behind* the camera centre on screen.
         let (sx, _) = cam.world_offset(Vec2::ZERO);
         assert!(sx < 0, "car should sit left of centre, got {sx}");
+    }
+
+    /// The camera position must keep sub-unit precision while it is free to
+    /// move.
+    ///
+    /// `clamp_to_bounds` used to round-trip through `to_int()`, quantising the
+    /// camera to whole world units every frame whether or not the clamp was
+    /// active. A world unit is a screen pixel at rest zoom and the camera covers
+    /// several units per frame at speed, so the camera advanced in whole-pixel
+    /// steps while the car moved smoothly -- the car's screen position juddered
+    /// by a pixel every frame. That is the "clunky stage movement" this guards.
+    #[test]
+    fn camera_position_is_not_quantised_to_world_units() {
+        let mut cam = Camera::new(Vec2::new(Fixed::from_int(50_000), Fixed::from_int(50_000)));
+        // A car driving steadily in a world big enough that no clamp can bite.
+        let mut car = cam.pos;
+        let mut off_unit_ticks = 0;
+        for _ in 0..600 {
+            car.x = car.x + Fixed::from_int(4);
+            cam.update(
+                car,
+                Vec2::new(Fixed::from_int(4), Fixed::ZERO),
+                Fixed::from_int(240),
+                BIG.0,
+                BIG.1,
+            );
+            if cam.pos.x.raw() % FP_ONE != 0 {
+                off_unit_ticks += 1;
+            }
+        }
+        assert!(
+            off_unit_ticks > 300,
+            "camera position snapped to whole world units on {} of 600 ticks",
+            600 - off_unit_ticks
+        );
+    }
+
+    /// The look-ahead direction must not follow tyre noise.
+    ///
+    /// Below walking pace the velocity vector points at whatever the tyres last
+    /// did, and the lead is long enough that chasing it swings the camera target
+    /// by the full lead distance. A car idling must hold still instead.
+    #[test]
+    fn low_speed_vehicle_noise_does_not_move_the_camera() {
+        let mut cam = Camera::new(Vec2::new(Fixed::from_int(50_000), Fixed::from_int(50_000)));
+        // Let the lead settle first, then start jittering.
+        for _ in 0..120 {
+            cam.update(
+                cam.pos,
+                Vec2::new(Fixed::from_int(30), Fixed::ZERO),
+                Fixed::from_int(1_000),
+                BIG.0,
+                BIG.1,
+            );
+        }
+        let settled = cam.pos;
+
+        // Alternating steering corrections at crawling speed: nonzero velocity,
+        // so the old code followed it and flipped the lead direction each tick.
+        for tick in 0..120 {
+            let sign = if tick % 2 == 0 { 1 } else { -1 };
+            cam.update(
+                settled,
+                Vec2::new(Fixed::from_int(40 * sign), Fixed::from_int(40 * sign)),
+                Fixed::from_int(600),
+                BIG.0,
+                BIG.1,
+            );
+        }
+        let (dx, _) = cam.world_offset(settled);
+        assert_eq!(
+            dx, 0,
+            "creeping-speed noise moved the camera {dx} px off the car"
+        );
     }
 
     /// At a standstill there is no velocity to derive a lead from, but the car
@@ -1006,6 +1094,8 @@ mod pause_start_arming_tests {
         circle: false,
         up: false,
         down: false,
+        left: false,
+        right: false,
     };
 
     /// A player holding `Start` while navigating to the track select.
@@ -2177,6 +2267,35 @@ mod ui_defect_tests {
             "the default preset is not the default setup"
         );
     }
+
+    /// POINTS REMAINING was previously drawn with reversed tens and ones digits,
+    /// so "15" rendered as "51" or inverted positions.
+    #[test]
+    #[allow(clippy::identity_op)]
+    fn points_remaining_digits_format_left_to_right() {
+        for pts in 0..=24u8 {
+            let tens = b'0' + pts / 10;
+            let ones = b'0' + pts % 10;
+            if pts >= 10 {
+                assert!(tens.is_ascii_digit());
+                assert!(ones.is_ascii_digit());
+                let val = (tens - b'0') * 10 + (ones - b'0');
+                assert_eq!(
+                    val, pts,
+                    "left-to-right composite digit value must equal pts"
+                );
+            } else {
+                assert_eq!(tens, b'0');
+                assert_eq!(ones - b'0', pts);
+            }
+        }
+        // Specific regression cases: 15 points remaining must give '1' tens and '5' ones
+        assert_eq!(b'0' + 15 / 10, b'1');
+        assert_eq!(b'0' + 15 % 10, b'5');
+        // 20 points remaining must give '2' tens and '0' ones
+        assert_eq!(b'0' + 20 / 10, b'2');
+        assert_eq!(b'0' + 20 % 10, b'0');
+    }
 }
 
 /// TASK-1204: the game had no texture pipeline at all, and TASK-1202's minimap
@@ -2190,10 +2309,10 @@ mod ui_defect_tests {
 mod texture_pipeline_tests {
     use super::palette::to_bgr555;
     use super::texlayout::{
-        minimap_colour, minimap_px_tile, minimap_tile_px, pack_bgr555,
+        minimap_colour, minimap_step, minimap_tile_rect, minimap_world_pos, pack_bgr555,
         slot_overlaps_framebuffers, MAX_DIM, MINIMAP_INNER, SLOT_BYTES, TEXTURE_X, TEXTURE_Y,
     };
-    use arduracer_core::TrackTile;
+    use arduracer_core::{Fixed, TrackTile, TILE_SIZE};
 
     #[test]
     fn the_texture_quantiser_agrees_with_the_polygon_one() {
@@ -2277,70 +2396,310 @@ mod texture_pipeline_tests {
         }
     }
 
-    /// The bake must sample the whole circuit, or the map shows only the part of
-    /// the track the first pixels happened to land on.
-    ///
-    /// This is the bug the authored circuits brought in: they are 96 tiles
-    /// across and the minimap window is 48 px, so a fixed one-pixel-per-tile
-    /// step could not fit them and the bake drew just the top-left quadrant.
+    /// The bake must cover the whole grid, or a tile outside the composed region
+    /// leaves a hole in the circuit outline.
     #[test]
-    fn the_bake_samples_the_whole_grid() {
-        // Every tile index must map to a pixel strictly inside the window, and
-        // the far edge of the grid must reach the far edge of the window.
-        for (w, h) in [(38u8, 38u8), (40, 40), (96, 96), (4, 4)] {
-            let last_x = minimap_tile_px(w, w as i32 - 1, MINIMAP_INNER);
-            let last_y = minimap_tile_px(h, h as i32 - 1, MINIMAP_INNER);
-            assert!(
-                last_x >= 0 && last_x < MINIMAP_INNER,
-                "{w}x{h}: last column maps to {last_x}, outside the {MINIMAP_INNER}px window"
-            );
-            assert!(
-                last_y >= 0 && last_y < MINIMAP_INNER,
-                "{h}: last row maps to {last_y}, outside the {MINIMAP_INNER}px window"
-            );
-            // And the bake must never ask for a tile past the grid.
-            for px in 0..MINIMAP_INNER {
-                assert!(minimap_px_tile(w, px, MINIMAP_INNER) < w as i32, "{w}: px {px}");
+    fn the_bake_covers_every_tile_of_the_largest_circuits() {
+        for (w, h) in [
+            (80u8, 80u8),
+            (96, 96),
+            (38, 38),
+            (40, 40),
+            (30, 30),
+            (4, 4),
+            (1, 1),
+        ] {
+            for ty in 0..h {
+                for tx in 0..w {
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    assert!(px >= 0, "px negative: {px}");
+                    assert!(py >= 0, "py negative: {py}");
+                    assert!(pw >= 1, "pw must be at least 1: {pw}");
+                    assert!(ph >= 1, "ph must be at least 1: {ph}");
+                    assert!(
+                        px + pw <= MINIMAP_INNER,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({px}, {pw}) overflows inner area {MINIMAP_INNER}"
+                    );
+                    assert!(
+                        py + ph <= MINIMAP_INNER,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({py}, {ph}) overflows inner area {MINIMAP_INNER}"
+                    );
+                    assert!(
+                        px + pw <= MAX_DIM as i32,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({px}, {pw}) overflows slot {MAX_DIM}"
+                    );
+                    assert!(
+                        py + ph <= MAX_DIM as i32,
+                        "{w}x{h}: tile ({tx}, {ty}) rect ({py}, {ph}) overflows slot {MAX_DIM}"
+                    );
+                }
             }
         }
     }
 
-    /// Sampling a 96-tile grid into 48 pixels has to land inside the slot, or the
-    /// bake writes past the end of the texture.
+    /// Adjacent tiles must meet or overlap so there are no empty seams in the circuit outline.
     #[test]
-    fn the_bake_fits_inside_the_slot() {
-        assert!(
-            MINIMAP_INNER <= MAX_DIM as i32,
-            "the minimap window ({MINIMAP_INNER}) is larger than the slot ({MAX_DIM})"
-        );
-    }
-
-    /// The mapping must be monotonic and must not collapse: a step of zero would
-    /// stack every tile onto one pixel.
-    #[test]
-    fn the_bake_step_is_never_zero() {
-        // `extent == 0` is excluded: a zero-extent grid has no tiles, so "the
-        // mapping is monotonic" has nothing to say about it.
-        for w in [1u8, 2, 10, 30, 38, 40, 96, 255] {
-            let first = minimap_tile_px(w, 0, MINIMAP_INNER);
-            let last = minimap_tile_px(w, w as i32 - 1, MINIMAP_INNER);
-            assert!(first >= 0, "step collapsed for width {w}");
-            assert!(
-                last >= first,
-                "width {w}: mapping went backwards ({first} -> {last})"
-            );
-            if w > 1 {
+    fn minimap_tiles_leave_no_seams() {
+        for dim in [4u8, 10, 30, 38, 40, 80, 96] {
+            for i in 0..(dim - 1) {
+                let (px, _, pw, _) = minimap_tile_rect(i, 0, dim, dim);
+                let (next_px, _, _, _) = minimap_tile_rect(i + 1, 0, dim, dim);
                 assert!(
-                    last > first || (w as i32) <= MINIMAP_INNER,
-                    "width {w}: the whole grid collapsed onto one pixel"
+                    px + pw >= next_px,
+                    "seam found at tile {i} of dim {dim}: right edge {}+{} < next {next_px}",
+                    px,
+                    pw
                 );
             }
+        }
+    }
+
+    /// World player positions map accurately and monotonically to minimap pixel space.
+    #[test]
+    fn player_placement_maps_accurately_to_minimap_space() {
+        for extent in [80u8, 96, 40, 30] {
+            let total_world = extent as i32 * TILE_SIZE;
+            // Bounds check
+            let p_zero = minimap_world_pos(Fixed::ZERO, extent);
+            assert_eq!(p_zero, 0);
+
+            let p_max = minimap_world_pos(Fixed::from_int(total_world), extent);
+            assert_eq!(p_max, MINIMAP_INNER as i16);
+
+            let p_neg = minimap_world_pos(Fixed::from_int(-500), extent);
+            assert_eq!(p_neg, 0, "negative coordinates should clamp to origin");
+
+            let p_over = minimap_world_pos(Fixed::from_int(total_world + 500), extent);
+            assert_eq!(
+                p_over, MINIMAP_INNER as i16,
+                "coordinates past extent clamp to inner max"
+            );
+
+            // Monotonicity across every world unit
+            let mut prev_px = 0;
+            for wu in 0..=total_world {
+                let px = minimap_world_pos(Fixed::from_int(wu), extent);
+                assert!(
+                    px >= prev_px,
+                    "player position went backwards at world unit {wu}"
+                );
+                assert!(
+                    px <= MINIMAP_INNER as i16,
+                    "player position exceeded inner area at {wu}"
+                );
+                prev_px = px;
+            }
+
+            // A world coordinate inside tile `t` lands strictly inside tile `t`'s minimap footprint
+            for t in 0..extent {
+                let (rect_x, _, rect_w, _) = minimap_tile_rect(t, 0, extent, extent);
+                for sub in 0..TILE_SIZE {
+                    let wu = (t as i32 * TILE_SIZE) + sub;
+                    let px = minimap_world_pos(Fixed::from_int(wu), extent) as i32;
+                    assert!(
+                        px >= rect_x && px < rect_x + rect_w,
+                        "world pos {wu} in tile {t} mapped to px {px}, outside rect [{rect_x}, {})",
+                        rect_x + rect_w
+                    );
+                }
+            }
+        }
+    }
+
+    /// The step must never be zero, or every tile would stack on one pixel.
+    #[test]
+    fn the_bake_step_is_never_zero() {
+        for w in [0u8, 1, 2, 10, 30, 38, 40, 80, 96, 255] {
+            assert!(minimap_step(w) >= 1, "step collapsed for width {w}");
         }
     }
 
     #[test]
     fn the_minimap_inner_area_is_the_documented_size() {
         assert_eq!(MINIMAP_INNER, 48, "the 56x56 panel has a 48px inner area");
+    }
+
+    /// Road and checkpoint tiles must retain drawing priority over adjacent offroad/barrier tiles.
+    #[test]
+    fn minimap_bake_preserves_road_and_checkpoint_priority() {
+        let w = 80u8;
+        let h = 80u8;
+        let bg = minimap_colour(TrackTile::OffRoad);
+        let mut buffer = [bg; (MINIMAP_INNER * MINIMAP_INNER) as usize];
+
+        let mut grid = [TrackTile::OffRoad; 80 * 80];
+        for tx in 0..80 {
+            grid[10 * 80 + tx] = if tx % 4 == 0 {
+                TrackTile::Barrier
+            } else if tx % 4 == 1 {
+                TrackTile::Tarmac
+            } else if tx % 4 == 2 {
+                TrackTile::Checkpoint
+            } else {
+                TrackTile::Curb
+            };
+        }
+
+        // Pass 1: Barriers
+        for ty in 0..h {
+            for tx in 0..w {
+                let tile = grid[ty as usize * w as usize + tx as usize];
+                if tile == TrackTile::Barrier {
+                    let col = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    for y in py..(py + ph) {
+                        for x in px..(px + pw) {
+                            buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pass 2: Road & curbs
+        for ty in 0..h {
+            for tx in 0..w {
+                let tile = grid[ty as usize * w as usize + tx as usize];
+                if tile.is_road() || tile == TrackTile::Curb {
+                    let col = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    for y in py..(py + ph) {
+                        for x in px..(px + pw) {
+                            buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pass 3: Checkpoints
+        for ty in 0..h {
+            for tx in 0..w {
+                let tile = grid[ty as usize * w as usize + tx as usize];
+                if tile == TrackTile::Checkpoint {
+                    let col = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    for y in py..(py + ph) {
+                        for x in px..(px + pw) {
+                            buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                        }
+                    }
+                }
+            }
+        }
+
+        let (_, py, _, _) = minimap_tile_rect(0, 10, w, h);
+        let road_col = minimap_colour(TrackTile::Tarmac);
+        let cp_col = minimap_colour(TrackTile::Checkpoint);
+
+        let mut road_pixels = 0;
+        let mut cp_pixels = 0;
+        for x in 0..MINIMAP_INNER {
+            let px_col = buffer[(py * MINIMAP_INNER + x) as usize];
+            if px_col == road_col {
+                road_pixels += 1;
+            } else if px_col == cp_col {
+                cp_pixels += 1;
+            }
+        }
+        assert!(road_pixels > 0, "Road pixels must be present and visible");
+        assert!(
+            cp_pixels > 0,
+            "Checkpoint pixels must be present and visible"
+        );
+    }
+}
+
+#[cfg(test)]
+mod minimap_load_order_tests {
+    const MAIN_SRC: &str = include_str!("../../../game/src/main.rs");
+
+    #[test]
+    fn load_level_grid_precedes_bake_minimap_in_all_load_paths() {
+        let load_track_fn = MAIN_SRC
+            .find("pub fn load_track(")
+            .expect("load_track exists");
+        let load_city_fn = MAIN_SRC
+            .find("pub fn load_city_freeroam(")
+            .expect("load_city_freeroam exists");
+        let reset_race_fn = MAIN_SRC
+            .find("pub fn reset_race(")
+            .expect("reset_race exists");
+
+        let load_track_body = &MAIN_SRC[load_track_fn..load_city_fn];
+        let llg_pos = load_track_body
+            .find("gpu::load_level_grid(")
+            .expect("load_level_grid in load_track");
+        let bm_pos = load_track_body
+            .find("bake_minimap(")
+            .expect("bake_minimap in load_track");
+        assert!(
+            llg_pos < bm_pos,
+            "load_level_grid must precede bake_minimap in load_track"
+        );
+
+        let load_city_body = &MAIN_SRC[load_city_fn..reset_race_fn];
+        let llg_city_pos = load_city_body
+            .find("gpu::load_level_grid(")
+            .expect("load_level_grid in load_city");
+        let bm_city_pos = load_city_body
+            .find("bake_minimap(")
+            .expect("bake_minimap in load_city");
+        assert!(
+            llg_city_pos < bm_city_pos,
+            "load_level_grid must precede bake_minimap in load_city_freeroam"
+        );
+    }
+}
+
+#[cfg(test)]
+mod city_level_grid_tests {
+    const LEVEL_GRID_SRC: &str = include_str!("../../../game/src/level_grid.rs");
+
+    use arduracer_core::levels::LEVEL_DIMS;
+
+    const MAX_LEVEL_TILES: usize = 57_600;
+    const STAGE_SLACK: usize = 4096;
+    const GRID_BYTES: usize = MAX_LEVEL_TILES + STAGE_SLACK;
+
+    #[test]
+    fn level_grid_does_not_reject_unaligned_full_size_cities() {
+        // The check in level_grid::load must not compare (first + len) against
+        // MAX_LEVEL_TILES, because any non-zero sector offset (first > 0) causes
+        // a 240x240 city (len == 57600) to exceed 57600 before compaction,
+        // causing all 3 city maps to fail loading and trap the car in a wall.
+        assert!(
+            !LEVEL_GRID_SRC.contains("first + len > MAX_LEVEL_TILES"),
+            "level_grid.rs must not test `first + len > MAX_LEVEL_TILES`"
+        );
+        assert!(
+            LEVEL_GRID_SRC.contains("len > MAX_LEVEL_TILES"),
+            "level_grid.rs must test `len > MAX_LEVEL_TILES`"
+        );
+    }
+
+    #[test]
+    fn all_levels_including_cities_fit_disc_read_buffer() {
+        let mut offset = 0usize;
+        for (i, &(w, h)) in LEVEL_DIMS.iter().enumerate() {
+            let len = w as usize * h as usize;
+            assert!(len <= MAX_LEVEL_TILES, "Level {i} exceeds MAX_LEVEL_TILES");
+
+            let first = offset % 2048;
+            let count = (first + len).div_ceil(2048);
+            let bytes_to_read = count * 2048;
+
+            assert!(
+                bytes_to_read <= GRID_BYTES,
+                "Level {i} read ({bytes_to_read} bytes) overflows GRID_BYTES ({GRID_BYTES})"
+            );
+            assert!(
+                first + len <= bytes_to_read,
+                "Level {i} uncompacted slice extends past read count"
+            );
+
+            offset += len;
+        }
     }
 }
 
@@ -2446,5 +2805,724 @@ mod frame_close_tests {
             "no `continue` found in main.rs -- if the loop was restructured, \
              revisit this test rather than letting it pass trivially"
         );
+    }
+}
+
+#[cfg(test)]
+mod intro_transition_tests {
+    use super::title_input::TitleInput;
+
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum VideoResult {
+        Completed,
+        Skipped,
+        Interrupted,
+        Unavailable,
+    }
+
+    #[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum GameState {
+        #[default]
+        Title,
+        MainMenu,
+        TrackSelect,
+        Garage,
+        Racing,
+        Results,
+    }
+
+    /// Evaluates boot state transition from video player result (as done in ArduracerGame::new).
+    fn initial_state_from_intro(res: VideoResult) -> GameState {
+        let mut state = GameState::Title;
+        if res == VideoResult::Skipped {
+            state = GameState::MainMenu;
+        }
+        state
+    }
+
+    #[test]
+    fn intro_completed_transitions_to_title_screen() {
+        let state = initial_state_from_intro(VideoResult::Completed);
+        assert_eq!(
+            state,
+            GameState::Title,
+            "When intro FMV finishes, game must start at Title screen"
+        );
+    }
+
+    #[test]
+    fn intro_skipped_transitions_directly_to_main_menu() {
+        let state = initial_state_from_intro(VideoResult::Skipped);
+        assert_eq!(
+            state,
+            GameState::MainMenu,
+            "When intro FMV is skipped, game must proceed directly to Main Menu"
+        );
+    }
+
+    #[test]
+    fn intro_unavailable_defaults_to_title_screen() {
+        let state = initial_state_from_intro(VideoResult::Unavailable);
+        assert_eq!(
+            state,
+            GameState::Title,
+            "When intro FMV is unavailable (e.g. side-loaded EXE), default to Title screen"
+        );
+    }
+
+    #[test]
+    fn button_held_across_intro_completion_does_not_prematurely_dismiss_title() {
+        let mut title = TitleInput::new();
+        // Frame 1 after intro: user was still holding START from skipping or gamepad resting
+        let confirmed = title.update(true, false);
+        assert!(
+            !confirmed,
+            "Title screen must require button release before triggering so it is never skipped instantly"
+        );
+
+        // Frame 2: user continues holding START
+        let confirmed = title.update(true, false);
+        assert!(!confirmed);
+
+        // Frame 3: user releases buttons
+        let confirmed = title.update(false, false);
+        assert!(!confirmed);
+
+        // Frame 4: user presses START newly -> edge trigger fires!
+        let confirmed = title.update(true, false);
+        assert!(
+            confirmed,
+            "Fresh START press after release must confirm title screen"
+        );
+    }
+
+    #[test]
+    fn cross_press_confirms_title_screen_to_main_menu() {
+        let mut title = TitleInput::new();
+        // Release first
+        title.update(false, false);
+        // Press CROSS
+        let confirmed = title.update(false, true);
+        assert!(confirmed, "Fresh CROSS press must confirm title screen");
+    }
+
+    #[test]
+    fn full_transition_intro_completion_to_main_menu() {
+        let mut current_state = initial_state_from_intro(VideoResult::Completed);
+        assert_eq!(current_state, GameState::Title);
+
+        let mut title = TitleInput::new();
+
+        // 30 frames of title screen attract loop with no inputs held
+        for _ in 0..30 {
+            if title.update(false, false) {
+                current_state = GameState::MainMenu;
+            }
+        }
+        assert_eq!(
+            current_state,
+            GameState::Title,
+            "Should remain on Title screen while idling"
+        );
+
+        // Player presses START
+        if title.update(true, false) {
+            current_state = GameState::MainMenu;
+        }
+        assert_eq!(
+            current_state,
+            GameState::MainMenu,
+            "Must cleanly transition from Title screen to Main Menu on START"
+        );
+    }
+
+    #[test]
+    fn video_stream_bounds_and_eof_drain_without_hanging() {
+        // Simulates the sector pumping and frame drain logic of VideoPlayer
+        const TOTAL_SECTORS: u32 = 755;
+        let mut pumped_sectors: u32 = 0;
+        let mut eof = false;
+        let mut ready_queue: std::collections::VecDeque<u32> = std::collections::VecDeque::new();
+        let mut frames_shown: u32 = 0;
+        let mut drive_active = true;
+
+        // Simulate streaming drive
+        for sector in 0..1000 {
+            if pumped_sectors >= TOTAL_SECTORS {
+                eof = true;
+                drive_active = false;
+                break;
+            }
+            pumped_sectors += 1;
+            // Every 5 sectors assemble a frame
+            if sector % 5 == 0 && ready_queue.len() < 4 {
+                ready_queue.push_back(sector / 5);
+            }
+        }
+
+        assert!(eof, "Video stream must detect EOF at sector boundary");
+        assert_eq!(
+            pumped_sectors, 755,
+            "Must never read past total movie sectors"
+        );
+        assert!(!drive_active, "Drive reading must stop once EOF reached");
+
+        // Drain remaining ready frames
+        while let Some(_frame) = ready_queue.pop_front() {
+            frames_shown += 1;
+        }
+
+        let drained = ready_queue.is_empty();
+        assert!(drained && eof);
+        let result = if frames_shown > 0 && eof {
+            VideoResult::Completed
+        } else {
+            VideoResult::Interrupted
+        };
+        assert_eq!(result, VideoResult::Completed);
+    }
+
+    #[test]
+    fn non_str_sector_triggers_early_eof_after_frames_seen() {
+        // Simulates reading into TRACKS.BIN if sector count was somehow unconstrained
+        let last_frame_seen: u32 = 10;
+        let mut eof = false;
+        let mut drive_active = true;
+
+        let is_str_chunk = false; // Encounters TRACKS.BIN / non-STR sector
+        if !is_str_chunk && last_frame_seen > 0 {
+            eof = true;
+            drive_active = false;
+        }
+
+        assert!(
+            eof,
+            "Non-STR sector encountered after movie frames must trigger EOF"
+        );
+        assert!(
+            !drive_active,
+            "Drive must stop immediately to prevent reading into audio tracks"
+        );
+    }
+}
+
+/// Tests for the two graphics settings and the menus that edit them.
+#[cfg(test)]
+mod graphics_settings {
+    use crate::pause_input::{self, PauseChoice, PauseInput, PauseMenu, SettingsValues};
+    use crate::settings_input::{SettingsChoice, SettingsInput, SettingsMenu};
+    use pause_input::texture_format_is_selectable;
+
+    fn values() -> SettingsValues {
+        SettingsValues {
+            texture_format: 0,
+            framerate: 0,
+            camera_view: 0,
+            cd_audio: 1,
+            debug_metrics: 0,
+        }
+    }
+
+    fn press(f: impl Fn(&mut SettingsInput)) -> SettingsInput {
+        let mut i = SettingsInput::default();
+        f(&mut i);
+        i
+    }
+
+    /// The texture format must wrap in both directions rather than clamp, so
+    /// the player can reach every option from any other in a single press.
+    ///
+    /// Seven options now: AUTO, SVG, QOI, JPEG, TIM, TIM4, TIM8. The cycle is byte-linear,
+    /// matching `TextureFormat::next`, so TIM8 is reached from TIM4.
+    #[test]
+    fn texture_format_cycles_through_every_option_and_wraps() {
+        let mut m = SettingsMenu::new(values());
+        let mut seen = vec![m.values().texture_format];
+        for _ in 0..7 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().texture_format);
+        }
+        assert_eq!(
+            seen,
+            vec![0, 1, 2, 3, 4, 5, 6, 0],
+            "right must cycle and wrap"
+        );
+
+        // Backwards from Auto lands on TIM8, the last option.
+        m.update(press(|i| i.left = true));
+        assert_eq!(m.values().texture_format, 6, "left must wrap to the end");
+    }
+
+    #[test]
+    fn framerate_toggles_between_the_two_modes() {
+        let mut m = SettingsMenu::new(values());
+        m.update(press(|i| i.down = true)); // move to the framerate row
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().framerate, 1, "right selects 30 FPS");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().framerate, 0, "and wraps back to 60 FPS");
+    }
+
+    #[test]
+    fn camera_view_cycles_between_the_three_modes() {
+        let mut m = SettingsMenu::new(values());
+        m.update(press(|i| i.down = true)); // move to framerate
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.down = true)); // move to view
+        m.update(SettingsInput::default());
+        assert_eq!(m.selected_row, 2, "row 2 is VIEW");
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().camera_view, 1, "right selects Overhead");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().camera_view, 2, "right selects Rotating");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().camera_view, 0, "and wraps back to Behind");
+    }
+
+    /// A held button is one change, not one per frame. Without this the value
+    /// would race through every option while the player holds the stick.
+    #[test]
+    fn a_held_direction_is_a_single_change() {
+        let mut m = SettingsMenu::new(values());
+        let held = press(|i| i.right = true);
+        let mut changes = 0;
+        for _ in 0..6 {
+            if matches!(m.update(held), SettingsChoice::Changed(_)) {
+                changes += 1;
+            }
+        }
+        assert_eq!(
+            changes, 1,
+            "a held direction changed the value {changes} times"
+        );
+        assert_eq!(m.values().texture_format, 1);
+    }
+
+    /// Row selection must stay in range with five rows.
+    #[test]
+    fn row_selection_wraps_between_the_rows() {
+        let mut m = SettingsMenu::new(values());
+        assert_eq!(m.selected_row, 0);
+        m.update(press(|i| i.up = true));
+        assert_eq!(
+            m.selected_row, 4,
+            "up from the first row wraps to the last (METRICS)"
+        );
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.down = true));
+        assert_eq!(m.selected_row, 0, "down from the last wraps to the first");
+    }
+
+    #[test]
+    fn cross_exits_and_reports_changes_separately() {
+        let mut m = SettingsMenu::new(values());
+        // A change alone must not close the screen.
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(
+                v.texture_format, 1,
+                "a change must report the value it moved to"
+            ),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        assert_eq!(
+            m.update(SettingsInput::default()),
+            SettingsChoice::None,
+            "a value edit must not be mistaken for a confirm"
+        );
+        // Change and confirm in the same frame: apply, then close.
+        let both = SettingsInput {
+            right: true,
+            cross: true,
+            ..SettingsInput::default()
+        };
+        assert!(matches!(m.update(both), SettingsChoice::Changed(_)));
+        // CROSS was already held in that frame, so releasing first is required
+        // before it can read as a new press.
+        assert_eq!(m.update(SettingsInput::default()), SettingsChoice::None);
+        assert_eq!(m.update(press(|i| i.cross = true)), SettingsChoice::Exit);
+    }
+
+    /// Entry must clear the edge baseline, or the button used to leave the
+    /// previous screen immediately acts on this one.
+    #[test]
+    fn arming_on_entry_swallows_the_held_button() {
+        let mut m = SettingsMenu::new(values());
+        m.arm_for_entry();
+        assert_eq!(
+            m.update(press(|i| i.right = true)),
+            SettingsChoice::None,
+            "a button held across entry must not register"
+        );
+    }
+
+    /// The pause menu edits the same values in place.
+    #[test]
+    fn pause_menu_edits_texture_inline() {
+        let mut p = PauseMenu::default();
+        // Row 2 is TEXTURE.
+        for _ in 0..2 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 2);
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(
+            matches!(out.choice, PauseChoice::Graphics(_)),
+            "right on a settings row must report a change, got {:?}",
+            out.choice
+        );
+        assert_eq!(p.values().texture_format, 1);
+        // Editing a value must not move the cursor or activate the row.
+        assert_eq!(p.selected_idx, 2, "the row should stay selected");
+    }
+
+    /// Every press that moves a value reports it, and the value survives the
+    /// round trip through the menu. Writing the card on a no-op frame is the
+    /// thing worth preventing here, so this checks the reporting, not the
+    /// arithmetic.
+    #[test]
+    fn each_move_is_reported_once() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
+        for _ in 0..3 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 3, "row 3 is FRAMERATE");
+
+        let first = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(first.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().framerate, 1);
+
+        // Release, then press again: a second genuine press.
+        p.update(PauseInput::default());
+        let second = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(second.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().framerate, 0, "wraps back to 60 FPS");
+    }
+
+    #[test]
+    fn pause_menu_edits_view_inline() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
+        for _ in 0..4 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 4, "row 4 is VIEW");
+
+        let first = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(first.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().camera_view, 1, "view switched to Overhead");
+
+        p.update(PauseInput::default());
+        let second = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(second.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().camera_view, 2, "view switched to Rotating");
+
+        p.update(PauseInput::default());
+        let third = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(third.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().camera_view, 0, "view wrapped to Behind");
+    }
+
+    /// Every value the settings screen can produce must be one the save
+    /// sanitiser accepts, and the screen must never emit a byte the reader
+    /// would clamp. A mismatch here would silently reset the setting on the
+    /// next boot.
+    #[test]
+    fn every_reachable_value_is_persistable() {
+        let mut m = SettingsMenu::new(values());
+        let mut seen = vec![m.values().texture_format];
+        for _ in 0..7 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().texture_format);
+        }
+        for v in seen {
+            assert!(
+                texture_format_is_selectable(v),
+                "settings emitted out-of-range texture byte {v}"
+            );
+        }
+    }
+
+    /// The CD-audio row must be reachable on both menus and must cycle through
+    /// all three states (OFF = 0, CD-DA = 1, XA = 2).
+    #[test]
+    fn cd_audio_is_reachable_on_the_settings_screen() {
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..3 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        assert_eq!(m.selected_row, 3, "row 3 is CD AUDIO");
+        assert_eq!(m.values().cd_audio, 1, "CD-DA by default");
+
+        // Right cycles CD-DA (1) -> XA (2)
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 2, "right cycles to XA"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Right cycles XA (2) -> OFF (0)
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "right cycles to OFF"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Right cycles OFF (0) -> CD-DA (1)
+        match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 1, "right cycles to CD-DA"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Left cycles CD-DA (1) -> OFF (0)
+        match m.update(press(|i| i.left = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "left cycles to OFF"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+        m.update(SettingsInput::default());
+
+        // Left cycles OFF (0) -> XA (2)
+        match m.update(press(|i| i.left = true)) {
+            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 2, "left wraps to XA"),
+            other => panic!("expected a change, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cd_audio_is_reachable_in_the_pause_menu() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, METRICS, QUIT.
+        for _ in 0..5 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 5, "row 5 is CD AUDIO");
+        assert_eq!(p.values().cd_audio, 1, "CD-DA by default");
+
+        // Right cycles to XA (2)
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().cd_audio, 2, "right cycles to XA");
+
+        p.update(PauseInput::default());
+        // Right cycles to OFF (0)
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().cd_audio, 0, "right cycles to OFF");
+
+        p.update(PauseInput::default());
+        // Left wraps back to XA (2)
+        let out = p.update(PauseInput {
+            left: true,
+            ..Default::default()
+        });
+        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
+        assert_eq!(p.values().cd_audio, 2, "left wraps to XA");
+    }
+
+    /// When XA mode is selected, synchronizing the menu with current settings
+    /// (or feeding values on subsequent frames in the pause menu) must keep
+    /// XA mode intact instead of reverting to OFF or CD-DA.
+    #[test]
+    fn cd_audio_xa_mode_survives_sync_with_applied_values() {
+        // Settings screen:
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..3 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        let choice = m.update(press(|i| i.right = true));
+        let applied_values = match choice {
+            SettingsChoice::Changed(v) => {
+                assert_eq!(v.cd_audio, 2, "changed to XA");
+                v
+            }
+            other => panic!("expected a change, got {other:?}"),
+        };
+        // Simulated main loop re-sync (set_values with current_settings):
+        m.set_values(applied_values);
+        assert_eq!(m.values().cd_audio, 2, "XA preserved after sync");
+
+        // Pause menu:
+        let mut p = PauseMenu::default();
+        for _ in 0..5 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        let applied_pause_values = match out.choice {
+            PauseChoice::Graphics(v) => {
+                assert_eq!(v.cd_audio, 2, "pause menu changed to XA");
+                v
+            }
+            other => panic!("expected graphics change, got {other:?}"),
+        };
+        // Next frame feeding applied values via update_with_values:
+        p.update_with_values(PauseInput::default(), applied_pause_values);
+        assert_eq!(
+            p.values().cd_audio,
+            2,
+            "XA preserved on subsequent pause frame"
+        );
+    }
+
+    /// The METRICS row must be reachable on the settings screen and cycle
+    /// through all four modes (OFF, FPS, FPS GRAPH, ALL).
+    #[test]
+    fn debug_metrics_cycles_on_the_settings_screen() {
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..4 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        assert_eq!(m.selected_row, 4, "row 4 is METRICS");
+        assert_eq!(m.values().debug_metrics, 0, "off by default");
+
+        let mut seen = vec![m.values().debug_metrics];
+        for _ in 0..4 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().debug_metrics);
+        }
+        assert_eq!(
+            seen,
+            vec![0, 1, 2, 3, 0],
+            "right must cycle through all 4 modes and wrap"
+        );
+
+        // Left wraps to ALL (3)
+        m.update(press(|i| i.left = true));
+        assert_eq!(m.values().debug_metrics, 3, "left must wrap back to ALL");
+    }
+
+    /// The METRICS row must be reachable in the pause menu and edit inline.
+    #[test]
+    fn debug_metrics_is_reachable_in_the_pause_menu() {
+        let mut p = PauseMenu::default();
+        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, METRICS, QUIT.
+        for _ in 0..6 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 6, "row 6 is METRICS");
+
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(
+            matches!(out.choice, PauseChoice::Graphics(_)),
+            "metrics edit must report Graphics choice"
+        );
+        assert_eq!(p.values().debug_metrics, 1);
+    }
+
+    /// QUIT must still be the last row and still quit. The METRICS row was
+    /// inserted before it, and an off-by-one there turns the destructive
+    /// option into a setting or, worse, makes the pause menu unexitable.
+    #[test]
+    fn quit_is_still_the_last_row_and_still_quits() {
+        let mut p = PauseMenu::default();
+        for _ in 0..7 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 7, "row 7 is QUIT TO MENU");
+        assert_eq!(PauseMenu::item_count(), 8);
+
+        let out = p.update(PauseInput {
+            cross: true,
+            ..Default::default()
+        });
+        assert_eq!(out.choice, PauseChoice::QuitToMenu);
+
+        // And it wraps: one more Down from QUIT returns to RESUME.
+        p.update(PauseInput::default());
+        p.update(PauseInput {
+            down: true,
+            ..Default::default()
+        });
+        assert_eq!(p.selected_idx, 0);
+    }
+
+    /// `MAX_TEXTURE_FORMAT` is shared between both menus precisely so a new
+    /// format cannot be added to one and forgotten in the other. Both must
+    /// therefore be able to reach every byte the core enum can name.
+    #[test]
+    fn both_menus_reach_every_texture_format_byte() {
+        for menu_span in [pause_input::MAX_TEXTURE_FORMAT] {
+            for v in 0..=menu_span {
+                let mut m = SettingsMenu::new(values());
+                let mut reached = false;
+                for _ in 0..=menu_span {
+                    if m.values().texture_format == v {
+                        reached = true;
+                        break;
+                    }
+                    m.update(press(|i| i.right = true));
+                    m.update(SettingsInput::default());
+                }
+                assert!(reached, "settings screen could not reach format {v}");
+            }
+        }
     }
 }

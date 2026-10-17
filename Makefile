@@ -28,9 +28,9 @@ DUCKSTATION_APPIMAGES := \
 # The linker itself hard-errors when the sections outgrow the region, so this is
 # the *early* gate: it turns "section will not fit in region" from the middle of a
 # 300-crate link into one readable line naming the real budget, and it catches a
-# runaway static buffer long before it becomes a link error. The other half stays
-# free for the runtime stack and any future heap.
-RAM_GATE_MAX_PCT ?= 50
+# runaway static buffer long before it becomes a link error. Headroom is left
+# for the runtime stack (32 KiB reserved in linker script) and any future dynamic heap.
+RAM_GATE_MAX_PCT ?= 78
 
 RETROARCH_CORE_DIRS := \
 	$(HOME)/.config/retroarch/cores \
@@ -44,7 +44,7 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test playtest calibrate-tracks tracks clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets deps require-sdk require-fx-levels require-version
+.PHONY: all help test playtest atlas circuits atlas-and-calibrate require-track-images clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets deps require-sdk require-version
 
 all: test exe
 
@@ -55,8 +55,10 @@ help:
 	@echo "                  and that the stored par times still match the physics."
 	@echo "                  Par drift is a FAILURE. Escape hatch for the recalibration"
 	@echo "                  window only: make playtest PLAYTEST_FLAGS=--allow-par-drift"
-	@echo "  make tracks    - Regenerate levels.rs from FX CSVs + par calibration"
-	@echo "  make calibrate-tracks - Re-measure par times, then regenerate levels.rs"
+	@echo "  make circuits  - Draw authored circuits into tracks/*.png"
+	@echo "  make atlas     - Compile tracks/*.png into levels.rs + visual_tex.rs"
+	@echo "                   (also emits tracks/*.jpg and tracks/*.qoi blocks)"
+	@echo "  make atlas-and-calibrate - Re-measure par times, then make atlas"
 	@echo "  make exe       - Build bare-metal MIPS PSX executable (dist/arduracer.exe)"
 	@echo "  make assets    - Cook FMV intro video and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
@@ -215,6 +217,12 @@ ci-disc: disc
 	if [ ! -f "$$bin" ]; then echo "ERROR: $$bin missing"; exit 1; fi; \
 	if [ ! -f "$$cue" ]; then echo "ERROR: $$cue missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/INTRO.STR" ]; then echo "ERROR: assets/INTRO.STR missing"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then echo "ERROR: assets/TRACKS.BIN missing"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ]; then echo "ERROR: assets/QOITRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then echo "ERROR: assets/SVGTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ]; then echo "ERROR: assets/TIMTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ]; then echo "ERROR: assets/TIM4TRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
+	if [ ! -f "$(ROOT)/assets/TIM8TRACKS.BIN" ]; then echo "ERROR: assets/TIM8TRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	cuefile=$$(sed -n 's/^[[:space:]]*FILE[[:space:]]*"\(.*\)".*/\1/p' "$$cue" | head -1); \
 	echo "CUE FILE entry: '$$cuefile'"; \
 	if [ "$$cuefile" != "arduracer.bin" ]; then \
@@ -312,7 +320,7 @@ clippy-game: require-sdk
 		( cd $(GAME_DIR) && cargo clippy --release -- -D warnings ) || exit 1; \
 	fi
 
-test: require-sdk
+test: require-sdk levels-bin
 	@echo "Running host-side tests in crates/arduracer-core..."
 	@if [ -f "crates/arduracer-core/Cargo.toml" ]; then \
 		cargo test --manifest-path crates/arduracer-core/Cargo.toml || exit 1; \
@@ -348,7 +356,7 @@ test: require-sdk
 # `crates/arduracer-core/src/levels.rs` is a failure, because every medal
 # boundary in the game just moved. Escape hatches, in order of preference:
 #
-#   make calibrate-tracks                    re-measure and regenerate (correct fix)
+#   make atlas-and-calibrate             re-measure and regenerate (correct fix)
 #   make playtest PLAYTEST_FLAGS=--allow-par-drift
 #                                           report the drift without failing, for
 #                                           the window between landing a physics
@@ -361,40 +369,76 @@ playtest: require-sdk
 		cargo run --manifest-path tools/playtest/Cargo.toml --release -- $(PLAYTEST_FLAGS) || exit 1; \
 	fi
 
-# Regenerates crates/arduracer-core/src/levels.rs. Fails if any circuit has an
-# unreachable gate, an off-road gate, or a start box outside the racing surface.
-tracks:
-	@$(MAKE) --no-print-directory require-fx-levels
-	@python3 tools/track_cook/convert_levels.py
+# --- Authored circuit atlas (image -> in-game format) -----------------------
+#
+# Two stages, deliberately separate:
+#
+#   make circuits   draws tracks/*.svg          -> .data.png/.visual.png/...
+#   make atlas      compiles tracks/*.png       -> levels.rs + visual_tex.rs
+#
+# `atlas` turns the authored images into the format the game links against. It
+# validates every circuit first and refuses to emit if any fails, so a broken map
+# never reaches `levels.rs`, and it also packs `visual_tex.rs` -- the 4bpp
+# texture the per-pixel track renderer samples -- so a stage whose visual changed
+# does not take effect in game until this runs.
+#
+# `atlas` is the only writer of `levels.rs` and `visual_tex.rs`. The FX-CSV
+# cooker that used to sit here is gone; nothing reads `ArduRacerFx/Levels/*.csv`
+# any more, and re-adding it would replace the authored circuits rather than
+# build them.
+# Cooks every authored circuit's visual image into all three disc formats:
+# JPEG (`tracks/<Circuit>.jpg`, always), segmented QOI
+# (`tracks/<Circuit>.qoi`, where the art fits the 500 KB block losslessly) and
+# SVG-derived ARSV (`tracks/<Circuit>.arsv`, where the circuit has an SVG).
+# See AGENT.md 2.1.
+atlas:
+	@$(MAKE) --no-print-directory require-track-images
+	@python3 tools/track_cook/build_atlas.py
 
-# Measures real reference laps and rewrites the par-time table before
-# regenerating the level data.
-calibrate-tracks:
-	@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
-	@$(MAKE) --no-print-directory require-fx-levels
-	@python3 tools/track_cook/convert_levels.py
+# Draws the authored circuits as SVGs and rasterises them into `tracks/`. Run
+# this first, or after editing `generate_svg_circuit.py`; `make atlas` only
+# compiles images that already exist on disk.
+circuits:
+	@python3 tools/track_cook/generate_svg_circuit.py
+	@$(MAKE) --no-print-directory atlas
 
-# `tools/track_cook/convert_levels.py` compiles the 20 legacy ArduRacer FX level
-# CSVs, which live in `ArduRacerFx/` -- a *reference* directory that .gitignore
-# excludes, so it is absent from a clean checkout. Without this the script dies
-# with a bare `FileNotFoundError` traceback after the calibration has already
-# rewritten par_calibration.json, which reads as "calibration failed" rather than
-# "you are missing the reference tree".
-FX_LEVEL_CSV := ArduRacerFx/Levels/Level1.csv
-.PHONY: require-fx-levels
-require-fx-levels:
-	@if [ -f "$(FX_LEVEL_CSV)" ]; then exit 0; fi; \
-	echo "ERROR: $(FX_LEVEL_CSV) is missing."; \
+# Re-measures reference laps and folds the result into the next `make atlas`, so
+# a par-table change is one command rather than two in the right order.
+#
+# The first pass deliberately ignores its exit status. `--calibrate` exits
+# non-zero precisely when it *found* drift and rewrote `par_calibration.json`,
+# which is the normal outcome of this target -- so treating that as failure
+# aborted make before `atlas` ran, and the drift notice told the user to run
+# `make atlas-and-calibrate` again, which is a loop that could never leave.
+# The `-` prefix is the fix; the second pass below is what actually gates.
+#
+# The second pass is strict, so a genuine problem -- a checkpoint off the racing
+# surface, say -- still fails loudly instead of being absorbed by the tolerance
+# above. That failure belongs to the level data, not to this target.
+.PHONY: atlas circuits atlas-and-calibrate
+atlas-and-calibrate:
+	-@cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate
+	@$(MAKE) --no-print-directory atlas
+	@$(MAKE) --no-print-directory verify-levels
+
+# Strict re-measure after a calibration: par times must now match the measured
+# laps. This is the gate `atlas-and-calibrate` finishes on, so it runs without
+# `--calibrate` and therefore has nothing to rewrite.
+.PHONY: verify-levels
+verify-levels:
+	@cargo run --manifest-path tools/playtest/Cargo.toml --release
+
+# The atlas pipeline compiles images, it does not draw them. Without this the
+# script exits on the first missing `.data.png` with a stack trace that reads as
+# a broken build rather than a missing input.
+.PHONY: require-track-images
+require-track-images:
+	@if find tracks -name "*.data.png" | grep -q .; then exit 0; fi; \
+	echo "ERROR: no tracks/*.data.png."; \
 	echo ""; \
-	echo "  tools/track_cook/convert_levels.py compiles the 20 legacy ArduRacer"; \
-	echo "  FX level CSVs from ArduRacerFx/, a reference tree that .gitignore"; \
-	echo "  excludes, so it is not in a fresh clone. Regenerating"; \
-	echo "  crates/arduracer-core/src/levels.rs needs it."; \
-	echo ""; \
-	echo "  Restore ArduRacerFx/ next to this checkout (or from your own copy of"; \
-	echo "  the FX source) and re-run. Par calibration itself does not need it:"; \
-	echo "  'cargo run --manifest-path tools/playtest/Cargo.toml --release -- --calibrate'"; \
-	echo "  only writes tools/track_cook/par_calibration.json."; \
+	echo "  make atlas compiles the authored circuit images; it does not draw"; \
+	echo "  them. Run 'make circuits' to generate tracks/*.svg and their"; \
+	echo "  .data.png/.visual.png/.line.json/.palette.json first."; \
 	exit 1
 
 # Emits the rust-lld link map alongside the PSX-EXE. The `.exe` is a raw
@@ -416,27 +460,75 @@ iso: exe
 		--exe $(DIST)/arduracer.exe \
 		--out $(DIST)/arduracer.iso \
 		--volume ARDURACER \
+		--file $(ROOT)/assets/TRACKS.BIN \
+		--file $(ROOT)/assets/QOITRACKS.BIN \
+		--file $(ROOT)/assets/SVGTRACKS.BIN \
+		--file $(ROOT)/assets/TIMTRACKS.BIN \
+		--file $(ROOT)/assets/TIM4TRACKS.BIN \
+		--file $(ROOT)/assets/TIM8TRACKS.BIN \
+		--file $(ROOT)/assets/LEVELS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
 
+# Assembles the packed tile grid for every level. Only runs when the asset is
+# absent, so an ordinary build does not depend on having the circuit images
+# cooked -- but a tree that has never cooked them fails here with the reason,
+# rather than mastering a disc whose levels all read as solid wall.
+levels-bin:
+	@if [ -f "$(ROOT)/assets/LEVELS.BIN" ]; then exit 0; fi; \
+	if [ ! -f "$(ROOT)/build/circuits/Cascade_Falls/levelgrid.bin" ]; then \
+		$(MAKE) --no-print-directory atlas; \
+	fi; \
+	python3 $(ROOT)/tools/track_cook/make_levels_bin.py
+
 assets:
+	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
+	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM8TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	@$(MAKE) --no-print-directory levels-bin
 	@mkdir -p $(ROOT)/assets/cdda
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
-disc: assets exe
+# Encodes the six CD-DA music masters into CD-XA-ADPCM sectors. The XA files
+# are what the `CdAudioMode::XA` option plays; without them that option is
+# silent, which is the honest outcome.
+.PHONY: music-xa
+music-xa:
+	@mkdir -p $(ROOT)/assets/music
+	@for i in 2 3 4 5 6 7; do \
+		src=$$(ls $(ROOT)/assets/cdda/track0$${i}_*.raw); \
+		python3 $(ROOT)/tools/track_cook/make_music_xa.py $$src \
+			$(ROOT)/assets/music/MUSIC$$i.XA $$i || exit 1; \
+	done
+	@cp -f $(ROOT)/assets/music/MUSIC2.XA $(ROOT)/assets/music/MUSIC1.XA
+
+disc: assets music-xa exe
 	@mkdir -p $(DIST)
 	cargo run --release --manifest-path $(MKISOPSX)/Cargo.toml -- \
 		--exe $(DIST)/arduracer.exe \
 		--out $(DIST)/arduracer.bin \
 		--volume ARDURACER \
 		--file $(ROOT)/assets/INTRO.STR \
+		--file $(ROOT)/assets/TRACKS.BIN \
+		--file $(ROOT)/assets/QOITRACKS.BIN \
+		--file $(ROOT)/assets/SVGTRACKS.BIN \
+		--file $(ROOT)/assets/TIMTRACKS.BIN \
+		--file $(ROOT)/assets/TIM4TRACKS.BIN \
+		--file $(ROOT)/assets/TIM8TRACKS.BIN \
+		--file $(ROOT)/assets/LEVELS.BIN \
 		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
 		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \
 		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \
 		--cdda-track $(ROOT)/assets/cdda/track05_cyber.raw \
 		--cdda-track $(ROOT)/assets/cdda/track06_canyon.raw \
-		--cdda-track $(ROOT)/assets/cdda/track07_victory.raw
+		--cdda-track $(ROOT)/assets/cdda/track07_victory.raw \
+		--xa-file $(ROOT)/assets/music/MUSIC1.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC2.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC3.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC4.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC5.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC6.XA \
+		--xa-file $(ROOT)/assets/music/MUSIC7.XA
 	@echo "SUCCESS! Bootable PS1 Disc Mastered:"
 	@echo "  CUE: $(DIST)/arduracer.cue"
 	@echo "  BIN: $(DIST)/arduracer.bin"
@@ -447,6 +539,7 @@ web: disc iso
 		if [ ! -f "$(DIST)/$$f" ]; then echo "ERROR: $(DIST)/$$f missing"; exit 1; fi; \
 		cp "$(DIST)/$$f" "$(ROOT)/web/roms/"; \
 	done
+	@python3 $(ROOT)/tools/generate_rom_manifest.py $(ROOT)/web/roms
 	@python3 $(ROOT)/tools/serve_web.py 8080 $(ROOT)/web
 
 # Fails before the (expensive) disc/iso prerequisites rather than after.

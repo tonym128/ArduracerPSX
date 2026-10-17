@@ -683,6 +683,21 @@ pub fn enable_analog_port2() -> bool {
     enable_analog(true)
 }
 
+/// Motor actuator state for Port 1: (small_on, large_speed 0..255).
+static mut PORT1_MOTORS: (bool, u8) = (false, 0);
+
+/// Sets the DualShock vibration actuator values to transmit during Port 1 polling.
+/// - `small`: high-frequency on/off weight
+/// - `large`: variable-speed weighted rotor (0..255)
+pub fn set_rumble_port1(small: bool, large: u8) {
+    unsafe { PORT1_MOTORS = (small, large) };
+}
+
+/// Returns the current DualShock vibration actuator values for Port 1.
+pub fn rumble_port1() -> (bool, u8) {
+    unsafe { PORT1_MOTORS }
+}
+
 /// Poll a port, retrying a garbled response.
 ///
 /// On real hardware a poll occasionally desyncs -- a stale byte lingering in
@@ -875,9 +890,10 @@ unsafe fn poll_once_timed(port2: bool, setup_spins: u32, interbyte_spins: u32) -
             mode = PadMode::Unknown;
         }
         let read_sticks = analog && mode != PadMode::Unknown;
-        let b0 = exchange_delayed(0x00, interbyte_spins);
+        let (small_motor, large_motor) = if !port2 { PORT1_MOTORS } else { (false, 0) };
+        let b0 = exchange_delayed(if small_motor { 0x01 } else { 0x00 }, interbyte_spins);
         i += 1;
-        let b1 = exchange_delayed(0x00, interbyte_spins);
+        let b1 = exchange_delayed(large_motor, interbyte_spins);
         i += 1;
 
         let sticks = if read_sticks {
@@ -928,6 +944,9 @@ fn enable_analog(port2: bool) -> bool {
         // Request analog mode and lock it so the pad cannot toggle
         // back underneath analog-only game controls.
         transaction(port2, [0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00]);
+        delay_reads(CONFIG_COMMAND_GAP_SPINS);
+        // Configure DualShock actuator mapping: byte 0 -> small motor, byte 1 -> large motor
+        transaction(port2, [0x4D, 0x00, 0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF]);
         delay_reads(CONFIG_COMMAND_GAP_SPINS);
         // Exit config mode, restoring the requested analog mode.
         transaction(port2, [0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);

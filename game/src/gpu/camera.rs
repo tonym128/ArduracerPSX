@@ -7,10 +7,19 @@
 //! - Clamping to the circuit bounds, so the view never leaves the track
 //! - Smooth exponential tracking (lerp) eliminating harsh jitter
 //!
+//! Two things feed the follow, and both are filtered rather than sampled: the
+//! camera *position* eases toward the car, and the look-ahead *direction* eases
+//! toward the direction of travel. Filtering only the position is not enough --
+//! the lead is long enough that a flickering direction puts a jittered target in
+//! front of the lerp, which then tracks the jitter faithfully.
+//!
 //! Hardware-free: depends only on `arduracer-core`, so `tools/test_ui` exercises
 //! it on the host.
 
-use arduracer_core::{Fixed, Vec2, FP_ONE, FP_SHIFT};
+use arduracer_core::{math::cos, math::sin, Fixed, Vec2, FP_ONE, FP_SHIFT};
+
+/// Returned for points a Mode 7 view cannot show; outside every layer's bounds test.
+pub const M7_OFFSCREEN: (i16, i16) = (-2000, -2000);
 
 pub const SCREEN_W: i16 = 320;
 pub const SCREEN_H: i16 = 240;
@@ -30,8 +39,48 @@ const ZOOM_EASE: i32 = 256;
 const LOOKAHEAD_REST: i32 = 10;
 /// Look-ahead at top speed, in world units (~4.5 car lengths).
 const LOOKAHEAD_FAST: i32 = 72;
-/// How fast the position eases toward its target (1/8th per 60 Hz tick).
-const POSITION_EASE: i32 = 512;
+/// How fast the position eases toward its target (~1/10th per 60 Hz tick) for silky smooth tracking.
+const POSITION_EASE: i32 = 420;
+
+/// How fast the look-ahead *direction* eases toward the direction of travel (~1/8th per 60 Hz tick).
+/// Silky smooth damping prevents jarring 18-pixel swings on corner entry.
+const LEAD_DIR_EASE: i32 = 512;
+
+/// Speed below which the direction of travel is noise rather than intent, in raw
+/// fixed-point units. ~18 world units/second, which is walking pace.
+///
+/// Under it the velocity vector points at whatever the tyres last did -- a wall
+/// scrape, a steering correction, the creep of a wheel off line -- not at where
+/// the car is going. Below this the lead direction is held instead of chased.
+const LEAD_DIR_HOLD_SPEED: i32 = 1_200;
+
+// ---------------------------------------------------------------------------
+// Mode 7 chase view
+// ---------------------------------------------------------------------------
+//
+// The ground plane is rotated so the car's heading points up the screen and
+// projected with a pinhole camera behind the car: `y = HORIZON + K / z`,
+// `x = 160 + right * FOCAL / z`, with `z = forward + M7_Z0`. At the car
+// (forward ~ 0) the scale is FOCAL / Z0 = 1 pixel per world unit, so sprites
+// keep their top-down size there and shrink with distance.
+
+/// Screen row of the horizon.
+pub const M7_HORIZON: i32 = 60;
+/// Depth of the camera pivot behind the focus point, in world units.
+pub const M7_Z0: i32 = 120;
+/// Focal length in pixels. `FOCAL == Z0` makes the scale 1.0 at the pivot.
+const M7_FOCAL: i32 = 120;
+/// Camera height times focal length: the ground row at depth z is `HORIZON + K / z`.
+const M7_K: i32 = 15_600;
+/// Nearest depth projected. Clamping here keeps the divide bounded.
+pub const M7_Z_NEAR: i32 = 70;
+/// Farthest depth that is drawn. Bounds the number of streamed tiles.
+pub const M7_Z_FAR: i32 = 240;
+/// The heading eases by 1/this of the remaining angle each tick.
+const M7_HEADING_EASE_DIV: i32 = 6;
+/// Position ease in chase mode. Stiffer than top-down because there is no
+/// look-ahead to hide the lag: the car must stay near its screen anchor.
+const M7_POSITION_EASE: i32 = 1_600;
 
 /// Camera state in world coordinates.
 #[derive(Copy, Clone, Debug)]
@@ -40,14 +89,33 @@ pub struct Camera {
     pub pos: Vec2,
     /// Zoom factor (1.0 = standard, < 1.0 = zoomed out).
     pub zoom: Fixed,
+    /// Smoothed unit direction the look-ahead lead is applied along.
+    ///
+    /// Filter state rather than an input: it is only meaningful relative to the
+    /// previous tick's velocity, so it is not public. Starts pointing up the
+    /// screen, which is the standstill default -- a stationary car sits low.
+    lead_dir: Vec2,
+    /// True for the Mode 7 behind-the-car view; false for top-down views.
+    pub mode7: bool,
+    /// True for the rotating top-down view where the stage rotates under the car.
+    pub rotating: bool,
+    /// Smoothed view heading in BAMS (4096 = 360 degrees), 0 = up the screen.
+    pub heading: u16,
+    /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
+    hsin: i32,
+    hcos: i32,
 }
+
+/// The direction the look-ahead starts at: up the screen, so the car renders
+/// below centre rather than dead on it.
+const LEAD_DIR_INITIAL: Vec2 = Vec2 {
+    x: Fixed::ZERO,
+    y: Fixed(-FP_ONE),
+};
 
 impl Default for Camera {
     fn default() -> Self {
-        Camera {
-            pos: Vec2::ZERO,
-            zoom: Fixed::from_raw(ZOOM_REST),
-        }
+        Camera::new(Vec2::ZERO)
     }
 }
 
@@ -56,7 +124,106 @@ impl Camera {
         Camera {
             pos: initial_pos,
             zoom: Fixed::from_raw(ZOOM_REST),
+            lead_dir: LEAD_DIR_INITIAL,
+            mode7: false,
+            rotating: false,
+            heading: 0,
+            hsin: 0,
+            hcos: FP_ONE,
         }
+    }
+
+    /// A camera in the Mode 7 chase view, starting aligned to `heading`.
+    pub fn new_chase(initial_pos: Vec2, heading: u16) -> Self {
+        let mut c = Camera::new(initial_pos);
+        c.mode7 = true;
+        c.set_heading(heading);
+        c
+    }
+
+    /// A camera in the top-down rotating view, starting aligned to `heading`.
+    pub fn new_rotating(initial_pos: Vec2, heading: u16) -> Self {
+        let mut c = Camera::new(initial_pos);
+        c.rotating = true;
+        c.set_heading(heading);
+        c
+    }
+
+    /// Snaps the view heading (BAMS) and refreshes the cached trig.
+    pub fn set_heading(&mut self, heading: u16) {
+        self.heading = heading & 0x0FFF;
+        self.hsin = sin(self.heading).raw();
+        self.hcos = cos(self.heading).raw();
+    }
+
+    /// Eases the view heading toward `target` (BAMS) the short way round.
+    pub fn follow_heading(&mut self, target: u16) {
+        let mut diff = (target & 0x0FFF) as i32 - self.heading as i32;
+        if diff > 2048 {
+            diff -= 4096;
+        } else if diff < -2048 {
+            diff += 4096;
+        }
+        // Always make progress on a small residual so it cannot stall.
+        let mut step = diff / M7_HEADING_EASE_DIV;
+        if step == 0 {
+            step = diff.signum();
+        }
+        let h = (self.heading as i32 + step) & 0x0FFF;
+        self.set_heading(h as u16);
+    }
+
+    /// View heading sine in Q20.12 (FP_ONE = 4096).
+    #[inline]
+    pub fn hsin(&self) -> i32 {
+        self.hsin
+    }
+
+    /// View heading cosine in Q20.12 (FP_ONE = 4096).
+    #[inline]
+    pub fn hcos(&self) -> i32 {
+        self.hcos
+    }
+
+    /// Camera-space `(right, depth)` of a world point, both in Q4 world units
+    /// (1/16 unit). Depth includes the pivot offset, so it is the `z` of the
+    /// projection and is not clamped. Offsets are clamped so the `i32`
+    /// products below cannot overflow.
+    #[inline]
+    pub fn view_rq4_zq4(&self, world_pos: Vec2) -> (i32, i32) {
+        let dx = ((world_pos.x.raw() - self.pos.x.raw()) >> 8).clamp(-32_000, 32_000);
+        let dy = ((world_pos.y.raw() - self.pos.y.raw()) >> 8).clamp(-32_000, 32_000);
+        self.view_from_offset_q4(dx, dy)
+    }
+
+    /// As [`Camera::view_rq4_zq4`] but from an offset already in Q4 units.
+    #[inline]
+    pub fn view_from_offset_q4(&self, dx: i32, dy: i32) -> (i32, i32) {
+        // forward = dx*sin(h) - dy*cos(h); right = dx*cos(h) + dy*sin(h)
+        let fwd = (dx * self.hsin - dy * self.hcos) >> 12;
+        let right = (dx * self.hcos + dy * self.hsin) >> 12;
+        (right, fwd + (M7_Z0 << 4))
+    }
+
+    /// Projects a camera-space `(right, depth)` pair (Q4) to a screen pixel.
+    #[inline]
+    pub fn project_rz(right_q4: i32, z_q4: i32) -> (i16, i16) {
+        let z = z_q4.max(M7_Z_NEAR << 4);
+        let sy = M7_HORIZON + (M7_K * 16) / z;
+        let sx = SCREEN_W as i32 / 2 + (right_q4 * M7_FOCAL) / z;
+        (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
+    }
+
+    /// Perspective scale at a world point as Q12 (4096 = 1 pixel per unit).
+    /// Returns 0 for points behind the near plane or beyond the far plane.
+    #[inline]
+    pub fn m7_scale_q12(&self, world_pos: Vec2) -> i32 {
+        let (_, z_q4) = self.view_rq4_zq4(world_pos);
+        if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+            return 0;
+        }
+        // FOCAL * 16 / z_q4 is pixels per unit; scale to Q12.
+        (M7_FOCAL * 16 * 4096) / z_q4
     }
 
     /// Half-extents of the visible world rectangle, in world units, taking the
@@ -67,6 +234,12 @@ impl Camera {
     pub fn visible_half_extents(&self) -> (i32, i32) {
         // `zoom` is a plain ratio, so the world extent grows as it shrinks.
         let z = self.zoom.raw().max(1);
+        if self.rotating {
+            // For a rotating 2D viewport, diagonal half-screen radius is sqrt(160^2 + 120^2) = 200 pixels.
+            // With safety margin for rounding, 205 pixels covers all rotations.
+            let rad = div_ceil(205 * FP_ONE, z);
+            return (rad, rad);
+        }
         // Rounded *up*: the tile renderer uses this to choose which tiles to
         // draw, so under-covering would leave a gap of background at the screen
         // edge. One pixel of overdraw is the cheaper error.
@@ -88,6 +261,13 @@ impl Camera {
     /// invited a future renderer to honour it and silently double-offset
     /// everything (TASK-1216).
     pub fn world_to_screen(&self, world_pos: Vec2) -> (i16, i16) {
+        if self.mode7 {
+            let (right, z_q4) = self.view_rq4_zq4(world_pos);
+            if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+                return M7_OFFSCREEN;
+            }
+            return Self::project_rz(right, z_q4);
+        }
         let off = self.world_offset(world_pos);
         // Saturating, not wrapping: `world_offset` clamps each axis to `i16`, so
         // a point far off-screen would overflow on the addition to screen centre.
@@ -102,13 +282,27 @@ impl Camera {
     /// Returned in whole pixels; the fractional part is dropped, which at these
     /// zoom levels is at most one pixel of jitter.
     pub fn world_offset(&self, world_pos: Vec2) -> (i16, i16) {
-        // `raw()` is Q20.12 and `z` is Q20.12, so the product needs two shifts to
-        // come back to pixels.
-        let z = self.zoom.raw();
-        let rel_x =
-            (((world_pos.x - self.pos.x).raw() as i64 * z as i64) >> FP_SHIFT >> FP_SHIFT) as i32;
-        let rel_y =
-            (((world_pos.y - self.pos.y).raw() as i64 * z as i64) >> FP_SHIFT >> FP_SHIFT) as i32;
+        let z = self.zoom.raw() as i64;
+        let mut dx_raw = (world_pos.x - self.pos.x).raw() as i64;
+        let mut dy_raw = (world_pos.y - self.pos.y).raw() as i64;
+
+        if self.rotating {
+            // Affine rotation by camera heading so car faces up the screen:
+            // screen right = dx*cos(h) + dy*sin(h)
+            // screen forward (up) = dx*sin(h) - dy*cos(h) => screen y offset is -forward
+            let right = (dx_raw * self.hcos as i64 + dy_raw * self.hsin as i64) >> FP_SHIFT;
+            let fwd = (dx_raw * self.hsin as i64 - dy_raw * self.hcos as i64) >> FP_SHIFT;
+            dx_raw = right;
+            dy_raw = -fwd;
+        }
+
+        let dx = dx_raw * z;
+        let dy = dy_raw * z;
+        // Symmetric half-pixel rounding before the 24-bit shift eliminates
+        // directional subpixel jitter and truncation asymmetry.
+        const HALF_PX: i64 = 1 << (FP_SHIFT + FP_SHIFT - 1);
+        let rel_x = ((dx + HALF_PX) >> (FP_SHIFT + FP_SHIFT)) as i32;
+        let rel_y = ((dy + HALF_PX) >> (FP_SHIFT + FP_SHIFT)) as i32;
         (clamp_i16(rel_x), clamp_i16(rel_y))
     }
 
@@ -124,6 +318,44 @@ impl Camera {
         world_w: i32,
         world_h: i32,
     ) {
+        if self.mode7 {
+            // Chase view: sit on the car (it is the pivot of the projection)
+            // and let the perspective supply the look-ahead.
+            let diff_x = target_pos.x - self.pos.x;
+            let diff_y = target_pos.y - self.pos.y;
+            self.pos.x = self.pos.x + diff_x * Fixed::from_raw(M7_POSITION_EASE);
+            self.pos.y = self.pos.y + diff_y * Fixed::from_raw(M7_POSITION_EASE);
+            let _ = (target_velocity, speed, world_w, world_h);
+            return;
+        }
+
+        if self.rotating {
+            // Top-down rotating view: camera stays centered on the vehicle
+            // with lookahead shifted along the vehicle's forward vector.
+            let speed_ratio = clamp_i32(
+                (speed.raw() as i64 * FP_ONE as i64) / ZOOM_FULL_SPEED as i64,
+                0,
+                FP_ONE,
+            );
+            let lead = LOOKAHEAD_REST + ((LOOKAHEAD_FAST - LOOKAHEAD_REST) * speed_ratio) / FP_ONE;
+            // Lead along car's forward heading vector: sin(h) in X, -cos(h) in Y
+            let lead_x = (self.hsin * lead) >> FP_SHIFT;
+            let lead_y = (-self.hcos * lead) >> FP_SHIFT;
+            let desired_pos = Vec2 {
+                x: target_pos.x + Fixed::from_raw(lead_x << FP_SHIFT),
+                y: target_pos.y + Fixed::from_raw(lead_y << FP_SHIFT),
+            };
+
+            let diff_x = desired_pos.x - self.pos.x;
+            let diff_y = desired_pos.y - self.pos.y;
+            self.pos.x = self.pos.x + diff_x * Fixed::from_raw(POSITION_EASE);
+            self.pos.y = self.pos.y + diff_y * Fixed::from_raw(POSITION_EASE);
+
+            let target_zoom = ZOOM_REST - ((ZOOM_REST - ZOOM_FAST) * speed_ratio) / FP_ONE;
+            let zoom_diff = target_zoom - self.zoom.raw();
+            self.zoom = Fixed::from_raw(self.zoom.raw() + (zoom_diff * ZOOM_EASE) / FP_ONE);
+            return;
+        }
         // Look-ahead leads along the direction of travel. Driven by heading
         // rather than velocity so it survives being slow or pinned against a
         // wall, where a velocity-derived lead collapses to nothing and the car
@@ -134,10 +366,10 @@ impl Camera {
             FP_ONE,
         );
         let lead = LOOKAHEAD_REST + ((LOOKAHEAD_FAST - LOOKAHEAD_REST) * speed_ratio) / FP_ONE;
-        let dir = forward_dir(target_pos, self.pos, target_velocity, speed_ratio);
+        let dir = self.lead_direction(target_velocity, speed);
         let desired_pos = Vec2 {
-            x: target_pos.x + Fixed::from_int(dir.0 * lead / 1000),
-            y: target_pos.y + Fixed::from_int(dir.1 * lead / 1000),
+            x: target_pos.x + dir.x * Fixed::from_int(lead),
+            y: target_pos.y + dir.y * Fixed::from_int(lead),
         };
 
         // Smooth exponential tracking.
@@ -154,14 +386,40 @@ impl Camera {
         self.clamp_to_bounds(world_w, world_h);
     }
 
+    /// Smoothed direction the look-ahead is applied along, and updates it.
+    ///
+    /// The lead is `LOOKAHEAD_FAST` units long at speed, so a direction that
+    /// flickers frame to frame does not average out -- it swings the target
+    /// position by its whole length, and the position lerp then faithfully
+    /// chases a target that keeps jumping. Filtering the direction is what makes
+    /// the follow smooth; filtering only the position cannot be, because the
+    /// jitter is already inside the target by the time the lerp sees it.
+    fn lead_direction(&mut self, velocity: Vec2, speed: Fixed) -> Vec2 {
+        // Below walking pace the velocity vector points at tyre noise rather than
+        // at where the car is going, so hold the last good heading. Holding is
+        // what keeps a car sitting still from wandering, and what keeps a car
+        // pinned against a barrier from having its lead slosh about.
+        if speed.raw() >= LEAD_DIR_HOLD_SPEED {
+            let len = velocity.length();
+            if len.raw() != 0 {
+                let want = velocity.scale(Fixed::ONE / len);
+                self.lead_dir.x =
+                    self.lead_dir.x + (want.x - self.lead_dir.x) * Fixed::from_raw(LEAD_DIR_EASE);
+                self.lead_dir.y =
+                    self.lead_dir.y + (want.y - self.lead_dir.y) * Fixed::from_raw(LEAD_DIR_EASE);
+            }
+        }
+        self.lead_dir
+    }
+
     /// Keeps the visible rectangle inside the circuit.
     ///
     /// Where the circuit is narrower than the view, the camera centres on that
     /// axis instead of clamping to an edge, so it never sits off-world.
     pub fn clamp_to_bounds(&mut self, world_w: i32, world_h: i32) {
         let (half_w, half_h) = self.visible_half_extents();
-        self.pos.x = clamp_axis(self.pos.x.to_int(), half_w, world_w);
-        self.pos.y = clamp_axis(self.pos.y.to_int(), half_h, world_h);
+        self.pos.x = clamp_axis(self.pos.x, half_w, world_w);
+        self.pos.y = clamp_axis(self.pos.y, half_h, world_h);
     }
 }
 
@@ -170,47 +428,21 @@ impl Camera {
 /// If the world is smaller than the view on this axis the camera centres on the
 /// world rather than clamping, otherwise it would sit at a corner and show more
 /// out-of-bounds on the other side.
-fn clamp_axis(cam: i32, half: i32, world: i32) -> Fixed {
+///
+/// The clamp is on the Q20.12 value, deliberately. This used to round-trip
+/// through `to_int()` -- `Fixed::from_int(cam.to_int().clamp(lo, hi))` -- which
+/// quantised the camera to whole world units *every* frame, whether or not the
+/// clamp had anything to do. A world unit is a screen pixel at rest zoom and the
+/// camera covers several units per frame at speed, so the camera advanced in
+/// whole-pixel steps while the car moved smoothly: the car's screen position
+/// juddered by a pixel every frame, which is what made the stage feel clunky
+/// rather than the follow feeling soft. The arithmetic shift also floors, so the
+/// snap was asymmetric about the origin.
+fn clamp_axis(cam: Fixed, half: i32, world: i32) -> Fixed {
     if world <= 2 * half {
         return Fixed::from_int(world / 2);
     }
-    let lo = half;
-    let hi = world - half;
-    Fixed::from_int(cam.clamp(lo, hi))
-}
-
-/// Unit forward direction for the camera lead, in whole-number world units.
-///
-/// Uses velocity when the car is actually moving, because that reflects where
-/// the car is *going* mid-drift; falls back to the camera's existing offset for
-/// the heading when stationary. The result is scaled by 1000 to stay integral.
-fn forward_dir(target: Vec2, cam: Vec2, velocity: Vec2, _speed_ratio: i32) -> (i32, i32) {
-    const SCALE: i32 = 1000;
-    if velocity.length_squared().raw() > 0 {
-        let len = velocity.length().raw();
-        if len != 0 {
-            return (
-                (velocity.x.raw() * SCALE) / len,
-                (velocity.y.raw() * SCALE) / len,
-            );
-        }
-    }
-    // Stationary: keep the last heading by leaning away from where the camera
-    // already sits, so the car settles slightly low on screen at the grid.
-    let dx = target.x.raw() - cam.x.raw();
-    let dy = target.y.raw() - cam.y.raw();
-    if dx == 0 && dy == 0 {
-        return (0, -SCALE);
-    }
-    // Approximate normalisation on the dominant axis: exact trig is wasted here
-    // because the magnitude is immediately scaled by `lead` again.
-    let ax = dx.abs();
-    let ay = dy.abs();
-    if ax >= ay {
-        (if dx < 0 { -SCALE } else { SCALE }, 0)
-    } else {
-        (0, if dy < 0 { -SCALE } else { SCALE })
-    }
+    cam.clamp(Fixed::from_int(half), Fixed::from_int(world - half))
 }
 
 /// Integer division rounding away from zero for positive inputs.

@@ -90,17 +90,15 @@ jobs:
   disc:
     name: Disc mastering smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install media tools
-        # ffmpeg for tools/audio_cook/wav2vag.py. No MIPS binutils: the build
-        # goes through cargo/rust-lld and the RAM gate reads the link map, so
-        # nothing here shells out to objdump/nm/readelf.
+      - name: Install media and cooking tools
+        # ffmpeg for wav2vag.py; python3-numpy and python3-pil for track atlas / city asset cookers.
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg python3-numpy python3-pil python3-cairosvg zip
 
       - name: Install psxavenc (FMV encoder)
         # tools/fmv_cook/cook_intro_str.py silently falls back to a procedural
@@ -123,3 +121,77 @@ jobs:
 
       - name: Master PS1 Disc Image
         run: make ci-disc
+
+      - name: Master PS1 ISO and Package Release
+        run: |
+          make iso
+          make release VERSION=latest
+
+      - name: Upload Disc Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: arduracer-psx-disc
+          path: |
+            dist/arduracer.bin
+            dist/arduracer.cue
+            dist/arduracer.iso
+            dist/arduracer.exe
+            dist/ArduracerPSX-vlatest-PSX.zip
+            dist/SHA256SUMS
+
+  publish-release:
+    name: Publish Rolling Release
+    needs: [host, game, disc]
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download Disc Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: arduracer-psx-disc
+          path: dist
+
+      - name: Force update rolling Git tag
+        env:
+          TAG_NAME: latest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG_NAME" "${{ github.sha }}"
+          git push -f origin "$TAG_NAME"
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest
+          name: "Arduracer PSX (Latest Build)"
+          body: |
+            Automated rolling release from commit [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).
+
+            ### PS1 Disc Images & Binaries
+            - **`arduracer.cue`**: PlayStation 1 CUE sheet (Track 01 Data + Tracks 02-07 CD-DA audio).
+            - **`arduracer.bin`**: Raw 2352-byte/sector disc image with FMV, XA, and CD-DA audio.
+            - **`arduracer.iso`**: Cooked ISO9660 image (Data track).
+            - **`arduracer.exe`**: Bare-metal MIPS PS-X executable.
+            - **`ArduracerPSX-vlatest-PSX.zip`**: Complete release package including game manual (`GAME.md`), artwork, and binaries.
+            - **`SHA256SUMS`**: SHA256 checksums for verification.
+
+            *This release updates automatically on every successful build on `main`.*
+          prerelease: false
+          make_latest: true
+          files: |
+            dist/arduracer.cue
+            dist/arduracer.bin
+            dist/arduracer.iso
+            dist/arduracer.exe
+            dist/ArduracerPSX-vlatest-PSX.zip
+            dist/SHA256SUMS

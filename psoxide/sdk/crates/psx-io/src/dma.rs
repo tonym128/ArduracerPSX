@@ -78,9 +78,14 @@ pub const CHCR_TRIGGER: u32 = 1 << 28;
 // --- Register access helpers ----------------------------------------------
 
 /// Write `MADR` (memory address that DMA will source from or drain to).
+///
+/// The DMA controller addresses physical RAM only (bits 23..=0); it never
+/// sees the CPU-side `0x1000_0000` window. Windowed allocation addresses are
+/// folded back into the physical window here, so callers can pass either
+/// form.
 #[inline(always)]
 pub fn set_madr(ch: Channel, addr: u32) {
-    unsafe { crate::write32(ch.base() + MADR_OFF, addr) }
+    unsafe { crate::write32(ch.base() + MADR_OFF, addr & 0x00FF_FFFF) }
 }
 
 /// Read `MADR`.

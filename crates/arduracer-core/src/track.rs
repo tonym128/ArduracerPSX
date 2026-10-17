@@ -5,7 +5,7 @@
 //! checkpoint array, and the par times used for medal evaluation.
 //!
 //! Tile *surfaces* (rather than raw level-art indices) are baked by
-//! `tools/track_cook/convert_levels.py` so that collision, rendering, audio and
+//! `tools/track_cook/build_atlas.py` so that collision, rendering, audio and
 //! the AI all agree on what a tile means without duplicating lookup tables.
 
 use crate::ai::heading_towards;
@@ -13,49 +13,78 @@ use crate::math::{Fixed, Vec2};
 use crate::surface::SurfaceType;
 use crate::timing::{CheckpointGate, ParTimes};
 
+/// World units of drivable road one racing lane occupies.
+///
+/// A car body is 14 units wide (`contact::CAR_BODY_RADIUS`), so a lane is
+/// roughly four and a half car widths: one car with room to place it anywhere
+/// across the corridor without a wheel crossing the white line, which is what
+/// makes a *lane* rather than a groove. Two cells wide, so every legal road
+/// half-width is a whole number of cells and the collision grid can represent
+/// it exactly.
+///
+/// This is the unit the width floor, the AI's swerve budget and the starting
+/// grid are all expressed in, so a circuit can be authored as "one lane" or
+/// "two lanes" and every one of those readers agrees what that means.
+pub const LANE_WIDTH: i32 = 2 * TILE_SIZE;
+
+/// Half the width of the narrowest publishable road: one lane.
+///
+/// A road narrower than this is narrower than a single car can be placed in
+/// without a wheel hanging over the kerb, so it is a decoration, not a circuit.
+pub const MIN_ROAD_HALF_WIDTH: i32 = LANE_WIDTH / 2;
+
+/// Widest publishable road half-width, in world units.
+///
+/// Half the grid, less the outer barrier band, rounded down to a whole cell.
+/// A road wider than this cannot have its kerbs and barrier inside the grid, so
+/// the circuit runs off the edge of the map rather than being wide.
+pub const MAX_ROAD_HALF_WIDTH: i32 = (MAX_TRACK_DIM as i32 / 2 - 1) * TILE_SIZE;
+
 /// Maximum checkpoints per track.
 /// Checkpoint slots per circuit. Longer circuits need proportionally more split
 /// points so a straight is not one long blind gate.
 pub const MAX_TRACK_CHECKPOINTS: usize = 24;
-/// Largest circuit grid edge, in tiles.
+/// Maximum dimension of a track grid, in cells.
 ///
-/// Raised from 40 for the authored circuits, then to 128 when `TILE_SIZE` halved
-/// from 64 to 32: the circuits were authored against a 48x48 grid at 64 units (a
-/// 3,072-unit world) and the same world on a 96x96 grid at 32 units needs a
-/// ceiling above 64. `MAX_TILE_INDEX` follows, and stays inside the `u8` API.
-pub const MAX_TRACK_DIM: usize = 128;
-/// Largest tile index the `u8` tile API can represent.
+/// 96 rather than 64. Cells are half the world size they used to be (see
+/// [`TILE_SIZE`]), so this is the same 3,072-unit world at twice the resolution.
+/// `MAX_TILE_INDEX` follows.
+///
+/// The ceiling is RAM, not taste. A cell is one byte as a `TrackTile`, so 96x96
+/// costs 9,216 bytes a circuit -- 221 KB for all 24 resident, inside the
+/// ~347 KB the PSX build has free. The next step down, 192x192, is 884 KB and
+/// does not fit; see the note on [`TILE_SIZE`] for why 16-unit cells are the
+/// floor rather than the ceiling.
+pub const MAX_TRACK_DIM: usize = 240;
+/// Largest cell index the `u8` cell API can represent.
 ///
 /// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
 /// largest possible circuit is still addressable. `tile_at` rejects anything
 /// wider than the grid it belongs to and answers `Barrier`.
 pub const MAX_TILE_INDEX: u8 = (MAX_TRACK_DIM - 1) as u8;
-/// World-space size of a single track tile.
+/// World-space size of one surface cell.
 ///
-/// 32 world units, down from 64. The circuits were authored against a 48x48
-/// grid at 64 units (a 3,072-unit world); the same world on a 96x96 grid is the
-/// same track with twice the resolution, so the road edge is a staircase half as
-/// coarse and a wall face resolves to half the car's width instead of all of it.
+/// 32, halved from the 64 it was when a "tile" was also the thing the renderer
+/// drew a square for. The world is unchanged at 96 x 32 = 3,072 units a side;
+/// the cell just carries half as much area, so the collision surface is four
+/// times finer and the road edge is no longer a 64-unit staircase.
 ///
-/// The number that has to move with it is [`MAX_TRACK_DIM`], because a 96-cell
-/// grid does not fit a 64-cell ceiling.
+/// # Why this is 32 and not smaller
+///
+/// One world unit per cell -- true per-pixel physics -- is 3072 x 3072 cells.
+/// At four bits per code (the palette has exactly 16 entries) that is 4.7 MB
+/// for a *single* circuit. The machine has 2 MB of RAM, of which the build
+/// gate allows 999 KB and currently uses ~652 KB. It is not close: even one
+/// circuit at one byte per cell is 9.4 MB.
+///
+/// So the data is coarse and the *rendering* is per-pixel. That is the split
+/// `LEVEL-FORMAT.md` argues for, and the arithmetic above is why it is forced
+/// rather than merely tidy. The visual side has no such limit -- a texture in
+/// VRAM is sampled per screen pixel -- so appearance is fine-grained even where
+/// collision is not.
 pub const TILE_SIZE: i32 = 32;
 
-/// Integer square root (floor) of a `u64`. No floats: the core is `no_std`
-/// Q20.12 arithmetic only.
-fn isqrt_u64(n: u64) -> u64 {
-    if n < 2 {
-        return n;
-    }
-    // Newton's method seeded with a power-of-two upper bound.
-    let mut x = n;
-    let mut y = x.div_ceil(2);
-    while y < x {
-        x = y;
-        y = (x + n / x) / 2;
-    }
-    x
-}
+use crate::math::isqrt_u64;
 
 /// A single cell of a track's tile grid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -80,6 +109,30 @@ pub enum TrackTile {
 }
 
 impl TrackTile {
+    /// Decodes a grid byte read from the disc into a variant.
+    ///
+    /// The discriminants are consecutive from 0, so this is a bounds check and
+    /// a cast. It exists because the byte comes off a disc the cooker wrote, and
+    /// a bare `transmute` here would turn one bad byte into an invalid enum
+    /// discriminant -- undefined behaviour in everything downstream, including
+    /// the `match` in [`surface`](Self::surface). Anything unrecognised becomes
+    /// [`Barrier`](Self::Barrier), which is what `tile_at` already returns for
+    /// an out-of-bounds coordinate, so a corrupt grid fails visibly instead of
+    /// unpredictably.
+    pub const fn from_disc_byte(b: u8) -> Self {
+        match b {
+            0 => Self::Tarmac,
+            1 => Self::Curb,
+            2 => Self::OffRoad,
+            3 => Self::OilSlick,
+            4 => Self::BoostPad,
+            5 => Self::Barrier,
+            6 => Self::StartFinish,
+            7 => Self::Checkpoint,
+            _ => Self::Barrier,
+        }
+    }
+
     /// Physical surface type used by the vehicle dynamics and haptics.
     pub const fn surface(self) -> SurfaceType {
         match self {
@@ -131,19 +184,99 @@ pub struct TrackDef {
     /// Checkpoint gates in *driving* order (tours may be traversed either way).
     pub checkpoints: [CheckpointGate; MAX_TRACK_CHECKPOINTS],
     /// Row-major tile grid, `height * width` entries.
-    pub tiles: &'static [TrackTile],
+    ///
+    ///
+    /// `None` means the grid has not been loaded. That is the shipping state:
+    /// the grids live on the disc and are installed into a shared buffer at
+    /// level load, and this field is repointed at that buffer once (see
+    /// `game::level_grid`). Keeping it optional rather than always pointing
+    /// somewhere is what makes "not loaded" representable -- a stale grid from
+    /// the previously-loaded level is far worse than none.
+    ///
+    /// `Some` is what the host test tools use, and what a level looks like
+    /// before its data moves off the executable.
+    pub tiles: Option<&'static [TrackTile]>,
     /// Authored racing-line control points in world space, in order. The core
     /// builds [`Route`](crate::Route) from these rather than from the checkpoint
     /// gates, so the AI follows the centreline instead of a gate-to-gate chord.
     /// Empty means "derive a fallback from the gates" (test fixtures only).
     pub route: &'static [Vec2],
     /// Half-width of the drivable corridor in world units. Runoff beyond it is
-    /// open ground. Zero means "unknown", which the fallback treats as a whole
-    /// tile wide.
+    /// open ground. Zero means "unknown", which [`Self::road_half_width`] treats
+    /// as a single lane -- see that method for why the floor exists.
     pub half_width: u16,
 }
 
+/// How wide the car is, in world units, for anything that has to fit a car
+/// across a corridor.
+///
+/// Half the drawn body plus a margin: the drawn body is 14 units wide and the
+/// wheels reach 18, and a rival that puts its aim point within half a body of
+/// the road edge is aiming at the kerb rather than at the racing line.
+pub const CAR_HALF_WIDTH: i32 = 9;
+
 impl TrackDef {
+    /// Half-width of the drivable corridor in world units, with a floor.
+    ///
+    /// [`TrackDef::half_width`] is authored data and nothing constructs a
+    /// `TrackDef`, so it can be zero -- hand-written test fixtures set it that
+    /// way, and a cooker that forgot the field would emit zero for a real
+    /// circuit. Zero used to mean "as wide as a whole tile" in the field's own
+    /// doc comment while no such fallback existed anywhere, so every reader
+    /// quietly invented its own behaviour for the same circuit. This is the one
+    /// reader, and it reads a zero as the narrowest legal road.
+    ///
+    /// The floor is [`MIN_ROAD_HALF_WIDTH`], one lane. Reading the field as a
+    /// floor rather than a value is what lets a circuit be one or two lanes
+    /// wide: a caller asks how much room there is, and a narrow circuit answers
+    /// "less", instead of every caller assuming the width of the old wide roads.
+    #[inline]
+    pub fn road_half_width(&self) -> i32 {
+        let authored = self.half_width as i32;
+        if authored < MIN_ROAD_HALF_WIDTH {
+            MIN_ROAD_HALF_WIDTH
+        } else {
+            authored
+        }
+    }
+
+    /// How many lanes wide the corridor is, rounded down.
+    ///
+    /// The whole design vocabulary is lanes: `lane_count() == 1` is a single
+    /// file technical circuit, `2` leaves room to pass. Fractional lanes are
+    /// floored because a road cannot be *partly* a lane -- a car either fits
+    /// across the corridor or it does not.
+    #[inline]
+    pub fn lane_count(&self) -> u8 {
+        let lanes = self.road_half_width() * 2 / LANE_WIDTH;
+        if lanes < 1 {
+            1
+        } else {
+            lanes.min(u8::MAX as i32) as u8
+        }
+    }
+
+    /// How far off the centreline a car may be placed and still be fully on the
+    /// racing surface, in world units.
+    ///
+    /// This is the budget every lateral move in the game is clamped to: the
+    /// AI's swerve, the starting grid's stagger. Clamping to it rather than to
+    /// [`Self::road_half_width`] is the difference between a rival dodging into
+    /// the kerb and a rival dodging down the road.
+    ///
+    /// Floors at zero, so a corridor too narrow to hold a car reports "there is
+    /// no room" rather than a negative budget that callers would have to
+    /// special-case.
+    #[inline]
+    pub fn lateral_room(&self) -> i32 {
+        let room = self.road_half_width() - CAR_HALF_WIDTH;
+        if room < 0 {
+            0
+        } else {
+            room
+        }
+    }
+
     /// Whether the grid dimensions fit inside the `u8` tile API and the
     /// [`MAX_TRACK_DIM`] ceiling. Never enforced by the accessors (they stay
     /// total either way) but it is what every cooker and level integrity check
@@ -154,6 +287,31 @@ impl TrackDef {
             && self.height >= 1
             && (self.width as usize) <= MAX_TRACK_DIM
             && (self.height as usize) <= MAX_TRACK_DIM
+    }
+
+    /// Whether the authored road half-width is one the engine can represent.
+    ///
+    /// Three checks, all of which have been violated by authoring rather than by
+    /// a code defect, and none of which the compiler can catch: `half_width` is
+    /// a world-unit count, so a fractional cell width compiles to a road a
+    /// fraction of a cell narrower than the one that was rasterised; a width
+    /// under [`MIN_ROAD_HALF_WIDTH`] is narrower than a car can sit in; and one
+    /// over [`MAX_ROAD_HALF_WIDTH`] has its kerbs off the edge of the grid.
+    ///
+    /// Zero is *not* an error here. It is the documented "unknown" value that
+    /// [`Self::road_half_width`] floors, and the hand-written test fixtures set
+    /// it. Use [`Self::road_width_is_legal`] to decide whether a *cooked* circuit
+    /// is publishable.
+    #[inline]
+    pub fn road_width_is_legal(&self) -> bool {
+        self.half_width == 0 || self.half_width_is_legal()
+    }
+
+    /// See [`Self::road_width_is_legal`], for a width that is known to be set.
+    #[inline]
+    pub fn half_width_is_legal(&self) -> bool {
+        let hw = self.half_width as i32;
+        hw % TILE_SIZE == 0 && (MIN_ROAD_HALF_WIDTH..=MAX_ROAD_HALF_WIDTH).contains(&hw)
     }
 
     /// Total world-space width of the circuit in world units.
@@ -218,14 +376,37 @@ impl TrackDef {
         0
     }
 
-    /// Returns the raw tile at a grid coordinate, or `Barrier` when out of bounds.
+    /// The loaded grid, or an empty slice when none is installed.
+    ///
+    /// Empty rather than a fallback fill: every reader already treats a missing
+    /// cell as [`Barrier`](TrackTile::Barrier), so an unloaded level reads as
+    /// solid wall everywhere instead of as plausible terrain.
+    #[inline]
+    pub fn tile_grid(&self) -> &'static [TrackTile] {
+        // Host tools read the same `LEVELS.BIN` the console does, installed
+        // once on first use. Without this every one of them sees an empty grid
+        // -- solid wall everywhere -- and fails for the wrong reason: `playtest`
+        // reports zero completed laps on all 24 circuits.
+        #[cfg(not(target_arch = "mips"))]
+        crate::host_grids::ensure_installed();
+        self.tiles.unwrap_or(&[])
+    }
+
+    /// Bytes a grid of this level's dimensions occupies on the disc.
+    #[inline]
+    pub fn grid_bytes(&self) -> usize {
+        self.width as usize * self.height as usize
+    }
+
+    /// Returns the raw tile at a grid coordinate, or `Barrier` when out of bounds
+    /// or when no grid is loaded.
     #[inline]
     pub fn tile_at(&self, tx: u8, ty: u8) -> TrackTile {
         if tx >= self.width || ty >= self.height {
             return TrackTile::Barrier;
         }
         let idx = (ty as usize) * (self.width as usize) + (tx as usize);
-        match self.tiles.get(idx) {
+        match self.tile_grid().get(idx) {
             Some(&t) => t,
             None => TrackTile::Barrier,
         }
@@ -509,7 +690,7 @@ mod tests {
             par_times: ParTimes::default(),
             checkpoint_count,
             checkpoints: gates,
-            tiles: &TILES,
+            tiles: Some(&TILES),
             // No authored centreline: exercises the gate-derived fallback.
             route: &[],
             half_width: 0,
@@ -614,10 +795,9 @@ mod tests {
         let one_past = (MAX_TRACK_DIM as i32 + 1) * TILE_SIZE;
         for (units, wrapped_before) in [
             (one_past, 0), // one past the ceiling
-            (4_096, 64),   // 64 tiles
-            (8_191, 127),  // 127 tiles
-            (16_383, 255), // 255 tiles -- one below the wrap
-            (16_384, 0),   // 256 tiles -> wrapped to 0
+            (8_191, 127),  // 255 tiles
+            (16_383, 255), // 511 tiles -- one below the wrap
+            (16_384, 0),   // 512 tiles -> wrapped to 0
             (100_000, 26), // 1562 tiles -> wrapped
             (524_287, 31), // 8191 tiles, the largest world
         ] {
@@ -655,12 +835,13 @@ mod tests {
 
     #[test]
     fn tile_index_handles_negatives_and_zero() {
-        for units in [i32::MIN, -100_000, -64, -1, 0] {
+        for units in [i32::MIN, -100_000, -32, -1, 0] {
             assert_eq!(TrackDef::tile_x_of(Fixed::from_int(units)), 0, "{units}");
             assert_eq!(TrackDef::tile_y_of(Fixed::from_int(units)), 0, "{units}");
         }
-        // The last unit of a cell and the first of the next, at whatever
-        // `TILE_SIZE` currently is.
+        // Boundary is `TILE_SIZE`, not a literal: this test asserted 63/64 when a
+        // cell was 64 units, and would have passed a cell size that was silently
+        // wrong by being written against the old constant's value.
         assert_eq!(TrackDef::tile_x_of(Fixed::from_int(TILE_SIZE - 1)), 0);
         assert_eq!(TrackDef::tile_x_of(Fixed::from_int(TILE_SIZE)), 1);
     }
@@ -694,6 +875,153 @@ mod tests {
             assert!(track.max_inside_x() < track.world_width());
             assert!(track.max_inside_y() < track.world_height());
             assert!(track.max_inside_x() >= 0);
+        }
+    }
+
+    // --- road width, in lanes ------------------------------------------------
+
+    #[test]
+    fn a_lane_is_a_whole_number_of_cells() {
+        // Everything downstream -- the collision grid, the cooker, the editor --
+        // quantises the road to cells, so a lane that is not a whole number of
+        // cells would be a half-cell road that no two of them agree on.
+        assert_eq!(LANE_WIDTH % TILE_SIZE, 0);
+        assert_eq!(MIN_ROAD_HALF_WIDTH % TILE_SIZE, 0);
+        assert_eq!(MIN_ROAD_HALF_WIDTH * 2, LANE_WIDTH);
+    }
+
+    #[test]
+    fn road_half_width_floors_at_one_lane() {
+        // Zero is the "unknown" value the field documents, and every reader has
+        // to agree on what it means. It means the narrowest legal road.
+        for zero in [0u16, 1, 16, (MIN_ROAD_HALF_WIDTH - 1) as u16] {
+            let mut track = scratch_track(4);
+            track.half_width = zero;
+            assert_eq!(
+                track.road_half_width(),
+                MIN_ROAD_HALF_WIDTH,
+                "half_width {zero}"
+            );
+        }
+        // ...and a real width is passed through untouched, one lane and up to 10 lanes.
+        for lanes in 1..=10u8 {
+            let mut track = scratch_track(4);
+            track.half_width = (LANE_WIDTH * lanes as i32 / 2) as u16;
+            assert_eq!(track.road_half_width(), LANE_WIDTH * lanes as i32 / 2);
+            assert_eq!(track.lane_count(), lanes);
+        }
+    }
+
+    #[test]
+    fn lane_count_is_never_below_one() {
+        for zero in [0u16, 8, (MIN_ROAD_HALF_WIDTH - 1) as u16] {
+            let mut track = scratch_track(4);
+            track.half_width = zero;
+            assert_eq!(track.lane_count(), 1, "half_width {zero}");
+        }
+    }
+
+    #[test]
+    fn lateral_room_leaves_the_car_on_the_road() {
+        // The point of the accessor: whatever the road is, a swerve clamped to
+        // this budget leaves the car on the racing surface.
+        for lanes in 1..=10u8 {
+            let mut track = scratch_track(4);
+            let half = LANE_WIDTH * lanes as i32 / 2;
+            track.half_width = half as u16;
+            let room = track.lateral_room();
+            assert_eq!(room, half - CAR_HALF_WIDTH, "{lanes} lanes");
+            assert!(
+                room + CAR_HALF_WIDTH <= half,
+                "{lanes} lanes: the car overhangs the road"
+            );
+            // A one-lane road is the tight case and must still be positive.
+            assert!(room > 0, "{lanes} lanes has no room to manoeuvre");
+        }
+    }
+
+    #[test]
+    fn lateral_room_never_goes_negative() {
+        // A road narrower than a car is a room of zero, not a negative budget
+        // every caller would have to special-case.
+        let mut track = scratch_track(4);
+        track.half_width = (CAR_HALF_WIDTH as u16) / 2;
+        assert_eq!(track.road_half_width(), MIN_ROAD_HALF_WIDTH);
+        assert!(track.lateral_room() >= 0);
+    }
+
+    #[test]
+    fn half_width_legality_rejects_what_the_cooker_cannot_represent() {
+        let mut track = scratch_track(4);
+        // Whole cells only: widths 1 through 10 (lanes) and up to MAX_ROAD_HALF_WIDTH.
+        for lanes in 1..=10u8 {
+            let good = (LANE_WIDTH * lanes as i32 / 2) as u16;
+            track.half_width = good;
+            assert!(
+                track.half_width_is_legal(),
+                "{good} (lane {lanes}) should be legal"
+            );
+            assert!(track.road_width_is_legal());
+        }
+        for good in [
+            MIN_ROAD_HALF_WIDTH as u16,
+            (LANE_WIDTH * 3 / 2) as u16,
+            MAX_ROAD_HALF_WIDTH as u16,
+        ] {
+            track.half_width = good;
+            assert!(track.half_width_is_legal(), "{good} should be legal");
+            assert!(track.road_width_is_legal());
+        }
+        for bad in [
+            1u16,                                     // sub-cell
+            (MIN_ROAD_HALF_WIDTH + 1) as u16,         // sub-cell, just above the floor
+            (MIN_ROAD_HALF_WIDTH - 1) as u16,         // narrower than one lane
+            (MAX_ROAD_HALF_WIDTH + TILE_SIZE) as u16, // wider than the grid
+            u16::MAX,
+        ] {
+            track.half_width = bad;
+            assert!(!track.half_width_is_legal(), "{bad} should be rejected");
+            // ...but zero stays acceptable through the unknown-value door.
+            assert_eq!(track.road_width_is_legal(), bad == 0);
+        }
+    }
+
+    #[test]
+    fn every_shipped_track_is_a_legal_road_width() {
+        for track in ALL_TRACKS.iter() {
+            assert!(
+                track.road_width_is_legal(),
+                "{}: half_width {} is not a whole-cell width in [{}, {}]",
+                track.name,
+                track.half_width,
+                MIN_ROAD_HALF_WIDTH,
+                MAX_ROAD_HALF_WIDTH,
+            );
+            assert!(
+                track.lane_count() >= 1,
+                "{}: reports {} lanes",
+                track.name,
+                track.lane_count()
+            );
+            assert!(
+                track.lateral_room() > 0,
+                "{}: no room to manoeuvre",
+                track.name
+            );
+        }
+    }
+
+    #[test]
+    fn every_shipped_track_is_at_least_as_wide_as_one_lane() {
+        // The one bound that has to hold for every published circuit, whatever
+        // its design intent: you cannot sell a circuit a car cannot drive.
+        for track in ALL_TRACKS.iter() {
+            assert!(
+                track.half_width >= MIN_ROAD_HALF_WIDTH as u16,
+                "{}: {} lanes is below the one-lane floor",
+                track.name,
+                track.road_half_width() / LANE_WIDTH * 2,
+            );
         }
     }
 
@@ -738,14 +1066,65 @@ mod tests {
                 }
             }
         }
-        // Boost pads and oil slicks are drivable but are not `is_road`, which is
-        // why navigation needs this predicate at all.
+    }
+
+    #[test]
+    fn disc_bytes_round_trip_through_every_variant() {
+        // The cooker writes the discriminant straight into the asset, so this
+        // mapping is a wire format between the disc and the engine. If a
+        // variant is ever renumbered without updating this, a loaded grid
+        // silently turns into different terrain.
+        let all = [
+            TrackTile::Tarmac,
+            TrackTile::Curb,
+            TrackTile::OffRoad,
+            TrackTile::OilSlick,
+            TrackTile::BoostPad,
+            TrackTile::Barrier,
+            TrackTile::StartFinish,
+            TrackTile::Checkpoint,
+        ];
+        for tile in all {
+            assert_eq!(TrackTile::from_disc_byte(tile as u8), tile, "{tile:?}");
+        }
+        // Discriminants are consecutive from 0, which is what makes the decode
+        // a bounds check rather than a lookup.
+        assert_eq!(all.len(), 8);
+    }
+
+    #[test]
+    fn an_unmapped_disc_byte_becomes_barrier_not_an_invalid_variant() {
+        // A corrupt or truncated asset must fail as solid wall. Reading it as a
+        // raw discriminant instead would be undefined behaviour in every
+        // `match` downstream.
+        for byte in [8u8, 9, 200, 255] {
+            assert_eq!(TrackTile::from_disc_byte(byte), TrackTile::Barrier);
+        }
+    }
+
+    #[test]
+    fn an_unloaded_grid_reads_as_barrier_everywhere() {
+        // `tiles: None` is the shipping state between loads. It must not read
+        // as the previous level's terrain, and must not panic.
+        let mut t = scratch_track(4);
+        t.tiles = None;
+        assert_eq!(t.tile_grid().len(), 0);
+        assert_eq!(t.tile_at(0, 0), TrackTile::Barrier);
+        assert_eq!(t.tile_at(2, 3), TrackTile::Barrier);
+        // Out of bounds is unchanged by any of this.
+        assert_eq!(t.tile_at(9, 9), TrackTile::Barrier);
+    }
+
+    // Boost pads and oil slicks are drivable but are not `is_road`, which is
+    // why navigation needs this predicate at all.
+    #[test]
+    fn boost_and_oil_tiles_are_line_tiles_but_not_road() {
         let mut pad = scratch_track(4);
-        pad.tiles = Box::leak(Box::new([TrackTile::BoostPad; 100]));
+        pad.tiles = Some(Box::leak(Box::new([TrackTile::BoostPad; 100])));
         assert!(!pad.is_road_at(0, 0));
         assert!(pad.is_line_tile(0, 0));
         let mut slick = scratch_track(4);
-        slick.tiles = Box::leak(Box::new([TrackTile::OilSlick; 100]));
+        slick.tiles = Some(Box::leak(Box::new([TrackTile::OilSlick; 100])));
         assert!(!slick.is_road_at(0, 0));
         assert!(slick.is_line_tile(0, 0));
     }

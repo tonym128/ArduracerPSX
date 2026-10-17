@@ -376,6 +376,12 @@ def main():
 
     adpcm_out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(repo_root, "assets", "INTRO.ADPCM")
 
+    force = "--force" in sys.argv
+    if not force and os.path.exists(str_out) and os.path.getsize(str_out) >= 200000:
+        print(f"INTRO.STR cached -> {str_out} ({os.path.getsize(str_out)} bytes)")
+        ensure_dummy_adpcm(adpcm_out)
+        return
+
     success = False
     if mp4_in and os.path.exists(mp4_in):
         success = cook_mp4(mp4_in, str_out, adpcm_out)

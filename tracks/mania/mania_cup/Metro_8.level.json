@@ -1,0 +1,51 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Metro 8",
+ "stem": "Metro_8",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.14285714285714285
+  },
+  {
+   "kind": "gate",
+   "frac": 0.2857142857142857
+  },
+  {
+   "kind": "gate",
+   "frac": 0.42857142857142855
+  },
+  {
+   "kind": "gate",
+   "frac": 0.5714285714285714
+  },
+  {
+   "kind": "gate",
+   "frac": 0.7142857142857143
+  },
+  {
+   "kind": "gate",
+   "frac": 0.8571428571428571
+  },
+  {
+   "kind": "boost",
+   "frac": 0.07142857142857142
+  },
+  {
+   "kind": "boost",
+   "frac": 0.5
+  },
+  {
+   "kind": "oil",
+   "frac": 0.39285714285714285
+  }
+ ]
+}

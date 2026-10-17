@@ -52,13 +52,11 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
-      - name: Install media tools
-        # ffmpeg for tools/audio_cook/wav2vag.py. No MIPS binutils: the build
-        # goes through cargo/rust-lld and the RAM gate reads the link map, so
-        # nothing here shells out to objdump/nm/readelf.
+      - name: Install media and cooking tools
+        # ffmpeg for wav2vag.py; python3-numpy and python3-pil for track atlas / city asset cookers.
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg zip
+          sudo apt-get install -y ffmpeg zip python3-numpy python3-pil
 
       - name: Show toolchain
         run: rustup show

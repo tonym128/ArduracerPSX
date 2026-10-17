@@ -21,10 +21,14 @@
 //! | 0      | 16   | `magic` |
 //! | 16     | 2    | `version` |
 //! | 18     | 6    | progress flags and preferences |
-//! | 24     | 96   | `best_lap_ticks` (24 × `u32`) |
-//! | 120    | 24   | `medals_earned` |
-//! | 144    | 15   | `tuning_slots` (3 × 5 sliders) |
-//! | 159    | 2    | `checksum` (CRC over bytes 0..159) |
+//! | 24     | 100  | `best_lap_ticks` (25 × `u32`) |
+//! | 124    | 25   | `medals_earned` |
+//! | 149    | 15   | `tuning_slots` (3 × 5 sliders) |
+//! | 164    | 12   | `champ_points` (6 × `u16`) |
+//! | 176    | 6    | `champ_grid` (6 × `u8`) |
+//! | 182    | 2    | `texture_format`, `framerate` |
+//! | 184    | 1    | `cd_audio` |
+//! | 185    | 2    | `checksum` (CRC over bytes 0..185) |
 //!
 //! # A valid checksum is not a valid save
 //!
@@ -38,12 +42,29 @@
 //! therefore sanitises every field after the checksum passes -- see
 //! [`SaveData::sanitised`].
 
+use crate::championship::{
+    ChampionshipSession, Difficulty, COMPETITORS_PER_SESSION, POINTS_TABLE, STAGES_PER_CUP,
+};
 use crate::timing::{Medal, MIN_PLAUSIBLE_LAP_TICKS, NO_BEST_LAP};
 use crate::tuning::CarTuning;
 
-pub const TOTAL_TRACKS: usize = 24;
+pub const TOTAL_TRACKS: usize = 64;
 pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
-pub const SAVE_VERSION: u16 = 1;
+/// Payload version.
+///
+/// Bumped whenever the payload grows ahead of the CRC, because an older payload
+/// would then be read with the checksum sitting at a different offset -- worse
+/// than rejecting it. Rejecting it cleanly reports `FreshProfile`.
+///
+/// - v2 added the graphics preferences (2 bytes).
+/// - v3 added the championship block (18 bytes): points and grid were being
+///   rebuilt from scratch on resume, so a restored Grand Prix lost all scoring.
+/// - v4 added the CD-audio preference (1 byte). The byte could not be stolen
+///   from anywhere else in the payload: every other slot is either a live
+///   preference or the packed championship progression in `_reserved0`.
+/// - v5 expanded to 25 tracks for Map 25 (Titan Circuit, 4096x4096).
+/// - v6 expanded to 64 tracks and dynamic cup & mode championship state.
+pub const SAVE_VERSION: u16 = 6;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -59,14 +80,73 @@ pub const MAX_VOLUME: u8 = 8;
 
 /// On-card payload length: every field is written explicitly, so this is the
 /// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 161;
+pub const PAYLOAD_SIZE: usize = 388;
 
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 159;
+pub const CHECKSUM_OFFSET: usize = 386;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
-const OFF_BEST_LAPS: usize = 24;
+const OFF_BEST_LAPS: usize = 30;
+
+/// Which disc-audio source the player has chosen.
+///
+/// The three are not interchangeable, and the difference is the drive.
+///
+/// A PS1 CD-ROM has one laser and one head. Redbook CD-DA at 44.1 kHz stereo
+/// is 75.2 sectors per second -- the *whole* drive, every second, for as long as
+/// it plays -- so a texture read has to pause the music, seek, read, and seek
+/// back. That is the audible stutter this field originally existed to switch off.
+///
+/// XA-ADPCM was made for exactly this situation. It is read at 2x and holds 504
+/// stereo frames per sector against CD-DA's 588, so per unit of drive time it
+/// delivers 75,600 frames/s where CD-DA delivers 44,100 -- about 58% of the
+/// cost, and interruptible by design, since interleaved CD-ROM playback was the
+/// entire point of the format.
+///
+/// It is still not free: 58% of a 44.1 kHz stream plus the texture streamer
+/// exceeds the drive on the 15bpp format, so XA is offered where it fits.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum CdAudioMode {
+    /// No disc audio. Music off, SFX and engine unaffected.
+    Off,
+    /// Redbook CD-DA, streamed by the drive into the SPU's CD input.
+    ///
+    /// The default, and what a legacy card with a non-zero byte decodes to.
+    #[default]
+    Cdda,
+    /// CD-XA ADPCM, decoded by the CPU and fed to the same SPU CD input.
+    Xa,
+}
+
+impl CdAudioMode {
+    /// Highest mode, for bounds checks.
+    pub const MAX: CdAudioMode = CdAudioMode::Xa;
+
+    pub const fn as_u8(self) -> u8 {
+        match self {
+            CdAudioMode::Off => 0,
+            CdAudioMode::Cdda => 1,
+            CdAudioMode::Xa => 2,
+        }
+    }
+
+    /// Reads a stored byte. Anything unrecognised becomes CD-DA when it was
+    /// non-zero, and Off when it was zero -- so the pre-XA flag encoding is
+    /// exactly right for every byte the old format could hold.
+    pub const fn from_saved(v: u8) -> CdAudioMode {
+        match v {
+            0 => CdAudioMode::Off,
+            2 => CdAudioMode::Xa,
+            _ => CdAudioMode::Cdda,
+        }
+    }
+
+    /// Whether the music field should read as "on".
+    pub const fn enabled(self) -> bool {
+        !matches!(self, CdAudioMode::Off)
+    }
+}
 
 /// 1-block PSX Save Data struct.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -78,10 +158,25 @@ pub struct SaveData {
     pub music_volume: u8,
     pub rumble_enabled: u8,
     pub active_tuning_slot: u8,
-    pub _reserved0: u8,
+    pub champ_active: u8,
+    pub champ_cup: u8,
+    pub champ_stage: u8,
+    pub champ_difficulty: u8,
+    pub _reserved: [u8; 3],
     pub best_lap_ticks: [u32; TOTAL_TRACKS],
     pub medals_earned: [u8; TOTAL_TRACKS],
     pub tuning_slots: [CarTuning; TOTAL_TUNING_SLOTS],
+    /// Championship standings after the completed stages of the current cup.
+    pub champ_points: [u16; COMPETITORS_PER_SESSION],
+    /// Grid order for the next stage, as competitor indices.
+    pub champ_grid: [u8; COMPETITORS_PER_SESSION],
+    /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG,
+    /// 4 = TIM, 5 = TIM4, 6 = TIM8.
+    pub texture_format: u8,
+    /// Selected framerate: 0 = 60 FPS, 1 = 30 FPS.
+    pub framerate: u8,
+    /// Which disc-audio source is permitted. See [`CdAudioMode`].
+    pub cd_audio: u8,
     pub checksum: u16,
 }
 
@@ -95,10 +190,19 @@ impl Default for SaveData {
             music_volume: 7,
             rumble_enabled: 1,
             active_tuning_slot: 0,
-            _reserved0: 0,
+            champ_active: 0,
+            champ_cup: 0,
+            champ_stage: 0,
+            champ_difficulty: 0,
+            _reserved: [0; 3],
             best_lap_ticks: [NO_BEST_LAP; TOTAL_TRACKS],
             medals_earned: [0; TOTAL_TRACKS],
             tuning_slots: [CarTuning::default(); TOTAL_TUNING_SLOTS],
+            champ_points: [0; COMPETITORS_PER_SESSION],
+            champ_grid: [0; COMPETITORS_PER_SESSION],
+            texture_format: 0,
+            framerate: 0,
+            cd_audio: CdAudioMode::default().as_u8(),
             checksum: 0,
         };
         save.checksum = save.compute_checksum();
@@ -107,11 +211,12 @@ impl Default for SaveData {
 }
 
 impl SaveData {
+    /// The decoded disc-audio mode, rather than the raw stored byte.
+    pub const fn cd_audio_mode(&self) -> CdAudioMode {
+        CdAudioMode::from_saved(self.cd_audio)
+    }
+
     /// Serialises every field into `out` in the documented byte order.
-    ///
-    /// `out` must be at least [`PAYLOAD_SIZE`] bytes. Bounds-checked indexing
-    /// only: no unchecked slices, so a short buffer panics loudly in a host
-    /// test rather than corrupting memory on hardware.
     pub fn write_payload(&self, out: &mut [u8]) {
         let mut o = 0;
         out[o..o + 16].copy_from_slice(&self.magic);
@@ -123,8 +228,12 @@ impl SaveData {
         out[o + 2] = self.music_volume;
         out[o + 3] = self.rumble_enabled;
         out[o + 4] = self.active_tuning_slot;
-        out[o + 5] = self._reserved0;
-        o += 6;
+        out[o + 5] = self.champ_active;
+        out[o + 6] = self.champ_cup;
+        out[o + 7] = self.champ_stage;
+        out[o + 8] = self.champ_difficulty;
+        out[o + 9..o + 12].copy_from_slice(&self._reserved);
+        o += 12;
         for ticks in self.best_lap_ticks.iter() {
             out[o..o + 4].copy_from_slice(&ticks.to_le_bytes());
             o += 4;
@@ -139,8 +248,18 @@ impl SaveData {
             out[o + 4] = slot.gearing;
             o += 5;
         }
-        // The field offsets are part of the on-card format; a field added to
-        // the struct without a matching payload slot must not ship silently.
+        for pts in self.champ_points.iter() {
+            out[o..o + 2].copy_from_slice(&pts.to_le_bytes());
+            o += 2;
+        }
+        out[o..o + COMPETITORS_PER_SESSION].copy_from_slice(&self.champ_grid);
+        o += COMPETITORS_PER_SESSION;
+        out[o] = self.texture_format;
+        out[o + 1] = self.framerate;
+        o += 2;
+        out[o] = self.cd_audio;
+        o += 1;
+
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         out[o..o + 2].copy_from_slice(&self.checksum.to_le_bytes());
         o += 2;
@@ -148,14 +267,6 @@ impl SaveData {
     }
 
     /// Reads a payload back, validating magic, version, and the CRC.
-    ///
-    /// Returns `None` for a short buffer or any failed check, so a truncated
-    /// or corrupted save can never be mistaken for real progress.
-    ///
-    /// A checksum only proves the bytes survived the trip, so everything the
-    /// CRC accepted is then put through [`SaveData::sanitised`]: no value that
-    /// arrives from the card may index out of bounds, brick progression, or
-    /// produce a car no tuning menu could build.
     pub fn read_payload(bytes: &[u8]) -> Option<Self> {
         if bytes.len() < PAYLOAD_SIZE {
             return None;
@@ -171,8 +282,13 @@ impl SaveData {
         let music_volume = bytes[o + 2];
         let rumble_enabled = bytes[o + 3];
         let active_tuning_slot = bytes[o + 4];
-        let reserved = bytes[o + 5];
-        o += 6;
+        let champ_active = bytes[o + 5];
+        let champ_cup = bytes[o + 6];
+        let champ_stage = bytes[o + 7];
+        let champ_difficulty = bytes[o + 8];
+        let mut reserved = [0u8; 3];
+        reserved.copy_from_slice(&bytes[o + 9..o + 12]);
+        o += 12;
 
         debug_assert_eq!(o, OFF_BEST_LAPS);
         let mut best_lap_ticks = [0u32; TOTAL_TRACKS];
@@ -196,6 +312,21 @@ impl SaveData {
             o += 5;
         }
 
+        let mut champ_points = [0u16; COMPETITORS_PER_SESSION];
+        for pts in champ_points.iter_mut() {
+            *pts = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
+            o += 2;
+        }
+        let mut champ_grid = [0u8; COMPETITORS_PER_SESSION];
+        champ_grid.copy_from_slice(&bytes[o..o + COMPETITORS_PER_SESSION]);
+        o += COMPETITORS_PER_SESSION;
+
+        let texture_format = bytes[o];
+        let framerate = bytes[o + 1];
+        o += 2;
+        let cd_audio = bytes[o];
+        o += 1;
+
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         let checksum = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
         o += 2;
@@ -209,7 +340,16 @@ impl SaveData {
             music_volume,
             rumble_enabled,
             active_tuning_slot,
-            _reserved0: reserved,
+            champ_active,
+            champ_cup,
+            champ_stage,
+            champ_difficulty,
+            _reserved: reserved,
+            champ_points,
+            champ_grid,
+            texture_format,
+            framerate,
+            cd_audio,
             best_lap_ticks,
             medals_earned,
             tuning_slots,
@@ -225,41 +365,40 @@ impl SaveData {
     }
 
     /// Clamps every field into the domain the game can actually use.
-    ///
-    /// Clamping rather than rejecting, because most of what goes wrong on a card
-    /// is one byte in one field and the other 160 bytes are a player's real
-    /// progress; throwing the lot away would lose a championship for a bad
-    /// volume. Each field is handled according to what a wrong value would cost:
-    ///
-    /// * `active_tuning_slot` -> last slot. Read as `tuning_slots[..3]`, so 255
-    ///   is an out-of-bounds index, not a preference.
-    /// * `max_unlocked_level` -> `1 ..= 24`. Zero is a brick: progression can
-    ///   only ever be raised by finishing a race, and with nothing unlocked there
-    ///   is no race to finish.
-    /// * `sound_volume` / `music_volume` -> `0 ..= MAX_VOLUME`.
-    /// * `rumble_enabled` -> 0 or 1 (it is a flag).
-    /// * `_reserved0` -> 0.
-    /// * `medals_earned` -> `0 ..= MAX_MEDAL`; a medal above Dev Platinum is not
-    ///   a display state, so it would index past the medal table.
-    /// * `best_lap_ticks` -> the `NO_BEST_LAP` sentinel or a plausible time. A
-    ///   stored 0, 1 or 2 ticks is the cheat the timer now refuses to produce,
-    ///   and there is no honest way it got onto the card, so it becomes "no lap"
-    ///   (together with any medal claimed for it).
-    /// * `tuning_slots` -> sliders inside `MIN_SLIDER ..= MAX_SLIDER`, and a slot
-    ///   that still violates the 20-point budget falls back to the default. A
-    ///   top_speed of 200 would otherwise scale the car to ~70 u/tick, ~20x the
-    ///   arcade top speed.
-    ///
-    /// The checksum is recomputed afterwards so the returned save is internally
-    /// consistent and the next write persists the repaired values. A save that
-    /// needed no repair is returned untouched, checksum included.
     pub fn sanitised(mut self) -> Self {
         self.active_tuning_slot = self.active_tuning_slot.min((TOTAL_TUNING_SLOTS - 1) as u8);
         self.max_unlocked_level = self.max_unlocked_level.clamp(1, TOTAL_TRACKS as u8);
         self.sound_volume = self.sound_volume.min(MAX_VOLUME);
         self.music_volume = self.music_volume.min(MAX_VOLUME);
         self.rumble_enabled = u8::from(self.rumble_enabled != 0);
-        self._reserved0 = 0;
+        let max_points = POINTS_TABLE[0] as u16 * STAGES_PER_CUP as u16;
+        for pts in self.champ_points.iter_mut() {
+            *pts = (*pts).min(max_points);
+        }
+        for slot in self.champ_grid.iter_mut() {
+            *slot = (*slot).min((COMPETITORS_PER_SESSION - 1) as u8);
+        }
+        if self.texture_format > 6 {
+            self.texture_format = 0;
+        }
+        self.framerate = u8::from(self.framerate != 0);
+        self.cd_audio = CdAudioMode::from_saved(self.cd_audio).as_u8();
+        if self.champ_active != 0 {
+            self.champ_active = 1;
+            if (self.champ_cup as usize) >= crate::levels::ALL_CUPS.len() {
+                self.champ_active = 0;
+            } else {
+                let max_stg = crate::levels::ALL_CUPS[self.champ_cup as usize].total_stages();
+                if (self.champ_stage as usize) >= max_stg || self.champ_difficulty > 2 {
+                    self.champ_active = 0;
+                }
+            }
+        }
+        if self.champ_active == 0 {
+            self.champ_cup = 0;
+            self.champ_stage = 0;
+            self.champ_difficulty = 0;
+        }
 
         for i in 0..TOTAL_TRACKS {
             self.medals_earned[i] = self.medals_earned[i].min(MAX_MEDAL);
@@ -291,6 +430,15 @@ impl SaveData {
             && self.sound_volume <= MAX_VOLUME
             && self.music_volume <= MAX_VOLUME
             && self.rumble_enabled <= 1
+            && self.framerate <= 1
+            && self.cd_audio <= CdAudioMode::MAX.as_u8()
+            && self.texture_format <= 6
+            && (self.champ_active <= 1)
+            && (self.champ_active == 0
+                || ((self.champ_cup as usize) < crate::levels::ALL_CUPS.len()
+                    && (self.champ_stage as usize)
+                        < crate::levels::ALL_CUPS[self.champ_cup as usize].total_stages()
+                    && self.champ_difficulty <= 2))
             && self.medals_earned.iter().all(|&m| m <= MAX_MEDAL)
             && self
                 .best_lap_ticks
@@ -360,6 +508,71 @@ impl SaveData {
     /// Fields outside their legal range are clamped; see [`SaveData::sanitised`].
     pub fn from_block_bytes(slice: &[u8]) -> Option<Self> {
         Self::read_payload(slice)
+    }
+
+    /// Returns true if an active championship session is saved on the card.
+    pub fn has_saved_championship(&self) -> bool {
+        self.champ_active != 0
+    }
+
+    /// Loads the in-progress championship session if present and valid.
+    pub fn load_championship(&self) -> Option<ChampionshipSession> {
+        if !self.has_saved_championship() {
+            return None;
+        }
+        if (self.champ_cup as usize) >= crate::levels::ALL_CUPS.len() {
+            return None;
+        }
+        let cup_def = &crate::levels::ALL_CUPS[self.champ_cup as usize];
+        if (self.champ_stage as usize) >= cup_def.total_stages() || self.champ_difficulty > 2 {
+            return None;
+        }
+        let difficulty = Difficulty::from_u8(self.champ_difficulty);
+        let mut session = ChampionshipSession::with_difficulty(self.champ_cup, difficulty);
+        session.current_stage = self.champ_stage;
+
+        for (competitor, &pts) in session.competitors.iter_mut().zip(self.champ_points.iter()) {
+            competitor.total_points = pts;
+        }
+        for (slot, &grid_idx) in session
+            .grid_positions
+            .iter_mut()
+            .zip(self.champ_grid.iter())
+        {
+            *slot = (grid_idx as usize).min(COMPETITORS_PER_SESSION - 1);
+        }
+        Some(session)
+    }
+
+    /// Saves the current championship session state and recomputes the checksum.
+    pub fn save_championship(&mut self, session: &ChampionshipSession) {
+        self.champ_active = 1;
+        self.champ_cup = session.cup_index;
+        self.champ_stage = session.current_stage;
+        self.champ_difficulty = session.difficulty as u8;
+
+        for (slot, competitor) in self.champ_points.iter_mut().zip(session.competitors.iter()) {
+            *slot = competitor.total_points;
+        }
+        for (slot, &grid_idx) in self
+            .champ_grid
+            .iter_mut()
+            .zip(session.grid_positions.iter())
+        {
+            *slot = grid_idx.min(COMPETITORS_PER_SESSION - 1) as u8;
+        }
+        self.checksum = self.compute_checksum();
+    }
+
+    /// Clears any active championship state from the save data.
+    pub fn clear_championship(&mut self) {
+        if self.champ_active != 0 {
+            self.champ_active = 0;
+            self.champ_cup = 0;
+            self.champ_stage = 0;
+            self.champ_difficulty = 0;
+            self.checksum = self.compute_checksum();
+        }
     }
 }
 
@@ -500,12 +713,18 @@ mod tests {
             s.sound_volume = 255;
             s.music_volume = 200;
             s.rumble_enabled = 77;
-            s._reserved0 = 9;
+            s.champ_active = 9;
         }));
         assert_eq!(loaded.sound_volume, MAX_VOLUME);
         assert_eq!(loaded.music_volume, MAX_VOLUME);
         assert_eq!(loaded.rumble_enabled, 1, "rumble is a flag");
-        assert_eq!(loaded._reserved0, 0);
+        assert_eq!(loaded.champ_active, 1, "champ_active is a flag");
+
+        let loaded = load(&corrupt(|s| {
+            s.champ_active = 1;
+            s.champ_cup = 200;
+        }));
+        assert_eq!(loaded.champ_active, 0, "out-of-range cup clears active");
 
         let loaded = load(&corrupt(|s| {
             s.sound_volume = 0;
@@ -515,6 +734,53 @@ mod tests {
         assert_eq!(loaded.sound_volume, 0, "muted is legal");
         assert_eq!(loaded.rumble_enabled, 0);
         assert!(loaded.has_legal_fields());
+    }
+
+    /// The clamp that shipped wrong once already: `texture_format` was capped at
+    /// 3 for years, and TIM taking byte 4 would have been silently rewritten to
+    /// Auto on every load. A player who chose TIM would find it reset on the
+    /// next boot with nothing on screen to say why. The second half is the
+    /// other trap: raising the ceiling to a plain `.min(4)` maps a garbage byte
+    /// onto TIM rather than onto Auto.
+    #[test]
+    fn the_texture_format_ceiling_tracks_the_highest_real_format() {
+        let loaded = load(&corrupt(|s| {
+            s.texture_format = crate::texture_format::TextureFormat::Tim8.to_saved()
+        }));
+        assert_eq!(
+            crate::texture_format::TextureFormat::from_saved(loaded.texture_format),
+            crate::texture_format::TextureFormat::Tim8,
+            "a saved TIM8 pin must survive the round trip"
+        );
+
+        let loaded = load(&corrupt(|s| s.texture_format = 200));
+        assert_eq!(
+            crate::texture_format::TextureFormat::from_saved(loaded.texture_format),
+            crate::texture_format::TextureFormat::Auto,
+            "an out-of-range byte must fall back to Auto"
+        );
+        assert!(loaded.has_legal_fields());
+    }
+
+    #[test]
+    fn cd_audio_is_a_flag_that_round_trips() {
+        for stored in [0u8, 1, 200] {
+            let loaded = load(&corrupt(|s| s.cd_audio = stored));
+            assert_eq!(
+                loaded.cd_audio,
+                u8::from(stored != 0),
+                "cd_audio {stored} must sanitise to a flag"
+            );
+            assert!(loaded.has_legal_fields());
+        }
+
+        // Off is a real choice, not a corruption, so it must survive as off
+        // rather than being repaired back to the default.
+        let mut off = SaveData::default();
+        off.cd_audio = 0;
+        off.checksum = off.compute_checksum();
+        let loaded = load(&off);
+        assert_eq!(loaded.cd_audio, 0);
     }
 
     #[test]
@@ -634,7 +900,7 @@ mod tests {
         assert!(SaveData::read_payload(&good).is_none());
 
         // Same for every single-bit flip of the header and progress flags.
-        for byte in 0..24usize {
+        for byte in 0..30usize {
             for bit in 0..8 {
                 let mut damaged = payload(&SaveData::default());
                 damaged[byte] ^= 1 << bit;
@@ -678,5 +944,200 @@ mod tests {
         assert_eq!(save.medals_earned[1], MAX_MEDAL);
         assert!(save.is_valid());
         assert!(save.has_legal_fields());
+    }
+
+    #[test]
+    fn championship_save_and_load_roundtrips() {
+        let mut save = SaveData::default();
+        assert!(!save.has_saved_championship());
+        assert!(save.load_championship().is_none());
+
+        let mut session = ChampionshipSession::with_difficulty(2, Difficulty::Hard);
+        session.current_stage = 4;
+        save.save_championship(&session);
+
+        assert!(save.has_saved_championship());
+        assert!(save.is_valid());
+
+        // Roundtrip via block bytes
+        let mut block = [0u8; 8192];
+        save.to_block_bytes(&mut block);
+
+        let loaded = SaveData::from_block_bytes(&block).expect("must parse");
+        assert!(loaded.has_saved_championship());
+        let loaded_session = loaded.load_championship().expect("must load session");
+        assert_eq!(loaded_session.cup_index, 2);
+        assert_eq!(loaded_session.current_stage, 4);
+        assert_eq!(loaded_session.difficulty, Difficulty::Hard);
+
+        // Clear championship
+        let mut cleared = loaded;
+        cleared.clear_championship();
+        assert!(!cleared.has_saved_championship());
+        assert!(cleared.load_championship().is_none());
+        assert!(cleared.is_valid());
+    }
+
+    /// The scoring half of the session must survive a save/load round trip.
+    ///
+    /// This is the regression guard for the bug that shipped: the payload stored
+    /// only `cup_index`, `current_stage` and `difficulty`, and `load_championship`
+    /// rebuilt the session from those. A resumed Grand Prix therefore started the
+    /// next stage with every competitor on zero points, which is what "doesn't
+    /// remember the scoring" looked like from the player's side. The test above
+    /// passed throughout, because it only ever checked the three bracket fields.
+    #[test]
+    fn championship_scoring_survives_a_save_load_round_trip() {
+        let mut save = SaveData::default();
+
+        let mut session = ChampionshipSession::with_difficulty(1, Difficulty::Medium);
+        // Two stages run, with a known and deliberately non-symmetric finish.
+        session.award_stage_points([0, 3, 1, 5, 2, 4]);
+        session.advance_stage();
+        session.award_stage_points([2, 0, 1, 3, 4, 5]);
+
+        let expected_points: [u16; COMPETITORS_PER_SESSION] =
+            session.competitors.map(|c| c.total_points);
+        let expected_grid = session.grid_positions;
+        // Guard the fixture itself: a round trip of all zeroes proves nothing.
+        assert!(
+            expected_points.iter().any(|&p| p > 0),
+            "fixture has no scoring"
+        );
+        assert_ne!(expected_grid, [0, 1, 2, 3, 4, 5], "grid must be shuffled");
+
+        save.save_championship(&session);
+
+        let mut block = [0u8; 8192];
+        save.to_block_bytes(&mut block);
+        let loaded = SaveData::from_block_bytes(&block).expect("must parse");
+        let resumed = loaded.load_championship().expect("must load session");
+
+        for (i, (&want, got)) in expected_points
+            .iter()
+            .zip(resumed.competitors.iter())
+            .enumerate()
+        {
+            assert_eq!(
+                got.total_points, want,
+                "competitor {i} lost their points across the round trip"
+            );
+        }
+        assert_eq!(
+            resumed.grid_positions, expected_grid,
+            "the next stage's grid must not be re-randomised"
+        );
+        assert_eq!(resumed.current_stage, session.current_stage);
+    }
+
+    /// A corrupt card must not be able to hand the standings board an impossible
+    /// score or the grid an index past the last competitor.
+    #[test]
+    fn corrupt_championship_state_is_repaired() {
+        let mut save = SaveData::default();
+        save.save_championship(&ChampionshipSession::with_difficulty(0, Difficulty::Easy));
+        save.champ_points = [u16::MAX; COMPETITORS_PER_SESSION];
+        save.champ_grid = [250u8; COMPETITORS_PER_SESSION];
+
+        let repaired = save.sanitised();
+        let max_points = POINTS_TABLE[0] as u16 * STAGES_PER_CUP as u16;
+        for &pts in repaired.champ_points.iter() {
+            assert!(
+                pts <= max_points,
+                "score {pts} exceeds what a cup can award"
+            );
+        }
+        for &idx in repaired.champ_grid.iter() {
+            assert!(
+                (idx as usize) < COMPETITORS_PER_SESSION,
+                "grid index {idx} points outside the field"
+            );
+        }
+        assert!(repaired.is_valid());
+
+        // And the repaired card still loads a usable session.
+        let session = repaired.load_championship().expect("must still load");
+        for competitor in session.competitors.iter() {
+            assert!(competitor.total_points <= max_points);
+        }
+        for &idx in session.grid_positions.iter() {
+            assert!(idx < COMPETITORS_PER_SESSION);
+        }
+    }
+
+    /// Every byte the pre-XA flag format could hold must still decode, and must
+    /// decode to CD-DA rather than Off when it was non-zero. A player who had
+    /// music on must not come back from an update with the music muted.
+    #[test]
+    fn every_legacy_cd_audio_byte_decodes_to_a_mode() {
+        assert_eq!(CdAudioMode::from_saved(0), CdAudioMode::Off);
+        assert_eq!(CdAudioMode::from_saved(1), CdAudioMode::Cdda);
+        // Anything else non-zero is CD-DA, which is what "on" meant before.
+        for byte in 2..=255u8 {
+            assert_eq!(
+                CdAudioMode::from_saved(byte),
+                if byte == 2 {
+                    CdAudioMode::Xa
+                } else {
+                    CdAudioMode::Cdda
+                },
+                "byte {byte} decoded to the wrong mode"
+            );
+        }
+    }
+
+    /// The mode has to survive the save round trip, and a corrupt byte must be
+    /// repaired rather than rejected -- a card that fails `is_valid` outright
+    /// would lose the whole profile over one bad audio byte.
+    #[test]
+    fn cd_audio_mode_round_trips_and_repairs() {
+        for mode in [CdAudioMode::Off, CdAudioMode::Cdda, CdAudioMode::Xa] {
+            let mut card = SaveData {
+                cd_audio: mode.as_u8(),
+                ..SaveData::default()
+            };
+            // Field checks first: `is_valid` also covers the checksum, which a
+            // just-mutated card cannot have until it is recomputed below.
+            assert!(
+                card.has_legal_fields(),
+                "{mode:?} was rejected by the field checks"
+            );
+            card.checksum = card.compute_checksum();
+            assert!(card.is_valid(), "{mode:?} failed the checksum");
+            let mut block = [0u8; 8192];
+            card.to_block_bytes(&mut block);
+            let back = SaveData::from_block_bytes(&block).expect("round trip");
+            assert_eq!(back.cd_audio_mode(), mode, "{mode:?} did not survive");
+        }
+
+        let repaired = SaveData {
+            cd_audio: 200,
+            ..SaveData::default()
+        }
+        .sanitised();
+        assert_eq!(repaired.cd_audio_mode(), CdAudioMode::Cdda);
+        assert!(
+            repaired.has_legal_fields(),
+            "a repaired card must still pass the field checks"
+        );
+    }
+
+    /// Every byte is foldable, so no stored value can be rejected by `is_valid`
+    /// for being out of range.
+    #[test]
+    fn cd_audio_stored_bytes_round_trip_through_sanitise() {
+        for byte in 0..=255u8 {
+            let card = SaveData {
+                cd_audio: byte,
+                ..SaveData::default()
+            }
+            .sanitised();
+            assert!(card.has_legal_fields(), "byte {byte} left an invalid card");
+            if byte == 0 {
+                assert!(!card.cd_audio_mode().enabled(), "byte 0 must be Off");
+            } else {
+                assert!(card.cd_audio_mode().enabled(), "byte {byte} must be on");
+            }
+        }
     }
 }

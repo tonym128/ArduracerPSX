@@ -6,6 +6,7 @@
 pub mod camera;
 pub mod car_geometry;
 pub mod car_renderer;
+pub mod debug_overlay;
 pub mod effects_sim;
 pub mod hud_renderer;
 pub mod palette;
@@ -13,11 +14,16 @@ pub mod particles;
 pub mod skidmarks;
 pub mod texlayout;
 pub mod texpipe;
-pub mod tile_blitter;
+pub mod tracktex;
 
 pub use camera::Camera;
 pub use car_renderer::render_car;
+pub use debug_overlay::DebugOverlay;
 pub use effects_sim::{Particle, ParticleSystem, ParticleType, Skidmark, SkidmarkBuffer};
 pub use hud_renderer::{bake_minimap, render_hud};
 pub use texpipe::TextureSlot;
-pub use tile_blitter::render_track;
+pub use tracktex::{
+    init_track_texture, reset_texture_caches, set_frame_period, set_texture_format, texture_format,
+    Framerate, TextureFormat,
+};
+pub use tracktex::{load_level_grid, prewarm_starting_tiles, render_track, render_track_extents};

@@ -4,12 +4,12 @@
 //! and an edge-triggered pulsing PRESS START prompt.
 
 use crate::ui::font::draw_text;
+pub use crate::ui::title_input::TitleInput;
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
 
 pub struct TitleScreen {
-    pub timer: u32,
-    pub prev_held: bool,
+    pub input: TitleInput,
 }
 
 impl Default for TitleScreen {
@@ -21,25 +21,27 @@ impl Default for TitleScreen {
 impl TitleScreen {
     pub const fn new() -> Self {
         TitleScreen {
-            timer: 0,
-            prev_held: true, // Requires button release before triggering
+            input: TitleInput::new(),
         }
+    }
+
+    pub fn timer(&self) -> u32 {
+        self.input.timer
     }
 
     /// Updates title screen state, returning true on fresh edge-triggered START or CROSS.
     pub fn update(&mut self, pad: &PadState) -> bool {
-        self.timer = self.timer.wrapping_add(1);
-        let held = pad.buttons.is_held(button::START) || pad.buttons.is_held(button::CROSS);
-        let pressed = held && !self.prev_held;
-        self.prev_held = held;
-        pressed
+        let start_held = pad.buttons.is_held(button::START);
+        let cross_held = pad.buttons.is_held(button::CROSS);
+        self.input.update(start_held, cross_held)
     }
 
     /// Renders title screen elements.
     pub fn render(&self) {
+        let timer = self.input.timer;
         // 1. Dark synthwave gradient background stripes
         for line in 0..12i16 {
-            let offset = ((self.timer * 2 + (line as u32) * 20) % 240) as i16;
+            let offset = ((timer * 2 + (line as u32) * 20) % 240) as i16;
             let shade = (30 + line * 3) as u8;
             gpu::draw_rect_flat(0, offset, 320, 4, 15, shade, shade + 30);
         }
@@ -56,7 +58,7 @@ impl TitleScreen {
         draw_text(52, 92, "HIGH-OCTANE OVERHEAD RACING", (0, 220, 255), 1);
 
         // 3. Pulsing "PRESS START TO RACE" (blinks every 30 frames)
-        if (self.timer / 30).is_multiple_of(2) {
+        if (timer / 30).is_multiple_of(2) {
             draw_text(88, 160, "PRESS START TO RACE", (255, 255, 255), 1);
         }
 

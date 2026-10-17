@@ -9,10 +9,14 @@ use psx_pad::{button, PadState};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MenuItem {
-    TimeTrial = 0,
-    GrandPrix = 1,
-    TuningGarage = 2,
-    Records = 3,
+    GrandPrix = 0,
+    TimeTrial = 1,
+    ManiaPrix = 2,
+    ManiaTrials = 3,
+    CityFreeDrive = 4,
+    TuningGarage = 5,
+    Records = 6,
+    Settings = 7,
 }
 
 pub struct MainMenu {
@@ -41,6 +45,14 @@ impl MainMenu {
     }
 
     /// Handles menu navigation and confirms selection on fresh press.
+    /// Clears the edge baseline so a button held on the previous screen does
+    /// not immediately act on this one.
+    pub fn arm_for_entry(&mut self) {
+        self.prev_up = true;
+        self.prev_down = true;
+        self.prev_confirm = true;
+    }
+
     pub fn update(&mut self, pad: &PadState) -> Option<MenuItem> {
         self.anim_timer = self.anim_timer.wrapping_add(1);
 
@@ -52,10 +64,10 @@ impl MainMenu {
             if self.selected_idx > 0 {
                 self.selected_idx -= 1;
             } else {
-                self.selected_idx = 3;
+                self.selected_idx = 7;
             }
         } else if down && !self.prev_down {
-            if self.selected_idx < 3 {
+            if self.selected_idx < 7 {
                 self.selected_idx += 1;
             } else {
                 self.selected_idx = 0;
@@ -71,10 +83,14 @@ impl MainMenu {
 
         if confirmed {
             match self.selected_idx {
-                0 => Some(MenuItem::TimeTrial),
-                1 => Some(MenuItem::GrandPrix),
-                2 => Some(MenuItem::TuningGarage),
-                3 => Some(MenuItem::Records),
+                0 => Some(MenuItem::GrandPrix),
+                1 => Some(MenuItem::TimeTrial),
+                2 => Some(MenuItem::ManiaPrix),
+                3 => Some(MenuItem::ManiaTrials),
+                4 => Some(MenuItem::CityFreeDrive),
+                5 => Some(MenuItem::TuningGarage),
+                6 => Some(MenuItem::Records),
+                7 => Some(MenuItem::Settings),
                 _ => None,
             }
         } else {
@@ -85,23 +101,27 @@ impl MainMenu {
     /// Renders the main menu screen.
     pub fn render(&self) {
         // Outer border & shadow
-        gpu::draw_rect_flat(18, 18, 284, 204, 12, 14, 20);
-        gpu::draw_rect_flat(20, 20, 280, 200, 24, 28, 38);
-        gpu::draw_rect_flat(22, 22, 276, 196, 32, 36, 48);
+        gpu::draw_rect_flat(18, 12, 284, 216, 12, 14, 20);
+        gpu::draw_rect_flat(20, 14, 280, 212, 24, 28, 38);
+        gpu::draw_rect_flat(22, 16, 276, 208, 32, 36, 48);
 
         // Header Title
-        draw_text(110, 36, "MAIN MENU", (255, 225, 30), 2);
-        gpu::draw_rect_flat(40, 58, 240, 2, 220, 40, 60);
+        draw_text(110, 20, "MAIN MENU", (255, 225, 30), 2);
+        gpu::draw_rect_flat(40, 36, 240, 2, 220, 40, 60);
 
         let items = [
-            "1. TIME TRIAL",
-            "2. GRAND PRIX",
-            "3. TUNING GARAGE",
-            "4. RECORDS & MEDALS",
+            "1. GRAND PRIX",
+            "2. GP TIME TRIAL",
+            "3. MANIA PRIX",
+            "4. MANIA TRIALS",
+            "5. FREE ROAM",
+            "6. TUNING GARAGE",
+            "7. RECORDS & MEDALS",
+            "8. SETTINGS",
         ];
 
         for (idx, label) in items.iter().enumerate() {
-            let y = 78 + (idx as i16) * 30;
+            let y = 42 + (idx as i16) * 20;
             let is_sel = (idx as u8) == self.selected_idx;
 
             if is_sel {
@@ -112,20 +132,20 @@ impl MainMenu {
                 } else {
                     (180, 25, 45) // Deep crimson
                 };
-                gpu::draw_rect_flat(50, y - 4, 220, 22, bg_color.0, bg_color.1, bg_color.2);
-                draw_text(60, y as u16, label, (255, 255, 255), 1);
+                gpu::draw_rect_flat(44, y - 2, 232, 18, bg_color.0, bg_color.1, bg_color.2);
+                draw_text(52, y as u16, label, (255, 255, 255), 1);
                 // Pulsing cursor arrows
-                draw_text(240, y as u16, "<<", (255, 235, 40), 1);
+                draw_text(252, y as u16, "<<", (255, 235, 40), 1);
             } else {
-                gpu::draw_rect_flat(50, y - 4, 220, 22, 40, 45, 58);
-                draw_text(60, y as u16, label, (180, 190, 205), 1);
+                gpu::draw_rect_flat(44, y - 2, 232, 18, 40, 45, 58);
+                draw_text(52, y as u16, label, (180, 190, 205), 1);
             }
         }
 
         // Footer instructions
         draw_text(
             52,
-            196,
+            205,
             "D-PAD: SELECT   CROSS: CONFIRM",
             (140, 155, 175),
             1,

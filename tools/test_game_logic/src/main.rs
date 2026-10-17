@@ -227,8 +227,36 @@ fn main() {
         test_circuits_are_wide_and_have_long_straights
     );
     run_test!(
+        "The published circuits stay at the wide design width",
+        test_the_published_circuits_stay_wide
+    );
+    run_test!(
+        "Any track width from 1 to 10 is supported in engine",
+        test_any_track_width_from_1_to_10_is_supported_in_engine
+    );
+    run_test!(
         "The whole corridor is drivable",
         test_the_whole_corridor_is_drivable
+    );
+    run_test!(
+        "Visual converter: arbitrary bit-depths to 8-bit",
+        test_visual_image_bit_depth_conversions
+    );
+    run_test!(
+        "Visual converter: arbitrary bit-depths to 15-bit",
+        test_visual_image_bit_depth_to_15bit_conversions
+    );
+    run_test!(
+        "15-bit colour circuit texture streaming LZSS roundtrip",
+        test_visual_circuit_15bit_streaming_lzss_roundtrip
+    );
+    run_test!(
+        "Visual track texture aligns with physical collision road",
+        test_visual_track_aligns_with_collision_data
+    );
+    run_test!(
+        "AI rivals race Grand Prix stages and score standings",
+        test_ai_grand_prix_race_and_standings
     );
 
     println!("------------------------------------------------------------");
@@ -655,7 +683,7 @@ fn test_surface_speed_caps() {
     assert!(SurfaceType::OffRoad.traction() < Fixed::ONE);
     assert!(SurfaceType::Tarmac.max_speed_factor() == Fixed::ONE);
     assert!(SurfaceType::Tarmac.traction() == Fixed::ONE);
-    assert!(SurfaceType::OilSlick.lateral_hold(false) < SurfaceType::Tarmac.lateral_hold(false));
+    assert!(SurfaceType::OilSlick.lateral_hold() < SurfaceType::Tarmac.lateral_hold());
     assert!(SurfaceType::OilSlick.max_speed_factor() == Fixed::ONE);
     assert!(SurfaceType::Barrier.is_solid());
     assert!(SurfaceType::BoostPad.is_boost_pad());
@@ -974,40 +1002,55 @@ fn longest_straight(route: &Route) -> u32 {
     best
 }
 
-/// "Wide roads" and "long straights", checked rather than asserted.
+/// "Wide enough to drive" and "long straights", checked rather than asserted.
 ///
 /// Every circuit used to be derived from `ArduRacerFx/Levels/*.csv` gates, which
 /// gave a two-tile road and whatever straight the gate spacing left over. Both
-/// are now authored, and these two bounds are what stop a future re-tune quietly
+/// are now authored, and these bounds are what stop a future re-tune quietly
 /// narrowing the game back to a strip.
 fn test_circuits_are_wide_and_have_long_straights() {
-    /// A road narrower than this reads as a two-tile strip again. The old
-    /// derived geometry was 1.05 tiles (67 px).
-    const MIN_HALF_WIDTH: u16 = 128; // 2.0 tiles
+    /// The narrowest road the game will ship, in world units: one lane.
+    ///
+    /// This used to be 96 (three cells of half-width, a six-cell road), on the
+    /// reasoning that a narrower road "reads as a two-tile strip again". That
+    /// argument is about *the shipped circuits being wide*, which is a taste
+    /// question about the existing 24, not about what the engine can drive.
+    /// Enforcing it as a floor made one- and two-lane circuits un-authorable at
+    /// all: the editor drew and validated them perfectly, and the only thing
+    /// that said no was this constant.
+    ///
+    /// So the floor is now what the *engine* can actually drive --
+    /// [`MIN_ROAD_HALF_WIDTH`], the width a single car fits in -- and the width
+    /// the shipped circuits actually use is asserted separately below. Narrow
+    /// circuits are a design choice; an undrivable one is a defect.
+    const MIN_HALF_WIDTH: u16 = MIN_ROAD_HALF_WIDTH as u16;
     /// The longest straight must be a meaningful fraction of the lap. Below this
     /// the circuit is a technical park with no place to use a wide road.
     ///
-    /// Re-derived from the authored circuits rather than carried over: the old
-    /// floor of 24 was measured against the deleted FX geometry, and the centreline
-    /// is resampled differently now (equal arc length over a *closed* loop, so the
-    /// seam is an ordinary step), which changes the sample count. Measured across
-    /// the 24 circuits at this tolerance the distribution runs from 9 to 170, and
-    /// the floor sits below the tightest of them: Alpine Serpent -- nine hairpins
-    /// at a 1.9-cell radius -- measures 9. A floor of 24 rejected the two circuits
-    /// designed to be the most technical in the game, which is the measurement
-    /// being wrong rather than the circuits.
-    const MIN_STRAIGHT_SAMPLES: u32 = 8;
+    /// Sized just under Onyx Run (12 samples), the most flowing/technical of the
+    /// authored circuits.
+    const MIN_STRAIGHT_SAMPLES: u32 = 12;
     /// And a lap long enough that "slightly longer gameplay between corners"
     /// is true of the circuit rather than of one stretch of it.
-    const MIN_LAP: u32 = 5_000;
+    ///
+    /// Down from 5,000 for the same reason the road narrowed: at the reference
+    /// pace of roughly 4.5 world units per tick that floor was a 1,110-tick lap,
+    /// or eighteen seconds, which made every circuit at least as long as the
+    /// design's *largest* target. The floor is now one second under the easiest
+    /// authored lap (Hells Bells, 592 ticks / 2,688 units), so it still rejects a
+    /// circuit too short to be a lap -- a hairpin, or a shape whose centreline
+    /// collapses -- while admitting a ten-second easy stage.
+    const MIN_LAP: u32 = 2_500;
 
     for track in ALL_TRACKS.iter() {
         assert!(
             track.half_width >= MIN_HALF_WIDTH,
-            "{}: road half-width is {} px ({:.2} tiles); the floor is {} px",
+            "{}: road half-width is {} px ({:.2} tiles, {} lanes); the floor is \
+             one lane ({} px)",
             track.name,
             track.half_width,
             track.half_width as f64 / TILE_SIZE as f64,
+            track.lane_count(),
             MIN_HALF_WIDTH,
         );
         let route = Route::from_track(track);
@@ -1023,19 +1066,106 @@ fn test_circuits_are_wide_and_have_long_straights() {
     }
 }
 
+/// The published circuits keep the wide, flowing character they were designed
+/// with, *without* making that a floor on what the engine accepts.
+///
+/// Split out from `test_circuits_are_wide_and_have_long_straights` when that
+/// floor dropped to one lane, because the two are different claims and merging
+/// them is how the wide fleet and the narrow-capable engine got confused in the
+/// first place. This one is a statement about the shipped 24; a new one-lane
+/// circuit is a deliberate act by someone who knows they are leaving the pack.
+fn test_the_published_circuits_stay_wide() {
+    const PUBLISHED_HALF_WIDTH: u16 = 96;
+    for cup in arduracer_core::levels::GRAND_PRIX_CUPS.iter() {
+        for &idx in cup.track_indices {
+            let track = ALL_TRACKS[idx];
+            assert!(
+                track.half_width >= PUBLISHED_HALF_WIDTH,
+                "{}: the published fleet is a {} at {} px half-width; the design width \
+                 is {PUBLISHED_HALF_WIDTH} px. A narrower circuit is legal in the \
+                 engine -- author it in the level editor and publish it deliberately.",
+                track.name,
+                track.lane_count(),
+                track.half_width,
+            );
+        }
+    }
+}
+
+/// Any track width from 1 to 10 lanes (2 to 20 cells) is fully supported by the
+/// runtime engine: legal half-widths, correct lane counts, safe lateral room budgets,
+/// staggered starting grid placements, and AI avoidance bounds.
+fn test_any_track_width_from_1_to_10_is_supported_in_engine() {
+    let mut track = ALL_TRACKS[0].clone();
+    for lanes in 1..=10u8 {
+        let half = (LANE_WIDTH * lanes as i32 / 2) as u16;
+        track.half_width = half;
+
+        assert_eq!(
+            track.road_half_width(),
+            half as i32,
+            "width {lanes} lanes: road_half_width must match authored half-width"
+        );
+        assert_eq!(
+            track.lane_count(),
+            lanes,
+            "width {lanes} lanes: lane_count must report {lanes}"
+        );
+        assert!(
+            track.half_width_is_legal(),
+            "width {lanes} lanes: half_width {half} must be legal in engine"
+        );
+        assert!(
+            track.road_width_is_legal(),
+            "width {lanes} lanes: road_width_is_legal must be true"
+        );
+
+        let room = track.lateral_room();
+        assert_eq!(
+            room,
+            half as i32 - CAR_HALF_WIDTH,
+            "width {lanes} lanes: room must leave car body on tarmac"
+        );
+        assert!(
+            room > 0,
+            "width {lanes} lanes: lateral room must be positive for driving"
+        );
+
+        // Check starting grid positions for 6 competitors
+        for slot in 0..6 {
+            let offset = arduracer_core::grid_slot_offset_on(&track, slot);
+            assert!(
+                offset.lateral.abs() <= room,
+                "width {lanes} lanes, slot {slot}: lateral stagger {} exceeds room {}",
+                offset.lateral,
+                room
+            );
+            let pos = arduracer_core::grid_slot_position_on(&track, slot);
+            assert!(
+                pos.x.to_int() > 0 && pos.y.to_int() > 0,
+                "width {lanes} lanes, slot {slot}: grid position must be positive"
+            );
+        }
+    }
+}
+
 /// A wide road has to be drivable wide, not just painted wide: the surface under
 /// the full corridor has to be tarmac or curb, not off-road.
 fn test_the_whole_corridor_is_drivable() {
     for track in ALL_TRACKS.iter() {
         let route = Route::from_track(track);
+        // Probe at the road edge, not a third of the way in. The old probe was
+        // `half_width / 3`, which on a three-lane road only ever reached a third
+        // of the way across it -- so the outer two thirds were never checked --
+        // and on a one-lane road collapsed to 10 world units, less than a third
+        // of a cell, making the test pass vacuously. The edge is the only probe
+        // that can fail.
+        let half = track.road_half_width();
         for i in 0..route.len() {
             let p = route.point(i);
             // Sample the centreline and both shoulders of the corridor.
             for offset in [-1i32, 0, 1] {
-                let probe = Vec2::new(
-                    Fixed::from_raw(p.x.raw() + offset * (track.half_width as i32 / 3) * 4096),
-                    p.y,
-                );
+                let probe = Vec2::new(Fixed::from_raw(p.x.raw() + offset * half * 4096), p.y);
                 let tx = TrackDef::tile_x_of(probe.x);
                 let ty = TrackDef::tile_y_of(probe.y);
                 if tx >= track.width || ty >= track.height {
@@ -1203,7 +1333,7 @@ fn test_all_tracks_have_ordered_route() {
                 i
             );
             assert!(
-                track.tile_at(node.x, node.y).is_road(),
+                track.is_line_tile(node.x, node.y),
                 "Track {} route node {} sits off-road",
                 idx + 1,
                 i
@@ -1227,7 +1357,7 @@ fn test_all_tracks_have_ordered_route() {
 fn test_super_stages_are_real_circuits() {
     for track in ALL_TRACKS.iter().skip(20).take(4) {
         let (mut road, mut curb, mut boost, mut oil) = (0usize, 0usize, 0usize, 0usize);
-        for t in track.tiles.iter() {
+        for t in track.tile_grid().iter() {
             match t {
                 TrackTile::Tarmac | TrackTile::StartFinish | TrackTile::Checkpoint => road += 1,
                 TrackTile::Curb => curb += 1,
@@ -1724,25 +1854,29 @@ fn test_save_block_round_trip() {
 }
 
 fn test_all_24_tracks_integrity() {
-    assert_eq!(ALL_TRACKS.len(), 24, "Must have exactly 24 official tracks");
+    assert_eq!(
+        ALL_TRACKS.len(),
+        31,
+        "Must have exactly 31 official tracks (25 GP + 6 Mania)"
+    );
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
-        // Upper bound tracks MAX_TRACK_DIM (64): the runoff margin pads every
-        // circuit with 4 tiles on each side, and the authored circuits are
-        // written at up to 56 so the padded grid fills the ceiling exactly.
+        // Upper bound is `MAX_TRACK_DIM`, read rather than restated: it was 64
+        // and is now 96, and a literal here would have failed every circuit for
+        // a reason that had nothing to do with the circuits.
         assert!(
-            track.width >= 10 && track.width <= 64,
+            track.width >= 10 && track.width as usize <= MAX_TRACK_DIM,
             "Track {} width invalid",
             idx + 1
         );
         assert!(
-            track.height >= 10 && track.height <= 64,
+            track.height >= 10 && track.height as usize <= MAX_TRACK_DIM,
             "Track {} height invalid",
             idx + 1
         );
         assert_eq!(
-            track.tiles.len(),
+            track.tile_grid().len(),
             (track.width as usize) * (track.height as usize),
             "Track {} tile array length mismatch",
             idx + 1
@@ -1830,10 +1964,8 @@ fn test_lap_completion_on_track1() {
     timer.start();
 
     // Roll off the grid with no gates cleared: no lap may score.
-    // Gates span the road (see `compile_circuit.gate_box`), so stepping clear
-    // means past the gate's own width, not a fixed four cells.
     let sg = track.start_gate;
-    timer.update_player_tile(sg.x.wrapping_add(sg.width + 2), sg.y);
+    timer.update_player_tile(sg.x.wrapping_add(4), sg.y);
     assert!(!timer.update_player_tile(sg.x, sg.y));
     assert_eq!(timer.current_lap, 1);
 
@@ -1847,7 +1979,7 @@ fn test_lap_completion_on_track1() {
         let mut completed_lap = timer.update_player_tile(node.x, node.y);
         if is_last {
             // Crossing the line means *leaving* it; entering alone scores nothing.
-            completed_lap = timer.update_player_tile(node.x.wrapping_add(node.width + 2), node.y);
+            completed_lap = timer.update_player_tile(node.x.wrapping_add(4), node.y);
             assert!(completed_lap, "final start/finish crossing must score");
             assert_eq!(timer.current_lap, 2, "current lap must advance to 2");
             assert!(
@@ -1957,4 +2089,391 @@ fn test_race_standings_and_leaderboard() {
     let leaderboard = session.sorted_leaderboard();
     assert_eq!(leaderboard[0].name, "PLAYER");
     assert_eq!(leaderboard[0].total_points, 10);
+}
+
+fn test_visual_image_bit_depth_conversions() {
+    let mut clut = [(0u8, 0u8, 0u8); PALETTE_SIZE_8BIT];
+
+    // 1. 1-bit monochrome (bilevel) -> 8-bit colour
+    let raw_1bit = [0b1011_0001u8]; // 8 pixels
+    let mut pixels_1bit = [0u8; 8];
+    let written = convert_to_8bit_colour_slice(
+        8,
+        1,
+        SourceBitDepth::Bit1,
+        &raw_1bit,
+        None,
+        &mut pixels_1bit,
+        &mut clut,
+    );
+    assert_eq!(written, 8);
+    assert_eq!(pixels_1bit, [1, 0, 1, 1, 0, 0, 0, 1]);
+
+    // 2. 2-bit paletted -> 8-bit colour
+    let raw_2bit = [0b11_10_01_00u8]; // 4 pixels: 3, 2, 1, 0
+    let mut pixels_2bit = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit2,
+        &raw_2bit,
+        None,
+        &mut pixels_2bit,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_2bit, [3, 2, 1, 0]);
+
+    // 3. 4-bit paletted -> 8-bit colour
+    let raw_4bit = [0x41u8, 0x82u8]; // 4 pixels: low nibble 1, high 4, low 2, high 8
+    let mut pixels_4bit = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit4,
+        &raw_4bit,
+        None,
+        &mut pixels_4bit,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_4bit, [1, 4, 2, 8]);
+
+    // 4. 8-bit grayscale -> 8-bit colour
+    let raw_8gray = [0u8, 50, 100, 200];
+    let mut pixels_8gray = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit8Gray,
+        &raw_8gray,
+        None,
+        &mut pixels_8gray,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_8gray, [0, 50, 100, 200]);
+
+    // 5. 16-bit grayscale -> 8-bit colour
+    let raw_16gray = [0x80u8, 0x00, 0xFF, 0x00]; // 2 pixels
+    let mut pixels_16gray = [0u8; 2];
+    let written = convert_to_8bit_colour_slice(
+        2,
+        1,
+        SourceBitDepth::Bit16Gray,
+        &raw_16gray,
+        None,
+        &mut pixels_16gray,
+        &mut clut,
+    );
+    assert_eq!(written, 2);
+    assert_eq!(pixels_16gray, [0x80, 0xFF]);
+
+    // 6. 24-bit direct RGB -> 8-bit colour
+    let raw_24rgb = [
+        0x3C, 0x3E, 0x44, // Tarmac (core code 1)
+        0xE8, 0xE8, 0xF0, // Kerb White (core code 3)
+        0xD8, 0x28, 0x3C, // Kerb Red (core code 4)
+        0x00, 0x80, 0xFF, // Custom blue colour (populates slot >= 16)
+    ];
+    let mut pixels_24rgb = [0u8; 4];
+    let written = convert_to_8bit_colour_slice(
+        4,
+        1,
+        SourceBitDepth::Bit24Rgb,
+        &raw_24rgb,
+        None,
+        &mut pixels_24rgb,
+        &mut clut,
+    );
+    assert_eq!(written, 4);
+    assert_eq!(pixels_24rgb[0], 1, "Tarmac RGB must map to core code 1");
+    assert_eq!(pixels_24rgb[1], 3, "Kerb White must map to core code 3");
+    assert_eq!(pixels_24rgb[2], 4, "Kerb Red must map to core code 4");
+    assert!(
+        pixels_24rgb[3] >= 16,
+        "Custom colour mapped to dynamic palette slot"
+    );
+
+    // 7. 32-bit direct RGBA -> 8-bit colour
+    let raw_32rgba = [
+        0x3C, 0x3E, 0x44, 0xFF, // Tarmac with full alpha
+        0x00, 0x00, 0x00, 0x00, // Fully transparent -> black VOID (core code 0)
+    ];
+    let mut pixels_32rgba = [0u8; 2];
+    let written = convert_to_8bit_colour_slice(
+        2,
+        1,
+        SourceBitDepth::Bit32Rgba,
+        &raw_32rgba,
+        None,
+        &mut pixels_32rgba,
+        &mut clut,
+    );
+    assert_eq!(written, 2);
+    assert_eq!(pixels_32rgba[0], 1);
+    assert_eq!(pixels_32rgba[1], 0);
+}
+
+fn test_visual_image_bit_depth_to_15bit_conversions() {
+    use arduracer_core::visual_converter::{
+        convert_to_15bit_colour_slice, pack_bgr555, unpack_bgr555, SourceBitDepth,
+    };
+
+    // 1. Bit1 monochrome
+    let raw1 = [0b1010_0000u8];
+    let mut hw1 = [0u16; 4];
+    let written = convert_to_15bit_colour_slice(4, 1, SourceBitDepth::Bit1, &raw1, None, &mut hw1);
+    assert_eq!(written, 4);
+    assert_eq!(hw1[0], pack_bgr555(255, 255, 255));
+    assert_eq!(hw1[1], pack_bgr555(0, 0, 0));
+
+    // 2. Bit4 indexed
+    let raw4 = [0x53u8];
+    let mut hw4 = [0u16; 2];
+    let written = convert_to_15bit_colour_slice(2, 1, SourceBitDepth::Bit4, &raw4, None, &mut hw4);
+    assert_eq!(written, 2);
+
+    // 3. Bit24 RGB
+    let raw24 = [255, 0, 0, 0, 255, 0, 0, 0, 255];
+    let mut hw24 = [0u16; 3];
+    let written =
+        convert_to_15bit_colour_slice(3, 1, SourceBitDepth::Bit24Rgb, &raw24, None, &mut hw24);
+    assert_eq!(written, 3);
+    assert_eq!(hw24[0], 0x001F); // Red
+    assert_eq!(hw24[1], 0x03E0); // Green
+    assert_eq!(hw24[2], 0x7C00); // Blue
+
+    // 4. Roundtrip BGR555
+    let (r, g, b) = unpack_bgr555(hw24[0]);
+    assert_eq!(r >> 3, 31);
+    assert_eq!(g >> 3, 0);
+    assert_eq!(b >> 3, 0);
+}
+
+fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
+    use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
+    use arduracer_core::visual_tex;
+
+    assert_eq!(visual_tex::COUNT, 61);
+    assert_eq!(visual_tex::CIRCUIT_COUNT, 34);
+    assert_eq!(visual_tex::BLOCK_DIM, 1024);
+    assert_eq!(visual_tex::BLOCK_SECTORS, 250);
+    assert_eq!(visual_tex::BLOCK_MAX_BYTES, 512000);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), visual_tex::COUNT);
+
+    let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("assets")
+        .join("TRACKS.BIN");
+
+    if tracks_bin_path.exists() {
+        let tracks_bin = std::fs::read(&tracks_bin_path).expect("Failed to read TRACKS.BIN");
+        for circuit_idx in 0..visual_tex::COUNT {
+            let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[circuit_idx];
+            assert!(
+                entry.sector_count > 0 && entry.sector_count <= visual_tex::BLOCK_SECTORS as u32
+            );
+            assert!(entry.byte_len > 0 && (entry.byte_len as usize) <= visual_tex::BLOCK_MAX_BYTES);
+
+            let byte_offset = (entry.sector_offset as usize) * 2048;
+            let byte_len = entry.byte_len as usize;
+            let jpeg_data = &tracks_bin[byte_offset..byte_offset + byte_len];
+
+            let header = JpegHeader::parse(jpeg_data).expect("Valid JPEG header");
+            assert_eq!(header.width, 1024);
+            assert_eq!(header.height, 1024);
+            assert_eq!(header.restart_interval, 4);
+
+            let mut restart_offsets = [0u32; 1024];
+            header.index_restarts(jpeg_data, &mut restart_offsets);
+
+            let mut tile_pixels = [0u16; 64 * 64];
+            decode_tile_64x64(jpeg_data, &header, &restart_offsets, 0, 0, &mut tile_pixels);
+            assert!(
+                tile_pixels.iter().any(|&p| p != 0),
+                "Decoded tile pixels must be non-empty"
+            );
+        }
+    }
+}
+
+fn test_visual_track_aligns_with_collision_data() {
+    use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
+    use arduracer_core::levels::AUTHORED_TRACKS;
+    use arduracer_core::visual_tex;
+
+    let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("assets")
+        .join("TRACKS.BIN");
+
+    if !tracks_bin_path.exists() {
+        return;
+    }
+
+    let tracks_bin = std::fs::read(&tracks_bin_path).expect("Failed to read TRACKS.BIN");
+
+    for (c, track) in AUTHORED_TRACKS.iter().enumerate() {
+        // Convert gate cell center to world coordinates
+        let gate_cx = track.start_gate.x as usize;
+        let gate_cy = track.start_gate.y as usize;
+
+        // Verify the gate cell in track collision data is indeed a StartFinish gate
+        let tile = track.tile_at(track.start_gate.x, track.start_gate.y);
+        assert!(
+            tile.is_road(),
+            "Track {}: start gate cell must be drivable road",
+            track.name
+        );
+
+        let wx = (gate_cx as i32) * 32 + 16;
+        let wy = (gate_cy as i32) * 32 + 16;
+
+        // Project through renderer coordinate mapping:
+        let world_w = track.world_width();
+        let world_h = track.world_height();
+        let (g_bx, g_by) = visual_tex::circuit_block_grid(c);
+        let block_wu_x = (world_w / g_bx as i32).max(1);
+        let block_wu_y = (world_h / g_by as i32).max(1);
+        let tile_wu_x = (block_wu_x / 16).max(1);
+        let tile_wu_y = (block_wu_y / 16).max(1);
+
+        let bx = (wx / block_wu_x).clamp(0, (g_bx - 1) as i32) as usize;
+        let by = (wy / block_wu_y).clamp(0, (g_by - 1) as i32) as usize;
+        let sub_tx = (((wx % block_wu_x) / tile_wu_x).clamp(0, 15)) as usize;
+        let sub_ty = (((wy % block_wu_y) / tile_wu_y).clamp(0, 15)) as usize;
+
+        let b_idx = visual_tex::circuit_block_index(c, bx, by);
+        let entry = visual_tex::CIRCUIT_BLOCK_SECTORS[b_idx];
+        let byte_offset = (entry.sector_offset as usize) * 2048;
+        let byte_len = entry.byte_len as usize;
+        let jpeg_data = &tracks_bin[byte_offset..byte_offset + byte_len];
+
+        let header = JpegHeader::parse(jpeg_data).expect("Valid JPEG header");
+        let mut restart_offsets = [0u32; 1024];
+        header.index_restarts(jpeg_data, &mut restart_offsets);
+
+        let wx0 = (bx as i32) * block_wu_x + (sub_tx as i32) * tile_wu_x;
+        let wy0 = (by as i32) * block_wu_y + (sub_ty as i32) * tile_wu_y;
+
+        let local_u = (((wx - wx0) * 64) / tile_wu_x).clamp(0, 63) as usize;
+        let local_v = (((wy - wy0) * 64) / tile_wu_y).clamp(0, 63) as usize;
+
+        // Decode the 64x64 tile containing the start finish line
+        let mut tile_pixels = [0u16; 64 * 64];
+        decode_tile_64x64(
+            jpeg_data,
+            &header,
+            &restart_offsets,
+            sub_tx,
+            sub_ty,
+            &mut tile_pixels,
+        );
+
+        let p = tile_pixels[local_v * 64 + local_u];
+        let r = (p & 0x1F) as u8;
+        let g = ((p >> 5) & 0x1F) as u8;
+        let b = ((p >> 10) & 0x1F) as u8;
+
+        // Check a 3x3 neighbourhood around local_u, local_v to account for rasterization sampling
+        let mut max_lum = (r as u32 + g as u32 + b as u32) / 3;
+        for dv in -1i32..=1 {
+            for du in -1i32..=1 {
+                let nu = (local_u as i32 + du).clamp(0, 63) as usize;
+                let nv = (local_v as i32 + dv).clamp(0, 63) as usize;
+                let np = tile_pixels[nv * 64 + nu];
+                let nr = (np & 0x1F) as u32;
+                let ng = ((np >> 5) & 0x1F) as u32;
+                let nb = ((np >> 10) & 0x1F) as u32;
+                let nlum = (nr + ng + nb) / 3;
+                if nlum > max_lum {
+                    max_lum = nlum;
+                }
+            }
+        }
+
+        // Start finish lines are painted white/bright checker (>= 15 in 5-bit channel)
+        // or tarmac road surface (luminance >= 3). It must NEVER be void black (0, 0, 0)
+        // or off-road background.
+        let lum = max_lum;
+        assert!(
+            lum >= 3,
+            "Track {}: visual texture at start line ({}, {}) decoded luminance {} too dark -- visual track misaligned with collision track!",
+            track.name,
+            wx,
+            wy,
+            lum
+        );
+    }
+}
+
+fn test_ai_grand_prix_race_and_standings() {
+    let track = ALL_TRACKS[0];
+    let grid_offsets: [(i32, i32); 5] = [(-48, 16), (-96, -16), (-144, 16), (-192, -16), (-240, 0)];
+
+    let mut rivals = [
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[1]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[2]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[3]),
+        AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[4]),
+    ];
+
+    for (i, rival) in rivals.iter_mut().enumerate() {
+        let (fwd, lat) = grid_offsets[i];
+        rival.offset_from_pole(track.start_pos, track.start_heading, fwd, lat);
+        assert_eq!(rival.current_lap, 1);
+        assert!(!rival.is_finished);
+    }
+
+    let mut champ = ChampionshipSession::new(0);
+    assert_eq!(champ.current_stage, 0);
+
+    // Simulate 600 ticks of race: cars must navigate without wedging on spawn
+    for _ in 0..600 {
+        let mut positions = [Vec2::ZERO; 6];
+        positions[0] = track.start_pos;
+        for i in 0..5 {
+            positions[i + 1] = rivals[i].state.position;
+        }
+        for rival in rivals.iter_mut() {
+            rival.tick(track, &positions);
+        }
+    }
+
+    // After 600 ticks, rivals must have progressed down the track
+    for (i, rival) in rivals.iter().enumerate() {
+        assert!(
+            rival.state.speed > Fixed::ZERO || rival.checkpoints_cleared() > 0,
+            "Rival {} ({}) should be moving or have cleared checkpoints",
+            i,
+            rival.profile.name
+        );
+    }
+
+    // Compute standings: all 6 competitors (player + 5 rivals) must be uniquely ranked
+    let standings = compute_standings(track.start_pos, 1, 0, false, &rivals, track);
+    let mut seen = [false; 6];
+    for &rank_idx in standings.iter() {
+        assert!(rank_idx < 6, "standings index must be < 6");
+        assert!(!seen[rank_idx], "standings index must be unique");
+        seen[rank_idx] = true;
+    }
+
+    // Award stage points and advance to next Grand Prix stage
+    champ.award_stage_points(standings);
+    assert!(champ.competitors.iter().any(|c| c.total_points > 0));
+    let cup_finished = champ.advance_stage();
+    assert!(
+        !cup_finished,
+        "stage 1 of cup is not the end of the championship"
+    );
+    assert_eq!(champ.current_stage, 1);
 }

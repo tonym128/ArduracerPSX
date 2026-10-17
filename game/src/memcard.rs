@@ -119,14 +119,29 @@ impl MemoryCardManager {
     /// Never blocks on failure: the race loop calls this during boot only.
     #[cfg(not(feature = "host-test"))]
     pub fn probe(&mut self) -> MemcardStatus {
+        psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
+        psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
         let mut card = Self::card();
-        self.probe_with(&mut card)
+        let res = self.probe_with(&mut card);
+        psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
+        crate::dbg::print("[MEMCARD] Probe status: ");
+        match res {
+            MemcardStatus::Loaded => crate::dbg::println("Loaded existing save"),
+            MemcardStatus::FreshProfile => crate::dbg::println("Fresh profile"),
+            MemcardStatus::Corrupt => crate::dbg::println("Corrupt save data"),
+            MemcardStatus::WriteFailed => crate::dbg::println("Write failed"),
+            MemcardStatus::Saved => crate::dbg::println("Saved"),
+            MemcardStatus::Uninitialised => crate::dbg::println("Uninitialised"),
+        }
+        res
     }
 
     /// Transport-agnostic probe (host tests drive this with a RAM card).
     pub fn probe_with<B: Block>(&mut self, card: &mut Card<B>) -> MemcardStatus {
         match card.is_formatted() {
             Ok(true) => {
+                #[cfg(not(feature = "host-test"))]
+                crate::dbg::println("[MEMCARD] Formatted card found. Searching for save...");
                 self.card_detected = true;
                 // `len` is what the drive actually handed back. A file shorter
                 // than a payload is a truncated write, so it is treated as
@@ -184,8 +199,12 @@ impl MemoryCardManager {
     /// Writes the save to the physical card. Only call when `is_dirty`.
     #[cfg(not(feature = "host-test"))]
     pub fn flush(&mut self) -> MemcardStatus {
+        psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
+        psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
         let mut card = Self::card();
-        self.flush_with(&mut card)
+        let res = self.flush_with(&mut card);
+        psx_io::irq::ack(1 << psx_io::irq::source::CONTROLLER);
+        res
     }
 
     /// Transport-agnostic flush (host tests drive this with a RAM card).

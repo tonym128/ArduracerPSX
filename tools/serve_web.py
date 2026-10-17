@@ -34,17 +34,30 @@ class RangeRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(416, "Requested Range Not Satisfiable")
             return None
 
+        mtime = os.path.getmtime(path)
+        etag = f'"{int(mtime):x}-{total:x}"'
+
         self.send_response(206)
         self.send_header("Content-Type", self.guess_type(path))
         self.send_header("Content-Range", f"bytes {start}-{end}/{total}")
         self.send_header("Content-Length", str(end - start + 1))
         self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Last-Modified", self.date_time_string(int(mtime)))
+        self.send_header("ETag", etag)
         self.end_headers()
 
         f = open(path, "rb")
         f.seek(start)
         self.range = (start, end)
         return f
+
+    def end_headers(self):
+        if self.path.endswith("sw.js") or self.path.endswith("service-worker.js"):
+            self.send_header("Service-Worker-Allowed", "/")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        elif self.path.endswith("manifest.json"):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        super().end_headers()
 
     def copyfile(self, source, outputfile):
         if not getattr(self, "range", None):

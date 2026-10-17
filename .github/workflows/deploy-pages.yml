@@ -3,8 +3,6 @@ name: Deploy Web Arcade to GitHub Pages
 on:
   push:
     branches: [main, master]
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -33,13 +31,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install media tools
-        # ffmpeg for tools/audio_cook/wav2vag.py. No MIPS binutils: the build
-        # goes through cargo/rust-lld and the RAM gate reads the link map, so
-        # nothing here shells out to objdump/nm/readelf.
+      - name: Install media and cooking tools
+        # ffmpeg for wav2vag.py; python3-numpy and python3-pil for track atlas / city asset cookers.
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg python3-numpy python3-pil python3-cairosvg
 
       - name: Show toolchain
         run: rustup show
@@ -77,6 +73,7 @@ jobs:
         run: |
           mkdir -p web/roms
           cp dist/arduracer.exe dist/arduracer.cue dist/arduracer.bin dist/arduracer.iso web/roms/
+          python3 tools/generate_rom_manifest.py web/roms
 
       # PREREQUISITE (one-time, needs a repo admin): this workflow can only
       # *read* the Pages site. `actions/configure-pages`' `enablement` input

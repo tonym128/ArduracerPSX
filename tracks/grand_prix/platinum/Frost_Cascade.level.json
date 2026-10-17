@@ -1,0 +1,108 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Frost Cascade",
+ "stem": "Frost_Cascade",
+ "grid": 80,
+ "mode": "poly",
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "kerb_cells": 0.7,
+ "runoff_cells": 2.4,
+ "wall_cells": 1.0,
+ "runoff": "GRAVEL",
+ "runoff_hex": "#6B5432",
+ "gates": 6,
+ "checkpoints": 6,
+ "centreline_samples": 660,
+ "centreline_length_cells": 164.799,
+ "nodes": 9,
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "boost",
+   "frac": 0.078294,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.142857,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "boost",
+   "frac": 0.240282,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.285714,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "oil",
+   "frac": 0.30649,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.428571,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.571429,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.714286,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.857143,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  },
+  {
+   "kind": "boost",
+   "frac": 0.885006,
+   "half_len": null,
+   "half_thick": null,
+   "offset": 0.0
+  }
+ ],
+ "source": "level_editor",
+ "meta": {
+  "generated": true,
+  "seed": 2024006074,
+  "difficulty": "hard",
+  "editor": "level_editor",
+  "boost_pads": 3,
+  "oil_slicks": 1,
+  "schema": "arduracer.level/1"
+ }
+}

@@ -1,0 +1,197 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Frostpeak_Summit",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 18.0057,
+      "y": 22.7621,
+      "r": 8.5225
+    },
+    {
+      "x": 19.3813,
+      "y": 19.5496,
+      "r": 4.3646
+    },
+    {
+      "x": 23.0,
+      "y": 18.0,
+      "r": 9.5923
+    },
+    {
+      "x": 57.2379,
+      "y": 18.0057,
+      "r": 8.5227
+    },
+    {
+      "x": 60.4504,
+      "y": 19.3813,
+      "r": 4.6847
+    },
+    {
+      "x": 61.9774,
+      "y": 22.5247,
+      "r": 7.3404
+    },
+    {
+      "x": 61.7568,
+      "y": 37.0524,
+      "r": 3.7083
+    },
+    {
+      "x": 60.184,
+      "y": 39.0299,
+      "r": 6.7228
+    },
+    {
+      "x": 52.1745,
+      "y": 43.6951,
+      "r": 4.3765
+    },
+    {
+      "x": 51.0046,
+      "y": 45.9183,
+      "r": 2.9673
+    },
+    {
+      "x": 51.9205,
+      "y": 48.7145,
+      "r": 5.0935
+    },
+    {
+      "x": 57.5467,
+      "y": 53.3762,
+      "r": 3.1958
+    },
+    {
+      "x": 57.9459,
+      "y": 55.7099,
+      "r": 3.8208
+    },
+    {
+      "x": 56.9557,
+      "y": 57.8604,
+      "r": 3.1977
+    },
+    {
+      "x": 43.6703,
+      "y": 63.9564,
+      "r": 33.5992
+    },
+    {
+      "x": 22.7621,
+      "y": 63.9943,
+      "r": 8.48
+    },
+    {
+      "x": 19.5496,
+      "y": 62.6187,
+      "r": 4.3646
+    },
+    {
+      "x": 18.0,
+      "y": 59.0,
+      "r": 9.5925
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 6,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073593,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.1443,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.249639,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.001
+    },
+    {
+      "kind": "gate",
+      "frac": 0.2886,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.357864,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.428571,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.535354,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.003
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571429,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.640693,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.7114,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.8557,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Frostpeak_Summit.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Frostpeak_Summit.svg"
+  }
+}

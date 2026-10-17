@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "build_id": "7e75902add-e284e779c077630c",
+  "commit": "7e75902add8029f8dc03cfb7932b2cf90072acc3",
+  "build_time": "2026-10-16T22:38:06.609412+00:00",
+  "files": {
+    "arduracer.bin": {
+      "path": "arduracer.bin",
+      "size": 584638992,
+      "sha256": "7bdb844280f94c00c3af0059f91818f2997b6c84cc751e80737786af7eaf47b4",
+      "modified": 1792190285
+    },
+    "arduracer.cue": {
+      "path": "arduracer.cue",
+      "size": 438,
+      "sha256": "cd4c50403db85a4f451609453a70354249680fa844005dbb15bc976aea044d69",
+      "modified": 1792190285
+    },
+    "arduracer.exe": {
+      "path": "arduracer.exe",
+      "size": 677888,
+      "sha256": "92bd8640c00c8853f735c4993c0a019ba696b5781629b8e42e9dbc0fc2077690",
+      "modified": 1792190285
+    },
+    "arduracer.iso": {
+      "path": "arduracer.iso",
+      "size": 147308544,
+      "sha256": "42c8595de2bd9b2361b619b1208f542ea5d86586fb69c1997b6e5a6f55bb26bc",
+      "modified": 1792190285
+    }
+  }
+}

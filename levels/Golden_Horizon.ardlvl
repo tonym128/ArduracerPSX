@@ -1,0 +1,195 @@
+{
+  "schema": "arduracer.level/1",
+  "name": "Golden_Horizon",
+  "mode": "poly",
+  "nodes": [
+    {
+      "x": 16.2025,
+      "y": 23.5913,
+      "r": 5.1195
+    },
+    {
+      "x": 17.9092,
+      "y": 21.0697,
+      "r": 4.5945
+    },
+    {
+      "x": 20.5247,
+      "y": 20.0226,
+      "r": 7.2212
+    },
+    {
+      "x": 60.4087,
+      "y": 20.2025,
+      "r": 4.8378
+    },
+    {
+      "x": 62.7787,
+      "y": 21.7257,
+      "r": 4.6095
+    },
+    {
+      "x": 63.9096,
+      "y": 24.0537,
+      "r": 5.5503
+    },
+    {
+      "x": 63.832,
+      "y": 37.1472,
+      "r": 4.6746
+    },
+    {
+      "x": 60.9225,
+      "y": 39.8922,
+      "r": 5.598
+    },
+    {
+      "x": 50.7662,
+      "y": 40.6046,
+      "r": 2.4899
+    },
+    {
+      "x": 49.4009,
+      "y": 42.428,
+      "r": 6.1148
+    },
+    {
+      "x": 45.9238,
+      "y": 54.7788,
+      "r": 2.9551
+    },
+    {
+      "x": 43.73,
+      "y": 55.9693,
+      "r": 4.7634
+    },
+    {
+      "x": 37.4942,
+      "y": 55.8738,
+      "r": 4.0298
+    },
+    {
+      "x": 35.343,
+      "y": 54.1578,
+      "r": 5.3917
+    },
+    {
+      "x": 29.7821,
+      "y": 40.9216,
+      "r": 2.813
+    },
+    {
+      "x": 27.6887,
+      "y": 40.0266,
+      "r": 5.876
+    },
+    {
+      "x": 19.8212,
+      "y": 39.8591,
+      "r": 6.0341
+    },
+    {
+      "x": 16.7937,
+      "y": 37.7032,
+      "r": 3.8881
+    },
+    {
+      "x": 16.0057,
+      "y": 35.2379,
+      "r": 7.8614
+    }
+  ],
+  "road_half_cells": 3.0,
+  "kerb_cells": 0.7,
+  "runoff_cells": 2.4,
+  "wall_cells": 1.0,
+  "runoff": 7,
+  "infield": 5,
+  "outside": 5,
+  "marks": [
+    {
+      "kind": "start",
+      "frac": 0.0,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.073579,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.143813,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.250836,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.285953,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.429766,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "boost",
+      "frac": 0.501672,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.571906,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    },
+    {
+      "kind": "oil",
+      "frac": 0.67893,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.0
+    },
+    {
+      "kind": "gate",
+      "frac": 0.714047,
+      "half_len": null,
+      "half_thick": null,
+      "offset": 0.005
+    },
+    {
+      "kind": "gate",
+      "frac": 0.856187,
+      "half_len": null,
+      "half_thick": null,
+      "offset": -0.0
+    }
+  ],
+  "shortcuts": [],
+  "meta": {
+    "source_svg": "/home/tonym/Projects/ArduracerPSX/tracks/Golden_Horizon.svg",
+    "imported": true,
+    "notes": "",
+    "adopted_from": "/home/tonym/Projects/ArduracerPSX/tracks/Golden_Horizon.svg"
+  }
+}

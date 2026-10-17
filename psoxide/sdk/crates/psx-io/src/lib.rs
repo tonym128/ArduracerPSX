@@ -22,6 +22,7 @@ pub mod gpu;
 pub mod gte;
 pub mod irq;
 pub mod mdec;
+pub mod silicon;
 pub mod sio;
 pub mod spu;
 pub mod timers;
