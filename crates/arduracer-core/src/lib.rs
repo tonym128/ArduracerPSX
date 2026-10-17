@@ -38,6 +38,7 @@ pub mod host_grids;
 pub mod texture_format;
 pub mod timing;
 pub mod track;
+pub mod track_builder;
 pub mod tuning;
 pub mod vehicle;
 pub mod visual_converter;
@@ -78,6 +79,12 @@ pub use timing::{
 pub use track::{
     TrackDef, TrackTile, CAR_HALF_WIDTH, LANE_WIDTH, MAX_ROAD_HALF_WIDTH, MAX_TRACK_CHECKPOINTS,
     MAX_TRACK_DIM, MIN_ROAD_HALF_WIDTH, TILE_SIZE,
+};
+pub use track_builder::{
+    CompiledCustomTrack, CustomTrackDef, PlacedBlock, TrackBlockKind, TrackBuildError,
+    BLOCK_TILE_SIZE, CUSTOM_GRID_MACRO_DIM, CUSTOM_GRID_TILE_DIM, CUSTOM_TRACK_MAGIC,
+    CUSTOM_TRACK_SERIALIZED_SIZE, CUSTOM_TRACK_VERSION, MAX_CUSTOM_BLOCKS,
+    TOTAL_CUSTOM_TRACK_SLOTS,
 };
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
 pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};

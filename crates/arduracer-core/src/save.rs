@@ -64,7 +64,13 @@ pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 ///   preference or the packed championship progression in `_reserved0`.
 /// - v5 expanded to 25 tracks for Map 25 (Titan Circuit, 4096x4096).
 /// - v6 expanded to 64 tracks and dynamic cup & mode championship state.
-pub const SAVE_VERSION: u16 = 6;
+/// - v7 added 4 custom TrackMania track builder slots (1024 bytes).
+pub const SAVE_VERSION: u16 = 7;
+
+/// Total custom track slots stored directly on the card payload.
+pub const TOTAL_CUSTOM_TRACK_SLOTS: usize = 4;
+/// Serialized size of each custom track slot in bytes.
+pub const CUSTOM_TRACK_SLOT_SIZE: usize = 256;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -78,16 +84,16 @@ pub const MAX_MEDAL: u8 = Medal::DevPlatinum as u8;
 /// cannot arrive as a full-scale or wrapped setting.
 pub const MAX_VOLUME: u8 = 8;
 
-/// On-card payload length: every field is written explicitly, so this is the
-/// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 388;
-
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 386;
+pub const CHECKSUM_OFFSET: usize = 386 + (TOTAL_CUSTOM_TRACK_SLOTS * CUSTOM_TRACK_SLOT_SIZE);
+
+/// On-card payload length: every field is written explicitly, so this is the
+/// exact count of meaningful bytes with no padding in it.
+pub const PAYLOAD_SIZE: usize = CHECKSUM_OFFSET + 2;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
-const OFF_BEST_LAPS: usize = 30;
+pub const OFF_BEST_LAPS: usize = 30;
 
 /// Which disc-audio source the player has chosen.
 ///
@@ -213,6 +219,7 @@ pub struct SaveData {
     pub framerate: u8,
     /// Which disc-audio source is permitted. See [`CdAudioMode`].
     pub cd_audio: u8,
+    pub custom_tracks: [[u8; CUSTOM_TRACK_SLOT_SIZE]; TOTAL_CUSTOM_TRACK_SLOTS],
     pub checksum: u16,
 }
 
@@ -240,6 +247,7 @@ impl Default for SaveData {
             texture_format: 0,
             framerate: 0,
             cd_audio: CdAudioMode::default().as_u8(),
+            custom_tracks: [[0u8; CUSTOM_TRACK_SLOT_SIZE]; TOTAL_CUSTOM_TRACK_SLOTS],
             checksum: 0,
         };
         save.checksum = save.compute_checksum();
@@ -307,6 +315,10 @@ impl SaveData {
         o += 2;
         out[o] = self.cd_audio;
         o += 1;
+        for track in self.custom_tracks.iter() {
+            out[o..o + CUSTOM_TRACK_SLOT_SIZE].copy_from_slice(track);
+            o += CUSTOM_TRACK_SLOT_SIZE;
+        }
 
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         out[o..o + 2].copy_from_slice(&self.checksum.to_le_bytes());
@@ -375,6 +387,11 @@ impl SaveData {
         o += 2;
         let cd_audio = bytes[o];
         o += 1;
+        let mut custom_tracks = [[0u8; CUSTOM_TRACK_SLOT_SIZE]; TOTAL_CUSTOM_TRACK_SLOTS];
+        for track in custom_tracks.iter_mut() {
+            track.copy_from_slice(&bytes[o..o + CUSTOM_TRACK_SLOT_SIZE]);
+            o += CUSTOM_TRACK_SLOT_SIZE;
+        }
 
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         let checksum = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
@@ -403,6 +420,7 @@ impl SaveData {
             best_lap_ticks,
             medals_earned,
             tuning_slots,
+            custom_tracks,
             checksum,
         };
         // Checksum first: sanitising corrupt-but-CRC-valid data is the point,
@@ -412,6 +430,38 @@ impl SaveData {
             return None;
         }
         Some(save.sanitised())
+    }
+
+    /// Deserializes a custom track from the given memory card slot.
+    pub fn custom_track(&self, slot: usize) -> Option<crate::track_builder::CustomTrackDef> {
+        if slot >= TOTAL_CUSTOM_TRACK_SLOTS {
+            return None;
+        }
+        crate::track_builder::CustomTrackDef::deserialize(&self.custom_tracks[slot])
+    }
+
+    /// Stores a custom track in the given memory card slot and updates checksum.
+    pub fn set_custom_track(
+        &mut self,
+        slot: usize,
+        track: &crate::track_builder::CustomTrackDef,
+    ) -> bool {
+        if slot >= TOTAL_CUSTOM_TRACK_SLOTS {
+            return false;
+        }
+        track.serialize(&mut self.custom_tracks[slot]);
+        self.checksum = self.compute_checksum();
+        true
+    }
+
+    /// Clears a custom track slot and updates checksum.
+    pub fn clear_custom_track(&mut self, slot: usize) -> bool {
+        if slot >= TOTAL_CUSTOM_TRACK_SLOTS {
+            return false;
+        }
+        self.custom_tracks[slot] = [0u8; CUSTOM_TRACK_SLOT_SIZE];
+        self.checksum = self.compute_checksum();
+        true
     }
 
     /// Clamps every field into the domain the game can actually use.

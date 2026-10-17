@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(m.flush_with(&mut card), MemcardStatus::Saved);
 
         // Flip a byte inside `best_lap_ticks[3]`, which the save CRC covers.
-        let offset = core::mem::offset_of!(SaveData, best_lap_ticks) + 3 * 4;
+        let offset = arduracer_core::save::OFF_BEST_LAPS + 3 * 4;
         corrupt_payload_byte(&mut card.device().inner, offset);
 
         let mut fresh = MemoryCardManager::new();
@@ -506,5 +506,33 @@ mod tests {
         assert_eq!(reloaded.probe_with(&mut card), MemcardStatus::Loaded);
         assert_eq!(reloaded.save_data.best_lap_ticks[4], 1500);
         assert_eq!(reloaded.save_data.medals_earned[4], 2);
+    }
+
+    #[test]
+    fn custom_track_persists_across_card_reload() {
+        use arduracer_core::track_builder::{CustomTrackDef, TrackBlockKind};
+
+        let mut card = FaultCard::formatted();
+        let mut m = MemoryCardManager::new();
+        assert_eq!(m.probe_with(&mut card), MemcardStatus::FreshProfile);
+
+        let mut track = CustomTrackDef::new("SPEED STADIUM");
+        track.place_block(2, 2, TrackBlockKind::StartGrid, 0).unwrap();
+        track.place_block(2, 3, TrackBlockKind::Straight, 0).unwrap();
+        track.place_block(2, 4, TrackBlockKind::Turn90, 0).unwrap();
+        track.author_time_ticks = 1140;
+
+        assert!(m.save_data.set_custom_track(0, &track));
+        m.mark_dirty();
+        assert_eq!(m.flush_with(&mut card), MemcardStatus::Saved);
+        assert!(!m.is_dirty);
+
+        let mut reloaded = MemoryCardManager::new();
+        assert_eq!(reloaded.probe_with(&mut card), MemcardStatus::Loaded);
+        let loaded_track = reloaded.save_data.custom_track(0).expect("custom track loaded");
+        assert_eq!(loaded_track.name_str(), "SPEED STADIUM");
+        assert_eq!(loaded_track.author_time_ticks, 1140);
+        assert_eq!(loaded_track.block_count, 3);
+        assert_eq!(loaded_track.blocks[0], track.blocks[0]);
     }
 }

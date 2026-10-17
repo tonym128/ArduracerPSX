@@ -14,6 +14,7 @@ pub mod settings_input;
 pub mod stage_table;
 pub mod title;
 pub mod title_input;
+pub mod track_editor;
 pub mod track_select;
 pub mod tuning_input;
 pub mod tuning_screen;
@@ -30,6 +31,7 @@ pub use settings_input::{SettingsChoice, SettingsInput, SettingsMenu, SettingsVa
 pub use stage_table::{StageFilterTab, StageTableAction, StageTableScreen};
 pub use title::TitleScreen;
 pub use title_input::TitleInput;
+pub use track_editor::{TrackEditorAction, TrackEditorScreen};
 pub use track_select::TrackSelectScreen;
 pub use tuning_input::{Reject, TuningInput, TuningMenu};
 pub use tuning_screen::TuningScreen;

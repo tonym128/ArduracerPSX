@@ -204,3 +204,60 @@ pub fn load(
     }
     ok
 }
+
+#[cfg_attr(target_arch = "mips", link_section = ".data")]
+static mut CUSTOM_TRACK_DEF: TrackDef = TrackDef {
+    name: "CUSTOM TRACK",
+    width: 80,
+    height: 80,
+    start_pos: arduracer_core::math::Vec2::ZERO,
+    start_heading: 0,
+    start_gate: arduracer_core::timing::CheckpointGate {
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 4,
+    },
+    par_times: arduracer_core::timing::ParTimes {
+        bronze_ticks: 2700,
+        silver_ticks: 2400,
+        gold_ticks: 2050,
+        dev_platinum_ticks: 1800,
+    },
+    checkpoint_count: 0,
+    checkpoints: [arduracer_core::timing::CheckpointGate {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    }; arduracer_core::track::MAX_TRACK_CHECKPOINTS],
+    tiles: None,
+    route: &[],
+    half_width: (2 * arduracer_core::track::TILE_SIZE) as u16,
+};
+
+/// Compiles a custom track into the runtime tile grid buffer and binds it to `CUSTOM_TRACK_DEF`.
+pub fn compile_and_bind_custom_track(
+    track: &arduracer_core::track_builder::CustomTrackDef,
+) -> Result<&'static TrackDef, arduracer_core::track_builder::TrackBuildError> {
+    unsafe {
+        let all_tiles = &mut *(core::ptr::addr_of_mut!(GRID) as *mut [TrackTile; GRID_BYTES]);
+        let compiled = track.compile(&mut all_tiles[..arduracer_core::track_builder::TOTAL_CUSTOM_TILES])?;
+        GRID_LEN = arduracer_core::track_builder::TOTAL_CUSTOM_TILES;
+
+        let def = &mut *core::ptr::addr_of_mut!(CUSTOM_TRACK_DEF);
+        def.name = "CUSTOM TRACK";
+        def.width = compiled.width;
+        def.height = compiled.height;
+        def.start_pos = compiled.start_pos;
+        def.start_heading = compiled.start_heading;
+        def.start_gate = compiled.start_gate;
+        def.par_times = compiled.par_times;
+        def.checkpoint_count = compiled.checkpoint_count;
+        def.checkpoints = compiled.checkpoints;
+        def.tiles = Some(grid());
+        def.route = &[];
+        def.half_width = (2 * arduracer_core::track::TILE_SIZE) as u16;
+        Ok(def)
+    }
+}

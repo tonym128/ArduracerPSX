@@ -48,7 +48,8 @@ use state::{GameState, StateManager};
 use ui::font::draw_text;
 use ui::{
     CityInfo, GrandPrixSetupAction, MenuItem, PauseChoice, PauseMenu, ResultsAction, ResultsScreen,
-    SettingsChoice, SettingsInput, SettingsValues, StageFilterTab, StageTableAction, VictoryScreen,
+    SettingsChoice, SettingsInput, SettingsValues, StageFilterTab, StageTableAction,
+    TrackEditorAction, VictoryScreen,
 };
 
 pub const SCREEN_WIDTH: u16 = 320;
@@ -628,12 +629,57 @@ impl ArduracerGame {
             .start_wipe_in(crate::gpu::TransitionKind::VenetianBlinds);
     }
 
+    /// Loads a custom user-built TrackMania circuit for test drive and validation.
+    pub fn load_custom_track(
+        &mut self,
+        custom_def: &arduracer_core::track_builder::CustomTrackDef,
+    ) {
+        crate::gpu::hud_renderer::render_loading_screen(
+            "CUSTOM TRACK",
+            "TRACK BUILDER TEST DRIVE",
+            35,
+        );
+        let flip = self.fb.begin_deferred_swap();
+        psx_rt::interrupts::queue_gp1_at_vblank(flip);
+        #[cfg(target_arch = "mips")]
+        psx_rt::interrupts::wait_vblank();
+
+        if let Ok(bound_track) = crate::level_grid::compile_and_bind_custom_track(custom_def) {
+            self.current_track = bound_track;
+            self.current_track_idx = 999;
+            self.ghost.reset(255);
+            self.reset_race();
+            self.audio.cdda.stop();
+            init_track_texture(0);
+            bake_minimap(&self.minimap_texture, self.current_track);
+            prewarm_starting_tiles(
+                self.current_track.world_width(),
+                self.current_track.world_height(),
+                &self.camera,
+            );
+            log_silicon_fallback_once();
+
+            self.audio
+                .play_music(6, crate::gpu::tracktex::disc_reader());
+            self.pause.arm_for_race_start();
+            self.audio.enter_race();
+            self.transition
+                .start_wipe_in(crate::gpu::TransitionKind::VenetianBlinds);
+            self.state_mgr.current = GameState::Racing;
+        } else {
+            self.state_mgr
+                .track_editor
+                .set_status("COMPILATION FAILED!");
+        }
+    }
+
     /// Resets the current race state to the starting grid.
     pub fn reset_race(&mut self) {
         let track = self.current_track;
-        let is_mania_sprint = self.state_mgr.championship.is_none()
+        let is_mania_sprint = (self.state_mgr.championship.is_none()
             && self.state_mgr.track_select.mode == GameMode::Mania
-            && self.current_track_idx >= 24;
+            && self.current_track_idx >= 24)
+            || self.current_track_idx == 999;
         self.timer =
             LapTimer::with_par_times(track.checkpoint_slice(), track.start_gate, track.par_times)
                 .with_target_laps(if is_mania_sprint {
@@ -989,6 +1035,15 @@ impl ArduracerGame {
                                     .arm_for_entry(GameMode::GrandPrix, false);
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
+                            MenuItem::TrackBuilder => {
+                                self.is_2p_mode = false;
+                                self.state_mgr.championship = None;
+                                if let Some(saved_track) = self.memcard.save_data.custom_track(self.state_mgr.track_editor.slot) {
+                                    self.state_mgr.track_editor.track = saved_track;
+                                }
+                                self.state_mgr.track_editor.arm_for_entry();
+                                self.state_mgr.current = GameState::TrackEditor;
+                            }
                             MenuItem::TuningGarage => {
                                 // Load all three presets and the active slot from the memory card.
                                 let slot = self.memcard.save_data.active_tuning_slot as usize;
@@ -1063,6 +1118,39 @@ impl ArduracerGame {
                     }
                     self.fb.clear(15, 18, 25);
                     self.state_mgr.city_select.render();
+                }
+                GameState::TrackEditor => {
+                    self.audio.ui_frame(pad.buttons.bits());
+                    let action = self.state_mgr.track_editor.update(&pad);
+                    match action {
+                        TrackEditorAction::None => {}
+                        TrackEditorAction::ExitToMenu => {
+                            self.state_mgr.current = GameState::MainMenu;
+                        }
+                        TrackEditorAction::SaveToCard(slot, track_def) => {
+                            self.memcard.save_data.set_custom_track(slot, &track_def);
+                            self.memcard.mark_dirty();
+                            self.memcard.flush();
+                        }
+                        TrackEditorAction::LoadFromCard(slot) => {
+                            if let Some(track_def) = self.memcard.save_data.custom_track(slot) {
+                                self.state_mgr.track_editor.load_track(track_def);
+                            } else {
+                                self.state_mgr.track_editor.track =
+                                    arduracer_core::track_builder::CustomTrackDef::new(
+                                        "CUSTOM ARENA",
+                                    );
+                                self.state_mgr
+                                    .track_editor
+                                    .set_status("SLOT IS EMPTY");
+                            }
+                        }
+                        TrackEditorAction::TestDriveValidated(track_def) => {
+                            self.load_custom_track(&track_def);
+                        }
+                    }
+                    self.fb.clear(15, 18, 25);
+                    self.state_mgr.track_editor.render();
                 }
                 GameState::Settings => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -1274,14 +1362,27 @@ impl ArduracerGame {
                                 }
                                 PauseChoice::QuitToMenu => {
                                     if self.timer.has_best_lap() {
-                                        let medal = track
-                                            .par_times
-                                            .evaluate_medal(self.timer.best_lap_ticks);
-                                        self.memcard.record_lap(
-                                            self.current_track_idx,
-                                            self.timer.best_lap_ticks,
-                                            medal as u8,
-                                        );
+                                        if self.current_track_idx == 999 {
+                                            self.state_mgr.track_editor.track.author_time_ticks =
+                                                self.timer.best_lap_ticks;
+                                            self.memcard.save_data.set_custom_track(
+                                                self.state_mgr.track_editor.slot,
+                                                &self.state_mgr.track_editor.track,
+                                            );
+                                            self.memcard.mark_dirty();
+                                            self.state_mgr
+                                                .track_editor
+                                                .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
+                                        } else {
+                                            let medal = track
+                                                .par_times
+                                                .evaluate_medal(self.timer.best_lap_ticks);
+                                            self.memcard.record_lap(
+                                                self.current_track_idx,
+                                                self.timer.best_lap_ticks,
+                                                medal as u8,
+                                            );
+                                        }
                                         if self.memcard.is_dirty {
                                             self.memcard.flush();
                                         }
@@ -1290,8 +1391,13 @@ impl ArduracerGame {
                                     self.input_mgr2.silence();
                                     self.state_mgr.championship = None;
                                     self.state_mgr.champ_stage_backup = None;
-                                    self.state_mgr.current = GameState::MainMenu;
-                                    self.state_mgr.menu.arm_for_entry();
+                                    if self.current_track_idx == 999 {
+                                        self.state_mgr.track_editor.arm_for_entry();
+                                        self.state_mgr.current = GameState::TrackEditor;
+                                    } else {
+                                        self.state_mgr.current = GameState::MainMenu;
+                                        self.state_mgr.menu.arm_for_entry();
+                                    }
                                     // `self.paused` stays true across this
                                     // transition, so arming here would leak the
                                     // engine into the menu.
@@ -1913,7 +2019,20 @@ impl ArduracerGame {
             self.ghost.start_lap();
 
             // Record completed lap times and trophies earned
-            if self.timer.has_best_lap() {
+            if self.current_track_idx == 999 {
+                if self.timer.has_best_lap() {
+                    self.state_mgr.track_editor.track.author_time_ticks =
+                        self.timer.best_lap_ticks;
+                    self.memcard.save_data.set_custom_track(
+                        self.state_mgr.track_editor.slot,
+                        &self.state_mgr.track_editor.track,
+                    );
+                    self.memcard.mark_dirty();
+                    self.state_mgr
+                        .track_editor
+                        .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
+                }
+            } else if self.timer.has_best_lap() {
                 let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
                 self.memcard.record_lap(
                     self.current_track_idx,
@@ -1996,21 +2115,33 @@ impl ArduracerGame {
 
         // Check race completion (single player)
         if !self.is_2p_mode && self.timer.is_finished {
-            let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
-            let medal = if self.timer.target_laps == 1 {
-                time_medal.max(self.timer.evaluate_platform_medal())
+            if self.current_track_idx == 999 {
+                self.state_mgr.track_editor.track.author_time_ticks = self.timer.best_lap_ticks;
+                self.memcard.save_data.set_custom_track(
+                    self.state_mgr.track_editor.slot,
+                    &self.state_mgr.track_editor.track,
+                );
+                self.memcard.mark_dirty();
+                self.state_mgr
+                    .track_editor
+                    .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
             } else {
-                time_medal
-            };
-            self.memcard.record_lap(
-                self.current_track_idx,
-                self.timer.best_lap_ticks,
-                medal as u8,
-            );
-            // Every scored lap already promoted itself; this only
-            // closes out the in-progress final lap.
-            self.ghost.finish_lap(self.timer.best_lap_ticks, false);
-            self.ghost.save_to_card_block(&mut self.memcard.block);
+                let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                let medal = if self.timer.target_laps == 1 {
+                    time_medal.max(self.timer.evaluate_platform_medal())
+                } else {
+                    time_medal
+                };
+                self.memcard.record_lap(
+                    self.current_track_idx,
+                    self.timer.best_lap_ticks,
+                    medal as u8,
+                );
+                // Every scored lap already promoted itself; this only
+                // closes out the in-progress final lap.
+                self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+                self.ghost.save_to_card_block(&mut self.memcard.block);
+            }
             // Persist the record before leaving the race screen.
             if self.memcard.is_dirty {
                 self.memcard.flush();
@@ -2278,7 +2409,10 @@ impl ArduracerGame {
                     self.audio.sync_ui_edges(pad.buttons.bits());
                     self.audio
                         .play_music(2, crate::gpu::tracktex::disc_reader());
-                    if self.current_track_idx >= ALL_TRACKS.len() {
+                    if self.current_track_idx == 999 {
+                        self.state_mgr.track_editor.arm_for_entry();
+                        self.state_mgr.current = GameState::TrackEditor;
+                    } else if self.current_track_idx >= ALL_TRACKS.len() {
                         self.state_mgr.city_select.arm_for_entry();
                         self.state_mgr.current = GameState::CitySelect;
                     } else if self.current_track_idx >= 25 {

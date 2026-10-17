@@ -3901,17 +3901,25 @@ mod graphics_settings {
         // Release buttons
         menu.update(&test_pad(0));
 
-        // Test wrapping: DOWN 4 more times reaches row 0
+        // Down one more to reach TrackBuilder (index 6)
+        menu.update(&test_pad(button::DOWN));
+        menu.update(&test_pad(0));
+        assert_eq!(menu.selected_idx, 6);
+        let action = menu.update(&test_pad(button::CROSS));
+        assert_eq!(action, Some(MenuItem::TrackBuilder));
+        menu.update(&test_pad(0));
+
+        // Test wrapping: DOWN 4 more times reaches row 0 (from 6 to 0 on 10 items)
         for _ in 0..4 {
             menu.update(&test_pad(button::DOWN));
             menu.update(&test_pad(0));
         }
         assert_eq!(menu.selected_idx, 0);
 
-        // UP from 0 wraps to 8 (Settings)
+        // UP from 0 wraps to 9 (Settings)
         menu.update(&test_pad(button::UP));
         menu.update(&test_pad(0));
-        assert_eq!(menu.selected_idx, 8);
+        assert_eq!(menu.selected_idx, 9);
     }
 
     #[test]

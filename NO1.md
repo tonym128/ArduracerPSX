@@ -232,7 +232,7 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 8: TrackMania Track Builder, Custom Tracks, FMV Cinematics & Web Arcade (Items `NO1-046` – `NO1-050`)
 
-- [ ] **`NO1-046` — In-Game TrackMania Track Builder & Custom Track Memory Card Slot (`crates/arduracer-core/src/track_builder.rs`, `game/src/ui/track_editor.rs`, `save.rs`)**
+- [x] **`NO1-046` — In-Game TrackMania Track Builder & Custom Track Memory Card Slot (`crates/arduracer-core/src/track_builder.rs`, `game/src/ui/track_editor.rs`, `save.rs`)**
   - **Problem**: No track editor exists in-game or in `tools/` (`tools/level_editor/` referenced in `build_atlas.py:194` does not exist). What makes *TrackMania* eternal is building, testing, and validating your own tracks in seconds!
   - **Action**:
     1. Build an **In-Game Grid Track Builder (`TRACK EDITOR` in Main Menu)**: Place and rotate modular snapped TrackMania blocks (Start Grid, Straight, 90° Turn, Hairpin, Chicane, Dirt Section, Ice Bobsleigh, Jump Ramp, Bridge Overpass, Free-Wheel Red Block, Reactor Boost, Checkpoint Gate) on an 80×80 grid with instant `"TEST DRIVE & VALIDATE"` (setting your own Author Platinum time!).
