@@ -201,6 +201,20 @@ impl ParTimes {
         let from_par = self.dev_platinum_ticks / 2;
         from_par.clamp(MIN_PLAUSIBLE_LAP_TICKS, MAX_PLAUSIBLE_LAP_TICKS)
     }
+
+    /// Returns the next unachieved `(Medal, target_ticks)` for a given personal
+    /// best lap time (`0` or `NO_BEST_LAP` if no lap recorded yet).
+    pub fn next_medal_target(&self, best_ticks: u32) -> (Medal, u32) {
+        if best_ticks == 0 || best_ticks == NO_BEST_LAP || best_ticks > self.bronze_ticks {
+            (Medal::Bronze, self.bronze_ticks)
+        } else if best_ticks > self.silver_ticks {
+            (Medal::Silver, self.silver_ticks)
+        } else if best_ticks > self.gold_ticks {
+            (Medal::Gold, self.gold_ticks)
+        } else {
+            (Medal::DevPlatinum, self.dev_platinum_ticks)
+        }
+    }
 }
 
 /// Ticks each countdown light stays lit, at 60 Hz.
@@ -209,6 +223,22 @@ pub const COUNTDOWN_LIGHT_TICKS: u16 = 36;
 pub const COUNTDOWN_LIGHTS: u8 = 3;
 /// Ticks the GO state is held after the last light, so the player sees it.
 pub const COUNTDOWN_GO_TICKS: u16 = 30;
+
+/// Lower RPM boundary of the Perfect Launch rev-matching sweet spot.
+pub const LAUNCH_SWEET_SPOT_MIN_RPM: u16 = 6_200;
+/// Upper RPM boundary of the Perfect Launch rev-matching sweet spot.
+pub const LAUNCH_SWEET_SPOT_MAX_RPM: u16 = 7_600;
+
+/// Outcome of the grid rev-matching launch mini-game when the lights go out.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum LaunchOutcome {
+    /// Standard standing launch (low/moderate RPM).
+    Normal,
+    /// Sweet-spot launch (`6,200..=7,600` RPM): instant 35-tick Turbo Start!
+    TurboBoost,
+    /// Over-revved redline (`> 7,600` RPM): brief wheelspin burnout.
+    Wheelspin,
+}
 
 /// Which light is showing, and whether the race is live.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -289,12 +319,25 @@ impl StartSequence {
     pub fn just_started(&self) -> bool {
         self.elapsed == Self::lights_out_tick()
     }
+
+    /// Evaluates the player's engine RPM at the instant the start lights go out.
+    pub const fn evaluate_launch(rpm: u16) -> LaunchOutcome {
+        if rpm >= LAUNCH_SWEET_SPOT_MIN_RPM && rpm <= LAUNCH_SWEET_SPOT_MAX_RPM {
+            LaunchOutcome::TurboBoost
+        } else if rpm > LAUNCH_SWEET_SPOT_MAX_RPM {
+            LaunchOutcome::Wheelspin
+        } else {
+            LaunchOutcome::Normal
+        }
+    }
 }
 
-/// Real-time lap timer with ArduRacer FX style anti-cheat checkpoint validation.
+/// Real-time lap timer with ArduRacer FX style anti-cheat checkpoint validation
+/// and TrackMania per-checkpoint split timing.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LapTimer<const MAX_CHECKPOINTS: usize> {
     pub current_lap: u8,
+    pub target_laps: u8,
     pub current_lap_ticks: u32,
     /// Best lap recorded so far, or [`NO_BEST_LAP`] if none is plausible yet.
     ///
@@ -319,6 +362,22 @@ pub struct LapTimer<const MAX_CHECKPOINTS: usize> {
     /// Cleared by *every* start/finish crossing, so the ring is progress within
     /// one attempt and can never be banked across attempts.
     pub checkpoint_mask: u64,
+    /// Exact `current_lap_ticks` recorded when checkpoint `i` was cleared on this lap.
+    pub current_splits: [u32; MAX_CHECKPOINTS],
+    /// Exact per-checkpoint split times from the fastest plausible lap (`best_lap_ticks`).
+    pub best_splits: [u32; MAX_CHECKPOINTS],
+    /// Forward speed recorded when checkpoint `i` was cleared on this lap (for Flying Respawn).
+    pub current_split_speeds: [Fixed; MAX_CHECKPOINTS],
+    /// Index of the most recently cleared checkpoint on this lap (`None` before any gate).
+    pub last_cleared_checkpoint: Option<u8>,
+    /// Elapsed lap ticks at the moment `last_cleared_checkpoint` was cleared.
+    pub last_split_ticks: u32,
+    /// Signed split delta (in ticks) at `last_cleared_checkpoint` against `best_splits`.
+    pub last_split_delta: Option<i32>,
+    /// Countdown ticks (`120` = 2.0s) for displaying the center-top TrackMania split banner.
+    pub split_banner_ticks: u8,
+    /// Number of checkpoint respawns used during this session (used by Mania Platform mode).
+    pub respawn_count: u16,
     /// True while the car is inside the start/finish block.
     pub on_start_gate: bool,
     /// Lap timing arms once the car first leaves the grid.
@@ -339,6 +398,9 @@ pub const NO_BEST_LAP: u32 = u32::MAX;
 /// ever clamps a nonsense bound handed in by a caller -- without it, passing
 /// `u32::MAX` would silently switch the anti-cheat off.
 pub const MAX_PLAUSIBLE_LAP_TICKS: u32 = 10_800;
+
+/// Duration (in 60 Hz ticks) the TrackMania split banner stays visible after crossing a gate.
+pub const SPLIT_BANNER_DURATION_TICKS: u8 = 120;
 
 impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
     /// Builds a timer from a track's start gate and checkpoint list.
@@ -376,6 +438,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
 
         LapTimer {
             current_lap: 1,
+            target_laps: TOTAL_LAPS,
             current_lap_ticks: 0,
             best_lap_ticks: NO_BEST_LAP,
             last_completed_lap_ticks: 0,
@@ -383,6 +446,14 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             checkpoints: gates,
             start_gate,
             checkpoint_mask: 0,
+            current_splits: [0; MAX_CHECKPOINTS],
+            best_splits: [0; MAX_CHECKPOINTS],
+            current_split_speeds: [Fixed::ZERO; MAX_CHECKPOINTS],
+            last_cleared_checkpoint: None,
+            last_split_ticks: 0,
+            last_split_delta: None,
+            split_banner_ticks: 0,
+            respawn_count: 0,
             // Unverified until a tile feed says so; `start` keeps that state.
             on_start_gate: false,
             is_running: false,
@@ -476,11 +547,19 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         self.best_lap_ticks != NO_BEST_LAP
     }
 
+    /// Configures the number of laps required to finish the session (e.g. `1` for
+    /// point-to-point Mania Sprint trials, `TOTAL_LAPS` for standard circuits).
+    pub fn with_target_laps(mut self, target_laps: u8) -> Self {
+        self.target_laps = target_laps.max(1);
+        self
+    }
+
     /// Advances the timer by one 60Hz tick.
     pub fn tick(&mut self) {
         if self.is_running && !self.is_finished {
             self.current_lap_ticks = self.current_lap_ticks.saturating_add(1);
         }
+        self.split_banner_ticks = self.split_banner_ticks.saturating_sub(1);
     }
 
     /// Starts timing (called when the countdown light turns GREEN).
@@ -490,6 +569,13 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         self.current_lap = 1;
         self.current_lap_ticks = 0;
         self.checkpoint_mask = 0;
+        self.current_splits = [0; MAX_CHECKPOINTS];
+        self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];
+        self.last_cleared_checkpoint = None;
+        self.last_split_ticks = 0;
+        self.last_split_delta = None;
+        self.split_banner_ticks = 0;
+        self.respawn_count = 0;
         // The grid sits inside the start/finish block, but the timer is not told
         // that: it starts *outside* it and only records the car as being on the
         // line once a tile feed says so. That makes the roll off the grid a
@@ -497,6 +583,63 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         // machine ever reports really is a return to the line -- and no gate
         // progress can survive one.
         self.on_start_gate = false;
+    }
+
+    /// Records the split time and entry speed when checkpoint `i` is newly cleared.
+    fn record_checkpoint_split(&mut self, i: usize, speed: Fixed) {
+        if i >= MAX_CHECKPOINTS {
+            return;
+        }
+        self.current_splits[i] = self.current_lap_ticks;
+        self.current_split_speeds[i] = speed;
+        self.last_cleared_checkpoint = Some(i as u8);
+        self.last_split_ticks = self.current_lap_ticks;
+        self.last_split_delta = if self.has_best_lap() && self.best_splits[i] > 0 {
+            let delta = self.current_lap_ticks as i64 - self.best_splits[i] as i64;
+            Some(delta.clamp(i32::MIN as i64, i32::MAX as i64) as i32)
+        } else {
+            None
+        };
+        self.split_banner_ticks = SPLIT_BANNER_DURATION_TICKS;
+    }
+
+    /// Active checkpoint split banner data `(checkpoint_index, split_ticks, split_delta_ticks)`
+    /// while the post-checkpoint banner timer (`split_banner_ticks`) is still counting down.
+    #[inline]
+    pub fn checkpoint_split_banner(&self) -> Option<(u8, u32, Option<i32>)> {
+        if self.split_banner_ticks > 0 {
+            self.last_cleared_checkpoint
+                .map(|cp| (cp, self.last_split_ticks, self.last_split_delta))
+        } else {
+            None
+        }
+    }
+
+    /// Records a checkpoint respawn while keeping the lap timer running, and returns
+    /// `(last_cleared_checkpoint, entry_speed_at_checkpoint)` for standing or flying respawn.
+    pub fn record_respawn(&mut self) -> (Option<u8>, Fixed) {
+        self.respawn_count = self.respawn_count.saturating_add(1);
+        let speed = match self.last_cleared_checkpoint {
+            Some(idx) if (idx as usize) < MAX_CHECKPOINTS => {
+                self.current_split_speeds[idx as usize]
+            }
+            _ => Fixed::ZERO,
+        };
+        (self.last_cleared_checkpoint, speed)
+    }
+
+    /// Evaluates the Mania Platform mode medal based on respawn count (fewer respawns = higher medal).
+    pub const fn evaluate_platform_medal(&self) -> Medal {
+        if !self.is_finished {
+            return Medal::None;
+        }
+        match self.respawn_count {
+            0 => Medal::DevPlatinum,
+            1 => Medal::Gold,
+            2 | 3 => Medal::Silver,
+            4..=6 => Medal::Bronze,
+            _ => Medal::None,
+        }
     }
 
     /// Feeds the player's tile position into the gate state machine.
@@ -521,8 +664,12 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         // gate at the tile the car is *leaving* the line for has, by definition,
         // been touched after it left the line, so it belongs to the new lap.
         let completed = left_start && self.all_checkpoints_cleared();
+        let finished_splits = self.current_splits;
         if left_start {
             self.checkpoint_mask = 0;
+            self.current_splits = [0; MAX_CHECKPOINTS];
+            self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];
+            self.last_cleared_checkpoint = None;
         }
 
         // Register checkpoint touches (order independent, anti-cheat by coverage).
@@ -533,6 +680,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             }
             if self.checkpoints[i].contains_tile(tx, ty) {
                 self.checkpoint_mask |= bit;
+                self.record_checkpoint_split(i, Fixed::ZERO);
             }
         }
 
@@ -550,9 +698,10 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         // withholding a lap would corrupt the lap counter instead.
         if lap_ticks >= self.min_lap_ticks && lap_ticks < self.best_lap_ticks {
             self.best_lap_ticks = lap_ticks;
+            self.best_splits = finished_splits;
         }
 
-        if self.current_lap >= TOTAL_LAPS {
+        if self.current_lap >= self.target_laps.max(1) {
             self.is_finished = true;
             self.is_running = false;
         } else {
@@ -624,15 +773,21 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             || check_point_inside_start(left)
             || check_point_inside_start(right);
 
+        let total_gates = self.active_checkpoint_count();
         let left_start = self.on_start_gate && !inside_start;
-        let completed = left_start && self.all_checkpoints_cleared();
+        let completed = left_start
+            && self.all_checkpoints_cleared()
+            && track.is_forward_crossing(total_gates, player.velocity);
+        let finished_splits = self.current_splits;
         if left_start {
             self.checkpoint_mask = 0;
+            self.current_splits = [0; MAX_CHECKPOINTS];
+            self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];
+            self.last_cleared_checkpoint = None;
         }
 
         // Register checkpoint touches
         let sample_pts = [pos, front, rear, left, right];
-        let total_gates = self.active_checkpoint_count();
         for i in 0..total_gates {
             let bit = Self::gate_bit(i);
             if self.checkpoint_mask & bit != 0 {
@@ -672,8 +827,9 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
                 }
             }
 
-            if touched {
+            if touched && track.is_forward_crossing(i, player.velocity) {
                 self.checkpoint_mask |= bit;
+                self.record_checkpoint_split(i, player.speed.max(Fixed::ZERO));
             }
         }
 
@@ -687,9 +843,10 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         self.last_completed_lap_ticks = lap_ticks;
         if lap_ticks >= self.min_lap_ticks && lap_ticks < self.best_lap_ticks {
             self.best_lap_ticks = lap_ticks;
+            self.best_splits = finished_splits;
         }
 
-        if self.current_lap >= TOTAL_LAPS {
+        if self.current_lap >= self.target_laps.max(1) {
             self.is_finished = true;
             self.is_running = false;
         } else {
@@ -1753,5 +1910,73 @@ mod tests {
             t.on_start_gate,
             "vehicle nose touching the start line must register even when center is on tarmac"
         );
+    }
+
+    #[test]
+    fn checkpoint_splits_record_and_compute_exact_deltas() {
+        let mut t = four_gate_timer::<4>();
+        // Lap 1: 200 ticks per gate -> splits at [200, 400, 600, 800], lap = 800
+        full_lap(&mut t, 200);
+        assert_eq!(t.best_lap_ticks(), Some(800));
+        assert_eq!(t.best_splits, [200, 400, 600, 800]);
+
+        // Lap 2: reach gate 0 in 180 ticks (-20 delta), gate 1 in +230 ticks (+10 delta)
+        drive_to(&mut t, RING[0], 180);
+        assert_eq!(t.current_splits[0], 180);
+        assert_eq!(t.last_cleared_checkpoint, Some(0));
+        assert_eq!(t.last_split_delta, Some(-20));
+        assert_eq!(t.checkpoint_split_banner(), Some((0, 180, Some(-20))));
+
+        drive_to(&mut t, RING[1], 230);
+        assert_eq!(t.current_splits[1], 410);
+        assert_eq!(t.last_cleared_checkpoint, Some(1));
+        assert_eq!(t.last_split_delta, Some(10));
+        assert_eq!(t.checkpoint_split_banner(), Some((1, 410, Some(10))));
+
+        // Banner expires after SPLIT_BANNER_DURATION_TICKS ticks
+        for _ in 0..SPLIT_BANNER_DURATION_TICKS {
+            t.tick();
+        }
+        assert_eq!(t.checkpoint_split_banner(), None);
+    }
+
+    #[test]
+    fn target_laps_and_platform_medal_evaluation() {
+        let mut t = four_gate_timer::<4>().with_target_laps(1);
+        t.start();
+        assert_eq!(t.record_respawn().0, None);
+        full_lap(&mut t, 200);
+        assert!(t.is_finished, "1-lap sprint finishes after 1 lap");
+        assert_eq!(t.respawn_count, 1);
+        assert_eq!(t.evaluate_platform_medal(), Medal::Gold);
+    }
+
+    #[test]
+    fn launch_rpm_evaluation_and_next_medal_target() {
+        assert_eq!(StartSequence::evaluate_launch(4_000), LaunchOutcome::Normal);
+        assert_eq!(
+            StartSequence::evaluate_launch(LAUNCH_SWEET_SPOT_MIN_RPM),
+            LaunchOutcome::TurboBoost
+        );
+        assert_eq!(
+            StartSequence::evaluate_launch(7_000),
+            LaunchOutcome::TurboBoost
+        );
+        assert_eq!(
+            StartSequence::evaluate_launch(LAUNCH_SWEET_SPOT_MAX_RPM + 100),
+            LaunchOutcome::Wheelspin
+        );
+
+        let par = ParTimes {
+            bronze_ticks: 3_000,
+            silver_ticks: 2_400,
+            gold_ticks: 1_800,
+            dev_platinum_ticks: 1_500,
+        };
+        assert_eq!(par.next_medal_target(0), (Medal::Bronze, 3_000));
+        assert_eq!(par.next_medal_target(2_800), (Medal::Silver, 2_400));
+        assert_eq!(par.next_medal_target(2_200), (Medal::Gold, 1_800));
+        assert_eq!(par.next_medal_target(1_700), (Medal::DevPlatinum, 1_500));
+        assert_eq!(par.next_medal_target(1_400), (Medal::DevPlatinum, 1_500));
     }
 }

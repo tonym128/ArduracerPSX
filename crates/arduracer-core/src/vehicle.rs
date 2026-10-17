@@ -31,8 +31,16 @@ const REVERSE_SCALE: Fixed = Fixed::from_raw(1638);
 const REVERSE_SPEED_LIMIT: Fixed = Fixed::from_raw(2000);
 /// Turbo impulse applied per tick while a boost is active.
 const BOOST_THRUST: Fixed = Fixed::from_raw(80);
+/// Extra turbo impulse applied per tick while a TrackMania Red Super Boost is active.
+const SUPER_BOOST_EXTRA_THRUST: Fixed = Fixed::from_raw(60);
 /// Extra top speed headroom while a boost is active.
 const BOOST_TOP_SPEED_BONUS: Fixed = Fixed::from_raw(2000);
+/// Extra top speed headroom while a TrackMania Red Super Boost is active (+30% of BASE_TOP_SPEED).
+const SUPER_BOOST_TOP_SPEED_BONUS: Fixed = Fixed::from_raw(4200);
+/// Aerodynamic slipstream thrust per tick when drafting in a lead car's wake cone.
+const SLIPSTREAM_THRUST: Fixed = Fixed::from_raw(28);
+/// Extra top speed headroom when drafting in a lead car's wake cone (~7% of BASE_TOP_SPEED).
+const SLIPSTREAM_TOP_SPEED_BONUS: Fixed = Fixed::from_raw(980);
 /// Angular units of heading change per tick at full steering lock.
 pub const BASE_TURN_RATE: u16 = 70;
 /// Below this speed the steering input is ignored (prevents jitter at rest).
@@ -168,6 +176,14 @@ pub struct VehicleState {
     pub drift: DriftState,
     /// Remaining ticks of turbo boost (e.g. from drift release or boost pad).
     pub boost_ticks: u16,
+    /// Remaining ticks of TrackMania Red Super Boost (+30% top speed).
+    pub super_boost_ticks: u16,
+    /// True while TrackMania Engine-Off (Free-Wheeling) mode is active.
+    pub free_wheeling: bool,
+    /// Consecutive ticks spent inside a lead car's aerodynamic slipstream wake cone.
+    pub draft_ticks: u16,
+    /// Remaining ticks of launch burnout wheelspin (from over-revving at the grid).
+    pub wheelspin_ticks: u16,
     /// Nitro meter: 0..=NITRO_MAX_TICKS of accumulated charge. Drains while
     /// `VehicleInput::nitro` is held and refills when it is not.
     pub nitro_charge: u16,
@@ -227,6 +243,10 @@ impl Default for VehicleState {
             is_drifting: false,
             drift: DriftState::Grip,
             boost_ticks: 0,
+            super_boost_ticks: 0,
+            free_wheeling: false,
+            draft_ticks: 0,
+            wheelspin_ticks: 0,
             nitro_charge: NITRO_MAX_TICKS,
             nitro_recharge_sub: 0,
             boost_pad_cooldown: 0,
@@ -375,6 +395,10 @@ impl VehicleState {
         self.is_drifting = false;
         self.drift = DriftState::Grip;
         self.boost_ticks = 0;
+        self.super_boost_ticks = 0;
+        self.free_wheeling = false;
+        self.draft_ticks = 0;
+        self.wheelspin_ticks = 0;
         self.nitro_charge = NITRO_MAX_TICKS;
         self.nitro_recharge_sub = 0;
         self.boost_pad_cooldown = 0;
@@ -386,6 +410,82 @@ impl VehicleState {
         self.spinout_cooldown = 0;
         self.oil_slick_latch = false;
         self.tire_scrub = Fixed::ZERO;
+    }
+
+    /// TrackMania-style Flying Respawn: places the car at `pos` facing `heading`
+    /// while restoring 80% of the forward speed recorded when clearing the checkpoint.
+    pub fn flying_respawn_at(&mut self, pos: Vec2, heading: u16, entry_speed: Fixed) {
+        self.respawn_at(pos, heading);
+        let top = self.tuning.scaled_top_speed(BASE_TOP_SPEED);
+        let restored_speed = (entry_speed * Fixed::from_raw(3277)).clamp(Fixed::ZERO, top);
+        self.velocity = self.forward_dir().scale(restored_speed);
+        self.speed = self.velocity.length();
+        self.update_transmission(Fixed::ONE);
+    }
+
+    /// True once the car has remained inside a lead car's aerodynamic wake cone
+    /// for at least 30 ticks (0.5 s) at high speed.
+    #[inline]
+    pub const fn is_drafting(&self) -> bool {
+        self.draft_ticks >= 30
+    }
+
+    /// Updates aerodynamic slipstream (drafting) state against lead cars on track.
+    pub fn update_slipstream(&mut self, lead_positions: &[Vec2]) {
+        if self.speed < Fixed::from_int(2) || self.is_reversing || self.drift.is_spinning() {
+            self.draft_ticks = self.draft_ticks.saturating_sub(2);
+            return;
+        }
+        let fwd = self.forward_dir();
+        let right = self.right_dir();
+        let mut in_wake = false;
+        for &lead_pos in lead_positions {
+            let delta = lead_pos - self.position;
+            let fwd_dist = delta.dot(fwd);
+            if fwd_dist > Fixed::from_int(28) && fwd_dist <= Fixed::from_int(192) {
+                let lat_dist = delta.dot(right).abs();
+                let wake_half_width = Fixed::from_int(24) + (fwd_dist * Fixed::from_raw(512));
+                if lat_dist <= wake_half_width {
+                    in_wake = true;
+                    break;
+                }
+            }
+        }
+        if in_wake {
+            self.draft_ticks = self.draft_ticks.saturating_add(1).min(180);
+        } else {
+            self.draft_ticks = self.draft_ticks.saturating_sub(2);
+        }
+    }
+
+    /// Revs the engine while stationary on the starting grid during the 3-2-1 countdown.
+    pub fn rev_engine_at_grid(&mut self, throttle: Fixed) {
+        self.gear = 1;
+        if throttle > Fixed::ZERO {
+            let target_rpm = 1000 + ((throttle.raw() as i64 * 7400) / FP_ONE as i64) as u16;
+            self.engine_rpm = self
+                .engine_rpm
+                .saturating_add(180)
+                .min(target_rpm)
+                .min(8400);
+        } else {
+            self.engine_rpm = self.engine_rpm.saturating_sub(140).max(1000);
+        }
+    }
+
+    /// Applies the outcome of the grid rev-matching launch mini-game when the start lights go out.
+    pub fn apply_launch_outcome(&mut self, outcome: crate::timing::LaunchOutcome) {
+        match outcome {
+            crate::timing::LaunchOutcome::TurboBoost => {
+                self.boost_ticks = 35;
+                self.velocity = self.forward_dir().scale(Fixed::from_raw(3200));
+                self.speed = self.velocity.length();
+            }
+            crate::timing::LaunchOutcome::Wheelspin => {
+                self.wheelspin_ticks = 30;
+            }
+            crate::timing::LaunchOutcome::Normal => {}
+        }
     }
 
     /// Unit right-hand lateral vector for the current heading.
@@ -510,6 +610,11 @@ impl VehicleState {
         if self.spinout_cooldown > 0 {
             self.spinout_cooldown -= 1;
         }
+        if surface.is_engine_off() {
+            self.free_wheeling = true;
+        } else if surface.restores_engine() {
+            self.free_wheeling = false;
+        }
 
         // Steering authority falls off with speed (understeer), and is reduced
         // while spinning or drifting. Without this the tightest circle the car
@@ -523,7 +628,7 @@ impl VehicleState {
         // Under lift-off (coasting) or braking (trail braking), weight shifts forward -> crisp turn-in bite.
         let weight_factor = if input.brake > Fixed::ZERO {
             Fixed::from_raw(4710) // ~1.15x: trail braking bites hard
-        } else if input.throttle > Fixed::ZERO {
+        } else if input.throttle > Fixed::ZERO && !self.free_wheeling {
             Fixed::from_raw(3788) // ~0.925x: power understeer
         } else {
             Fixed::from_raw(4300) // ~1.05x: lift-off turn-in
@@ -563,9 +668,18 @@ impl VehicleState {
         // 2. Engine thrust -------------------------------------------------------
         let forward_dir = self.forward_dir();
         let right_dir = self.right_dir();
-        let traction = surface.traction();
+        let mut traction = surface.traction();
+        if self.wheelspin_ticks > 0 {
+            self.wheelspin_ticks -= 1;
+            traction = traction * Fixed::from_raw(1843); // 45% traction during launch burnout
+        }
+        let effective_throttle = if self.free_wheeling {
+            Fixed::ZERO
+        } else {
+            input.throttle
+        };
 
-        if input.throttle > Fixed::ZERO && traction > Fixed::ZERO {
+        if effective_throttle > Fixed::ZERO && traction > Fixed::ZERO {
             // `gearing` shapes the torque curve rather than adding a flat
             // multiplier: a short ratio pulls harder low down and tapers at the
             // top, a long ratio the reverse. Neutral for the default car.
@@ -579,12 +693,20 @@ impl VehicleState {
             };
             let accel = (self.tuning.scaled_acceleration(BASE_ACCEL) * gear_tune * gear_ratio_mult)
                 / Fixed::ONE;
-            self.velocity = self.velocity + forward_dir.scale(accel * input.throttle * traction);
+            self.velocity =
+                self.velocity + forward_dir.scale(accel * effective_throttle * traction);
+            if self.is_drafting() {
+                self.velocity = self.velocity + forward_dir.scale(SLIPSTREAM_THRUST);
+            }
         }
 
         if self.boost_ticks > 0 {
             self.boost_ticks -= 1;
             self.velocity = self.velocity + forward_dir.scale(BOOST_THRUST);
+        }
+        if self.super_boost_ticks > 0 {
+            self.super_boost_ticks -= 1;
+            self.velocity = self.velocity + forward_dir.scale(SUPER_BOOST_EXTRA_THRUST);
         }
 
         // 2b. Nitro ----------------------------------------------------------------
@@ -593,7 +715,8 @@ impl VehicleState {
         // accumulates 1 sub-tick per frame (reaching 1 charge every
         // `NITRO_RECHARGE_TICKS` = 4 ticks -> 6.0 s full refill), and active
         // drifting doubles the recharge rate (2 sub-ticks/frame -> 3.0 s refill).
-        let nitro_active = input.nitro && self.nitro_charge > 0 && traction > Fixed::ZERO;
+        let nitro_active =
+            input.nitro && !self.free_wheeling && self.nitro_charge > 0 && traction > Fixed::ZERO;
         if nitro_active {
             self.nitro_charge -= 1;
             self.nitro_recharge_sub = 0;
@@ -622,7 +745,7 @@ impl VehicleState {
                     self.velocity =
                         self.velocity - forward_dir.scale(self.velocity.dot(forward_dir));
                 }
-            } else {
+            } else if !self.free_wheeling {
                 // At a standstill (or already rolling backwards): reverse gear.
                 self.is_reversing = true;
                 let accel = self.tuning.scaled_acceleration(BASE_ACCEL);
@@ -808,7 +931,9 @@ impl VehicleState {
             let lateral_cap = damped_forward.abs() * slip_cap_ratio + LATERAL_CAP_FLOOR;
 
             let damped_lateral = (lateral_speed * lateral_hold).clamp(-lateral_cap, lateral_cap);
-            self.tire_scrub = if lateral_cap > Fixed::ZERO {
+            self.tire_scrub = if self.wheelspin_ticks > 0 {
+                Fixed::ONE
+            } else if lateral_cap > Fixed::ZERO {
                 ((lateral_speed * lateral_hold).abs() * Fixed::ONE) / lateral_cap
             } else {
                 Fixed::ZERO
@@ -840,11 +965,16 @@ impl VehicleState {
         // 6. Surface speed cap & absolute top-speed clamp -------------------------
         let top_speed = self.tuning.scaled_top_speed(BASE_TOP_SPEED);
         let surface_cap = top_speed * surface.max_speed_factor();
-        let effective_top = if self.boost_ticks > 0 {
+        let mut effective_top = if self.super_boost_ticks > 0 {
+            surface_cap + SUPER_BOOST_TOP_SPEED_BONUS
+        } else if self.boost_ticks > 0 {
             surface_cap + BOOST_TOP_SPEED_BONUS
         } else {
             surface_cap
         };
+        if self.is_drafting() {
+            effective_top = effective_top + SLIPSTREAM_TOP_SPEED_BONUS;
+        }
 
         let speed_mag = self.velocity.length();
         if speed_mag > effective_top {
@@ -856,8 +986,12 @@ impl VehicleState {
         // `effective_top` desynchronised `speed` from `|velocity|`.
         self.speed = self.velocity.length();
 
-        // 7. Boost pads ----------------------------------------------------------
-        if surface.is_boost_pad()
+        // 7. Boost pads & TrackMania Red Super Boost pads ------------------------
+        if surface.is_super_boost_pad() && self.boost_pad_cooldown == 0 && !self.is_reversing {
+            self.boost_ticks = 60;
+            self.super_boost_ticks = 60;
+            self.boost_pad_cooldown = BOOST_PAD_COOLDOWN_TICKS;
+        } else if surface.is_boost_pad()
             && self.boost_pad_cooldown == 0
             && self.boost_ticks == 0
             && !self.is_reversing
@@ -888,7 +1022,11 @@ impl VehicleState {
         }
 
         // 10. Engine RPM & gear for audio / HUD ----------------------------------
-        self.update_transmission(input.throttle);
+        if self.free_wheeling {
+            self.engine_rpm = 1000;
+        } else {
+            self.update_transmission(input.throttle);
+        }
     }
 
     /// Updates the gear and engine RPM based on current speed and throttle.
@@ -1041,12 +1179,30 @@ impl VehicleState {
     pub fn tick_on_track(&mut self, input: VehicleInput, track: &TrackDef) -> SurfaceType {
         let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
         let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
-        let surface = track.surface_at(tx, ty);
+        let tile = track.tile_at(tx, ty);
+        if matches!(
+            tile,
+            crate::track::TrackTile::Checkpoint
+                | crate::track::TrackTile::StartFinish
+                | crate::track::TrackTile::EngineReset
+        ) {
+            self.free_wheeling = false;
+        }
+        let surface = tile.surface();
         self.tick(input, surface);
         self.collide_with_track(track);
         let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
         let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
-        track.surface_at(tx, ty)
+        let end_tile = track.tile_at(tx, ty);
+        if matches!(
+            end_tile,
+            crate::track::TrackTile::Checkpoint
+                | crate::track::TrackTile::StartFinish
+                | crate::track::TrackTile::EngineReset
+        ) {
+            self.free_wheeling = false;
+        }
+        end_tile.surface()
     }
 }
 
@@ -2861,5 +3017,76 @@ mod tests {
             drift_car.nitro_charge,
             grip_car.nitro_charge
         );
+    }
+
+    #[test]
+    fn trackmania_engine_off_super_boost_and_reset_blocks_work() {
+        let mut car = rolling(2.5);
+        let speed_before = car.speed;
+
+        // Driving onto EngineOff cuts engine power even at full throttle
+        car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::EngineOff);
+        assert!(car.free_wheeling);
+        assert_eq!(car.engine_rpm, 1000);
+        for _ in 0..10 {
+            car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+        }
+        assert!(car.free_wheeling, "free_wheeling persists on normal tarmac");
+        assert!(
+            car.speed < speed_before,
+            "car coasts and loses speed while free_wheeling"
+        );
+
+        // EngineReset restores engine power
+        car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::EngineReset);
+        assert!(!car.free_wheeling);
+
+        // SuperBoostPad activates 60 ticks of super boost and exceeds normal boost speed
+        let mut normal_boost = rolling(3.0);
+        normal_boost.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::BoostPad);
+        let mut super_boost = rolling(3.0);
+        super_boost.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::SuperBoostPad);
+        assert_eq!(super_boost.super_boost_ticks, 60);
+        for _ in 0..25 {
+            normal_boost.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+            super_boost.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+        }
+        assert!(
+            super_boost.speed > normal_boost.speed,
+            "SuperBoostPad must propel the car faster than a normal BoostPad"
+        );
+    }
+
+    #[test]
+    fn flying_respawn_and_slipstream_drafting_and_launch_rev_matching() {
+        let mut car = rolling(3.0);
+        let entry_speed = car.speed;
+        car.flying_respawn_at(
+            Vec2::new(Fixed::from_int(100), Fixed::from_int(200)),
+            1024,
+            entry_speed,
+        );
+        assert!(
+            car.speed > Fixed::from_int(2),
+            "flying respawn retains ~80% of entry speed"
+        );
+
+        // Slipstream wake cone behind a lead car 80 units ahead along heading 1024 (+X)
+        let lead = [Vec2::new(Fixed::from_int(180), Fixed::from_int(200))];
+        for _ in 0..32 {
+            car.update_slipstream(&lead);
+        }
+        assert!(car.is_drafting());
+
+        // Grid launch rev-matching
+        let mut grid_car = VehicleState::default();
+        for _ in 0..35 {
+            grid_car.rev_engine_at_grid(Fixed::from_raw(3600));
+        }
+        let outcome = crate::timing::StartSequence::evaluate_launch(grid_car.engine_rpm);
+        assert_eq!(outcome, crate::timing::LaunchOutcome::TurboBoost);
+        grid_car.apply_launch_outcome(outcome);
+        assert_eq!(grid_car.boost_ticks, 35);
+        assert!(grid_car.speed > Fixed::ZERO);
     }
 }

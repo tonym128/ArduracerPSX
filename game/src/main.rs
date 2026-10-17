@@ -567,7 +567,16 @@ impl ArduracerGame {
     /// Resets the current race state to the starting grid.
     pub fn reset_race(&mut self) {
         let track = self.current_track;
-        self.timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
+        let is_mania_sprint = self.state_mgr.championship.is_none()
+            && self.state_mgr.track_select.mode == GameMode::Mania
+            && self.current_track_idx >= 24;
+        self.timer =
+            LapTimer::with_par_times(track.checkpoint_slice(), track.start_gate, track.par_times)
+                .with_target_laps(if is_mania_sprint {
+                    1
+                } else {
+                    arduracer_core::TOTAL_LAPS
+                });
         let player_slot = self
             .state_mgr
             .championship
@@ -1388,23 +1397,39 @@ impl ArduracerGame {
 
         // Controller input poll (surface known from the previous tick
         // so the rumble motors can react to curbs and impacts).
-        let pre_surface = track.surface_at(
-            TrackDef::tile_x_of(self.player.position.x),
-            TrackDef::tile_y_of(self.player.position.y),
-        );
+        let pre_tx = TrackDef::tile_x_of(self.player.position.x);
+        let pre_ty = TrackDef::tile_y_of(self.player.position.y);
+        let pre_tile = track.tile_at(pre_tx, pre_ty);
+        if matches!(
+            pre_tile,
+            arduracer_core::TrackTile::Checkpoint
+                | arduracer_core::TrackTile::StartFinish
+                | arduracer_core::TrackTile::EngineReset
+        ) {
+            self.player.free_wheeling = false;
+        }
+        let pre_surface = pre_tile.surface();
         let mut input = self.input_mgr.update(pad, &self.player, pre_surface);
 
         #[cfg(feature = "profiling")]
         self.autopilot
             .override_input(track, &mut self.player, &mut input);
 
-        // Start sequence: hold the car on the grid, then arm the lap
-        // clock the instant the lights go out.
+        // Start sequence: hold the car on the grid, allow rev-matching throttle
+        // feathering during the countdown, then arm the lap clock and evaluate
+        // the launch RPM at the instant the lights go out.
+        let raw_throttle = input.throttle;
         self.start.tick();
         if self.start.just_started() {
             self.timer.start();
+            let outcome = StartSequence::evaluate_launch(self.player.engine_rpm);
+            self.player.apply_launch_outcome(outcome);
+            if outcome == arduracer_core::LaunchOutcome::TurboBoost {
+                self.input_mgr.rumble.trigger_boost();
+            }
         }
         if !self.start.accepts_input() {
+            self.player.rev_engine_at_grid(raw_throttle);
             input.throttle = Fixed::ZERO;
             input.brake = Fixed::ZERO;
             input.steer = Fixed::ZERO;
@@ -1412,12 +1437,43 @@ impl ArduracerGame {
             input.nitro = false;
         }
 
-        // Recovery: stuck, spun, or wedged with no way out. Drops the
-        // car on the nearest route node facing down the racing line
-        // and clears every state that could be pinning it.
-        if self.input_mgr.controller.respawn_pressed {
-            let (pos, heading) = track.respawn_point(self.player.position);
+        // TrackMania Dual Respawn & Instant Restart (NO1-012):
+        // - Hold L1 (24 frames): Instant Full Track Restart back to starting grid.
+        // - Double-tap L1: Standing Respawn (zero velocity) at last cleared checkpoint.
+        // - Single-tap L1: Flying Respawn (80% entry speed) at last cleared checkpoint
+        //   (or nearest route node if no checkpoint has been cleared yet).
+        if self.input_mgr.controller.instant_restart_triggered {
+            if self.timer.has_best_lap() {
+                let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                self.memcard.record_lap(
+                    self.current_track_idx,
+                    self.timer.best_lap_ticks,
+                    medal as u8,
+                );
+            }
+            self.reset_race();
+            self.audio.enter_race();
+            return (self.last_player_rank, self.last_standings);
+        } else if self.input_mgr.controller.standing_respawn_pressed {
+            let (last_cp, _) = self.timer.record_respawn();
+            let (pos, heading) = if last_cp.is_some() {
+                track.checkpoint_respawn_point(last_cp)
+            } else {
+                track.respawn_point(self.player.position)
+            };
             self.player.respawn_at(pos, heading);
+        } else if self.input_mgr.controller.respawn_pressed {
+            let (last_cp, entry_speed) = self.timer.record_respawn();
+            let (pos, heading) = if last_cp.is_some() {
+                track.checkpoint_respawn_point(last_cp)
+            } else {
+                track.respawn_point(self.player.position)
+            };
+            if entry_speed > Fixed::ZERO {
+                self.player.flying_respawn_at(pos, heading, entry_speed);
+            } else {
+                self.player.respawn_at(pos, heading);
+            }
         }
 
         // Simulate: physics tick, then resolve track + bounds.
@@ -1427,10 +1483,20 @@ impl ArduracerGame {
             let hit_wall = self.player.collide_with_track(track);
             let tx = TrackDef::tile_x_of(self.player.position.x);
             let ty = TrackDef::tile_y_of(self.player.position.y);
-            (hit_wall, track.surface_at(tx, ty))
+            let end_tile = track.tile_at(tx, ty);
+            if matches!(
+                end_tile,
+                arduracer_core::TrackTile::Checkpoint
+                    | arduracer_core::TrackTile::StartFinish
+                    | arduracer_core::TrackTile::EngineReset
+            ) {
+                self.player.free_wheeling = false;
+            }
+            (hit_wall, end_tile.surface())
         };
 
         let player_rank;
+        let prev_cp_mask = self.timer.checkpoint_mask;
         self.timer.tick();
         if self.timer.update_player_on_track(&self.player, track) {
             // A lap was just scored. Promote this lap's telemetry to
@@ -1452,21 +1518,29 @@ impl ArduracerGame {
                 );
             }
         }
+        if self.timer.checkpoint_mask != prev_cp_mask {
+            // Clearing any checkpoint gate restores engine power in TrackMania Free-Wheeling sections.
+            self.player.free_wheeling = false;
+        }
 
         let (standings, contacts) = {
             let _s = prof::span(prof::SIM_RIVALS);
             let is_racing = self.start.phase() == StartPhase::Racing || self.start.just_started();
 
-            // AI rivals tick with dynamic obstacle avoidance
+            // AI rivals tick with dynamic obstacle avoidance + aerodynamic slipstream drafting (NO1-015)
             if RIVALS_ENABLED && is_racing {
                 let mut other_positions = [Vec2::ZERO; 6];
+                let mut rival_positions = [Vec2::ZERO; 5];
                 other_positions[0] = self.player.position;
                 for i in 0..5 {
                     other_positions[i + 1] = self.rivals[i].state.position;
+                    rival_positions[i] = self.rivals[i].state.position;
                 }
+                self.player.update_slipstream(&rival_positions);
                 // Rivals launch with the player: held on the grid until
                 // the lights go out, like a standing start.
                 for i in 0..5 {
+                    self.rivals[i].state.update_slipstream(&other_positions);
                     let update_input =
                         self.start.just_started() || ((i % 2) == ((sim_tick as usize) % 2));
                     self.rivals[i].tick_interleaved(track, &other_positions, update_input);
@@ -1516,9 +1590,14 @@ impl ArduracerGame {
             self.ghost.record_tick(&self.player);
         }
 
-        // Check race completion (5 laps)
+        // Check race completion
         if self.timer.is_finished {
-            let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+            let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+            let medal = if self.timer.target_laps == 1 {
+                time_medal.max(self.timer.evaluate_platform_medal())
+            } else {
+                time_medal
+            };
             self.memcard.record_lap(
                 self.current_track_idx,
                 self.timer.best_lap_ticks,

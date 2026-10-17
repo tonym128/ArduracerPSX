@@ -67,36 +67,36 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 2: True TrackMania Gameplay, Timing, Respawn & Mania Modes (Items `NO1-010` – `NO1-017`)
 
-- [ ] **`NO1-010` — Real Per-Checkpoint Split Times & Live Split Delta HUD (`crates/arduracer-core/src/timing.rs`, `game/src/gpu/hud_renderer.rs`)**
+- [x] **`NO1-010` — Real Per-Checkpoint Split Times & Live Split Delta HUD (`crates/arduracer-core/src/timing.rs`, `game/src/gpu/hud_renderer.rs`)**
   - **Problem**: `LapTimer::delta_ticks()` (`timing.rs:711-728`) fabricates expected split time as `best * next_checkpoint_index() / active_checkpoint_count()`, which is inaccurate and climbs every frame between gates.
   - **Action**: Record exact checkpoint crossing timestamps `current_splits: [u32; MAX_TRACK_CHECKPOINTS]`, `best_splits: [u32; MAX_TRACK_CHECKPOINTS]`, and `last_split_delta: Option<i32>` in `LapTimer`. When crossing a gate, flash a center-top TrackMania split banner (`CP 4/10  00:18.42  -00.31s` in green/blue for ahead, red for behind) with a two-tone split chime.
-- [ ] **`NO1-011` — Ordered & Direction-Aware Checkpoint Validation via `Route` (`crates/arduracer-core/src/timing.rs`, `route.rs`, `build_atlas.py`)**
+- [x] **`NO1-011` — Ordered & Direction-Aware Checkpoint Validation via `Route` (`crates/arduracer-core/src/timing.rs`, `route.rs`, `build_atlas.py`)**
   - **Problem**: Checkpoints in `levels.rs` are emitted as `1×1` tiles (`build_atlas.py:553-574`) and `LapTimer` allows touching checkpoints in *any* order via bitmask (`timing.rs:528-537`), never calling `Route::crossed` (`route.rs:300`).
   - **Action**: Emit real road-spanning gate widths/orientations in `build_atlas.py`, enforce sequential checkpoint order (or explicit multi-branch checkpoint groups for split routes), and validate forward crossing direction via `Route::crossed`.
-- [ ] **`NO1-012` — TrackMania Dual Respawn System: Last-Checkpoint Respawn vs. 1-Frame Instant Restart (`crates/arduracer-core/src/timing.rs`, `vehicle.rs`, `game/src/main.rs`)**
+- [x] **`NO1-012` — TrackMania Dual Respawn System: Last-Checkpoint Respawn vs. 1-Frame Instant Restart (`crates/arduracer-core/src/timing.rs`, `vehicle.rs`, `game/src/main.rs`)**
   - **Problem**: Pressing `L1` calls `TrackDef::respawn_point(from)` (`track.rs:620-642`), which searches for the *spatially nearest* route node and can teleport the player *forward* across a hairpin wall. There is also no single-button 1-frame Instant Track Restart.
   - **Action**:
     1. **Tap `L1` (Checkpoint Respawn)**: Teleport strictly to the **last cleared `CheckpointGate`** (or `start_gate` if no gate cleared yet on the current lap), aligned with the gate's forward tangent. Support both **Standing Respawn** (double-tap `L1`) and **TrackMania Flying Respawn** (single-tap `L1`: restores pre-crash forward speed minus a 1.0s penalty).
     2. **Hold `L1` (0.4s) or Press `Select + L1` (Instant Restart)**: Reset the entire race/time-trial to the starting grid in **1 frame** (zero CD loading, reusing the already-resident `RAM_BLOCKS` and `ACTIVE_TILES`).
-- [ ] **`NO1-013` — Signature TrackMania Block Types in `TrackTile` & `SurfaceType` (`crates/arduracer-core/src/track.rs`, `surface.rs`, `vehicle.rs`, `compile_circuit.py`)**
+- [x] **`NO1-013` — Signature TrackMania Block Types in `TrackTile` & `SurfaceType` (`crates/arduracer-core/src/track.rs`, `surface.rs`, `vehicle.rs`, `compile_circuit.py`)**
   - **Problem**: `compile_circuit.py:310-346` collapses 16 authoring codes into 6 basic surfaces.
   - **Action**: Expand `TrackTile` and `SurfaceType` to support genuine TrackMania puzzle/stunt blocks:
     - **`EngineOff` (Free-Wheeling Red Block)**: Disables engine throttle (`free_wheeling = true`) while maintaining full tarmac grip until the car crosses the next Checkpoint, BoostPad, or `EngineReset` block.
     - **`SuperBoostPad` (Reactor / Tier-2 Directional Booster)**: Grants a stacked `+30%` overdrive top speed (`SUPER_BOOST_TOP_SPEED_BONUS`) and directional impulse along the pad's orientation.
     - **`NoSteer` / `Fragile` Block**: Temporarily locks steering or triggers a spin if wall contact exceeds a low threshold until the next gate.
-- [ ] **`NO1-014` — Distinct Mania Game Modes: Sprint (1-Lap), Platform (Zero-Respawn), Stunt & Knockout (`crates/arduracer-core/src/championship.rs`, `levels.rs`, `game/src/ui/`)**
+- [x] **`NO1-014` — Distinct Mania Game Modes: Sprint (1-Lap), Platform (Zero-Respawn), Stunt & Knockout (`crates/arduracer-core/src/championship.rs`, `levels.rs`, `game/src/ui/`)**
   - **Problem**: `GameMode::Mania` runs the exact same 5-lap race format as `GrandPrix`.
   - **Action**: Give `GameMode::Mania` authentic TrackMania sub-modes:
     - **Mania Sprint / Time Attack**: 1-lap point-to-point or flying-lap hotseat mode with instant restart and live medal target tracker on HUD (`NEXT MEDAL: GOLD 00:42.10 (-0.45s)`).
     - **Mania Platform Mode**: Medal awarded strictly by **Respawn Count** (0 respawns = Dev Platinum, ≤1 = Gold, ≤3 = Silver, Finish = Bronze) across hazard-heavy obstacle courses.
     - **Mania Knockout (Elimination)**: 6-car race where the last-place car is eliminated at the end of every lap until 1 winner remains.
-- [ ] **`NO1-015` — Aerodynamic Slipstreaming (Drafting) & Slingshot Overtakes (`crates/arduracer-core/src/vehicle.rs`, `main.rs`)**
+- [x] **`NO1-015` — Aerodynamic Slipstreaming (Drafting) & Slingshot Overtakes (`crates/arduracer-core/src/vehicle.rs`, `main.rs`)**
   - **Problem**: `GAME.md:15` promises aerodynamic drafting/slipstreaming, but `vehicle.rs` has no slipstream check.
   - **Action**: When a car trails within `32..160` world units directly behind another car's wake cone (`±18°`) at `>50%` top speed, build a `draft_meter` (`0..60` ticks) that reduces aerodynamic drag (`DRAG_RETAIN` boosted from `4062` to `4084`), raises top speed by `+8%`, and emits subtle white wind-streak particles off the leading car's spoiler.
-- [ ] **`NO1-016` — Perfect Launch (Grid Rev-Matching) Mini-Game (`crates/arduracer-core/src/timing.rs`, `vehicle.rs`, `game/src/gpu/hud_renderer.rs`)**
+- [x] **`NO1-016` — Perfect Launch (Grid Rev-Matching) Mini-Game (`crates/arduracer-core/src/timing.rs`, `vehicle.rs`, `game/src/gpu/hud_renderer.rs`)**
   - **Problem**: `StartSequence` (`timing.rs:283`) locks all input until `StartPhase::Go`, so every race start is identical.
   - **Action**: Allow revving the engine (`input.throttle`) during the 3-2-1 countdown lights! Holding RPM inside the sweet spot (`6,500..7,500 RPM`, highlighted in green on the HUD tachometer) when `GO!` triggers a **Turbo Start** (`boost_ticks = 35`); holding full throttle at `8,500 RPM` redline causes **Wheelspin Burnout** (0.4s traction loss + tire smoke).
-- [ ] **`NO1-017` — TrackMania Medal Progress Bar & Live Pace Target on HUD (`game/src/gpu/hud_renderer.rs`)**
+- [x] **`NO1-017` — TrackMania Medal Progress Bar & Live Pace Target on HUD (`game/src/gpu/hud_renderer.rs`)**
   - **Problem**: Players in Time Trial / Mania Trials cannot see the Bronze/Silver/Gold/Dev Platinum target times during a run.
   - **Action**: Render a compact top-right **Target Medal Badge** showing the next unachieved medal icon, target time, and live pace bar so the player always knows what time they are chasing.
 

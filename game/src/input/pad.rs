@@ -18,8 +18,16 @@ pub struct ControllerDriver {
     /// True on the frame the recovery button goes down, set by [`Self::poll`]
     /// from the same pad sample that produced the vehicle input.
     pub respawn_pressed: bool,
+    /// True when the recovery button is double-tapped within 20 frames (Standing Respawn).
+    pub standing_respawn_pressed: bool,
+    /// True on the frame the recovery button has been held for 24 frames (Instant Track Restart).
+    pub instant_restart_triggered: bool,
     /// Button state from the previous poll, for recovery edge detection.
     prev_buttons: u16,
+    /// Countdown window (in frames) for detecting a double-tap on L1.
+    double_tap_window: u8,
+    /// Consecutive frames L1 has been held down.
+    hold_frames: u8,
 }
 
 impl ControllerDriver {
@@ -29,7 +37,11 @@ impl ControllerDriver {
             is_analog_mode: false,
             dpad_steer_acc: 0,
             respawn_pressed: false,
+            standing_respawn_pressed: false,
+            instant_restart_triggered: false,
             prev_buttons: 0,
+            double_tap_window: 0,
+            hold_frames: 0,
         }
     }
 
@@ -65,7 +77,23 @@ impl ControllerDriver {
         // Recovery edge, taken from this same sample so it cannot disagree with
         // the vehicle input built below it.
         let prev = psx_pad::ButtonState::from_bits(self.prev_buttons);
-        self.respawn_pressed = b.pressed_since(prev, Self::recovery_button(self.profile));
+        let recovery_btn = Self::recovery_button(self.profile);
+        let just_pressed = b.pressed_since(prev, recovery_btn);
+        let is_held = b.is_held(recovery_btn);
+        self.respawn_pressed = just_pressed;
+        self.standing_respawn_pressed = just_pressed && self.double_tap_window > 0;
+        if just_pressed {
+            self.double_tap_window = 20;
+            self.hold_frames = 1;
+        } else {
+            self.double_tap_window = self.double_tap_window.saturating_sub(1);
+            if is_held {
+                self.hold_frames = self.hold_frames.saturating_add(1);
+            } else {
+                self.hold_frames = 0;
+            }
+        }
+        self.instant_restart_triggered = self.hold_frames == 24;
         self.prev_buttons = b.bits();
 
         // Nitro is **R1** in every layout, mirroring L1 for recovery.

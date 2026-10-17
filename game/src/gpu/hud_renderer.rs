@@ -17,7 +17,10 @@ use crate::gpu::texlayout::{
 };
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
-use arduracer_core::{AiRacer, LapTimer, TrackDef, TrackTile, VehicleState, NITRO_MAX_TICKS};
+use arduracer_core::{
+    AiRacer, LapTimer, Medal, TrackDef, TrackTile, VehicleState, LAUNCH_SWEET_SPOT_MAX_RPM,
+    LAUNCH_SWEET_SPOT_MIN_RPM, NITRO_MAX_TICKS,
+};
 use psx_gpu as gpu;
 use psx_gpu::material::BlendMode;
 
@@ -67,6 +70,9 @@ pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
                 if tile.is_road()
                     || tile == TrackTile::Curb
                     || tile == TrackTile::BoostPad
+                    || tile == TrackTile::SuperBoostPad
+                    || tile == TrackTile::EngineOff
+                    || tile == TrackTile::EngineReset
                     || tile == TrackTile::OilSlick
                 {
                     let (r, g, b) = minimap_colour(tile);
@@ -174,8 +180,9 @@ pub fn render_hud<const N: usize>(
         gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
         gpu::draw_rect_flat(9, 7, 72, 36, 22, 26, 36);
 
-        // Laps boxes (top-left)
-        for lap_idx in 0..5u16 {
+        // Laps boxes (top-left, scaled to target_laps up to 5)
+        let lap_boxes = (timer.target_laps.clamp(1, 5)) as u16;
+        for lap_idx in 0..lap_boxes {
             let x = 13 + lap_idx * 12;
             let is_current = lap_idx + 1 == timer.current_lap as u16;
             let is_done = lap_idx + 1 < timer.current_lap as u16;
@@ -202,16 +209,45 @@ pub fn render_hud<const N: usize>(
             };
             gpu::draw_rect_flat(x as i16, 23, 7, 4, cr, cg, cb);
         }
-        draw_text(13, 31, "LAPS", (150, 150, 165), 1);
+        draw_text(
+            13,
+            31,
+            if timer.target_laps == 1 {
+                "SPRINT"
+            } else {
+                "LAPS"
+            },
+            (150, 150, 165),
+            1,
+        );
 
-        // Best lap record readout
+        // Best lap record readout + Next Target Medal pace indicator (NO1-017)
+        let (target_medal, target_ticks) = track.par_times.next_medal_target(timer.best_lap_ticks);
+        let (medal_label, medal_col) = match target_medal {
+            Medal::DevPlatinum => ("PLAT", (80, 245, 255)),
+            Medal::Gold => ("GOLD", (255, 215, 0)),
+            Medal::Silver => ("SLVR", (200, 210, 225)),
+            _ => ("BRNZ", (210, 130, 50)),
+        };
         if timer.best_lap_ticks != u32::MAX {
-            gpu::draw_rect_flat(8, 46, 74, 18, 14, 16, 24);
-            gpu::draw_rect_flat(9, 47, 72, 16, 22, 26, 36);
+            gpu::draw_rect_flat(8, 46, 84, 28, 14, 16, 24);
+            gpu::draw_rect_flat(9, 47, 82, 26, 22, 26, 36);
             let mut best_buf = [b' '; 8];
             format_time(&mut best_buf, timer.best_lap_ticks);
-            draw_text(12, 51, "BEST", (150, 150, 165), 1);
-            blit(&best_buf, 38, 51, (200, 215, 240), 1);
+            draw_text(12, 50, "BEST", (150, 150, 165), 1);
+            blit(&best_buf, 40, 50, (200, 215, 240), 1);
+
+            let mut targ_buf = [b' '; 8];
+            format_time(&mut targ_buf, target_ticks);
+            draw_text(12, 61, medal_label, medal_col, 1);
+            blit(&targ_buf, 40, 61, medal_col, 1);
+        } else if target_ticks > 0 {
+            gpu::draw_rect_flat(8, 46, 84, 18, 14, 16, 24);
+            gpu::draw_rect_flat(9, 47, 82, 16, 22, 26, 36);
+            let mut targ_buf = [b' '; 8];
+            format_time(&mut targ_buf, target_ticks);
+            draw_text(12, 51, medal_label, medal_col, 1);
+            blit(&targ_buf, 40, 51, medal_col, 1);
         }
     }
 
@@ -254,20 +290,76 @@ pub fn render_hud<const N: usize>(
             };
             blit(&delta_buf, 142, 40, delta_col, 1);
         }
+
+        // TrackMania Checkpoint Split Banner (NO1-010)
+        if let Some((cp_idx, split_ticks, split_delta)) = timer.checkpoint_split_banner() {
+            let banner_y = (8 + center_h as i16) + 2;
+            gpu::draw_rect_flat(104, banner_y, 112, 22, 10, 14, 22);
+            gpu::draw_rect_flat(105, banner_y + 1, 110, 20, 24, 30, 44);
+            let cp_num = cp_idx.saturating_add(1);
+            let cp_label = [
+                b'C',
+                b'P',
+                if cp_num >= 10 {
+                    b'0' + (cp_num / 10)
+                } else {
+                    b'0' + cp_num
+                },
+                if cp_num >= 10 {
+                    b'0' + (cp_num % 10)
+                } else {
+                    b' '
+                },
+            ];
+            blit(&cp_label, 109, (banner_y + 3) as u16, (0, 220, 255), 1);
+            let mut split_buf = [b' '; 8];
+            format_time(&mut split_buf, split_ticks);
+            blit(&split_buf, 138, (banner_y + 3) as u16, (245, 245, 250), 1);
+
+            if let Some(d) = split_delta {
+                let mut d_buf = [b' '; 6];
+                format_delta(&mut d_buf, d);
+                let d_col = if d <= 0 { (50, 245, 95) } else { (255, 65, 65) };
+                blit(&d_buf, 142, (banner_y + 12) as u16, d_col, 1);
+            } else {
+                draw_text(
+                    136,
+                    (banner_y + 12) as u16,
+                    "SPLIT TIME",
+                    (150, 165, 190),
+                    1,
+                );
+            }
+        }
     }
 
     // ------------------------------------------------ 3. Gauges & Telemetry Cluster
     gpu::draw_rect_flat(216, 6, 96, 44, 14, 16, 24);
     gpu::draw_rect_flat(217, 7, 94, 42, 22, 26, 36);
 
-    // Tachometer border and backing
+    // Tachometer border and backing + Launch Sweet-Spot markers (NO1-016)
     gpu::draw_rect_flat(220, 10, 88, 8, 14, 16, 24);
+    let sweet_min_x = 221 + (((LAUNCH_SWEET_SPOT_MIN_RPM as i32 - 1000) * 86) / 7000).clamp(0, 86);
+    let sweet_max_x = 221 + (((LAUNCH_SWEET_SPOT_MAX_RPM as i32 - 1000) * 86) / 7000).clamp(0, 86);
+    gpu::draw_rect_flat(
+        sweet_min_x as i16,
+        10,
+        (sweet_max_x - sweet_min_x).max(2) as u16,
+        8,
+        24,
+        68,
+        52,
+    );
     let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 86) / 7000;
     let fill_w = rpm_ratio.clamp(0, 86) as u16;
-    let bar = if player.boost_ticks > 0 {
+    let bar = if player.super_boost_ticks > 0 {
+        (255, 60, 40) // Crimson-orange while on TrackMania Super Boost
+    } else if player.boost_ticks > 0 {
         (0, 220, 255) // Neon cyan while boosting
-    } else if player.engine_rpm > 6500 {
+    } else if player.engine_rpm > LAUNCH_SWEET_SPOT_MAX_RPM {
         (255, 40, 40) // Redline warning
+    } else if player.engine_rpm >= LAUNCH_SWEET_SPOT_MIN_RPM {
+        (60, 245, 110) // Launch sweet spot / peak power band
     } else if player.engine_rpm > 4500 {
         (255, 200, 30) // Power band
     } else {
@@ -296,12 +388,16 @@ pub fn render_hud<const N: usize>(
     blit(&speed_buf, 220, 28, (240, 240, 250), 1);
 
     // Gear indicator (right of the speedo)
-    let gear_char = if player.is_reversing {
+    let gear_char = if player.free_wheeling {
+        b'N'
+    } else if player.is_reversing {
         b'R'
     } else {
         b'0' + player.gear.clamp(1, 5)
     };
-    let gear_col = if player.is_reversing {
+    let gear_col = if player.free_wheeling {
+        (255, 80, 150)
+    } else if player.is_reversing {
         (255, 160, 40)
     } else {
         (255, 225, 40)
@@ -310,6 +406,26 @@ pub fn render_hud<const N: usize>(
     gear_buf[0] = gear_char;
     draw_text(278, 30, "G", (150, 150, 165), 1);
     blit(&gear_buf, 288, 26, gear_col, 2);
+
+    // Status badge below gauges (Super Boost, Free-Wheeling, Slipstream, Wheelspin)
+    let status_badge: Option<(&str, (u8, u8, u8))> = if player.super_boost_ticks > 0 {
+        Some(("SUPER BOOST!", (255, 70, 40)))
+    } else if player.free_wheeling {
+        Some(("ENGINE OFF", (255, 80, 150)))
+    } else if player.is_drafting() {
+        Some(("SLIPSTREAM", (80, 235, 255)))
+    } else if player.wheelspin_ticks > 0 {
+        Some(("WHEELSPIN!", (255, 150, 40)))
+    } else if player.boost_ticks > 0 {
+        Some(("TURBO BOOST", (0, 220, 255)))
+    } else {
+        None
+    };
+    if let Some((badge_text, badge_col)) = status_badge {
+        gpu::draw_rect_flat(216, 52, 96, 14, 14, 16, 24);
+        gpu::draw_rect_flat(217, 53, 94, 12, 22, 26, 36);
+        draw_text(224, 55, badge_text, badge_col, 1);
+    }
 
     // ------------------------------------------------------- 4. Minimap panel
     let map_x = 10i16;

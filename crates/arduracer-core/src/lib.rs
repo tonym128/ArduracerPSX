@@ -69,8 +69,9 @@ pub use route::{Route, DEFAULT_SAMPLES_PER_SPAN, MAX_ROUTE_SAMPLES};
 pub use save::{SaveData, SAVE_HEADER_MAGIC, SAVE_VERSION, TOTAL_TRACKS};
 pub use surface::SurfaceType;
 pub use timing::{
-    CheckpointGate, LapTimer, Medal, ParTimes, StartPhase, StartSequence, COUNTDOWN_GO_TICKS,
-    COUNTDOWN_LIGHTS, COUNTDOWN_LIGHT_TICKS, TICKS_PER_SECOND, TOTAL_LAPS,
+    CheckpointGate, LapTimer, LaunchOutcome, Medal, ParTimes, StartPhase, StartSequence,
+    COUNTDOWN_GO_TICKS, COUNTDOWN_LIGHTS, COUNTDOWN_LIGHT_TICKS, LAUNCH_SWEET_SPOT_MAX_RPM,
+    LAUNCH_SWEET_SPOT_MIN_RPM, TICKS_PER_SECOND, TOTAL_LAPS,
 };
 pub use track::{
     TrackDef, TrackTile, CAR_HALF_WIDTH, LANE_WIDTH, MAX_ROAD_HALF_WIDTH, MAX_TRACK_CHECKPOINTS,

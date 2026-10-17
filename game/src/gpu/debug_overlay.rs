@@ -413,6 +413,9 @@ impl DebugOverlay {
             SurfaceType::OilSlick => "OIL",
             SurfaceType::BoostPad => "BOOST",
             SurfaceType::Barrier => "WALL",
+            SurfaceType::EngineOff => "ENGOFF",
+            SurfaceType::SuperBoostPad => "SBOOST",
+            SurfaceType::EngineReset => "ENGRST",
         };
         draw_text((x + 60) as u16, (y + 86) as u16, "SRF:", (150, 160, 185), 1);
         draw_text(

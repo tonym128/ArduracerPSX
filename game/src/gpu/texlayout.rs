@@ -241,6 +241,9 @@ pub const fn minimap_colour(tile: TrackTile) -> (u8, u8, u8) {
         TrackTile::Checkpoint => (0, 210, 255),
         TrackTile::Curb => (180, 185, 195),
         TrackTile::BoostPad => (255, 160, 20),
+        TrackTile::SuperBoostPad => (255, 50, 40),
+        TrackTile::EngineOff => (230, 60, 120),
+        TrackTile::EngineReset => (50, 230, 110),
         TrackTile::Barrier => (35, 35, 45),
         // An oil slick is a hazard with near-zero grip and was previously
         // indistinguishable from plain off-road green on the minimap -- a player

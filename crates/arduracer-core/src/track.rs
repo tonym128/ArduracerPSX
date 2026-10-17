@@ -106,6 +106,12 @@ pub enum TrackTile {
     StartFinish = 6,
     /// Checkpoint gate tile.
     Checkpoint = 7,
+    /// TrackMania Free-Wheeling (Engine-Off) block: cuts engine thrust while keeping full grip.
+    EngineOff = 8,
+    /// TrackMania Tier-2 Reactor Super Booster: grants extended overdrive top speed and impulse.
+    SuperBoostPad = 9,
+    /// TrackMania Engine/State Reset block: clears free-wheeling and restores normal power.
+    EngineReset = 10,
 }
 
 impl TrackTile {
@@ -129,6 +135,9 @@ impl TrackTile {
             5 => Self::Barrier,
             6 => Self::StartFinish,
             7 => Self::Checkpoint,
+            8 => Self::EngineOff,
+            9 => Self::SuperBoostPad,
+            10 => Self::EngineReset,
             _ => Self::Barrier,
         }
     }
@@ -144,6 +153,9 @@ impl TrackTile {
             TrackTile::OilSlick => SurfaceType::OilSlick,
             TrackTile::BoostPad => SurfaceType::BoostPad,
             TrackTile::Barrier => SurfaceType::Barrier,
+            TrackTile::EngineOff => SurfaceType::EngineOff,
+            TrackTile::SuperBoostPad => SurfaceType::SuperBoostPad,
+            TrackTile::EngineReset => SurfaceType::EngineReset,
         }
     }
 
@@ -151,7 +163,13 @@ impl TrackTile {
     pub const fn is_road(self) -> bool {
         matches!(
             self,
-            TrackTile::Tarmac | TrackTile::Curb | TrackTile::StartFinish | TrackTile::Checkpoint
+            TrackTile::Tarmac
+                | TrackTile::Curb
+                | TrackTile::StartFinish
+                | TrackTile::Checkpoint
+                | TrackTile::EngineOff
+                | TrackTile::SuperBoostPad
+                | TrackTile::EngineReset
         )
     }
 
@@ -640,6 +658,64 @@ impl TrackDef {
         let next = Self::gate_centre(&self.route_node((best_idx + 1) % n));
         (here, heading_towards(here, next))
     }
+
+    /// TrackMania checkpoint respawn point: drops the car strictly at the
+    /// `last_cleared_checkpoint` gate (facing the next route node), or at the
+    /// start line if no checkpoint has been cleared yet on the current lap.
+    ///
+    /// Unlike [`TrackDef::respawn_point`], this can never teleport a car
+    /// *forward* across a hairpin wall to an uncleared checkpoint.
+    pub fn checkpoint_respawn_point(&self, last_cleared_checkpoint: Option<u8>) -> (Vec2, u16) {
+        let active = self.active_checkpoint_count();
+        if active == 0 {
+            return (self.start_pos, self.start_heading);
+        }
+        let n = self.route_len();
+        match last_cleared_checkpoint {
+            Some(cp_idx) if (cp_idx as usize) < active => {
+                let idx = cp_idx as usize;
+                let here = Self::gate_centre(&self.route_node(idx));
+                let next = Self::gate_centre(&self.route_node((idx + 1) % n));
+                (here, heading_towards(here, next))
+            }
+            _ => {
+                let start = Self::gate_centre(&self.start_gate);
+                let first = Self::gate_centre(&self.route_node(0));
+                let heading = if start == first {
+                    self.start_heading
+                } else {
+                    heading_towards(start, first)
+                };
+                (self.start_pos, heading)
+            }
+        }
+    }
+
+    /// Checks whether a car's velocity vector crosses `gate_idx` (`0..route_len()`)
+    /// in the forward driving direction rather than backwards.
+    ///
+    /// A stationary car (`velocity == Vec2::ZERO`) returns `true` so static
+    /// position-only gate tests remain valid.
+    pub fn is_forward_crossing(&self, gate_idx: usize, velocity: Vec2) -> bool {
+        if velocity.x == Fixed::ZERO && velocity.y == Fixed::ZERO {
+            return true;
+        }
+        let n = self.route_len();
+        if n < 2 {
+            return true;
+        }
+        let idx = gate_idx % n;
+        let prev = Self::gate_centre(&self.route_node((idx + n - 1) % n));
+        let next = Self::gate_centre(&self.route_node((idx + 1) % n));
+        let tangent = next - prev;
+        let t_len = tangent.length();
+        if t_len <= Fixed::ZERO {
+            return true;
+        }
+        // Reject only clearly reverse motion (dot product strongly negative against route tangent).
+        let unit_tangent = Vec2::new(tangent.x / t_len, tangent.y / t_len);
+        velocity.dot(unit_tangent) >= -Fixed::from_raw(1024)
+    }
 }
 
 #[cfg(test)]
@@ -1083,13 +1159,16 @@ mod tests {
             TrackTile::Barrier,
             TrackTile::StartFinish,
             TrackTile::Checkpoint,
+            TrackTile::EngineOff,
+            TrackTile::SuperBoostPad,
+            TrackTile::EngineReset,
         ];
         for tile in all {
             assert_eq!(TrackTile::from_disc_byte(tile as u8), tile, "{tile:?}");
         }
         // Discriminants are consecutive from 0, which is what makes the decode
         // a bounds check rather than a lookup.
-        assert_eq!(all.len(), 8);
+        assert_eq!(all.len(), 11);
     }
 
     #[test]
@@ -1097,8 +1176,24 @@ mod tests {
         // A corrupt or truncated asset must fail as solid wall. Reading it as a
         // raw discriminant instead would be undefined behaviour in every
         // `match` downstream.
-        for byte in [8u8, 9, 200, 255] {
+        for byte in [11u8, 12, 200, 255] {
             assert_eq!(TrackTile::from_disc_byte(byte), TrackTile::Barrier);
+        }
+    }
+
+    #[test]
+    fn checkpoint_respawn_point_uses_last_cleared_gate_not_nearest_spatial_node() {
+        let track = scratch_track(4);
+        let (p_start, _) = track.checkpoint_respawn_point(None);
+        assert_eq!(p_start, track.start_pos);
+
+        for cp in 0..4u8 {
+            let (p_cp, _) = track.checkpoint_respawn_point(Some(cp));
+            assert_eq!(
+                p_cp,
+                TrackDef::gate_centre(&track.route_node(cp as usize)),
+                "checkpoint respawn must drop at cleared checkpoint {cp}"
+            );
         }
     }
 

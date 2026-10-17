@@ -37,6 +37,12 @@ pub enum SurfaceType {
     BoostPad = 4,
     /// Solid wall or track barrier (causes collision bounce and scrape sparks).
     Barrier = 5,
+    /// TrackMania Free-Wheeling (Engine-Off) block: cuts engine thrust while keeping full grip.
+    EngineOff = 6,
+    /// TrackMania Tier-2 Reactor Super Booster: grants extended overdrive top speed and impulse.
+    SuperBoostPad = 7,
+    /// TrackMania Engine/State Reset block: clears free-wheeling and restores normal power.
+    EngineReset = 8,
 }
 
 impl SurfaceType {
@@ -50,11 +56,14 @@ impl SurfaceType {
     /// coefficient allows, and the two are no longer redundant.
     pub fn grip_factor(self) -> Fixed {
         match self {
-            SurfaceType::Tarmac => Fixed::ONE,
+            SurfaceType::Tarmac
+            | SurfaceType::BoostPad
+            | SurfaceType::SuperBoostPad
+            | SurfaceType::EngineOff
+            | SurfaceType::EngineReset => Fixed::ONE,
             SurfaceType::Curb => Fixed::from_raw(3641), // ~0.89
             SurfaceType::OffRoad => Fixed::from_raw(3482), // ~0.85
             SurfaceType::OilSlick => Fixed::from_raw(2048), // 0.50 - instant slide
-            SurfaceType::BoostPad => Fixed::ONE,
             SurfaceType::Barrier => Fixed::ZERO,
         }
     }
@@ -64,7 +73,11 @@ impl SurfaceType {
     /// GAME.md §3.1: tarmac `1.0x`, curb `~0.97x`, off-road `0.35x`, boost `1.0x`.
     pub fn max_speed_factor(self) -> Fixed {
         match self {
-            SurfaceType::Tarmac | SurfaceType::BoostPad => Fixed::ONE,
+            SurfaceType::Tarmac
+            | SurfaceType::BoostPad
+            | SurfaceType::SuperBoostPad
+            | SurfaceType::EngineOff
+            | SurfaceType::EngineReset => Fixed::ONE,
             SurfaceType::Curb => Fixed::from_raw(3969), // ~0.97
             SurfaceType::OffRoad => Fixed::from_raw(1433), // ~0.35
             SurfaceType::OilSlick => Fixed::ONE,
@@ -75,7 +88,11 @@ impl SurfaceType {
     /// Fraction of engine thrust that actually reaches the tarmac.
     pub fn traction(self) -> Fixed {
         match self {
-            SurfaceType::Tarmac | SurfaceType::BoostPad => Fixed::ONE,
+            SurfaceType::Tarmac
+            | SurfaceType::BoostPad
+            | SurfaceType::SuperBoostPad
+            | SurfaceType::EngineReset => Fixed::ONE,
+            SurfaceType::EngineOff => Fixed::ZERO,
             SurfaceType::Curb => Fixed::from_raw(3539), // ~0.86
             SurfaceType::OffRoad => Fixed::from_raw(2253), // ~0.55
             SurfaceType::OilSlick => Fixed::from_raw(3277), // ~0.80
@@ -128,7 +145,25 @@ impl SurfaceType {
 
     /// Whether driving over this surface instantly grants a forward impulse.
     pub fn is_boost_pad(self) -> bool {
-        matches!(self, SurfaceType::BoostPad)
+        matches!(self, SurfaceType::BoostPad | SurfaceType::SuperBoostPad)
+    }
+
+    /// Whether this surface is a Tier-2 TrackMania Reactor Super Booster.
+    pub fn is_super_boost_pad(self) -> bool {
+        matches!(self, SurfaceType::SuperBoostPad)
+    }
+
+    /// Whether driving over this surface latches the TrackMania Engine-Off (Free-Wheeling) state.
+    pub fn is_engine_off(self) -> bool {
+        matches!(self, SurfaceType::EngineOff)
+    }
+
+    /// Whether driving over this surface clears the Engine-Off state.
+    pub fn restores_engine(self) -> bool {
+        matches!(
+            self,
+            SurfaceType::EngineReset | SurfaceType::BoostPad | SurfaceType::SuperBoostPad
+        )
     }
 }
 
@@ -148,6 +183,9 @@ mod tests {
             SurfaceType::OilSlick,
             SurfaceType::BoostPad,
             SurfaceType::Barrier,
+            SurfaceType::EngineOff,
+            SurfaceType::SuperBoostPad,
+            SurfaceType::EngineReset,
         ] {
             assert!(surface.lateral_hold() >= Fixed::ZERO, "{surface:?}");
             assert!(surface.lateral_hold() <= Fixed::ONE, "{surface:?}");
