@@ -709,6 +709,7 @@ impl AiRacer {
             // never while actively swerving around traffic or airborne.
             nitro: !self.state.is_airborne()
                 && !self.state.free_wheeling
+                && !self.state.is_boost_disabled()
                 && self.state.nitro_charge > NITRO_MAX_TICKS / 3
                 && abs_err < 200
                 && dodge == 0,
