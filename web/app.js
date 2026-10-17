@@ -530,9 +530,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function updateSizesFromManifest() {
+    if (!window.romCache || typeof window.romCache.getManifest !== 'function') return;
+    const manifest = await window.romCache.getManifest();
+    if (!manifest || !manifest.files) return;
+
+    const files = manifest.files;
+    const binSize = files['arduracer.bin'] ? RomCacheManager.formatBytes(files['arduracer.bin'].size) : null;
+    const isoSize = files['arduracer.iso'] ? RomCacheManager.formatBytes(files['arduracer.iso'].size) : null;
+    const exeSize = files['arduracer.exe'] ? RomCacheManager.formatBytes(files['arduracer.exe'].size) : null;
+
+    if (discSelect) {
+      Array.from(discSelect.options).forEach((opt) => {
+        if (opt.value.includes('arduracer.cue') && binSize) {
+          opt.textContent = `💿 Master CD-ROM (Full Audio & FMV - CUE/BIN, ${binSize})`;
+        } else if (opt.value.includes('arduracer.bin') && binSize) {
+          opt.textContent = `💿 Raw Bin Image (Track 1 Data + CDDA - ${binSize})`;
+        } else if (opt.value.includes('arduracer.iso') && isoSize) {
+          opt.textContent = `📀 Compact Disc ISO (Data Only Track - ${isoSize})`;
+        } else if (opt.value.includes('arduracer.exe') && exeSize) {
+          opt.textContent = `🚀 Fast Boot (Standalone PSX-EXE - ${exeSize})`;
+        }
+      });
+    }
+
+    const dlExe = document.querySelector('a[href$="arduracer.exe"]');
+    if (dlExe && exeSize) {
+      dlExe.textContent = `⬇ Download arduracer.exe (${exeSize})`;
+      const desc = dlExe.closest('.download-card')?.querySelector('p');
+      if (desc) desc.textContent = `MIPS R3000 bare-metal executable (${exeSize}). Fast boot via Unirom, Caetla, or emulator rapid testing.`;
+    }
+
+    const dlIso = document.querySelector('a[href$="arduracer.iso"]');
+    if (dlIso && isoSize) {
+      dlIso.textContent = `⬇ Download arduracer.iso (${isoSize})`;
+      const desc = dlIso.closest('.download-card')?.querySelector('p');
+      if (desc) desc.textContent = `Standard 2048-byte Mode 1 ISO filesystem (${isoSize}). Compact disc image compatible with universal optical disc loaders.`;
+    }
+
+    const dlBin = document.querySelector('a[href$="arduracer.bin"]');
+    if (dlBin && binSize) {
+      dlBin.textContent = `⬇ Download arduracer.bin (${binSize})`;
+      const desc = dlBin.closest('.download-card')?.querySelector('p');
+      if (desc) desc.textContent = `Complete Red Book CD image (${binSize}) including 6 CD-DA Eurobeat soundtrack tracks and 15fps MDEC intro cinema.`;
+    }
+  }
+
   if (window.romCache) {
+    updateSizesFromManifest();
+
     window.romCache.init().then(() => {
       refreshCacheUI();
+      updateSizesFromManifest();
     });
 
     window.romCache.subscribe((event, data) => {
@@ -540,6 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusLed.style.background = '#f59e0b';
         statusText.textContent = 'NEW DISC IMAGE DETECTED • CACHE FLUSHED';
         refreshCacheUI();
+        updateSizesFromManifest();
       } else if (event === 'cache-flushed') {
         statusLed.style.background = '#f59e0b';
         statusText.textContent = 'DISC CACHE FLUSHED';

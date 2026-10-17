@@ -74,8 +74,17 @@ const M7_FOCAL: i32 = 120;
 const M7_K: i32 = 15_600;
 /// Nearest depth projected. Clamping here keeps the divide bounded.
 pub const M7_Z_NEAR: i32 = 70;
-/// Farthest depth that is drawn. Bounds the number of streamed tiles.
+/// Farthest depth that is drawn for uncompressed codecs (TIM, TIM4, TIM8).
 pub const M7_Z_FAR: i32 = 240;
+/// Frustum scan radius in world units for standard uncompressed codecs.
+pub const M7_SCAN_RADIUS: i32 = 360;
+
+/// Extended view distance for compressed tile formats (SVG / ARSV, QOI, JPEG),
+/// 2 tiles (320 world units) further down the track.
+pub const M7_Z_FAR_COMPRESSED: i32 = 560;
+/// Frustum scan radius in world units covering the extended far plane.
+pub const M7_SCAN_RADIUS_COMPRESSED: i32 = 800;
+
 /// The heading eases by 1/this of the remaining angle each tick.
 const M7_HEADING_EASE_DIV: i32 = 6;
 /// Position ease in chase mode. Stiffer than top-down because there is no
@@ -123,6 +132,8 @@ pub struct Camera {
     /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
     hsin: i32,
     hcos: i32,
+    /// Farthest Mode 7 depth rendered for this camera.
+    pub z_far: i32,
 }
 
 /// The direction the look-ahead starts at: up the screen, so the car renders
@@ -155,6 +166,7 @@ impl Camera {
             viewport_h: SCREEN_H,
             hsin: 0,
             hcos: FP_ONE,
+            z_far: M7_Z_FAR,
         }
     }
 
@@ -170,6 +182,17 @@ impl Camera {
             self.center_y = 120;
             self.viewport_h = 240;
         }
+    }
+
+    /// Sets whether this camera uses the extended view distance (2 tiles further)
+    /// for compressed formats (SVG, QOI, JPEG).
+    #[inline]
+    pub fn set_extended_view_distance(&mut self, extended: bool) {
+        self.z_far = if extended {
+            M7_Z_FAR_COMPRESSED
+        } else {
+            M7_Z_FAR
+        };
     }
 
     /// Updates Mode 7 corner-banking camera roll (`±4°`), jump pitch, and FOV speed warp (`NO1-032`).
@@ -327,7 +350,7 @@ impl Camera {
     #[inline]
     pub fn m7_scale_q12(&self, world_pos: Vec2) -> i32 {
         let (_, z_q4) = self.view_rq4_zq4(world_pos);
-        if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+        if !((M7_Z_NEAR << 4)..=(self.z_far << 4)).contains(&z_q4) {
             return 0;
         }
         // FOCAL * 16 / z_q4 is pixels per unit; scale to Q12.
@@ -364,7 +387,7 @@ impl Camera {
     pub fn world_to_screen(&self, world_pos: Vec2) -> (i16, i16) {
         if self.mode7 {
             let (right, z_q4) = self.view_rq4_zq4(world_pos);
-            if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+            if !((M7_Z_NEAR << 4)..=(self.z_far << 4)).contains(&z_q4) {
                 return M7_OFFSCREEN;
             }
             return self.project_cam(right, z_q4);

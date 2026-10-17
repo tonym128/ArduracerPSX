@@ -46,7 +46,10 @@ use arduracer_core::visual_tex;
 use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 
 use crate::cd_fs::{DiscReader, SectorPoll};
-use crate::gpu::camera::{Camera, M7_Z_FAR, M7_Z_NEAR};
+use crate::gpu::camera::{
+    Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR,
+    M7_Z_FAR_COMPRESSED, M7_Z_NEAR,
+};
 use crate::gpu::texlayout::{
     self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES,
     TIM8_TPAGE_COUNT, TIM8_VRAM_PAGES, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
@@ -562,7 +565,7 @@ fn uncompressed_codec_for(circuit: usize) -> Option<Codec> {
 
 /// Whether `circuit` uses any direct-from-disc uncompressed/paletted format.
 #[inline]
-fn codec_is_uncompressed(circuit: usize) -> bool {
+pub fn codec_is_uncompressed(circuit: usize) -> bool {
     uncompressed_codec_for(circuit).is_some()
 }
 
@@ -877,6 +880,30 @@ pub fn set_texture_format(format: TextureFormat) {
 /// The current texture-format preference, for rendering the menus.
 pub fn texture_format() -> TextureFormat {
     unsafe { TEXTURE_FORMAT }
+}
+
+/// Returns `(z_far, scan_radius)` for `circuit` based on whether its active codec
+/// is uncompressed (TIM, TIM4, TIM8) or compressed (SVG, QOI, JPEG).
+///
+/// Compressed formats stream their block from RAM and enjoy an extended view distance
+/// (+2 visual tiles = +320 world units).
+#[inline]
+pub fn m7_view_params(circuit: usize) -> (i32, i32) {
+    if !codec_is_uncompressed(circuit) {
+        (M7_Z_FAR_COMPRESSED, M7_SCAN_RADIUS_COMPRESSED)
+    } else {
+        (M7_Z_FAR, M7_SCAN_RADIUS)
+    }
+}
+
+/// Returns the far plane depth `z_far` for `circuit`.
+#[inline]
+pub fn m7_z_far(circuit: usize) -> i32 {
+    if !codec_is_uncompressed(circuit) {
+        M7_Z_FAR_COMPRESSED
+    } else {
+        M7_Z_FAR
+    }
 }
 
 /// Drops every cached tile so a codec change takes effect immediately.
@@ -1436,8 +1463,10 @@ fn decode_and_upload_full_tile(
 /// Pre-warms the starting grid tiles directly into VRAM so the race starts with 100% texture residency.
 #[inline(never)]
 pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
+    let active_circuit = unsafe { ACTIVE_CIRCUIT };
+    let (_, scan_radius) = m7_view_params(active_circuit);
     let (half_w, half_h) = if camera.mode7 {
-        (M7_SCAN_RADIUS, M7_SCAN_RADIUS)
+        (scan_radius, scan_radius)
     } else {
         camera.visible_half_extents()
     };
@@ -2048,7 +2077,7 @@ type TileRef = (i32, i32, usize, usize, usize, usize);
 /// tiles is ~3). The cap is a hard bound so a wide window (zoomed out, or a
 /// small-tile circuit) degrades to "prefetch fewer" instead of growing the
 /// stack without limit. `visible_tiles` uses the same shape at `VISIBLE_TILES_MAX`.
-const PREFETCH_MAX: usize = 16;
+const PREFETCH_MAX: usize = 32;
 
 /// Whether `tile` currently has its pixels resident in a VRAM slot.
 #[inline]
@@ -2307,8 +2336,10 @@ pub fn render_track_extents(
     last_flip_vblank: u32,
     max_decode_rows: usize,
 ) {
+    let active_circuit = unsafe { ACTIVE_CIRCUIT };
+    let (z_far, scan_radius) = m7_view_params(active_circuit);
     let (half_w, half_h) = if camera.mode7 {
-        (M7_SCAN_RADIUS, M7_SCAN_RADIUS)
+        (scan_radius, scan_radius)
     } else {
         camera.visible_half_extents()
     };
@@ -2333,7 +2364,6 @@ pub fn render_track_extents(
     // tile request below: a frame that asks for nothing would leave the sectors
     // sitting in the drive's two-slot FIFO and overrun it.
     pump_cd_streams();
-    let active_circuit = unsafe { ACTIVE_CIRCUIT };
     // Sampling parameters for whichever codec this circuit selected: tpage
     // depth, CLUT handle, and how many texels a U unit spans. Bound once here
     // so both the flat and Mode 7 emitters read the same thing.
@@ -2418,15 +2448,12 @@ pub fn render_track_extents(
         }
     }
 
-    // One tile row of lookahead above and below the visible rectangle.
+    // Lookahead above and below the visible rectangle.
     //
     // A tile's decode is time-sliced across 4 MCU rows, so a tile first seen at
     // the screen edge spends several frames as a placeholder. Starting its
     // decode a row early means it is usually resident by the time the camera
-    // reaches it. Vertical only: adding columns as well would roughly double
-    // the candidate set against a fixed 64-slot VRAM pool, and horizontal
-    // scrolling is the cheap direction (tiles enter sideways, already decoded
-    // by the row that was already in view).
+    // reaches it.
     //
     // These are candidates only -- Phase 3 still draws `visible_tiles`, so a
     // prefetched tile costs a decode row and a slot, never a polygon.
@@ -2446,9 +2473,9 @@ pub fn render_track_extents(
             let right_cos = fwd_cos;
             let right_sin = fwd_sin;
 
-            // Distances beyond far plane: M7_Z0 = 120, M7_Z_FAR = 240, so far plane is at fwd = 120.
-            // Sample ahead at fwd offsets of 140, 190, 240 world units.
-            let fwd_dists = [140i32, 190, 240];
+            // Distances beyond far plane: M7_Z0 = 120
+            let fwd_far = z_far - M7_Z0;
+            let fwd_dists = [fwd_far + 20, fwd_far + 70, fwd_far + 120];
             let lat_offsets = [-tile_wu_x, 0, tile_wu_x];
 
             'm7_prefetch: for &fwd_dist in &fwd_dists {
@@ -2501,51 +2528,60 @@ pub fn render_track_extents(
                 }
             }
         } else {
+            let lookahead_tiles = if !codec_is_uncompressed(active_circuit) {
+                2
+            } else {
+                1
+            };
             // Vertical lookahead: rows immediately above and below the frustum
-            for ty in [min_ty.saturating_sub(1), max_ty + 1] {
-                if !(0..=world_max_ty).contains(&ty) || (min_ty..=max_ty).contains(&ty) {
-                    continue;
-                }
-                for tx in min_tx..=max_tx {
-                    if prefetch_count >= PREFETCH_MAX {
-                        break;
+            for step in 1..=lookahead_tiles {
+                for ty in [min_ty.saturating_sub(step), max_ty + step] {
+                    if !(0..=world_max_ty).contains(&ty) || (min_ty..=max_ty).contains(&ty) {
+                        continue;
                     }
-                    let wx0 = tx * tile_wu_x;
-                    let wy0 = ty * tile_wu_y;
-                    let bx = (wx0 / block_wu_x) as usize;
-                    let by = (wy0 / block_wu_y) as usize;
-                    let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
-                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                        as usize;
-                    let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
-                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                        as usize;
-                    prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
-                    prefetch_count += 1;
+                    for tx in min_tx..=max_tx {
+                        if prefetch_count >= PREFETCH_MAX {
+                            break;
+                        }
+                        let wx0 = tx * tile_wu_x;
+                        let wy0 = ty * tile_wu_y;
+                        let bx = (wx0 / block_wu_x) as usize;
+                        let by = (wy0 / block_wu_y) as usize;
+                        let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                            .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                            as usize;
+                        let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                            .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                            as usize;
+                        prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                        prefetch_count += 1;
+                    }
                 }
             }
 
             // Horizontal lookahead: columns immediately left and right of the frustum
-            for tx in [min_tx.saturating_sub(1), max_tx + 1] {
-                if !(0..=world_max_tx).contains(&tx) || (min_tx..=max_tx).contains(&tx) {
-                    continue;
-                }
-                for ty in min_ty..=max_ty {
-                    if prefetch_count >= PREFETCH_MAX {
-                        break;
+            for step in 1..=lookahead_tiles {
+                for tx in [min_tx.saturating_sub(step), max_tx + step] {
+                    if !(0..=world_max_tx).contains(&tx) || (min_tx..=max_tx).contains(&tx) {
+                        continue;
                     }
-                    let wx0 = tx * tile_wu_x;
-                    let wy0 = ty * tile_wu_y;
-                    let bx = (wx0 / block_wu_x) as usize;
-                    let by = (wy0 / block_wu_y) as usize;
-                    let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
-                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                        as usize;
-                    let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
-                        .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
-                        as usize;
-                    prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
-                    prefetch_count += 1;
+                    for ty in min_ty..=max_ty {
+                        if prefetch_count >= PREFETCH_MAX {
+                            break;
+                        }
+                        let wx0 = tx * tile_wu_x;
+                        let wy0 = ty * tile_wu_y;
+                        let bx = (wx0 / block_wu_x) as usize;
+                        let by = (wy0 / block_wu_y) as usize;
+                        let sub_tx = ((wx0 % block_wu_x) / tile_wu_x)
+                            .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                            as usize;
+                        let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
+                            .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32)
+                            as usize;
+                        prefetch_tiles[prefetch_count] = (tx, ty, bx, by, sub_tx, sub_ty);
+                        prefetch_count += 1;
+                    }
                 }
             }
         }
@@ -2673,11 +2709,10 @@ pub fn render_track_extents(
     // VBlank period. If the period elapses during decode, or the budget is exhausted, stop.
     let mut rows_decoded = 0;
     let period = frame_period();
-    let rows_per_budget = if visual_tex::circuit_block_grid(active_circuit).0 > 1 {
-        8
-    } else {
-        4
-    };
+    let is_multiblock = visual_tex::circuit_block_grid(active_circuit).0 > 1;
+    let active_codec = codec_for_circuit(active_circuit);
+    let rows_per_budget =
+        arduracer_core::texture_format::rows_per_budget_for_codec(active_codec, is_multiblock);
     let min_rows = {
         let job = unsafe { &*core::ptr::addr_of!(ACTIVE_JOB) };
         if job.active || (0..vis_count).any(|i| slot_for_tile[i] == usize::MAX) {
@@ -2829,10 +2864,6 @@ pub fn render_track_extents(
 // Mode 7 chase view
 // ---------------------------------------------------------------------------
 
-/// Half-width of the square of world units scanned for Mode 7 tiles. It must
-/// reach the far corner of the frustum: `M7_Z_FAR` deep and ~1.33x that wide.
-const M7_SCAN_RADIUS: i32 = 360;
-
 /// True if any part of the tile can fall inside the Mode 7 frustum, returning its projected depth.
 ///
 /// A conservative circle-vs-trapezoid test on the tile centre: the tile's
@@ -2848,7 +2879,7 @@ fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> Opt
     let (_, z3) = camera.view_from_offset_q4((wx0 + tw) * 16 - cam_qx, (wy0 + th) * 16 - cam_qy);
     let zmin = z0.min(z1).min(z2).min(z3);
     let zmax = z0.max(z1).max(z2).max(z3);
-    if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
+    if zmax < (M7_Z_NEAR << 4) || zmin > (camera.z_far << 4) {
         return None;
     }
     let (right, z) =
@@ -3037,7 +3068,7 @@ fn draw_tile_m7(
                 let d = c + 1;
                 let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
                 let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
-                if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
+                if zmax < (M7_Z_NEAR << 4) || zmin > (camera.z_far << 4) {
                     continue;
                 }
                 let (mut pa, mut pb, mut pc, mut pd) = (pts[a], pts[b], pts[c], pts[d]);
@@ -3095,7 +3126,7 @@ fn draw_tile_m7(
             let d = c + 1;
             let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
             let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
-            if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
+            if zmax < (M7_Z_NEAR << 4) || zmin > (camera.z_far << 4) {
                 continue;
             }
             let (mut pa, mut pb, mut pc, mut pd) = (pts[a], pts[b], pts[c], pts[d]);
@@ -3121,12 +3152,13 @@ fn draw_tile_m7(
             let u0 = u_coords[i as usize];
             let u1 = u_coords[(i + 1) as usize];
 
-            // Fog: full brightness out to 150 units, fading to ~55% at the far plane (240).
+            // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
             let z_units = (zmax + zmin) >> 5;
             let base_shade = if z_units <= 150 {
                 128
             } else {
-                (128 - (z_units - 150) * 58 / 90).max(70)
+                let fade_range = (camera.z_far - 150).max(1);
+                (128 - (z_units - 150) * 58 / fade_range).max(70)
             };
             let shade = if is_night {
                 (base_shade * 86 / 128) as u8

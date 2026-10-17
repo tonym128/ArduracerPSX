@@ -2189,6 +2189,163 @@ mod projection_clamp_tests {
     }
 }
 
+#[cfg(test)]
+mod extended_view_distance_tests {
+    use super::camera::{
+        Camera, M7_OFFSCREEN, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z_FAR,
+        M7_Z_FAR_COMPRESSED,
+    };
+    use arduracer_core::{Fixed, Vec2};
+
+    const MAIN_SRC: &str = include_str!("../../../game/src/main.rs");
+    const TRACKTEX_SRC: &str = include_str!("../../../game/src/gpu/tracktex.rs");
+
+    #[test]
+    fn camera_defaults_to_standard_view_distance() {
+        let pos = Vec2::new(Fixed::from_int(320), Fixed::from_int(240));
+        let c_topdown = Camera::new(pos);
+        assert_eq!(
+            c_topdown.z_far, M7_Z_FAR,
+            "topdown camera must default to M7_Z_FAR (240)"
+        );
+
+        let c_chase = Camera::new_chase(pos, 0);
+        assert_eq!(
+            c_chase.z_far, M7_Z_FAR,
+            "chase camera must default to M7_Z_FAR (240)"
+        );
+
+        let c_rotating = Camera::new_rotating(pos, 0);
+        assert_eq!(
+            c_rotating.z_far, M7_Z_FAR,
+            "rotating camera must default to M7_Z_FAR (240)"
+        );
+    }
+
+    #[test]
+    fn camera_extended_view_distance_toggle() {
+        let pos = Vec2::new(Fixed::from_int(320), Fixed::from_int(240));
+        let mut cam = Camera::new_chase(pos, 0);
+        assert_eq!(cam.z_far, M7_Z_FAR);
+
+        cam.set_extended_view_distance(true);
+        assert_eq!(
+            cam.z_far, M7_Z_FAR_COMPRESSED,
+            "extended view distance must be M7_Z_FAR_COMPRESSED (560)"
+        );
+
+        cam.set_extended_view_distance(false);
+        assert_eq!(
+            cam.z_far, M7_Z_FAR,
+            "unsetting extended view distance must restore M7_Z_FAR (240)"
+        );
+    }
+
+    #[test]
+    fn mode7_projection_extended_depth() {
+        let cam_pos = Vec2::new(Fixed::from_int(320), Fixed::from_int(240));
+        let mut cam = Camera::new_chase(cam_pos, 0);
+        // Heading 0 faces north (negative y).
+        // Depth = fwd + M7_Z0 (120).
+        // At dy = -200 (pos = (320, 40)), fwd = 200, depth z = 320.
+        let target_320 = Vec2::new(Fixed::from_int(320), Fixed::from_int(40));
+
+        // Under standard view distance (240), depth 320 is past the far plane:
+        assert_eq!(
+            cam.world_to_screen(target_320),
+            M7_OFFSCREEN,
+            "depth 320 must be offscreen for standard view distance"
+        );
+        assert_eq!(
+            cam.m7_scale_q12(target_320),
+            0,
+            "scale at depth 320 must be 0 for standard view distance"
+        );
+
+        // Enable extended view distance (560):
+        cam.set_extended_view_distance(true);
+        let (sx, sy) = cam.world_to_screen(target_320);
+        assert_ne!(
+            (sx, sy),
+            M7_OFFSCREEN,
+            "depth 320 must project onto screen with extended view distance"
+        );
+        assert_eq!(
+            sx, 160,
+            "point directly ahead should be horizontally centered on screen"
+        );
+        assert!(
+            (60..=240).contains(&sy),
+            "sy={sy} should be between horizon (60) and screen bottom (240)"
+        );
+        let scale = cam.m7_scale_q12(target_320);
+        assert!(
+            scale > 0,
+            "scale at depth 320 must be positive, got {scale}"
+        );
+
+        // At dy = -500 (pos = (320, -260)), fwd = 500, depth z = 620.
+        // Even with extended view distance (560), depth 620 is past the far plane:
+        let target_620 = Vec2::new(Fixed::from_int(320), Fixed::from_int(-260));
+        assert_eq!(
+            cam.world_to_screen(target_620),
+            M7_OFFSCREEN,
+            "depth 620 must be offscreen for both modes"
+        );
+        assert_eq!(
+            cam.m7_scale_q12(target_620),
+            0,
+            "scale at depth 620 must be 0 for both modes"
+        );
+    }
+
+    #[test]
+    fn mode7_constants_and_frustum_dimensions() {
+        assert_eq!(M7_Z_FAR, 240, "standard Mode 7 far plane is 240");
+        assert_eq!(
+            M7_Z_FAR_COMPRESSED, 560,
+            "compressed Mode 7 far plane extends 2 tiles (320 units) to 560"
+        );
+        assert_eq!(M7_SCAN_RADIUS, 360, "standard frustum scan radius is 360");
+        assert_eq!(
+            M7_SCAN_RADIUS_COMPRESSED, 800,
+            "compressed frustum scan radius is 800"
+        );
+    }
+
+    #[test]
+    fn main_and_tracktex_camera_synchronization_wiring() {
+        assert!(
+            MAIN_SRC.contains("pub fn sync_camera_view_distance(&mut self)"),
+            "main.rs must provide sync_camera_view_distance helper"
+        );
+        assert!(
+            MAIN_SRC.contains("self.sync_camera_view_distance();"),
+            "main.rs must invoke sync_camera_view_distance"
+        );
+        assert!(
+            MAIN_SRC.contains("set_extended_view_distance(!codec_is_uncompressed"),
+            "main.rs must initialize camera view distance"
+        );
+        assert!(
+            TRACKTEX_SRC.contains("pub fn codec_is_uncompressed("),
+            "tracktex.rs must export pub fn codec_is_uncompressed"
+        );
+        assert!(
+            TRACKTEX_SRC.contains("pub fn m7_view_params("),
+            "tracktex.rs must export pub fn m7_view_params"
+        );
+        assert!(
+            TRACKTEX_SRC.contains("pub fn m7_z_far("),
+            "tracktex.rs must export pub fn m7_z_far"
+        );
+        assert!(
+            TRACKTEX_SRC.contains("rows_per_budget_for_codec(active_codec, is_multiblock)"),
+            "tracktex.rs must calculate rows_per_budget using rows_per_budget_for_codec"
+        );
+    }
+}
+
 /// TASK-1217: several smaller UI defects, each with its own failure mode.
 #[cfg(test)]
 mod ui_defect_tests {
