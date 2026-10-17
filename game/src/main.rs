@@ -35,10 +35,10 @@ use audio::AudioSystem;
 use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
-    bake_minimap, init_track_texture, prewarm_starting_tiles, render_car, render_hud,
-    render_replay_hud, render_track, reset_texture_caches, set_frame_period, set_texture_format,
-    texture_format, Camera, DebugOverlay, Framerate, ParticleSystem, SkidmarkBuffer, TextureFormat,
-    TextureSlot,
+    bake_minimap, codec_is_uncompressed, init_track_texture, prewarm_starting_tiles, render_car,
+    render_hud, render_replay_hud, render_track, reset_texture_caches, set_frame_period,
+    set_texture_format, texture_format, Camera, DebugOverlay, Framerate, ParticleSystem,
+    SkidmarkBuffer, TextureFormat, TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -391,7 +391,8 @@ impl ArduracerGame {
         let timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
         let player = VehicleState::new(track.start_pos, track.start_heading, Default::default());
         let rivals = spawn_rivals(track, None);
-        let camera = Camera::new_chase(track.start_pos, track.start_heading);
+        let mut camera = Camera::new_chase(track.start_pos, track.start_heading);
+        camera.set_extended_view_distance(!codec_is_uncompressed(ALL_TRACK_VISUALS[0]));
 
         dbg::log_step(6, 9, "Probing memory card...");
         let mut memcard = MemoryCardManager::new();
@@ -496,6 +497,7 @@ impl ArduracerGame {
                 1 => "cdda",
                 _ => "off",
             });
+            game.sync_camera_view_distance();
         }
 
         dbg::log_step(9, 9, "Baking circuit minimap...");
@@ -503,6 +505,27 @@ impl ArduracerGame {
         dbg::check_faults();
         dbg::println("[BOOT] All 9 initialization steps completed!");
         game
+    }
+
+    /// Returns the active visual circuit / level ID.
+    #[inline]
+    pub fn active_circuit(&self) -> usize {
+        if self.current_track_idx >= ALL_TRACKS.len() {
+            self.current_track_idx
+        } else {
+            ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)]
+        }
+    }
+
+    /// Synchronizes the camera view distance with the active track format:
+    /// compressed formats (SVG / ARSV, QOI, JPEG) extend view distance by +2 tiles
+    /// (560 depth), while uncompressed formats (TIM, TIM4, TIM8) stream from CD
+    /// with the standard 240 depth to protect CD-DA audio bandwidth.
+    #[inline]
+    pub fn sync_camera_view_distance(&mut self) {
+        let circuit = self.active_circuit();
+        self.camera
+            .set_extended_view_distance(!codec_is_uncompressed(circuit));
     }
 
     /// Loads and resets the active circuit.
@@ -604,6 +627,7 @@ impl ArduracerGame {
             2 => Camera::new_rotating(player_pos, track.start_heading),
             _ => Camera::new(player_pos),
         };
+        self.sync_camera_view_distance();
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         self.ghost.start_lap();
@@ -656,6 +680,7 @@ impl ArduracerGame {
 
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self) {
+        self.sync_camera_view_distance();
         self.fb.clear(18, 20, 26);
         render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
         self.skidmarks.render(&self.camera);
@@ -1247,6 +1272,7 @@ impl ArduracerGame {
                     }
                     // b. Track visual map
                     {
+                        self.sync_camera_view_distance();
                         set_frame_period(self.framerate.vblanks_per_frame());
                         prof::set_budget_cycles(self.framerate.budget_cycles());
                         prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
@@ -1804,6 +1830,7 @@ impl ArduracerGame {
             }
         }
 
+        self.sync_camera_view_distance();
         self.fb.clear(18, 20, 26);
         let elapsed = psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
         let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
@@ -2017,15 +2044,12 @@ impl ArduracerGame {
 
         if format != previous_format {
             set_texture_format(format);
+            self.sync_camera_view_distance();
             // Drop every cached tile so the new codec is used for the circuit
             // already on screen, not just the next one loaded.
             reset_texture_caches();
             if self.state_mgr.current == GameState::Racing {
-                let circuit = if self.current_track_idx >= ALL_TRACKS.len() {
-                    self.current_track_idx
-                } else {
-                    ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)]
-                };
+                let circuit = self.active_circuit();
                 init_track_texture(circuit);
                 // Prewarm, exactly as `load_track` does, and this is the whole
                 // fix for the stutter on switching format mid-race.

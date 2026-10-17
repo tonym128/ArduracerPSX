@@ -23,7 +23,7 @@ pub use effects_sim::{Particle, ParticleSystem, ParticleType, Skidmark, Skidmark
 pub use hud_renderer::{bake_minimap, draw_ui_minimap, render_hud, render_replay_hud};
 pub use texpipe::TextureSlot;
 pub use tracktex::{
-    init_track_texture, reset_texture_caches, set_frame_period, set_texture_format, texture_format,
-    Framerate, TextureFormat,
+    codec_is_uncompressed, init_track_texture, m7_view_params, m7_z_far, reset_texture_caches,
+    set_frame_period, set_texture_format, texture_format, Framerate, TextureFormat,
 };
 pub use tracktex::{load_level_grid, prewarm_starting_tiles, render_track, render_track_extents};
