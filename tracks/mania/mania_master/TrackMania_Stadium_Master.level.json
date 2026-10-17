@@ -1,0 +1,63 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "TrackMania Stadium Master",
+ "stem": "TrackMania_Stadium_Master",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.12
+  },
+  {
+   "kind": "gate",
+   "frac": 0.28
+  },
+  {
+   "kind": "gate",
+   "frac": 0.42
+  },
+  {
+   "kind": "gate",
+   "frac": 0.52
+  },
+  {
+   "kind": "gate",
+   "frac": 0.64
+  },
+  {
+   "kind": "gate",
+   "frac": 0.74
+  },
+  {
+   "kind": "gate",
+   "frac": 0.85
+  },
+  {
+   "kind": "gate",
+   "frac": 0.95
+  },
+  {
+   "kind": "boost",
+   "frac": 0.06
+  },
+  {
+   "kind": "boost",
+   "frac": 0.35
+  },
+  {
+   "kind": "oil",
+   "frac": 0.58
+  },
+  {
+   "kind": "oil",
+   "frac": 0.8
+  }
+ ]
+}

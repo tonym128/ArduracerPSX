@@ -143,38 +143,38 @@ fn test_city_level_dims_and_disc_offsets_are_canonical() {
 
     assert_eq!(
         LEVEL_DIMS.len(),
-        34,
-        "LEVEL_DIMS must encompass all 31 circuits and 3 free-roam cities"
+        43,
+        "LEVEL_DIMS must encompass all 40 circuits and 3 free-roam cities"
     );
 
-    // Circuits 0..30 must be standard circuits, 31..33 are the 240x240 cities
-    assert_eq!(LEVEL_DIMS[31], (240, 240), "Cape Town must be 240x240");
-    assert_eq!(LEVEL_DIMS[32], (240, 240), "Melbourne must be 240x240");
-    assert_eq!(LEVEL_DIMS[33], (240, 240), "London must be 240x240");
+    // Circuits 0..39 must be standard circuits, 40..42 are the 240x240 cities
+    assert_eq!(LEVEL_DIMS[40], (240, 240), "Cape Town must be 240x240");
+    assert_eq!(LEVEL_DIMS[41], (240, 240), "Melbourne must be 240x240");
+    assert_eq!(LEVEL_DIMS[42], (240, 240), "London must be 240x240");
 
     let mut offset = 0usize;
     for (i, &(w, h)) in LEVEL_DIMS.iter().enumerate() {
-        if i == 31 {
-            assert_eq!(
-                offset, 217_600,
-                "Cape Town grid must start at byte 217,600 in LEVELS.BIN"
-            );
-        } else if i == 32 {
+        if i == 40 {
             assert_eq!(
                 offset, 275_200,
-                "Melbourne grid must start at byte 275,200 in LEVELS.BIN"
+                "Cape Town grid must start at byte 275,200 in LEVELS.BIN"
             );
-        } else if i == 33 {
+        } else if i == 41 {
             assert_eq!(
                 offset, 332_800,
-                "London grid must start at byte 332,800 in LEVELS.BIN"
+                "Melbourne grid must start at byte 332,800 in LEVELS.BIN"
+            );
+        } else if i == 42 {
+            assert_eq!(
+                offset, 390_400,
+                "London grid must start at byte 390,400 in LEVELS.BIN"
             );
         }
         offset += w as usize * h as usize;
     }
     assert_eq!(
-        offset, 390_400,
-        "Total uncompressed LEVELS.BIN size across all 34 levels must be 390,400 bytes"
+        offset, 448_000,
+        "Total uncompressed LEVELS.BIN size across all 43 levels must be 448,000 bytes"
     );
 }
 
@@ -185,11 +185,11 @@ fn test_city_block_sectors_match_circuit_block_indices() {
         MELBOURNE_BLOCK_SECTORS,
     };
 
-    // Cape Town is circuit 31 (base block 34)
-    assert_eq!(circuit_block_index(31, 0, 0), 34);
+    // Cape Town is circuit 40 (base block 43)
+    assert_eq!(circuit_block_index(40, 0, 0), 43);
     for by in 0..3 {
         for bx in 0..3 {
-            let expected_idx = circuit_block_index(31, bx, by);
+            let expected_idx = circuit_block_index(40, bx, by);
             let block_idx = by * 3 + bx;
             assert_eq!(
                 CAPETOWN_BLOCK_SECTORS[block_idx], CIRCUIT_BLOCK_SECTORS[expected_idx],
@@ -202,11 +202,11 @@ fn test_city_block_sectors_match_circuit_block_indices() {
         }
     }
 
-    // Melbourne is circuit 32 (base block 43)
-    assert_eq!(circuit_block_index(32, 0, 0), 43);
+    // Melbourne is circuit 41 (base block 52)
+    assert_eq!(circuit_block_index(41, 0, 0), 52);
     for by in 0..3 {
         for bx in 0..3 {
-            let expected_idx = circuit_block_index(32, bx, by);
+            let expected_idx = circuit_block_index(41, bx, by);
             let block_idx = by * 3 + bx;
             assert_eq!(
                 MELBOURNE_BLOCK_SECTORS[block_idx], CIRCUIT_BLOCK_SECTORS[expected_idx],
@@ -219,11 +219,11 @@ fn test_city_block_sectors_match_circuit_block_indices() {
         }
     }
 
-    // London is circuit 33 (base block 52)
-    assert_eq!(circuit_block_index(33, 0, 0), 52);
+    // London is circuit 42 (base block 61)
+    assert_eq!(circuit_block_index(42, 0, 0), 61);
     for by in 0..3 {
         for bx in 0..3 {
-            let expected_idx = circuit_block_index(33, bx, by);
+            let expected_idx = circuit_block_index(42, bx, by);
             let block_idx = by * 3 + bx;
             assert_eq!(
                 LONDON_BLOCK_SECTORS[block_idx], CIRCUIT_BLOCK_SECTORS[expected_idx],

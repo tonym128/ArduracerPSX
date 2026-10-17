@@ -3011,12 +3011,12 @@ mod city_level_grid_tests {
     fn tracktex_level_dims_matches_all_shipped_levels() {
         assert!(
             TRACKTEX_SRC.contains("pub use arduracer_core::levels::LEVEL_DIMS;"),
-            "tracktex must re-export arduracer_core::levels::LEVEL_DIMS so all 31 circuits and 3 cities match LEVELS.BIN layout"
+            "tracktex must re-export arduracer_core::levels::LEVEL_DIMS so all 40 circuits and 3 cities match LEVELS.BIN layout"
         );
         assert_eq!(
             LEVEL_DIMS.len(),
-            34,
-            "LEVEL_DIMS must contain exactly 31 circuits and 3 free-roam cities"
+            43,
+            "LEVEL_DIMS must contain exactly 40 circuits and 3 free-roam cities"
         );
     }
 
@@ -3993,9 +3993,9 @@ mod graphics_settings {
     fn stage_table_tabs_and_active_tracks() {
         use super::stage_table::{StageFilterTab, StageTableScreen};
 
-        assert_eq!(StageFilterTab::All.name(), "ALL STAGES (31)");
+        assert_eq!(StageFilterTab::All.name(), "ALL STAGES (40)");
         assert_eq!(StageFilterTab::GrandPrix.name(), "GP TRIALS (25)");
-        assert_eq!(StageFilterTab::Mania.name(), "MANIA TRIALS (6)");
+        assert_eq!(StageFilterTab::Mania.name(), "MANIA TRIALS (15)");
 
         assert_eq!(StageFilterTab::All.next(), StageFilterTab::GrandPrix);
         assert_eq!(StageFilterTab::GrandPrix.next(), StageFilterTab::Mania);
@@ -4007,18 +4007,18 @@ mod graphics_settings {
 
         let mut screen = StageTableScreen::new();
         screen.tab = StageFilterTab::All;
-        assert_eq!(screen.active_tracks().len(), 31);
+        assert_eq!(screen.active_tracks().len(), 40);
         assert_eq!(screen.active_tracks()[0], 0);
-        assert_eq!(screen.active_tracks()[30], 30);
+        assert_eq!(screen.active_tracks()[39], 39);
 
         screen.tab = StageFilterTab::GrandPrix;
         assert_eq!(screen.active_tracks().len(), 25);
         assert_eq!(screen.active_tracks()[24], 24);
 
         screen.tab = StageFilterTab::Mania;
-        assert_eq!(screen.active_tracks().len(), 6);
+        assert_eq!(screen.active_tracks().len(), 15);
         assert_eq!(screen.active_tracks()[0], 25);
-        assert_eq!(screen.active_tracks()[5], 30);
+        assert_eq!(screen.active_tracks()[14], 39);
     }
 
     #[test]
@@ -4040,12 +4040,12 @@ mod graphics_settings {
         screen.update(&test_pad(0));
         assert_eq!(screen.selected_row, 1);
 
-        // Wrapping: 6 mania tracks (rows 0..=5). Advance to 5 then down wraps to 0.
-        for _ in 0..4 {
+        // Wrapping: 15 mania tracks (rows 0..=14). Advance to 14 then down wraps to 0.
+        for _ in 0..13 {
             screen.update(&test_pad(button::DOWN));
             screen.update(&test_pad(0));
         }
-        assert_eq!(screen.selected_row, 5);
+        assert_eq!(screen.selected_row, 14);
 
         screen.update(&test_pad(button::DOWN));
         screen.update(&test_pad(0));
@@ -4054,7 +4054,7 @@ mod graphics_settings {
         // UP from 0 wraps to last row
         screen.update(&test_pad(button::UP));
         screen.update(&test_pad(0));
-        assert_eq!(screen.selected_row, 5, "UP from 0 wraps to last row");
+        assert_eq!(screen.selected_row, 14, "UP from 0 wraps to last row");
 
         // Tab switch with RIGHT
         screen.update(&test_pad(button::RIGHT));
@@ -4101,11 +4101,11 @@ mod graphics_settings {
 
         // Mania mode track range
         screen.arm_for_entry(GameMode::Mania, false);
-        assert_eq!(screen.track_range(), (25, 31));
+        assert_eq!(screen.track_range(), (25, 40));
 
         // Records mode track range (all tracks)
         screen.arm_for_entry(GameMode::GrandPrix, true);
-        assert_eq!(screen.track_range(), (0, 31));
+        assert_eq!(screen.track_range(), (0, 40));
     }
 
     #[test]

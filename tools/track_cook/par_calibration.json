@@ -33,6 +33,15 @@
       { "track": "Serpent Canyon", "dev": 2368, "gold": 2926, "silver": 3277, "bronze": 3745, "tuned_ticks": 2368, "tuning": [6, 6, 3, 3, 2] },
       { "track": "Alleyway Chicanes", "dev": 3878, "gold": 4544, "silver": 5089, "bronze": 5816, "tuned_ticks": 3878, "tuning": [5, 7, 4, 2, 2] },
       { "track": "Oil Rig Slipway", "dev": 1491, "gold": 1734, "silver": 1942, "bronze": 2220, "tuned_ticks": 1491, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Apex Arena", "dev": 3426, "gold": 4221, "silver": 4728, "bronze": 5403, "tuned_ticks": 3426, "tuning": [6, 6, 3, 3, 2] }
+      { "track": "Apex Arena", "dev": 3426, "gold": 4221, "silver": 4728, "bronze": 5403, "tuned_ticks": 3426, "tuning": [6, 6, 3, 3, 2] },
+      { "track": "Cyclone Carousel", "dev": 1675, "gold": 2026, "silver": 2269, "bronze": 2593, "tuned_ticks": 1675, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Neon Grid Sprint", "dev": 3000, "gold": 3510, "silver": 3931, "bronze": 4493, "tuned_ticks": 3000, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Devils Hairpin", "dev": 1918, "gold": 2373, "silver": 2658, "bronze": 3037, "tuned_ticks": 1918, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Turbo Raceway 500", "dev": 1085, "gold": 1342, "silver": 1503, "bronze": 1718, "tuned_ticks": 1085, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Industrial Slalom", "dev": 2265, "gold": 2771, "silver": 3104, "bronze": 3547, "tuned_ticks": 2265, "tuning": [6, 6, 3, 3, 2] },
+      { "track": "Quad Loop Arena", "dev": 4791, "gold": 5436, "silver": 6088, "bronze": 6958, "tuned_ticks": 4791, "tuning": [5, 7, 4, 2, 2] },
+      { "track": "Mirage Dunes Drift", "dev": 1373, "gold": 1660, "silver": 1859, "bronze": 2125, "tuned_ticks": 1373, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Razorblade Chicanes", "dev": 1783, "gold": 2085, "silver": 2335, "bronze": 2669, "tuned_ticks": 1783, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Trackmania Stadium Master", "dev": 1780, "gold": 2129, "silver": 2384, "bronze": 2725, "tuned_ticks": 1780, "tuning": [7, 5, 4, 2, 2] }
   ]
 }

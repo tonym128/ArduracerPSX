@@ -1,0 +1,47 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Turbo Raceway 500",
+ "stem": "Turbo_Raceway_500",
+ "grid": 80,
+ "road_half_cells": 4.0,
+ "half_width_world": 128,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.16666666666666666
+  },
+  {
+   "kind": "gate",
+   "frac": 0.3333333333333333
+  },
+  {
+   "kind": "gate",
+   "frac": 0.5
+  },
+  {
+   "kind": "gate",
+   "frac": 0.6666666666666666
+  },
+  {
+   "kind": "gate",
+   "frac": 0.8333333333333334
+  },
+  {
+   "kind": "boost",
+   "frac": 0.08333333333333333
+  },
+  {
+   "kind": "boost",
+   "frac": 0.4166666666666667
+  },
+  {
+   "kind": "boost",
+   "frac": 0.75
+  }
+ ]
+}

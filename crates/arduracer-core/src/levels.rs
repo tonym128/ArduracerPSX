@@ -14569,9 +14569,4304 @@ pub static TRACK_APEX_ARENA: TrackDef = TrackDef {
     half_width: 96,
 };
 
-/// Authored circuits: 31.
-pub const AUTHORED_TRACK_COUNT: usize = 31;
-pub const TOTAL_TRACKS: usize = 31;
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_CYCLONE_CAROUSEL: TrackDef = TrackDef {
+    name: "Cyclone Carousel",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(2818048),
+    },
+    start_heading: 15,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 21,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 2593,
+        silver_ticks: 2269,
+        gold_ticks: 2026,
+        dev_platinum_ticks: 1675,
+    },
+    checkpoint_count: 6,
+    checkpoints: [
+        CheckpointGate {
+            x: 44,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 30,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 55,
+            y: 58,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 45,
+            y: 36,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 32,
+            y: 56,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 16,
+            y: 52,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3211264),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3211264),
+        },
+    ],
+    half_width: 128,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_NEON_GRID_SPRINT: TrackDef = TrackDef {
+    name: "Neon Grid Sprint",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(2686976),
+    },
+    start_heading: 21,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 20,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 4493,
+        silver_ticks: 3931,
+        gold_ticks: 3510,
+        dev_platinum_ticks: 3000,
+    },
+    checkpoint_count: 6,
+    checkpoints: [
+        CheckpointGate {
+            x: 44,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 28,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 46,
+            y: 43,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 58,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 37,
+            y: 64,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 22,
+            y: 46,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2949120),
+        },
+    ],
+    half_width: 96,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_DEVILS_HAIRPIN: TrackDef = TrackDef {
+    name: "Devils Hairpin",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(2818048),
+    },
+    start_heading: 15,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 21,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 3037,
+        silver_ticks: 2658,
+        gold_ticks: 2373,
+        dev_platinum_ticks: 1918,
+    },
+    checkpoint_count: 10,
+    checkpoints: [
+        CheckpointGate {
+            x: 24,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 58,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 58,
+            y: 28,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 36,
+            y: 28,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 36,
+            y: 40,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 58,
+            y: 40,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 58,
+            y: 52,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 36,
+            y: 52,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 26,
+            y: 64,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 16,
+            y: 45,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3211264),
+        },
+    ],
+    half_width: 96,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_TURBO_RACEWAY_500: TrackDef = TrackDef {
+    name: "Turbo Raceway 500",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2424832),
+        y: Fixed(3211264),
+    },
+    start_heading: 60,
+    start_gate: CheckpointGate {
+        x: 18,
+        y: 24,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 1718,
+        silver_ticks: 1503,
+        gold_ticks: 1342,
+        dev_platinum_ticks: 1085,
+    },
+    checkpoint_count: 5,
+    checkpoints: [
+        CheckpointGate {
+            x: 39,
+            y: 18,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 62,
+            y: 22,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 61,
+            y: 46,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 41,
+            y: 60,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 21,
+            y: 48,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(3211264),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(3080192),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3080192),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(3211264),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(3473408),
+        },
+    ],
+    half_width: 128,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_INDUSTRIAL_SLALOM: TrackDef = TrackDef {
+    name: "Industrial Slalom",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(2686976),
+    },
+    start_heading: 21,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 20,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 3547,
+        silver_ticks: 3104,
+        gold_ticks: 2771,
+        dev_platinum_ticks: 2265,
+    },
+    checkpoint_count: 13,
+    checkpoints: [
+        CheckpointGate {
+            x: 24,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 58,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 25,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 54,
+            y: 34,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 46,
+            y: 41,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 56,
+            y: 48,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 56,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 38,
+            y: 64,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 16,
+            y: 55,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 24,
+            y: 46,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 32,
+            y: 39,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 24,
+            y: 32,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 16,
+            y: 24,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3211264),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(3211264),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3080192),
+        },
+    ],
+    half_width: 64,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_QUAD_LOOP_ARENA: TrackDef = TrackDef {
+    name: "Quad Loop Arena",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(3080192),
+        y: Fixed(2555904),
+    },
+    start_heading: 356,
+    start_gate: CheckpointGate {
+        x: 23,
+        y: 19,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 6958,
+        silver_ticks: 6088,
+        gold_ticks: 5436,
+        dev_platinum_ticks: 4791,
+    },
+    checkpoint_count: 7,
+    checkpoints: [
+        CheckpointGate {
+            x: 46,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 61,
+            y: 28,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 54,
+            y: 43,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 57,
+            y: 61,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 34,
+            y: 64,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 19,
+            y: 53,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 26,
+            y: 37,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(3211264),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3211264),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(3211264),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(2686976),
+        },
+    ],
+    half_width: 96,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_MIRAGE_DUNES_DRIFT: TrackDef = TrackDef {
+    name: "Mirage Dunes Drift",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(3080192),
+    },
+    start_heading: 15,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 23,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 2125,
+        silver_ticks: 1859,
+        gold_ticks: 1660,
+        dev_platinum_ticks: 1373,
+    },
+    checkpoint_count: 6,
+    checkpoints: [
+        CheckpointGate {
+            x: 36,
+            y: 18,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 54,
+            y: 30,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 45,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 56,
+            y: 62,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 35,
+            y: 56,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 17,
+            y: 46,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3080192),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(2424832),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(2686976),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(2949120),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(3080192),
+        },
+        Vec2 {
+            x: Fixed(6094848),
+            y: Fixed(3211264),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(7143424),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3342336),
+        },
+    ],
+    half_width: 96,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_RAZORBLADE_CHICANES: TrackDef = TrackDef {
+    name: "Razorblade Chicanes",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(2818048),
+    },
+    start_heading: 15,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 21,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 2669,
+        silver_ticks: 2335,
+        gold_ticks: 2085,
+        dev_platinum_ticks: 1783,
+    },
+    checkpoint_count: 6,
+    checkpoints: [
+        CheckpointGate {
+            x: 41,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 62,
+            y: 24,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 48,
+            y: 40,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 62,
+            y: 57,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 37,
+            y: 62,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 21,
+            y: 48,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3080192),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8060928),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(7798784),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7536640),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7274496),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(7012352),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6750208),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(4653056),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(4390912),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(3080192),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2818048),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(2555904),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4653056),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3080192),
+        },
+    ],
+    half_width: 96,
+};
+
+#[allow(unsafe_code)]
+#[link_section = ".data"]
+pub static TRACK_TRACKMANIA_STADIUM_MASTER: TrackDef = TrackDef {
+    name: "Trackmania Stadium Master",
+    width: 80,
+    height: 80,
+    start_pos: Vec2 {
+        x: Fixed(2162688),
+        y: Fixed(2818048),
+    },
+    start_heading: 15,
+    start_gate: CheckpointGate {
+        x: 16,
+        y: 21,
+        width: 1,
+        height: 1,
+    },
+    par_times: ParTimes {
+        bronze_ticks: 2725,
+        silver_ticks: 2384,
+        gold_ticks: 2129,
+        dev_platinum_ticks: 1780,
+    },
+    checkpoint_count: 8,
+    checkpoints: [
+        CheckpointGate {
+            x: 38,
+            y: 16,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 25,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 64,
+            y: 54,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 52,
+            y: 64,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 50,
+            y: 39,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 38,
+            y: 44,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 26,
+            y: 46,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 18,
+            y: 31,
+            width: 1,
+            height: 1,
+        },
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+        EMPTY_GATE,
+    ],
+    tiles: None,
+    route: &[
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3211264),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3735552),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(3997696),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4259840),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5439488),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5701632),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(5963776),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6488064),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(2162688),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(2293760),
+        },
+        Vec2 {
+            x: Fixed(8323072),
+            y: Fixed(2555904),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(2818048),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3080192),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3342336),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3604480),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(3866624),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7274496),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7536640),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(7798784),
+        },
+        Vec2 {
+            x: Fixed(8454144),
+            y: Fixed(8060928),
+        },
+        Vec2 {
+            x: Fixed(8192000),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(7929856),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7667712),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7405568),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(7143424),
+            y: Fixed(8454144),
+        },
+        Vec2 {
+            x: Fixed(6881280),
+            y: Fixed(8323072),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(8192000),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(7929856),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(7667712),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(7405568),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(7012352),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(6619136),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(6356992),
+            y: Fixed(4915200),
+        },
+        Vec2 {
+            x: Fixed(6225920),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5832704),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5570560),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5308416),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(5177344),
+            y: Fixed(5046272),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(5308416),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(5570560),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(5832704),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(6094848),
+        },
+        Vec2 {
+            x: Fixed(5046272),
+            y: Fixed(6356992),
+        },
+        Vec2 {
+            x: Fixed(4915200),
+            y: Fixed(6619136),
+        },
+        Vec2 {
+            x: Fixed(4784128),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4521984),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(4128768),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(3866624),
+            y: Fixed(6881280),
+        },
+        Vec2 {
+            x: Fixed(3604480),
+            y: Fixed(6750208),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(6488064),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(6225920),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(5963776),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(5701632),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(5439488),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(5177344),
+        },
+        Vec2 {
+            x: Fixed(3473408),
+            y: Fixed(4784128),
+        },
+        Vec2 {
+            x: Fixed(3342336),
+            y: Fixed(4521984),
+        },
+        Vec2 {
+            x: Fixed(3211264),
+            y: Fixed(4390912),
+        },
+        Vec2 {
+            x: Fixed(2949120),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2686976),
+            y: Fixed(4259840),
+        },
+        Vec2 {
+            x: Fixed(2424832),
+            y: Fixed(4128768),
+        },
+        Vec2 {
+            x: Fixed(2293760),
+            y: Fixed(3997696),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3735552),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3473408),
+        },
+        Vec2 {
+            x: Fixed(2162688),
+            y: Fixed(3080192),
+        },
+    ],
+    half_width: 96,
+};
+
+/// Authored circuits: 40.
+pub const AUTHORED_TRACK_COUNT: usize = 40;
+pub const TOTAL_TRACKS: usize = 40;
 
 /// Game mode classification.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -14631,13 +18926,25 @@ pub const GRAND_PRIX_CUPS: [CupDef; 5] = [
     },
 ];
 
-pub const MANIA_CUPS: [CupDef; 1] = [CupDef {
-    name: "MANIA CUP",
-    mode: GameMode::Mania,
-    track_indices: &[25, 26, 27, 28, 29, 30],
-}];
+pub const MANIA_CUPS: [CupDef; 3] = [
+    CupDef {
+        name: "MANIA CUP",
+        mode: GameMode::Mania,
+        track_indices: &[25, 26, 27, 28, 29, 30],
+    },
+    CupDef {
+        name: "MANIA PRO CUP",
+        mode: GameMode::Mania,
+        track_indices: &[31, 32, 33, 34, 35],
+    },
+    CupDef {
+        name: "MANIA MASTER CUP",
+        mode: GameMode::Mania,
+        track_indices: &[36, 37, 38, 39],
+    },
+];
 
-pub const ALL_CUPS: [CupDef; 6] = [
+pub const ALL_CUPS: [CupDef; 8] = [
     CupDef {
         name: "BRONZE CUP",
         mode: GameMode::GrandPrix,
@@ -14668,11 +18975,21 @@ pub const ALL_CUPS: [CupDef; 6] = [
         mode: GameMode::Mania,
         track_indices: &[25, 26, 27, 28, 29, 30],
     },
+    CupDef {
+        name: "MANIA PRO CUP",
+        mode: GameMode::Mania,
+        track_indices: &[31, 32, 33, 34, 35],
+    },
+    CupDef {
+        name: "MANIA MASTER CUP",
+        mode: GameMode::Mania,
+        track_indices: &[36, 37, 38, 39],
+    },
 ];
 
-pub const TOTAL_CUPS: usize = 6;
+pub const TOTAL_CUPS: usize = 8;
 
-pub const ALL_TRACKS: [&TrackDef; 31] = [
+pub const ALL_TRACKS: [&TrackDef; 40] = [
     &TRACK_CASCADE_FALLS,
     &TRACK_COPPER_GORGE,
     &TRACK_LONGBOW,
@@ -14704,16 +19021,25 @@ pub const ALL_TRACKS: [&TrackDef; 31] = [
     &TRACK_ALLEYWAY_CHICANES,
     &TRACK_OIL_RIG_SLIPWAY,
     &TRACK_APEX_ARENA,
+    &TRACK_CYCLONE_CAROUSEL,
+    &TRACK_NEON_GRID_SPRINT,
+    &TRACK_DEVILS_HAIRPIN,
+    &TRACK_TURBO_RACEWAY_500,
+    &TRACK_INDUSTRIAL_SLALOM,
+    &TRACK_QUAD_LOOP_ARENA,
+    &TRACK_MIRAGE_DUNES_DRIFT,
+    &TRACK_RAZORBLADE_CHICANES,
+    &TRACK_TRACKMANIA_STADIUM_MASTER,
 ];
 
-pub const AUTHORED_TRACKS: [&TrackDef; 31] = ALL_TRACKS;
+pub const AUTHORED_TRACKS: [&TrackDef; 40] = ALL_TRACKS;
 
-pub const ALL_TRACK_VISUALS: [usize; 31] = [
+pub const ALL_TRACK_VISUALS: [usize; 40] = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-    26, 27, 28, 29, 30,
+    26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
 ];
 
-pub const LEVEL_DIMS: [(u8, u8); 34] = [
+pub const LEVEL_DIMS: [(u8, u8); 43] = [
     (80, 80),
     (80, 80),
     (80, 80),
@@ -14739,6 +19065,15 @@ pub const LEVEL_DIMS: [(u8, u8); 34] = [
     (80, 80),
     (80, 80),
     (160, 160),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
+    (80, 80),
     (80, 80),
     (80, 80),
     (80, 80),

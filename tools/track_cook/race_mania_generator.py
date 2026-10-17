@@ -489,6 +489,332 @@ MANIA_CUP_TRACKS = [
         ],
         "note": "Championship stadium test combining wide straights, technical chicanes, hairpins, and shortcuts.",
     },
+    # 7. Cyclone Carousel - High-G Sweeping Carousel with Infield Chicane Bypass
+    {
+        "name": "Cyclone Carousel",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 4.0,
+        "vertices": [
+            (16.0, 16.0),
+            (64.0, 16.0),
+            (64.0, 50.0),
+            (48.0, 64.0),
+            (48.0, 36.0),
+            (32.0, 36.0),
+            (32.0, 64.0),
+            (16.0, 64.0),
+        ],
+        "radii": [5.0, 5.0, 4.5, 4.0, 4.0, 4.0, 4.5, 5.0],
+        "shortcuts": ["M 48.0 36.0 L 16.0 64.0"],
+        "runoff": 6,  # GRAVEL
+        "marks": [
+            (0.0, 10, 4.7, 1.2),
+            (1 / 7, 11, 4.7, 0.7),
+            (2 / 7, 11, 4.7, 0.7),
+            (3 / 7, 11, 4.7, 0.7),
+            (4 / 7, 11, 4.7, 0.7),
+            (5 / 7, 11, 4.7, 0.7),
+            (6 / 7, 11, 4.7, 0.7),
+            (0.5 / 7, 9, 4.0, 1.0),
+            (4.5 / 7, 9, 4.0, 1.0),
+            (2.75 / 7, 8, 1.5, 0.8),
+        ],
+        "note": "High-G sweeping carousel with tightening radius and infield chicane bypass.",
+    },
+    # 8. Neon Grid Sprint - Cyberpunk Perpendicular Street Grid
+    {
+        "name": "Neon Grid Sprint",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 3.0,
+        "vertices": [
+            (16.0, 16.0),
+            (64.0, 16.0),
+            (64.0, 30.0),
+            (46.0, 30.0),
+            (46.0, 46.0),
+            (64.0, 46.0),
+            (64.0, 64.0),
+            (30.0, 64.0),
+            (30.0, 46.0),
+            (16.0, 46.0),
+        ],
+        "radii": [4.0, 4.0, 3.5, 3.5, 3.5, 4.0, 4.5, 3.5, 3.5, 4.0],
+        "shortcuts": ["M 46.0 30.0 L 30.0 46.0"],
+        "runoff": 7,  # SAND
+        "marks": [
+            (0.0, 10, 3.7, 1.2),
+            (1 / 7, 11, 3.7, 0.7),
+            (2 / 7, 11, 3.7, 0.7),
+            (3 / 7, 11, 3.7, 0.7),
+            (4 / 7, 11, 3.7, 0.7),
+            (5 / 7, 11, 3.7, 0.7),
+            (6 / 7, 11, 3.7, 0.7),
+            (1.5 / 7, 9, 3.0, 1.0),
+            (5.5 / 7, 9, 3.0, 1.0),
+            (3.5 / 7, 8, 1.5, 0.8),
+        ],
+        "note": "Cyberpunk perpendicular street grid with 90-degree flicks and neon alley shortcut.",
+    },
+    # 9. Devils Hairpin - Triple 180° Mountain Switchback Canyon
+    {
+        "name": "Devils Hairpin",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 3.0,
+        "vertices": [
+            (16.0, 16.0),
+            (64.0, 16.0),
+            (64.0, 28.0),
+            (30.0, 28.0),
+            (30.0, 40.0),
+            (64.0, 40.0),
+            (64.0, 52.0),
+            (30.0, 52.0),
+            (30.0, 64.0),
+            (16.0, 64.0),
+        ],
+        "radii": [5.0, 4.5, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.5, 5.0],
+        "shortcuts": ["M 64.0 28.0 L 64.0 52.0"],
+        "runoff": 7,  # SAND
+        "marks": [
+            (0.0, 10, 3.7, 1.2),
+            (0.0450, 11, 3.7, 0.7),
+            (0.1859, 11, 3.7, 0.7),
+            (0.2702, 11, 3.7, 0.7),
+            (0.3614, 11, 3.7, 0.7),
+            (0.4466, 11, 3.7, 0.7),
+            (0.5378, 11, 3.7, 0.7),
+            (0.6230, 11, 3.7, 0.7),
+            (0.7142, 11, 3.7, 0.7),
+            (0.7903, 11, 3.7, 0.7),
+            (0.9016, 11, 3.7, 0.7),
+            (0.1000, 9, 3.0, 1.0),
+            (0.4900, 9, 3.0, 1.0),
+            (0.2400, 8, 1.5, 0.8),
+            (0.6000, 8, 1.5, 0.8),
+        ],
+        "note": "Triple 180-degree mountain switchback canyon stressing sustained drift angle.",
+    },
+    # 10. Turbo Raceway 500 - Super-Wide 5-Point Tri-Oval Dragway
+    {
+        "name": "Turbo Raceway 500",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 4.0,
+        "vertices": [
+            (18.0, 18.0),
+            (62.0, 18.0),
+            (64.0, 44.0),
+            (40.0, 62.0),
+            (16.0, 44.0),
+        ],
+        "radii": [7.0, 7.0, 8.0, 8.0, 7.0],
+        "shortcuts": [],
+        "runoff": 5,  # GRASS
+        "marks": [
+            (0.0, 10, 4.7, 1.2),
+            (1 / 6, 11, 4.7, 0.7),
+            (2 / 6, 11, 4.7, 0.7),
+            (3 / 6, 11, 4.7, 0.7),
+            (4 / 6, 11, 4.7, 0.7),
+            (5 / 6, 11, 4.7, 0.7),
+            (0.5 / 6, 9, 4.0, 1.0),
+            (2.5 / 6, 9, 4.0, 1.0),
+            (4.5 / 6, 9, 4.0, 1.0),
+        ],
+        "note": "Super-wide 5-point tri-oval with massive radius turns and multi-pack drafting.",
+    },
+    # 11. Industrial Slalom - Warehouse Chicane Slalom with Container Cut
+    {
+        "name": "Industrial Slalom",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 2.0,
+        "vertices": [
+            (16.0, 16.0),
+            (64.0, 16.0),
+            (64.0, 34.0),
+            (46.0, 34.0),
+            (46.0, 48.0),
+            (64.0, 48.0),
+            (64.0, 64.0),
+            (16.0, 64.0),
+            (16.0, 46.0),
+            (32.0, 46.0),
+            (32.0, 32.0),
+            (16.0, 32.0),
+        ],
+        "radii": [4.0, 4.0, 3.5, 3.5, 3.5, 4.0, 4.5, 4.5, 3.5, 3.5, 3.5, 4.0],
+        "shortcuts": ["M 46.0 34.0 L 32.0 46.0"],
+        "runoff": 6,  # GRAVEL
+        "marks": [
+            (0.0, 10, 2.7, 1.2),
+            (0.0428, 11, 2.7, 0.7),
+            (0.1845, 11, 2.7, 0.7),
+            (0.2399, 11, 2.7, 0.7),
+            (0.3128, 11, 2.7, 0.7),
+            (0.3690, 11, 2.7, 0.7),
+            (0.4336, 11, 2.7, 0.7),
+            (0.4931, 11, 2.7, 0.7),
+            (0.6267, 11, 2.7, 0.7),
+            (0.7478, 11, 2.7, 0.7),
+            (0.8124, 11, 2.7, 0.7),
+            (0.8686, 11, 2.7, 0.7),
+            (0.9249, 11, 2.7, 0.7),
+            (0.9844, 11, 2.7, 0.7),
+            (0.1000, 9, 2.0, 1.0),
+            (0.5600, 9, 2.0, 1.0),
+            (0.3500, 8, 1.5, 0.8),
+            (0.7600, 8, 1.5, 0.8),
+        ],
+        "note": "Warehouse chicane slalom with tight 2-cell corridors and container cut.",
+    },
+    # 12. Quad Loop Arena - Cloverleaf Quad-Lobe Crossover
+    {
+        "name": "Quad Loop Arena",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 3.0,
+        "vertices": [
+            (24.0, 16.0),
+            (56.0, 16.0),
+            (64.0, 26.0),
+            (46.0, 38.0),
+            (64.0, 50.0),
+            (56.0, 64.0),
+            (24.0, 64.0),
+            (16.0, 54.0),
+            (34.0, 42.0),
+            (16.0, 30.0),
+        ],
+        "radii": [5.0, 5.0, 4.0, 4.0, 4.0, 5.0, 5.0, 4.0, 4.0, 4.0],
+        "shortcuts": ["M 46.0 38.0 L 34.0 42.0"],
+        "runoff": 5,  # GRASS
+        "marks": [
+            (0.0, 10, 3.7, 1.2),
+            (1 / 8, 11, 3.7, 0.7),
+            (2 / 8, 11, 3.7, 0.7),
+            (3 / 8, 11, 3.7, 0.7),
+            (4 / 8, 11, 3.7, 0.7),
+            (5 / 8, 11, 3.7, 0.7),
+            (6 / 8, 11, 3.7, 0.7),
+            (7 / 8, 11, 3.7, 0.7),
+            (0.5 / 8, 9, 3.0, 1.0),
+            (4.5 / 8, 9, 3.0, 1.0),
+            (2.75 / 8, 8, 1.5, 0.8),
+            (6.75 / 8, 8, 1.5, 0.8),
+        ],
+        "note": "Cloverleaf quad-lobe layout with central crossing neck and bypass chute.",
+    },
+    # 13. Mirage Dunes Drift - Sweeping Desert Dunes Parabolic Circuit
+    {
+        "name": "Mirage Dunes Drift",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 3.0,
+        "vertices": [
+            (16.0, 18.0),
+            (40.0, 18.0),
+            (52.0, 30.0),
+            (64.0, 30.0),
+            (64.0, 62.0),
+            (40.0, 62.0),
+            (30.0, 48.0),
+            (16.0, 48.0),
+        ],
+        "radii": [5.0, 4.5, 4.0, 4.5, 5.0, 4.5, 4.0, 5.0],
+        "shortcuts": ["M 52.0 30.0 L 30.0 48.0"],
+        "runoff": 7,  # SAND
+        "marks": [
+            (0.0, 10, 3.7, 1.2),
+            (1 / 7, 11, 3.7, 0.7),
+            (2 / 7, 11, 3.7, 0.7),
+            (3 / 7, 11, 3.7, 0.7),
+            (4 / 7, 11, 3.7, 0.7),
+            (5 / 7, 11, 3.7, 0.7),
+            (6 / 7, 11, 3.7, 0.7),
+            (1.5 / 7, 9, 3.0, 1.0),
+            (4.5 / 7, 9, 3.0, 1.0),
+            (3.75 / 7, 8, 1.5, 0.8),
+        ],
+        "note": "Sweeping desert dunes circuit with parabolic arcs and high-speed sand transition.",
+    },
+    # 14. Razorblade Chicanes - Airfield Hammerhead Circuit
+    {
+        "name": "Razorblade Chicanes",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 3.0,
+        "vertices": [
+            (16.0, 16.0),
+            (62.0, 16.0),
+            (62.0, 36.0),
+            (48.0, 36.0),
+            (48.0, 48.0),
+            (62.0, 48.0),
+            (62.0, 62.0),
+            (34.0, 62.0),
+            (34.0, 48.0),
+            (20.0, 48.0),
+            (16.0, 34.0),
+        ],
+        "radii": [5.0, 4.5, 3.5, 3.5, 3.5, 4.0, 4.5, 4.0, 3.5, 3.5, 4.5],
+        "shortcuts": ["M 48.0 36.0 L 34.0 62.0"],
+        "runoff": 6,  # GRAVEL
+        "marks": [
+            (0.0, 10, 3.7, 1.2),
+            (1 / 7, 11, 3.7, 0.7),
+            (2 / 7, 11, 3.7, 0.7),
+            (3 / 7, 11, 3.7, 0.7),
+            (4 / 7, 11, 3.7, 0.7),
+            (5 / 7, 11, 3.7, 0.7),
+            (6 / 7, 11, 3.7, 0.7),
+            (0.5 / 7, 9, 3.0, 1.0),
+            (3.5 / 7, 9, 3.0, 1.0),
+            (2.25 / 7, 8, 1.5, 0.8),
+        ],
+        "note": "Technical airfield hammerhead circuit with double chicanes and high-risk cut.",
+    },
+    # 15. TrackMania Stadium Master - The Grand Mania Finale
+    {
+        "name": "TrackMania Stadium Master",
+        "shape": "polygon",
+        "grid": 80,
+        "road_half_cells": 3.0,
+        "vertices": [
+            (16.0, 16.0),
+            (64.0, 16.0),
+            (64.0, 64.0),
+            (50.0, 64.0),
+            (50.0, 36.0),
+            (38.0, 36.0),
+            (38.0, 52.0),
+            (26.0, 52.0),
+            (26.0, 32.0),
+            (16.0, 32.0),
+        ],
+        "radii": [5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.5, 4.5],
+        "shortcuts": ["M 50.0 64.0 L 26.0 52.0"],
+        "runoff": 5,  # GRASS
+        "marks": [
+            (0.0, 10, 3.7, 1.2),
+            (0.12, 11, 3.7, 0.7),
+            (0.28, 11, 3.7, 0.7),
+            (0.42, 11, 3.7, 0.7),
+            (0.52, 11, 3.7, 0.7),
+            (0.64, 11, 3.7, 0.7),
+            (0.74, 11, 3.7, 0.7),
+            (0.85, 11, 3.7, 0.7),
+            (0.95, 11, 3.7, 0.7),
+            (0.06, 9, 3.0, 1.0),
+            (0.35, 9, 3.0, 1.0),
+            (0.58, 8, 1.5, 0.8),
+            (0.80, 8, 1.5, 0.8),
+        ],
+        "note": "The ultimate Mania championship test: dual straights, deep infield maze, and shortcut.",
+    },
 ]
 
 
@@ -525,7 +851,7 @@ def main() -> int:
                     help="Runoff surface type")
     ap.add_argument("--write", action="store_true", help="Write circuit assets to tracks/ directory")
     ap.add_argument("--batch", type=int, default=0, help="Generate N distinct Race Mania circuits")
-    ap.add_argument("--mania-cup", action="store_true", help="Generate all 6 Mania Cup curated circuits")
+    ap.add_argument("--mania-cup", action="store_true", help="Generate all 15 Mania curated circuits")
     ap.add_argument("--out", type=str, default=None, help="Output directory (default: <repo>/tracks)")
 
     args = ap.parse_args()
@@ -540,7 +866,8 @@ def main() -> int:
     outdir = args.out or os.path.join(root, "tracks")
 
     if args.mania_cup:
-        print(f"Generating 6 curated Mania Cup circuits into {outdir}...")
+        total_m = len(MANIA_CUP_TRACKS)
+        print(f"Generating {total_m} curated Mania circuits into {outdir}...")
         for i, spec in enumerate(MANIA_CUP_TRACKS):
             ok, msg = validate_clearance(spec["vertices"])
             road_w = spec.get("road_half_cells", 3.0) * 2
@@ -548,11 +875,11 @@ def main() -> int:
             sc_str = f"with {sc_count} shortcut" if sc_count else "no shortcuts"
             if args.write:
                 info = write_race_mania_track(spec, outdir)
-                print(f"  [{i+1}/6] Wrote {info['name']:20} ({road_w:.1f} cells wide, {sc_str}) -> {os.path.basename(info['svg'])}")
+                print(f"  [{i+1}/{total_m}] Wrote {info['name']:25} ({road_w:.1f} cells wide, {sc_str}) -> {os.path.basename(info['svg'])}")
             else:
-                print(f"  [{i+1}/6] Preview {spec['name']:20} ({road_w:.1f} cells wide, {sc_str}) - {spec['note']}")
+                print(f"  [{i+1}/{total_m}] Preview {spec['name']:25} ({road_w:.1f} cells wide, {sc_str}) - {spec['note']}")
         if not args.write:
-            print("\nRun with --mania-cup --write to compile and save all 6 tracks into tracks/")
+            print(f"\nRun with --mania-cup --write to compile and save all {total_m} tracks into tracks/")
         return 0
 
     runoff_map = {"grass": 5, "gravel": 6, "sand": 7}

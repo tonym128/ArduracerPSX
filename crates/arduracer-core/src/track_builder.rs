@@ -400,13 +400,16 @@ impl CustomTrackDef {
 
                 let wx = (tx as i32 + 2) * TILE_SIZE;
                 let wy = (ty as i32 + 2) * TILE_SIZE;
-                start_pos = Vec2::new(crate::math::Fixed::from_int(wx), crate::math::Fixed::from_int(wy));
+                start_pos = Vec2::new(
+                    crate::math::Fixed::from_int(wx),
+                    crate::math::Fixed::from_int(wy),
+                );
 
                 start_heading = match b.orientation & 0x03 {
-                    0 => 0,                            // North
-                    1 => ANGLE_90,                     // East
-                    2 => ANGLE_180,                    // South
-                    3 => ANGLE_90 * 3,                 // West
+                    0 => 0,            // North
+                    1 => ANGLE_90,     // East
+                    2 => ANGLE_180,    // South
+                    3 => ANGLE_90 * 3, // West
                     _ => 0,
                 };
 
@@ -445,7 +448,10 @@ impl CustomTrackDef {
             if route_count < MAX_CUSTOM_BLOCKS {
                 let wx = (tx as i32 + 2) * TILE_SIZE;
                 let wy = (ty as i32 + 2) * TILE_SIZE;
-                route_points[route_count] = Vec2::new(crate::math::Fixed::from_int(wx), crate::math::Fixed::from_int(wy));
+                route_points[route_count] = Vec2::new(
+                    crate::math::Fixed::from_int(wx),
+                    crate::math::Fixed::from_int(wy),
+                );
                 route_count += 1;
             }
         }
@@ -702,10 +708,10 @@ fn rasterize_block(
     for r in 0..4 {
         for c in 0..4 {
             let (src_r, src_c) = match rot {
-                0 => (r, c),             // 0°
-                1 => (3 - c, r),         // 90° clockwise
-                2 => (3 - r, 3 - c),     // 180°
-                3 => (c, 3 - r),         // 270° clockwise
+                0 => (r, c),         // 0°
+                1 => (3 - c, r),     // 90° clockwise
+                2 => (3 - r, 3 - c), // 180°
+                3 => (c, 3 - r),     // 270° clockwise
                 _ => (r, c),
             };
 
@@ -771,7 +777,9 @@ mod tests {
         track
             .place_block(5, 5, TrackBlockKind::StartGrid, 0)
             .unwrap();
-        track.place_block(5, 6, TrackBlockKind::Straight, 0).unwrap();
+        track
+            .place_block(5, 6, TrackBlockKind::Straight, 0)
+            .unwrap();
         track.place_block(5, 7, TrackBlockKind::Turn90, 0).unwrap();
 
         let mut buf = [0u8; CUSTOM_TRACK_SERIALIZED_SIZE];
@@ -788,7 +796,9 @@ mod tests {
         track
             .place_block(5, 5, TrackBlockKind::StartGrid, 0)
             .unwrap();
-        track.place_block(5, 6, TrackBlockKind::Straight, 0).unwrap();
+        track
+            .place_block(5, 6, TrackBlockKind::Straight, 0)
+            .unwrap();
         track
             .place_block(5, 7, TrackBlockKind::CheckpointGate, 0)
             .unwrap();

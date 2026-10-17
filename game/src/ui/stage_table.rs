@@ -20,9 +20,9 @@ pub enum StageFilterTab {
 impl StageFilterTab {
     pub fn name(self) -> &'static str {
         match self {
-            StageFilterTab::All => "ALL STAGES (31)",
+            StageFilterTab::All => "ALL STAGES (40)",
             StageFilterTab::GrandPrix => "GP TRIALS (25)",
-            StageFilterTab::Mania => "MANIA TRIALS (6)",
+            StageFilterTab::Mania => "MANIA TRIALS (15)",
         }
     }
 
@@ -104,15 +104,17 @@ impl StageTableScreen {
 
     /// Returns the track indices corresponding to the active tab.
     pub fn active_tracks(&self) -> &'static [usize] {
-        static ALL_INDICES: [usize; 31] = [
+        static ALL_INDICES: [usize; 40] = [
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-            24, 25, 26, 27, 28, 29, 30,
+            24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
         ];
         static GP_INDICES: [usize; 25] = [
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
             24,
         ];
-        static MANIA_INDICES: [usize; 6] = [25, 26, 27, 28, 29, 30];
+        static MANIA_INDICES: [usize; 15] = [
+            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+        ];
 
         match self.tab {
             StageFilterTab::All => &ALL_INDICES,

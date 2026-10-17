@@ -1856,8 +1856,8 @@ fn test_save_block_round_trip() {
 fn test_all_24_tracks_integrity() {
     assert_eq!(
         ALL_TRACKS.len(),
-        31,
-        "Must have exactly 31 official tracks (25 GP + 6 Mania)"
+        40,
+        "Must have exactly 40 official tracks (25 GP + 15 Mania)"
     );
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
@@ -2255,8 +2255,8 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
-    assert_eq!(visual_tex::COUNT, 61);
-    assert_eq!(visual_tex::CIRCUIT_COUNT, 34);
+    assert_eq!(visual_tex::COUNT, 70);
+    assert_eq!(visual_tex::CIRCUIT_COUNT, 43);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
     assert_eq!(visual_tex::BLOCK_SECTORS, 250);
     assert_eq!(visual_tex::BLOCK_MAX_BYTES, 512000);

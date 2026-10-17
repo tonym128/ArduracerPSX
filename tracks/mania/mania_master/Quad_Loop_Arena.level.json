@@ -1,0 +1,59 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Quad Loop Arena",
+ "stem": "Quad_Loop_Arena",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.125
+  },
+  {
+   "kind": "gate",
+   "frac": 0.25
+  },
+  {
+   "kind": "gate",
+   "frac": 0.375
+  },
+  {
+   "kind": "gate",
+   "frac": 0.5
+  },
+  {
+   "kind": "gate",
+   "frac": 0.625
+  },
+  {
+   "kind": "gate",
+   "frac": 0.75
+  },
+  {
+   "kind": "gate",
+   "frac": 0.875
+  },
+  {
+   "kind": "boost",
+   "frac": 0.0625
+  },
+  {
+   "kind": "boost",
+   "frac": 0.5625
+  },
+  {
+   "kind": "oil",
+   "frac": 0.34375
+  },
+  {
+   "kind": "oil",
+   "frac": 0.84375
+  }
+ ]
+}

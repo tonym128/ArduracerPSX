@@ -1,0 +1,71 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Devils Hairpin",
+ "stem": "Devils_Hairpin",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.045
+  },
+  {
+   "kind": "gate",
+   "frac": 0.1859
+  },
+  {
+   "kind": "gate",
+   "frac": 0.2702
+  },
+  {
+   "kind": "gate",
+   "frac": 0.3614
+  },
+  {
+   "kind": "gate",
+   "frac": 0.4466
+  },
+  {
+   "kind": "gate",
+   "frac": 0.5378
+  },
+  {
+   "kind": "gate",
+   "frac": 0.623
+  },
+  {
+   "kind": "gate",
+   "frac": 0.7142
+  },
+  {
+   "kind": "gate",
+   "frac": 0.7903
+  },
+  {
+   "kind": "gate",
+   "frac": 0.9016
+  },
+  {
+   "kind": "boost",
+   "frac": 0.1
+  },
+  {
+   "kind": "boost",
+   "frac": 0.49
+  },
+  {
+   "kind": "oil",
+   "frac": 0.24
+  },
+  {
+   "kind": "oil",
+   "frac": 0.6
+  }
+ ]
+}

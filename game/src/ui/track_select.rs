@@ -100,7 +100,7 @@ impl TrackSelectScreen {
 
     fn jump_cup(&mut self, forward: bool) {
         let (start, end) = self.track_range();
-        let mut valid = [0usize; 6];
+        let mut valid = [0usize; 16];
         let mut count = 0;
         for (i, cup) in ALL_CUPS.iter().enumerate() {
             if let Some(&first) = cup.track_indices.first() {

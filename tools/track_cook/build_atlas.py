@@ -260,6 +260,12 @@ CANONICAL_MANIA_CUPS = [
     ("mania_cup", "MANIA CUP", [
         "Metro 8", "Speedway Boulevard", "Serpent Canyon", "Alleyway Chicanes", "Oil Rig Slipway", "Apex Arena"
     ]),
+    ("mania_pro", "MANIA PRO CUP", [
+        "Cyclone Carousel", "Neon Grid Sprint", "Devils Hairpin", "Turbo Raceway 500", "Industrial Slalom"
+    ]),
+    ("mania_master", "MANIA MASTER CUP", [
+        "Quad Loop Arena", "Mirage Dunes Drift", "Razorblade Chicanes", "TrackMania Stadium Master"
+    ]),
 ]
 
 

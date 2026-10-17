@@ -60,8 +60,8 @@ fn asset_length_is_exactly_the_sum_of_the_grids() {
         .sum();
     assert_eq!(asset().len(), expected);
     assert_eq!(
-        expected, 390_400,
-        "30 circuits at 6,400 plus 1 circuit at 25,600 plus 3 cities at 57,600"
+        expected, 448_000,
+        "39 circuits at 6,400 plus 1 circuit at 25,600 plus 3 cities at 57,600"
     );
 }
 

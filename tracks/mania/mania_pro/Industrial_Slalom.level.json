@@ -1,0 +1,83 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Industrial Slalom",
+ "stem": "Industrial_Slalom",
+ "grid": 80,
+ "road_half_cells": 2.0,
+ "half_width_world": 64,
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.0428
+  },
+  {
+   "kind": "gate",
+   "frac": 0.1845
+  },
+  {
+   "kind": "gate",
+   "frac": 0.2399
+  },
+  {
+   "kind": "gate",
+   "frac": 0.3128
+  },
+  {
+   "kind": "gate",
+   "frac": 0.369
+  },
+  {
+   "kind": "gate",
+   "frac": 0.4336
+  },
+  {
+   "kind": "gate",
+   "frac": 0.4931
+  },
+  {
+   "kind": "gate",
+   "frac": 0.6267
+  },
+  {
+   "kind": "gate",
+   "frac": 0.7478
+  },
+  {
+   "kind": "gate",
+   "frac": 0.8124
+  },
+  {
+   "kind": "gate",
+   "frac": 0.8686
+  },
+  {
+   "kind": "gate",
+   "frac": 0.9249
+  },
+  {
+   "kind": "gate",
+   "frac": 0.9844
+  },
+  {
+   "kind": "boost",
+   "frac": 0.1
+  },
+  {
+   "kind": "boost",
+   "frac": 0.56
+  },
+  {
+   "kind": "oil",
+   "frac": 0.35
+  },
+  {
+   "kind": "oil",
+   "frac": 0.76
+  }
+ ]
+}

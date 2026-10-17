@@ -22,21 +22,21 @@ pub static CITIES: [CityInfo; 3] = [
         country: "SOUTH AFRICA (ATLANTIC COAST)",
         landmarks: "GREEN POINT & V&A WATERFRONT",
         track: &TRACK_CAPETOWN,
-        track_id: 31,
+        track_id: 40,
     },
     CityInfo {
         name: "MELBOURNE",
         country: "AUSTRALIA (VICTORIA)",
         landmarks: "ALBERT PARK GP & ST KILDA",
         track: &TRACK_MELBOURNE,
-        track_id: 32,
+        track_id: 41,
     },
     CityInfo {
         name: "LONDON",
         country: "UNITED KINGDOM (CENTRAL)",
         landmarks: "THE MALL, WESTMINSTER & THAMES",
         track: &TRACK_LONDON,
-        track_id: 33,
+        track_id: 42,
     },
 ];
 
