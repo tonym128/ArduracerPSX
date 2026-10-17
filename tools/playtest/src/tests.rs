@@ -529,7 +529,7 @@ fn a_championship_reaches_its_terminal_stage() {
 /// would index `ALL_TRACKS` out of range at runtime.
 #[test]
 fn every_championship_stage_maps_onto_a_shipped_circuit() {
-    assert_eq!(ALL_TRACKS.len(), 25);
+    assert_eq!(ALL_TRACKS.len(), 31);
     for cup in 0..CUP_COUNT as u8 {
         let stages = ChampionshipSession::total_stages_for_cup(cup);
         for stage in 0..stages {
@@ -546,7 +546,7 @@ fn every_championship_stage_maps_onto_a_shipped_circuit() {
         }
     }
     // Out-of-range cups are clamped, not multiplied into a bad index.
-    assert_eq!(ChampionshipSession::new(9).cup_index, 4);
+    assert_eq!(ChampionshipSession::new(9).cup_index, 5);
 }
 
 /// Only index 0 of the sorted leaderboard was ever asserted. The whole ordering

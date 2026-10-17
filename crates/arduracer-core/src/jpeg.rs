@@ -1181,7 +1181,9 @@ mod tests {
     fn test_bit_exactness_all_256_tiles() {
         // Decode all 256 tiles both ways, compare every pixel.
         let candidates = [
+            "../../tracks/cities/capetown_10km/capetown_b0_b0.jpg",
             "../../tracks/capetown_10km/capetown_b0_b0.jpg",
+            "../../tracks/grand_prix/bronze/Amber_Mesa.jpg",
             "../../tracks/Amber_Mesa.jpg",
             "../../tracks/test_100kb.jpg",
         ];

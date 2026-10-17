@@ -350,7 +350,7 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 7500,
         sector_count: 250,
-        byte_len: 158684,
+        byte_len: 160060,
     },
     TileSectorEntry {
         sector_offset: 7750,
@@ -365,7 +365,7 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 8250,
         sector_count: 250,
-        byte_len: 147541,
+        byte_len: 151155,
     },
     TileSectorEntry {
         sector_offset: 8500,
@@ -659,7 +659,7 @@ pub static CIRCUIT_QOI_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 7250,
         sector_count: 250,
-        byte_len: 100079,
+        byte_len: 100620,
     },
     TileSectorEntry {
         sector_offset: 7500,
@@ -674,7 +674,7 @@ pub static CIRCUIT_QOI_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 8000,
         sector_count: 250,
-        byte_len: 106197,
+        byte_len: 108391,
     },
     TileSectorEntry {
         sector_offset: 0,
@@ -968,7 +968,7 @@ pub static CIRCUIT_ARSV_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 7250,
         sector_count: 250,
-        byte_len: 103311,
+        byte_len: 103852,
     },
     TileSectorEntry {
         sector_offset: 7500,
@@ -983,7 +983,7 @@ pub static CIRCUIT_ARSV_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 8000,
         sector_count: 250,
-        byte_len: 109429,
+        byte_len: 111623,
     },
     TileSectorEntry {
         sector_offset: 0,

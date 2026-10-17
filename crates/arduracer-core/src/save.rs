@@ -43,13 +43,12 @@
 //! [`SaveData::sanitised`].
 
 use crate::championship::{
-    ChampionshipSession, Difficulty, COMPETITORS_PER_SESSION, CUP_COUNT, POINTS_TABLE,
-    STAGES_PER_CUP,
+    ChampionshipSession, Difficulty, COMPETITORS_PER_SESSION, POINTS_TABLE, STAGES_PER_CUP,
 };
 use crate::timing::{Medal, MIN_PLAUSIBLE_LAP_TICKS, NO_BEST_LAP};
 use crate::tuning::CarTuning;
 
-pub const TOTAL_TRACKS: usize = 25;
+pub const TOTAL_TRACKS: usize = 64;
 pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 /// Payload version.
 ///
@@ -64,7 +63,8 @@ pub const SAVE_HEADER_MAGIC: [u8; 16] = *b"BAS-ARDURACER-01";
 ///   from anywhere else in the payload: every other slot is either a live
 ///   preference or the packed championship progression in `_reserved0`.
 /// - v5 expanded to 25 tracks for Map 25 (Titan Circuit, 4096x4096).
-pub const SAVE_VERSION: u16 = 5;
+/// - v6 expanded to 64 tracks and dynamic cup & mode championship state.
+pub const SAVE_VERSION: u16 = 6;
 
 /// Tuning presets stored per save.
 pub const TOTAL_TUNING_SLOTS: usize = 3;
@@ -80,14 +80,14 @@ pub const MAX_VOLUME: u8 = 8;
 
 /// On-card payload length: every field is written explicitly, so this is the
 /// exact count of meaningful bytes with no padding in it.
-pub const PAYLOAD_SIZE: usize = 187;
+pub const PAYLOAD_SIZE: usize = 388;
 
 /// Offset of the trailing CRC within the payload. Every byte before it is
 /// covered by the checksum.
-pub const CHECKSUM_OFFSET: usize = 185;
+pub const CHECKSUM_OFFSET: usize = 386;
 
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
-const OFF_BEST_LAPS: usize = 24;
+const OFF_BEST_LAPS: usize = 30;
 
 /// Which disc-audio source the player has chosen.
 ///
@@ -158,33 +158,24 @@ pub struct SaveData {
     pub music_volume: u8,
     pub rumble_enabled: u8,
     pub active_tuning_slot: u8,
-    pub _reserved0: u8,
+    pub champ_active: u8,
+    pub champ_cup: u8,
+    pub champ_stage: u8,
+    pub champ_difficulty: u8,
+    pub _reserved: [u8; 3],
     pub best_lap_ticks: [u32; TOTAL_TRACKS],
     pub medals_earned: [u8; TOTAL_TRACKS],
     pub tuning_slots: [CarTuning; TOTAL_TUNING_SLOTS],
     /// Championship standings after the completed stages of the current cup.
-    ///
-    /// Persisted because these are the only record of how the season went:
-    /// `_reserved0` carries the bracket position, but without the points a
-    /// restored Grand Prix came back with every competitor on zero.
     pub champ_points: [u16; COMPETITORS_PER_SESSION],
     /// Grid order for the next stage, as competitor indices.
     pub champ_grid: [u8; COMPETITORS_PER_SESSION],
     /// Selected circuit texture format: 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG,
-    /// 4 = TIM, 5 = TIM4, 6 = TIM8. Totality lives in `texture_format::TextureFormat::from_saved`,
-    /// not here.
+    /// 4 = TIM, 5 = TIM4, 6 = TIM8.
     pub texture_format: u8,
     /// Selected framerate: 0 = 60 FPS, 1 = 30 FPS.
     pub framerate: u8,
     /// Which disc-audio source is permitted. See [`CdAudioMode`].
-    ///
-    /// Exists because music and textures contend for the one physical drive,
-    /// and the streamer wins often enough to be heard as audio stutter.
-    ///
-    /// Was a flag (0 = off, 1 = on) before XA existed, so the stored bytes are
-    /// read unchanged: 1 still means CD-DA. `sanitise` folds anything else onto
-    /// CD-DA rather than off, because a corrupt byte should not silently mute a
-    /// player who had music on.
     pub cd_audio: u8,
     pub checksum: u16,
 }
@@ -199,14 +190,16 @@ impl Default for SaveData {
             music_volume: 7,
             rumble_enabled: 1,
             active_tuning_slot: 0,
-            _reserved0: 0,
+            champ_active: 0,
+            champ_cup: 0,
+            champ_stage: 0,
+            champ_difficulty: 0,
+            _reserved: [0; 3],
             best_lap_ticks: [NO_BEST_LAP; TOTAL_TRACKS],
             medals_earned: [0; TOTAL_TRACKS],
             tuning_slots: [CarTuning::default(); TOTAL_TUNING_SLOTS],
             champ_points: [0; COMPETITORS_PER_SESSION],
             champ_grid: [0; COMPETITORS_PER_SESSION],
-            // Auto format, 60 FPS, CD-audio on: the defaults a first-run player
-            // gets.
             texture_format: 0,
             framerate: 0,
             cd_audio: CdAudioMode::default().as_u8(),
@@ -224,10 +217,6 @@ impl SaveData {
     }
 
     /// Serialises every field into `out` in the documented byte order.
-    ///
-    /// `out` must be at least [`PAYLOAD_SIZE`] bytes. Bounds-checked indexing
-    /// only: no unchecked slices, so a short buffer panics loudly in a host
-    /// test rather than corrupting memory on hardware.
     pub fn write_payload(&self, out: &mut [u8]) {
         let mut o = 0;
         out[o..o + 16].copy_from_slice(&self.magic);
@@ -239,8 +228,12 @@ impl SaveData {
         out[o + 2] = self.music_volume;
         out[o + 3] = self.rumble_enabled;
         out[o + 4] = self.active_tuning_slot;
-        out[o + 5] = self._reserved0;
-        o += 6;
+        out[o + 5] = self.champ_active;
+        out[o + 6] = self.champ_cup;
+        out[o + 7] = self.champ_stage;
+        out[o + 8] = self.champ_difficulty;
+        out[o + 9..o + 12].copy_from_slice(&self._reserved);
+        o += 12;
         for ticks in self.best_lap_ticks.iter() {
             out[o..o + 4].copy_from_slice(&ticks.to_le_bytes());
             o += 4;
@@ -267,8 +260,6 @@ impl SaveData {
         out[o] = self.cd_audio;
         o += 1;
 
-        // The field offsets are part of the on-card format; a field added to
-        // the struct without a matching payload slot must not ship silently.
         debug_assert_eq!(o, CHECKSUM_OFFSET);
         out[o..o + 2].copy_from_slice(&self.checksum.to_le_bytes());
         o += 2;
@@ -276,14 +267,6 @@ impl SaveData {
     }
 
     /// Reads a payload back, validating magic, version, and the CRC.
-    ///
-    /// Returns `None` for a short buffer or any failed check, so a truncated
-    /// or corrupted save can never be mistaken for real progress.
-    ///
-    /// A checksum only proves the bytes survived the trip, so everything the
-    /// CRC accepted is then put through [`SaveData::sanitised`]: no value that
-    /// arrives from the card may index out of bounds, brick progression, or
-    /// produce a car no tuning menu could build.
     pub fn read_payload(bytes: &[u8]) -> Option<Self> {
         if bytes.len() < PAYLOAD_SIZE {
             return None;
@@ -299,8 +282,13 @@ impl SaveData {
         let music_volume = bytes[o + 2];
         let rumble_enabled = bytes[o + 3];
         let active_tuning_slot = bytes[o + 4];
-        let reserved = bytes[o + 5];
-        o += 6;
+        let champ_active = bytes[o + 5];
+        let champ_cup = bytes[o + 6];
+        let champ_stage = bytes[o + 7];
+        let champ_difficulty = bytes[o + 8];
+        let mut reserved = [0u8; 3];
+        reserved.copy_from_slice(&bytes[o + 9..o + 12]);
+        o += 12;
 
         debug_assert_eq!(o, OFF_BEST_LAPS);
         let mut best_lap_ticks = [0u32; TOTAL_TRACKS];
@@ -352,7 +340,11 @@ impl SaveData {
             music_volume,
             rumble_enabled,
             active_tuning_slot,
-            _reserved0: reserved,
+            champ_active,
+            champ_cup,
+            champ_stage,
+            champ_difficulty,
+            _reserved: reserved,
             champ_points,
             champ_grid,
             texture_format,
@@ -373,45 +365,12 @@ impl SaveData {
     }
 
     /// Clamps every field into the domain the game can actually use.
-    ///
-    /// Clamping rather than rejecting, because most of what goes wrong on a card
-    /// is one byte in one field and the other 160 bytes are a player's real
-    /// progress; throwing the lot away would lose a championship for a bad
-    /// volume. Each field is handled according to what a wrong value would cost:
-    ///
-    /// * `active_tuning_slot` -> last slot. Read as `tuning_slots[..3]`, so 255
-    ///   is an out-of-bounds index, not a preference.
-    /// * `max_unlocked_level` -> `1 ..= 24`. Zero is a brick: progression can
-    ///   only ever be raised by finishing a race, and with nothing unlocked there
-    ///   is no race to finish.
-    /// * `sound_volume` / `music_volume` -> `0 ..= MAX_VOLUME`.
-    /// * `rumble_enabled` -> 0 or 1 (it is a flag).
-    /// * `_reserved0` -> 0.
-    /// * `medals_earned` -> `0 ..= MAX_MEDAL`; a medal above Dev Platinum is not
-    ///   a display state, so it would index past the medal table.
-    /// * `best_lap_ticks` -> the `NO_BEST_LAP` sentinel or a plausible time. A
-    ///   stored 0, 1 or 2 ticks is the cheat the timer now refuses to produce,
-    ///   and there is no honest way it got onto the card, so it becomes "no lap"
-    ///   (together with any medal claimed for it).
-    /// * `tuning_slots` -> sliders inside `MIN_SLIDER ..= MAX_SLIDER`, and a slot
-    ///   that still violates the 20-point budget falls back to the default. A
-    ///   top_speed of 200 would otherwise scale the car to ~70 u/tick, ~20x the
-    ///   arcade top speed.
-    ///
-    /// The checksum is recomputed afterwards so the returned save is internally
-    /// consistent and the next write persists the repaired values. A save that
-    /// needed no repair is returned untouched, checksum included.
     pub fn sanitised(mut self) -> Self {
         self.active_tuning_slot = self.active_tuning_slot.min((TOTAL_TUNING_SLOTS - 1) as u8);
         self.max_unlocked_level = self.max_unlocked_level.clamp(1, TOTAL_TRACKS as u8);
         self.sound_volume = self.sound_volume.min(MAX_VOLUME);
         self.music_volume = self.music_volume.min(MAX_VOLUME);
         self.rumble_enabled = u8::from(self.rumble_enabled != 0);
-        // Both of these are read back as enum discriminants. Clamping here is
-        // what stops a corrupt byte from naming a variant that does not exist.
-        // A corrupt card must not be able to hand the standings board an
-        // impossible score or the grid an out-of-range index. A competitor can
-        // score at most the winner's points in each of the cup's stages.
         let max_points = POINTS_TABLE[0] as u16 * STAGES_PER_CUP as u16;
         for pts in self.champ_points.iter_mut() {
             *pts = (*pts).min(max_points);
@@ -419,33 +378,26 @@ impl SaveData {
         for slot in self.champ_grid.iter_mut() {
             *slot = (*slot).min((COMPETITORS_PER_SESSION - 1) as u8);
         }
-        // Not a `.min()`: the legal range is 0..=4, so clamping would turn a garbage
-        // 200 into 4 -- which is TIM. A corrupt card would then select a
-        // specific texture format rather than falling back. Out of range is
-        // Auto, the same answer `from_saved` gives.
         if self.texture_format > 6 {
             self.texture_format = 0;
         }
         self.framerate = u8::from(self.framerate != 0);
         self.cd_audio = CdAudioMode::from_saved(self.cd_audio).as_u8();
-        // _reserved0 stores Grand Prix progression when active.
-        // A valid active championship has:
-        // - active flag bit 0 set (0x01)
-        // - cup_stage (bits 1..=5) < 30 (5 cups × 6 stages)
-        // - difficulty (bits 6..=7) encoded as 1..=3
-        // If inactive or invalid, clear to 0.
-        // To prevent an arbitrary corrupt byte (like 9 = active=1, cup_stage=4, diff=0)
-        // from being treated as a valid save when raw reserved bytes are tested,
-        // we store difficulty encoded as (diff + 1) in bits 6..=7 (so diff+1 is 1, 2, or 3, never 0)
-        // when active.
-        if (self._reserved0 & 0x01) != 0 {
-            let cup_stage = (self._reserved0 >> 1) & 0x1F;
-            let diff_code = (self._reserved0 >> 6) & 0x03;
-            if cup_stage >= 30 || diff_code == 0 {
-                self._reserved0 = 0;
+        if self.champ_active != 0 {
+            self.champ_active = 1;
+            if (self.champ_cup as usize) >= crate::levels::ALL_CUPS.len() {
+                self.champ_active = 0;
+            } else {
+                let max_stg = crate::levels::ALL_CUPS[self.champ_cup as usize].total_stages();
+                if (self.champ_stage as usize) >= max_stg || self.champ_difficulty > 2 {
+                    self.champ_active = 0;
+                }
             }
-        } else {
-            self._reserved0 = 0;
+        }
+        if self.champ_active == 0 {
+            self.champ_cup = 0;
+            self.champ_stage = 0;
+            self.champ_difficulty = 0;
         }
 
         for i in 0..TOTAL_TRACKS {
@@ -481,6 +433,12 @@ impl SaveData {
             && self.framerate <= 1
             && self.cd_audio <= CdAudioMode::MAX.as_u8()
             && self.texture_format <= 6
+            && (self.champ_active <= 1)
+            && (self.champ_active == 0
+                || ((self.champ_cup as usize) < crate::levels::ALL_CUPS.len()
+                    && (self.champ_stage as usize)
+                        < crate::levels::ALL_CUPS[self.champ_cup as usize].total_stages()
+                    && self.champ_difficulty <= 2))
             && self.medals_earned.iter().all(|&m| m <= MAX_MEDAL)
             && self
                 .best_lap_ticks
@@ -554,7 +512,7 @@ impl SaveData {
 
     /// Returns true if an active championship session is saved on the card.
     pub fn has_saved_championship(&self) -> bool {
-        (self._reserved0 & 0x01) != 0
+        self.champ_active != 0
     }
 
     /// Loads the in-progress championship session if present and valid.
@@ -562,25 +520,17 @@ impl SaveData {
         if !self.has_saved_championship() {
             return None;
         }
-        let cup_stage = ((self._reserved0 >> 1) & 0x1F) as usize;
-        let diff_code = (self._reserved0 >> 6) & 0x03;
-        if diff_code == 0 || cup_stage >= 30 {
+        if (self.champ_cup as usize) >= crate::levels::ALL_CUPS.len() {
             return None;
         }
-        let difficulty = Difficulty::from_u8(diff_code - 1);
-        let cup = (cup_stage / 6) as u8;
-        let stage = (cup_stage % 6) as u8;
-
-        if cup as usize >= CUP_COUNT || stage >= STAGES_PER_CUP {
+        let cup_def = &crate::levels::ALL_CUPS[self.champ_cup as usize];
+        if (self.champ_stage as usize) >= cup_def.total_stages() || self.champ_difficulty > 2 {
             return None;
         }
+        let difficulty = Difficulty::from_u8(self.champ_difficulty);
+        let mut session = ChampionshipSession::with_difficulty(self.champ_cup, difficulty);
+        session.current_stage = self.champ_stage;
 
-        let mut session = ChampionshipSession::with_difficulty(cup, difficulty);
-        session.current_stage = stage;
-
-        // Restore the standings the completed stages produced. `with_difficulty`
-        // randomises the grid from a fixed seed, so overwriting both is what
-        // makes this the same season rather than a fresh one at a later stage.
         for (competitor, &pts) in session.competitors.iter_mut().zip(self.champ_points.iter()) {
             competitor.total_points = pts;
         }
@@ -596,16 +546,11 @@ impl SaveData {
 
     /// Saves the current championship session state and recomputes the checksum.
     pub fn save_championship(&mut self, session: &ChampionshipSession) {
-        let active = 1u8;
-        let cup_stage =
-            (((session.cup_index as usize * 6 + session.current_stage as usize) & 0x1F) as u8) << 1;
-        let diff_code = ((session.difficulty as u8 + 1) & 0x03) << 6;
-        self._reserved0 = active | cup_stage | diff_code;
+        self.champ_active = 1;
+        self.champ_cup = session.cup_index;
+        self.champ_stage = session.current_stage;
+        self.champ_difficulty = session.difficulty as u8;
 
-        // The bracket position above is only half the session. Without these the
-        // resumed cup comes back with every competitor on zero points and the
-        // grid re-randomised, which is indistinguishable from starting the cup
-        // over even though the stage counter says otherwise.
         for (slot, competitor) in self.champ_points.iter_mut().zip(session.competitors.iter()) {
             *slot = competitor.total_points;
         }
@@ -621,12 +566,11 @@ impl SaveData {
 
     /// Clears any active championship state from the save data.
     pub fn clear_championship(&mut self) {
-        if self._reserved0 != 0 {
-            self._reserved0 = 0;
-            // Standings and grid are left alone here rather than zeroed: the
-            // active flag is what makes them unreadable, and zeroing them would
-            // mean a write on every clear, including the no-op one. They are
-            // overwritten by the next `save_championship`.
+        if self.champ_active != 0 {
+            self.champ_active = 0;
+            self.champ_cup = 0;
+            self.champ_stage = 0;
+            self.champ_difficulty = 0;
             self.checksum = self.compute_checksum();
         }
     }
@@ -769,12 +713,18 @@ mod tests {
             s.sound_volume = 255;
             s.music_volume = 200;
             s.rumble_enabled = 77;
-            s._reserved0 = 9;
+            s.champ_active = 9;
         }));
         assert_eq!(loaded.sound_volume, MAX_VOLUME);
         assert_eq!(loaded.music_volume, MAX_VOLUME);
         assert_eq!(loaded.rumble_enabled, 1, "rumble is a flag");
-        assert_eq!(loaded._reserved0, 0);
+        assert_eq!(loaded.champ_active, 1, "champ_active is a flag");
+
+        let loaded = load(&corrupt(|s| {
+            s.champ_active = 1;
+            s.champ_cup = 200;
+        }));
+        assert_eq!(loaded.champ_active, 0, "out-of-range cup clears active");
 
         let loaded = load(&corrupt(|s| {
             s.sound_volume = 0;
@@ -950,7 +900,7 @@ mod tests {
         assert!(SaveData::read_payload(&good).is_none());
 
         // Same for every single-bit flip of the header and progress flags.
-        for byte in 0..24usize {
+        for byte in 0..30usize {
             for bit in 0..8 {
                 let mut damaged = payload(&SaveData::default());
                 damaged[byte] ^= 1 << bit;

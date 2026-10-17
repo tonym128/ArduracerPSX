@@ -5,5 +5,63 @@
  "grid": 80,
  "road_half_cells": 3.0,
  "half_width_world": 96,
- "source": "svg"
+ "source": "svg",
+ "marks": [
+  {
+   "kind": "start",
+   "frac": 0.0
+  },
+  {
+   "kind": "gate",
+   "frac": 0.1308
+  },
+  {
+   "kind": "gate",
+   "frac": 0.33
+  },
+  {
+   "kind": "gate",
+   "frac": 0.4523
+  },
+  {
+   "kind": "gate",
+   "frac": 0.5098
+  },
+  {
+   "kind": "gate",
+   "frac": 0.599
+  },
+  {
+   "kind": "gate",
+   "frac": 0.6883
+  },
+  {
+   "kind": "gate",
+   "frac": 0.7579
+  },
+  {
+   "kind": "gate",
+   "frac": 0.85
+  },
+  {
+   "kind": "gate",
+   "frac": 0.96
+  },
+  {
+   "kind": "boost",
+   "frac": 0.06
+  },
+  {
+   "kind": "boost",
+   "frac": 0.38
+  },
+  {
+   "kind": "oil",
+   "frac": 0.54
+  },
+  {
+   "kind": "oil",
+   "frac": 0.9
+  }
+ ]
 }

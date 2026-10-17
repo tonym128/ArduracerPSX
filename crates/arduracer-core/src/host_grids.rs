@@ -14,44 +14,14 @@
 
 use std::path::PathBuf;
 
+use crate::levels::LEVEL_DIMS;
 use crate::TrackTile;
 
 /// Shared staging, one grid at a time. Kept per-level so several levels can be
 /// bound at once, which is what the existing tests assume.
+const LEVEL_COUNT: usize = LEVEL_DIMS.len();
 const MAX: usize = 57_600;
-static mut BUFFERS: [TrackTile; 28 * MAX] = [TrackTile::OffRoad; 28 * MAX];
-
-/// Grid dimensions, mirroring `game::gpu::tracktex::LEVEL_DIMS`.
-const LEVEL_DIMS: [(u8, u8); 28] = [
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (160, 160),
-    (240, 240),
-    (240, 240),
-    (240, 240),
-];
+static mut BUFFERS: [TrackTile; LEVEL_COUNT * MAX] = [TrackTile::OffRoad; LEVEL_COUNT * MAX];
 
 fn asset() -> Vec<u8> {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -95,14 +65,17 @@ pub fn ensure_installed() {
     });
 }
 
-/// The `TrackDef` for a level index: circuits 0..24, then the three cities.
+/// The `TrackDef` for a level index: all circuits, then the three cities.
 fn def_for(i: usize) -> Option<&'static crate::TrackDef> {
-    match i {
-        0..=24 => Some(crate::levels::ALL_TRACKS[i]),
-        25 => Some(&crate::capetown::TRACK_CAPETOWN),
-        26 => Some(&crate::melbourne::TRACK_MELBOURNE),
-        27 => Some(&crate::london::TRACK_LONDON),
-        _ => None,
+    if i < crate::levels::ALL_TRACKS.len() {
+        Some(crate::levels::ALL_TRACKS[i])
+    } else {
+        match i - crate::levels::ALL_TRACKS.len() {
+            0 => Some(&crate::capetown::TRACK_CAPETOWN),
+            1 => Some(&crate::melbourne::TRACK_MELBOURNE),
+            2 => Some(&crate::london::TRACK_LONDON),
+            _ => None,
+        }
     }
 }
 

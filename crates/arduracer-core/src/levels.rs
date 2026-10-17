@@ -11775,7 +11775,7 @@ pub static TRACK_METRO_8: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 36,
-            y: 55,
+            y: 54,
             width: 1,
             height: 1,
         },
@@ -12233,7 +12233,7 @@ pub static TRACK_SPEEDWAY_BOULEVARD: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 64,
-            y: 42,
+            y: 43,
             width: 1,
             height: 1,
         },
@@ -12687,46 +12687,56 @@ pub static TRACK_SERPENT_CANYON: TrackDef = TrackDef {
         gold_ticks: 4300,
         dev_platinum_ticks: 3900,
     },
-    checkpoint_count: 6,
+    checkpoint_count: 8,
     checkpoints: [
         CheckpointGate {
-            x: 48,
+            x: 40,
             y: 16,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 56,
+            x: 64,
+            y: 24,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 44,
             y: 32,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 28,
-            y: 41,
+            y: 40,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 58,
+            x: 44,
             y: 48,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 46,
+            x: 64,
+            y: 56,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 36,
             y: 64,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 16,
-            y: 56,
+            y: 51,
             width: 1,
             height: 1,
         },
-        EMPTY_GATE,
-        EMPTY_GATE,
         EMPTY_GATE,
         EMPTY_GATE,
         EMPTY_GATE,
@@ -13160,7 +13170,7 @@ pub static TRACK_ALLEYWAY_CHICANES: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 43,
+            x: 44,
             y: 16,
             width: 1,
             height: 1,
@@ -13630,7 +13640,7 @@ pub static TRACK_OIL_RIG_SLIPWAY: TrackDef = TrackDef {
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 36,
+            x: 37,
             y: 18,
             width: 1,
             height: 1,
@@ -14097,47 +14107,62 @@ pub static TRACK_APEX_ARENA: TrackDef = TrackDef {
         gold_ticks: 4300,
         dev_platinum_ticks: 3900,
     },
-    checkpoint_count: 6,
+    checkpoint_count: 9,
     checkpoints: [
         CheckpointGate {
-            x: 42,
+            x: 40,
             y: 16,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 64,
-            y: 26,
+            y: 35,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 64,
-            y: 55,
+            y: 60,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 54,
+            y: 64,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 50,
-            y: 54,
+            y: 48,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 37,
-            y: 37,
+            x: 42,
+            y: 36,
+            width: 1,
+            height: 1,
+        },
+        CheckpointGate {
+            x: 36,
+            y: 46,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 26,
-            y: 44,
+            y: 46,
             width: 1,
             height: 1,
         },
-        EMPTY_GATE,
-        EMPTY_GATE,
-        EMPTY_GATE,
+        CheckpointGate {
+            x: 16,
+            y: 29,
+            width: 1,
+            height: 1,
+        },
         EMPTY_GATE,
         EMPTY_GATE,
         EMPTY_GATE,
@@ -14558,7 +14583,7 @@ pub enum GameMode {
 }
 
 /// Cup specification grouping a sequence of circuit indices.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CupDef {
     pub name: &'static str,
     pub mode: GameMode,
@@ -14566,15 +14591,19 @@ pub struct CupDef {
 }
 
 impl CupDef {
-    pub fn track_at(&self, stage: usize) -> Option<&'static TrackDef> {
-        self.track_indices.get(stage).map(|&idx| ALL_TRACKS[idx])
+    pub const fn track_at(&self, stage: usize) -> Option<&'static TrackDef> {
+        if stage < self.track_indices.len() {
+            Some(ALL_TRACKS[self.track_indices[stage]])
+        } else {
+            None
+        }
     }
-    pub fn total_stages(&self) -> usize {
+    pub const fn total_stages(&self) -> usize {
         self.track_indices.len()
     }
 }
 
-pub static GRAND_PRIX_CUPS: [CupDef; 5] = [
+pub const GRAND_PRIX_CUPS: [CupDef; 5] = [
     CupDef {
         name: "BRONZE CUP",
         mode: GameMode::GrandPrix,
@@ -14602,13 +14631,13 @@ pub static GRAND_PRIX_CUPS: [CupDef; 5] = [
     },
 ];
 
-pub static MANIA_CUPS: [CupDef; 1] = [CupDef {
+pub const MANIA_CUPS: [CupDef; 1] = [CupDef {
     name: "MANIA CUP",
     mode: GameMode::Mania,
     track_indices: &[25, 26, 27, 28, 29, 30],
 }];
 
-pub static ALL_CUPS: [CupDef; 6] = [
+pub const ALL_CUPS: [CupDef; 6] = [
     CupDef {
         name: "BRONZE CUP",
         mode: GameMode::GrandPrix,
@@ -14640,6 +14669,8 @@ pub static ALL_CUPS: [CupDef; 6] = [
         track_indices: &[25, 26, 27, 28, 29, 30],
     },
 ];
+
+pub const TOTAL_CUPS: usize = 6;
 
 pub const ALL_TRACKS: [&TrackDef; 31] = [
     &TRACK_CASCADE_FALLS,

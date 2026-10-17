@@ -12,37 +12,7 @@
 
 use std::path::PathBuf;
 
-/// Grid dimensions, mirroring `game::gpu::tracktex::LEVEL_DIMS`.
-const LEVEL_DIMS: [(u8, u8); 28] = [
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (160, 160),
-    (240, 240),
-    (240, 240),
-    (240, 240),
-];
+use arduracer_core::levels::LEVEL_DIMS;
 
 fn asset() -> Vec<u8> {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -90,8 +60,8 @@ fn asset_length_is_exactly_the_sum_of_the_grids() {
         .sum();
     assert_eq!(asset().len(), expected);
     assert_eq!(
-        expected, 352_000,
-        "24 circuits at 6,400 plus 1 circuit at 25,600 plus 3 cities at 57,600"
+        expected, 390_400,
+        "30 circuits at 6,400 plus 1 circuit at 25,600 plus 3 cities at 57,600"
     );
 }
 

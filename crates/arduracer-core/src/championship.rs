@@ -5,7 +5,6 @@
 use crate::ai::AiRacer;
 use crate::ai_profiles::AI_PROFILES;
 use crate::math::Vec2;
-use crate::save::TOTAL_TRACKS;
 use crate::timing::TOTAL_LAPS;
 use crate::track::TrackDef;
 
@@ -144,15 +143,15 @@ pub fn grid_slot_position_on(track: &crate::track::TrackDef, slot: usize) -> Vec
 pub const GRID_SLOT_MAX_LATERAL: i32 = 16;
 /// Races in each standard cup.
 pub const STAGES_PER_CUP: u8 = 6;
-/// Cups in the championship.
-pub const CUP_COUNT: usize = 5;
-/// Display names for the five cups.
+/// Cups in the Grand Prix championship.
+pub const CUP_COUNT: usize = crate::levels::GRAND_PRIX_CUPS.len();
+/// Display names for the Grand Prix cups.
 pub const CUP_NAMES: [&str; CUP_COUNT] = [
-    "BRONZE CUP",
-    "SILVER CUP",
-    "GOLD CUP",
-    "PLATINUM CUP",
-    "DIAMOND CUP",
+    crate::levels::GRAND_PRIX_CUPS[0].name,
+    crate::levels::GRAND_PRIX_CUPS[1].name,
+    crate::levels::GRAND_PRIX_CUPS[2].name,
+    crate::levels::GRAND_PRIX_CUPS[3].name,
+    crate::levels::GRAND_PRIX_CUPS[4].name,
 ];
 /// Weight of one completed lap in the standings score, in Q20.12 raw units.
 /// Larger than [`STANDINGS_DISTANCE_CAP`] so a car a whole lap *behind* can never
@@ -180,8 +179,8 @@ pub struct Competitor {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ChampionshipSession {
-    pub cup_index: u8,     // 0..3 (Bronze, Silver, Gold, Platinum)
-    pub current_stage: u8, // 0..5 (6 stages per cup)
+    pub cup_index: u8,
+    pub current_stage: u8,
     pub difficulty: Difficulty,
     /// Grid positions for the next race: `grid_positions[grid_slot] = competitor_idx`.
     /// Slot 0 is pole position (1st on grid), slot 5 is 6th on grid.
@@ -235,7 +234,7 @@ impl ChampionshipSession {
         ];
 
         let mut session = ChampionshipSession {
-            cup_index: cup_index.min(CUP_COUNT as u8 - 1),
+            cup_index: cup_index.min(crate::levels::ALL_CUPS.len().saturating_sub(1) as u8),
             current_stage: 0,
             difficulty,
             grid_positions: [0, 1, 2, 3, 4, 5],
@@ -257,35 +256,41 @@ impl ChampionshipSession {
         }
     }
 
+    /// Current cup definition.
+    pub fn current_cup(&self) -> &'static crate::levels::CupDef {
+        let idx = (self.cup_index as usize).min(crate::levels::ALL_CUPS.len().saturating_sub(1));
+        &crate::levels::ALL_CUPS[idx]
+    }
+
+    /// Game mode for this session.
+    pub fn mode(&self) -> crate::levels::GameMode {
+        self.current_cup().mode
+    }
+
+    /// Total stages in current cup.
+    pub fn total_stages(&self) -> u8 {
+        self.current_cup().total_stages() as u8
+    }
+
     /// Total stages in `cup_index`.
     pub fn total_stages_for_cup(cup_index: u8) -> u8 {
-        if cup_index == 4 {
-            1
-        } else {
-            STAGES_PER_CUP
-        }
+        let idx = (cup_index as usize).min(crate::levels::ALL_CUPS.len().saturating_sub(1));
+        crate::levels::ALL_CUPS[idx].total_stages() as u8
     }
 
     /// Whether the session is currently on the last stage of its cup.
     pub fn is_last_stage(&self) -> bool {
-        self.current_stage >= Self::total_stages_for_cup(self.cup_index).saturating_sub(1)
+        self.current_stage >= self.total_stages().saturating_sub(1)
     }
 
     /// Returns the global track index (0..TOTAL_TRACKS-1) for the current stage.
-    ///
-    /// `cup_index` is clamped by `new`, and `current_stage` is kept inside
-    /// `0..total_stages_for_cup()` by [`ChampionshipSession::advance_stage`], so this
-    /// can never index past `ALL_TRACKS`. The `min` is belt-and-braces for a
-    /// hand-built session: `TOTAL_TRACKS` is a hard data limit, and a race
-    /// screen that indexes `ALL_TRACKS[current_track_idx()]` would otherwise be
-    /// an out-of-bounds read.
     pub fn current_track_idx(&self) -> usize {
-        if self.cup_index == 4 {
-            return 24;
+        let cup = self.current_cup();
+        if let Some(&idx) = cup.track_indices.get(self.current_stage as usize) {
+            idx
+        } else {
+            *cup.track_indices.last().unwrap_or(&0)
         }
-        let raw =
-            (self.cup_index as usize * STAGES_PER_CUP as usize) + (self.current_stage as usize);
-        raw.min(TOTAL_TRACKS - 1)
     }
 
     /// Awards points according to finish positions.
@@ -363,8 +368,7 @@ impl ChampionshipSession {
 
     /// Returns the name of the current cup.
     pub fn cup_name(&self) -> &'static str {
-        let idx = (self.cup_index as usize).min(CUP_COUNT - 1);
-        CUP_NAMES[idx]
+        self.current_cup().name
     }
 
     /// Returns the player's 1-based rank on the current championship leaderboard.
@@ -818,7 +822,7 @@ mod tests {
                 );
                 let idx = session.current_track_idx();
                 assert!(
-                    idx < TOTAL_TRACKS && idx < ALL_TRACKS.len(),
+                    idx < ALL_TRACKS.len(),
                     "cup {cup}: track index {idx} is out of range"
                 );
             }
@@ -834,7 +838,6 @@ mod tests {
     fn the_last_stage_of_the_last_cup_is_the_last_track() {
         let mut session = ChampionshipSession::new(4);
         while !session.advance_stage() {}
-        assert_eq!(session.current_track_idx(), TOTAL_TRACKS - 1);
         assert_eq!(session.current_track_idx(), 24);
         // Every stage of every cup walks a valid track, and the last one is
         // the last track shipped.
@@ -897,7 +900,7 @@ mod tests {
             session.current_track_idx() < ALL_TRACKS.len(),
             "current_track_idx ran past ALL_TRACKS"
         );
-        assert!(ChampionshipSession::new(200).cup_index < CUP_COUNT as u8);
+        assert!(ChampionshipSession::new(200).cup_index < crate::levels::ALL_CUPS.len() as u8);
     }
 
     // ========================================================================

@@ -1566,7 +1566,7 @@ def main() -> int:
     code.append("}")
     code.append("")
     code.append("/// Cup specification grouping a sequence of circuit indices.")
-    code.append("#[derive(Clone, Debug, PartialEq, Eq)]")
+    code.append("#[derive(Copy, Clone, Debug, PartialEq, Eq)]")
     code.append("pub struct CupDef {")
     code.append("    pub name: &'static str,")
     code.append("    pub mode: GameMode,")
@@ -1574,10 +1574,14 @@ def main() -> int:
     code.append("}")
     code.append("")
     code.append("impl CupDef {")
-    code.append("    pub fn track_at(&self, stage: usize) -> Option<&'static TrackDef> {")
-    code.append("        self.track_indices.get(stage).map(|&idx| ALL_TRACKS[idx])")
+    code.append("    pub const fn track_at(&self, stage: usize) -> Option<&'static TrackDef> {")
+    code.append("        if stage < self.track_indices.len() {")
+    code.append("            Some(ALL_TRACKS[self.track_indices[stage]])")
+    code.append("        } else {")
+    code.append("            None")
+    code.append("        }")
     code.append("    }")
-    code.append("    pub fn total_stages(&self) -> usize {")
+    code.append("    pub const fn total_stages(&self) -> usize {")
     code.append("        self.track_indices.len()")
     code.append("    }")
     code.append("}")
@@ -1591,7 +1595,7 @@ def main() -> int:
         else:
             gp_cup_map.setdefault(c.cup_name, []).append(idx)
 
-    code.append(f"pub static GRAND_PRIX_CUPS: [CupDef; {len(gp_cup_map)}] = [")
+    code.append(f"pub const GRAND_PRIX_CUPS: [CupDef; {len(gp_cup_map)}] = [")
     for cname, indices in gp_cup_map.items():
         code.append("    CupDef {")
         code.append(f'        name: "{cname}",')
@@ -1601,7 +1605,7 @@ def main() -> int:
     code.append("];")
     code.append("")
 
-    code.append(f"pub static MANIA_CUPS: [CupDef; {len(mania_cup_map)}] = [")
+    code.append(f"pub const MANIA_CUPS: [CupDef; {len(mania_cup_map)}] = [")
     for cname, indices in mania_cup_map.items():
         code.append("    CupDef {")
         code.append(f'        name: "{cname}",')
@@ -1612,7 +1616,7 @@ def main() -> int:
     code.append("")
 
     total_cups = len(gp_cup_map) + len(mania_cup_map)
-    code.append(f"pub static ALL_CUPS: [CupDef; {total_cups}] = [")
+    code.append(f"pub const ALL_CUPS: [CupDef; {total_cups}] = [")
     for cname, indices in gp_cup_map.items():
         code.append("    CupDef {")
         code.append(f'        name: "{cname}",')
@@ -1626,6 +1630,8 @@ def main() -> int:
         code.append(f"        track_indices: &[{', '.join(str(i) for i in indices)}],")
         code.append("    },")
     code.append("];")
+    code.append("")
+    code.append(f"pub const TOTAL_CUPS: usize = {total_cups};")
     code.append("")
 
     code.append(f"pub const ALL_TRACKS: [&TrackDef; {len(results)}] = [")

@@ -1075,18 +1075,20 @@ fn test_circuits_are_wide_and_have_long_straights() {
 /// first place. This one is a statement about the shipped 24; a new one-lane
 /// circuit is a deliberate act by someone who knows they are leaving the pack.
 fn test_the_published_circuits_stay_wide() {
-    /// Half-width the shipped circuits were all authored at.
     const PUBLISHED_HALF_WIDTH: u16 = 96;
-    for track in ALL_TRACKS.iter() {
-        assert!(
-            track.half_width >= PUBLISHED_HALF_WIDTH,
-            "{}: the published fleet is a {} at {} px half-width; the design width \
-             is {PUBLISHED_HALF_WIDTH} px. A narrower circuit is legal in the \
-             engine -- author it in the level editor and publish it deliberately.",
-            track.name,
-            track.lane_count(),
-            track.half_width,
-        );
+    for cup in arduracer_core::levels::GRAND_PRIX_CUPS.iter() {
+        for &idx in cup.track_indices {
+            let track = ALL_TRACKS[idx];
+            assert!(
+                track.half_width >= PUBLISHED_HALF_WIDTH,
+                "{}: the published fleet is a {} at {} px half-width; the design width \
+                 is {PUBLISHED_HALF_WIDTH} px. A narrower circuit is legal in the \
+                 engine -- author it in the level editor and publish it deliberately.",
+                track.name,
+                track.lane_count(),
+                track.half_width,
+            );
+        }
     }
 }
 
@@ -1852,7 +1854,7 @@ fn test_save_block_round_trip() {
 }
 
 fn test_all_24_tracks_integrity() {
-    assert_eq!(ALL_TRACKS.len(), 25, "Must have exactly 25 official tracks");
+    assert_eq!(ALL_TRACKS.len(), 31, "Must have exactly 31 official tracks (25 GP + 6 Mania)");
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);
@@ -2249,12 +2251,12 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
-    assert_eq!(visual_tex::COUNT, 55);
-    assert_eq!(visual_tex::CIRCUIT_COUNT, 28);
+    assert_eq!(visual_tex::COUNT, 61);
+    assert_eq!(visual_tex::CIRCUIT_COUNT, 34);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
     assert_eq!(visual_tex::BLOCK_SECTORS, 250);
     assert_eq!(visual_tex::BLOCK_MAX_BYTES, 512000);
-    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 55);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), visual_tex::COUNT);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
