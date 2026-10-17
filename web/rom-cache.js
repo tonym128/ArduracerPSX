@@ -139,6 +139,31 @@ class RomCacheManager {
   }
 
   /**
+   * Get the parsed manifest if available.
+   */
+  async getManifest() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY_MANIFEST);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (_) {}
+
+    try {
+      const res = await fetch(`roms/manifest.json?_t=${Date.now()}`);
+      if (res.ok) {
+        const manifest = await res.json();
+        if (manifest && manifest.build_id) {
+          localStorage.setItem(this.STORAGE_KEY_MANIFEST, JSON.stringify(manifest));
+        }
+        return manifest;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  /**
    * Flush all cached ROM disc images.
    */
   async flushCache() {
