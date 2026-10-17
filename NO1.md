@@ -237,7 +237,7 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
   - **Action**:
     1. Build an **In-Game Grid Track Builder (`TRACK EDITOR` in Main Menu)**: Place and rotate modular snapped TrackMania blocks (Start Grid, Straight, 90° Turn, Hairpin, Chicane, Dirt Section, Ice Bobsleigh, Jump Ramp, Bridge Overpass, Free-Wheel Red Block, Reactor Boost, Checkpoint Gate) on an 80×80 grid with instant `"TEST DRIVE & VALIDATE"` (setting your own Author Platinum time!).
     2. Serialize compact custom track definitions (~256 bytes of block commands or RLE nibbles) directly into the Memory Card block so players can save and share up to **4 Custom Tracks** on a single 1-block save!
-- [ ] **`NO1-047` — Interactive Web Track Studio & Shareable Track Codes (`web/`, `tools/track_cook/`)**
+- [x] **`NO1-047` — Interactive Web Track Studio & Shareable Track Codes (`web/`, `tools/track_cook/`)**
   - **Problem**: `web/index.html:375-399` is a static wrapper with an outdated 24-track list and no track authoring tools.
   - **Action**: Update `web/index.html` to reflect all 31 circuits + 3 cities, and add an interactive **Browser TrackMania Canvas Builder** tab that exports shareable URL codes, `.svg`/`.data.png` circuits, or injects custom tracks straight into the WebAssembly emulator's Virtual Memory Card!
 - [ ] **`NO1-048` — Upgrade MDEC Video to 24bpp True-Color & Locked `.STR` Audio Sync (`game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py`)**
