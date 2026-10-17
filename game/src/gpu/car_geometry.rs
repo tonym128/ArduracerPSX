@@ -35,6 +35,9 @@
 
 use arduracer_core::{math::cos, math::sin};
 
+/// A 4-vertex quadrilateral in 2D screen space (Z-ordered).
+pub type Quad = [(i16, i16); 4];
+
 /// Rotates a local-space point into screen space about `(cx, cy)`.
 ///
 /// `cos_raw` / `sin_raw` are Q20.12.
@@ -140,6 +143,60 @@ pub fn make_rect_at(
             rot.sin_raw,
         ),
     ]
+}
+
+/// Computes the steered front-wheel [`Rot`] from the car's visual angle (`base_angle`),
+/// its angular velocity (`angular_vel` in BAM/tick), and an optional Mode 7 perspective
+/// scale factor (`scale_q12`, `4096 = 1.0`, `NO1-030`).
+#[inline(always)]
+pub fn steered_wheel_rot(base_angle: u16, angular_vel: i16, scale_q12: i32) -> Rot {
+    // Visual steering deflection up to ±224 BAM (~±20 degrees)
+    let steer_bam = (angular_vel as i32 * 5).clamp(-224, 224);
+    let wheel_angle = ((base_angle as i32 + steer_bam) & 0x0FFF) as u16;
+    let r = Rot::from_bams(wheel_angle);
+    if scale_q12 == 4096 {
+        r
+    } else {
+        Rot {
+            cos_raw: (r.cos_raw * scale_q12) >> 12,
+            sin_raw: (r.sin_raw * scale_q12) >> 12,
+        }
+    }
+}
+
+/// Builds a pair of true twin racing stripe quads (`left_stripe`, `right_stripe`)
+/// offset symmetrically at `u = -2` and `u = +2` along the car's hood and deck (`NO1-030`).
+#[inline(always)]
+pub fn make_twin_stripes(cx: i16, cy: i16, rot: Rot) -> (Quad, Quad) {
+    let left = make_rect_at(cx, cy, -2, 0, 1, 11, rot);
+    let right = make_rect_at(cx, cy, 2, 0, 1, 11, rot);
+    (left, right)
+}
+
+/// Computes the local-space `(roll_u, pitch_v)` chassis suspension shift in pixels
+/// from cornering angular velocity, vertical jump velocity `vz_raw`, and braking state (`NO1-030`).
+#[inline(always)]
+pub fn body_roll_pitch_px(
+    speed_raw: i32,
+    angular_vel: i16,
+    vz_raw: i32,
+    braking: bool,
+) -> (i32, i32) {
+    let roll_u = if speed_raw > 1000 {
+        ((-angular_vel as i32) / 16).clamp(-2, 2)
+    } else {
+        0
+    };
+    let pitch_v = if vz_raw.abs() > 512 {
+        (vz_raw >> 11).clamp(-3, 3)
+    } else if braking && speed_raw > 1500 {
+        1 // Nose dive under braking
+    } else if speed_raw > 8000 {
+        -1 // Rear squat under hard acceleration
+    } else {
+        0
+    };
+    (roll_u, pitch_v)
 }
 
 /// Twice the *signed* area of a triangle: the cross product of its two edge

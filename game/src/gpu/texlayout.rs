@@ -73,7 +73,7 @@ pub const TRACK_VRAM_SLOTS: [(u16, u16); TRACK_TPAGE_COUNT] =
 
 /// Returns VRAM coordinates (x, y, tpage_idx, u, v) for a 64x64 slot (0..64).
 pub const fn vram_slot_coords(slot: usize) -> (u16, u16, usize, u8, u8) {
-    let tpage_idx = slot / TILES_PER_TPAGE;
+    let tpage_idx = (slot / TILES_PER_TPAGE) % TRACK_TPAGE_COUNT;
     let sub = slot % TILES_PER_TPAGE;
     let u = (sub % TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
     let v = (sub / TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
@@ -83,6 +83,73 @@ pub const fn vram_slot_coords(slot: usize) -> (u16, u16, usize, u8, u8) {
 
 /// Halfwidth of a 64x64 4bpp tile in VRAM halfwords: four indices per word.
 pub const TIM4_TILE_HALFWORDS_WIDE: u16 = VRAM_TILE_DIM / 4;
+
+// --- Expanded indexed-colour caches (NO1-034) --------------------------------
+//
+// The 15bpp cache fills X = 384..896 with four 256-halfword-wide pages. An
+// indexed page is narrower in VRAM (8bpp: 128 halfwords, 4bpp: 64 halfwords)
+// while still holding 16 tiles, so the same band holds 2x the 8bpp pages and
+// 4x the 4bpp pages. Codecs are never resident together (a format switch drops
+// every tile), so the depths can share the band.
+//
+// The first four entries of each table are the original 15bpp origins, so
+// slots 0..64 land exactly where they always did.
+
+/// Number of 8bpp texture pages in the expanded cache.
+pub const TIM8_TPAGE_COUNT: usize = 8;
+/// 64x64 cache slots at 8bpp (8 pages x 16 tiles).
+pub const TIM8_SLOT_COUNT: usize = TIM8_TPAGE_COUNT * TILES_PER_TPAGE;
+/// Number of 4bpp texture pages in the expanded cache.
+pub const TIM4_TPAGE_COUNT: usize = 16;
+/// 64x64 cache slots at 4bpp (16 pages x 16 tiles).
+pub const TIM4_SLOT_COUNT: usize = TIM4_TPAGE_COUNT * TILES_PER_TPAGE;
+/// The largest slot count any codec uses; sizes the slot table.
+pub const MAX_VRAM_SLOTS: usize = TIM4_SLOT_COUNT;
+/// Width of one 8bpp texture page in VRAM halfwords.
+pub const TIM8_PAGE_HALFWORDS: u16 = 128;
+
+/// 8bpp page origins: the four 15bpp origins, then the free 128-halfword
+/// columns beside them.
+pub const TIM8_VRAM_PAGES: [(u16, u16); TIM8_TPAGE_COUNT] = [
+    (384, 0),
+    (640, 0),
+    (384, 256),
+    (640, 256),
+    (512, 0),
+    (768, 0),
+    (512, 256),
+    (768, 256),
+];
+
+/// 4bpp page origins: the eight 8bpp origins, then the 64-halfword columns
+/// that remain between them.
+pub const TIM4_VRAM_PAGES: [(u16, u16); TIM4_TPAGE_COUNT] = [
+    (384, 0),
+    (640, 0),
+    (384, 256),
+    (640, 256),
+    (512, 0),
+    (768, 0),
+    (512, 256),
+    (768, 256),
+    (448, 0),
+    (576, 0),
+    (704, 0),
+    (832, 0),
+    (448, 256),
+    (576, 256),
+    (704, 256),
+    (832, 256),
+];
+
+/// Cache slots available to a texture depth: 4bpp 256, 8bpp 128, 15bpp 64.
+pub const fn slot_count_for_bpp(bpp: u8) -> usize {
+    match bpp {
+        4 => TIM4_SLOT_COUNT,
+        8 => TIM8_SLOT_COUNT,
+        _ => TRACK_SLOT_COUNT,
+    }
+}
 
 /// The 4bpp equivalent of a VRAM cache slot's origin.
 ///
@@ -95,14 +162,16 @@ pub const TIM4_TILE_HALFWORDS_WIDE: u16 = VRAM_TILE_DIM / 4;
 /// The 4x4 grid therefore packs tightly: 4 * 16 = 64 halfwords fills one page
 /// column exactly, which is why 16 tiles at 4bpp and 16 at 15bpp both fill a
 /// 256x256 page and the two layouts can share the same page origins.
+///
+/// Valid for `slot < TIM4_SLOT_COUNT` (256); slots 0..64 match the 15bpp pages.
 pub const fn vram_slot_coords_tim4(slot: usize) -> (u16, u16, usize, u8, u8) {
-    let tpage_idx = slot / TILES_PER_TPAGE;
+    let tpage_idx = (slot / TILES_PER_TPAGE) % TIM4_TPAGE_COUNT;
     let sub = slot % TILES_PER_TPAGE;
     // Same texel-space offsets as the 15bpp layout: a tile is 64 texels across
     // either way. Only the VRAM halfword origin differs, by the 4bpp packing.
     let u = (sub % TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
     let v = (sub / TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
-    let (tx, ty) = TRACK_VRAM_SLOTS[tpage_idx];
+    let (tx, ty) = TIM4_VRAM_PAGES[tpage_idx];
     (tx + u / 4, ty + v, tpage_idx, u as u8, v as u8)
 }
 
@@ -114,12 +183,14 @@ pub const TIM8_TILE_HALFWORDS_WIDE: u16 = VRAM_TILE_DIM / 2;
 /// An 8bpp texture page is 128 halfwords wide by 256 rows (256x256 texels, two
 /// per word), so 4 tiles across at 32 halfwords each fills one page column
 /// exactly (4 * 32 = 128 halfwords).
+///
+/// Valid for `slot < TIM8_SLOT_COUNT` (128); slots 0..64 match the 15bpp pages.
 pub const fn vram_slot_coords_tim8(slot: usize) -> (u16, u16, usize, u8, u8) {
-    let tpage_idx = slot / TILES_PER_TPAGE;
+    let tpage_idx = (slot / TILES_PER_TPAGE) % TIM8_TPAGE_COUNT;
     let sub = slot % TILES_PER_TPAGE;
     let u = (sub % TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
     let v = (sub / TILES_PER_TPAGE_AXIS) as u16 * VRAM_TILE_DIM;
-    let (tx, ty) = TRACK_VRAM_SLOTS[tpage_idx];
+    let (tx, ty) = TIM8_VRAM_PAGES[tpage_idx];
     (tx + u / 2, ty + v, tpage_idx, u as u8, v as u8)
 }
 
@@ -338,6 +409,66 @@ const _: () = assert!(
     "4 tiles down must exactly fill an 8bpp page column"
 );
 
+// Expanded indexed caches (NO1-034): every page is a legal tpage origin, sits
+// inside the X = 384..896 band (clear of framebuffers and the minimap strip),
+// and no two pages of the same depth overlap.
+const _: () = {
+    let mut i = 0;
+    while i < TIM8_TPAGE_COUNT {
+        let (x, y) = TIM8_VRAM_PAGES[i];
+        assert!(x % 64 == 0 && (y == 0 || y == 256), "bad 8bpp tpage origin");
+        assert!(x >= TRACK_VRAM_SLOTS[0].0, "8bpp page left of cache band");
+        assert!(
+            x + TIM8_PAGE_HALFWORDS <= TEXTURE_X,
+            "8bpp page touches minimap"
+        );
+        let mut j = i + 1;
+        while j < TIM8_TPAGE_COUNT {
+            let (x2, y2) = TIM8_VRAM_PAGES[j];
+            assert!(
+                y != y2 || x + TIM8_PAGE_HALFWORDS <= x2 || x2 + TIM8_PAGE_HALFWORDS <= x,
+                "8bpp pages overlap"
+            );
+            j += 1;
+        }
+        // The first four must be the original 15bpp origins.
+        if i < TRACK_TPAGE_COUNT {
+            assert!(
+                x == TRACK_VRAM_SLOTS[i].0 && y == TRACK_VRAM_SLOTS[i].1,
+                "8bpp slots 0..64 moved"
+            );
+        }
+        i += 1;
+    }
+    let mut i = 0;
+    while i < TIM4_TPAGE_COUNT {
+        let (x, y) = TIM4_VRAM_PAGES[i];
+        assert!(x % 64 == 0 && (y == 0 || y == 256), "bad 4bpp tpage origin");
+        assert!(x >= TRACK_VRAM_SLOTS[0].0, "4bpp page left of cache band");
+        assert!(
+            x + TRACK_PAGE_COLS <= TEXTURE_X,
+            "4bpp page touches minimap"
+        );
+        let mut j = i + 1;
+        while j < TIM4_TPAGE_COUNT {
+            let (x2, y2) = TIM4_VRAM_PAGES[j];
+            assert!(
+                y != y2 || x + TRACK_PAGE_COLS <= x2 || x2 + TRACK_PAGE_COLS <= x,
+                "4bpp pages overlap"
+            );
+            j += 1;
+        }
+        if i < TRACK_TPAGE_COUNT {
+            assert!(
+                x == TRACK_VRAM_SLOTS[i].0 && y == TRACK_VRAM_SLOTS[i].1,
+                "4bpp slots 0..64 moved"
+            );
+        }
+        i += 1;
+    }
+    assert!(MAX_VRAM_SLOTS >= TIM8_SLOT_COUNT && MAX_VRAM_SLOTS >= TRACK_SLOT_COUNT);
+};
+
 // All layouts must agree on the texel-space UV offsets: the renderers sample
 // through `u`/`v`, and only the VRAM halfword origin may differ between depths.
 // If these ever diverge, tiles upload to one place and sample from another.
@@ -485,5 +616,74 @@ mod tests {
         // is U = 255 exactly.
         let (_, _, _, u, _) = vram_slot_coords_tim4(TILES_PER_TPAGE - 1);
         assert_eq!(u, 192);
+    }
+
+    /// Every slot of an expanded cache must own a disjoint VRAM rectangle, or
+    /// two resident tiles would overwrite each other.
+    fn assert_slots_disjoint(
+        count: usize,
+        hw_wide: u16,
+        coords: fn(usize) -> (u16, u16, usize, u8, u8),
+    ) {
+        let mut rects = [(0u16, 0u16); MAX_VRAM_SLOTS];
+        for (s, rect) in rects.iter_mut().enumerate().take(count) {
+            let (x, y, _, _, _) = coords(s);
+            assert!(
+                x >= SCREEN_W && x + hw_wide <= TEXTURE_X,
+                "slot {s} x out of band"
+            );
+            assert!(y + VRAM_TILE_DIM <= 512, "slot {s} y overflow");
+            *rect = (x, y);
+        }
+        for i in 0..count {
+            for j in (i + 1)..count {
+                let (ax, ay) = rects[i];
+                let (bx, by) = rects[j];
+                let overlap_x = ax < bx + hw_wide && bx < ax + hw_wide;
+                let overlap_y = ay < by + VRAM_TILE_DIM && by < ay + VRAM_TILE_DIM;
+                assert!(!(overlap_x && overlap_y), "slots {i} and {j} overlap");
+            }
+        }
+    }
+
+    #[test]
+    fn expanded_tim4_cache_has_256_disjoint_slots() {
+        assert_eq!(TIM4_SLOT_COUNT, 256);
+        assert_slots_disjoint(
+            TIM4_SLOT_COUNT,
+            TIM4_TILE_HALFWORDS_WIDE,
+            vram_slot_coords_tim4,
+        );
+    }
+
+    #[test]
+    fn expanded_tim8_cache_has_128_disjoint_slots() {
+        assert_eq!(TIM8_SLOT_COUNT, 128);
+        assert_slots_disjoint(
+            TIM8_SLOT_COUNT,
+            TIM8_TILE_HALFWORDS_WIDE,
+            vram_slot_coords_tim8,
+        );
+    }
+
+    #[test]
+    fn expanded_caches_keep_original_slots() {
+        for s in 0..TRACK_SLOT_COUNT {
+            let (x15, y15, tp, u, v) = vram_slot_coords(s);
+            let (x4, y4, tp4, u4, v4) = vram_slot_coords_tim4(s);
+            let (x8, y8, tp8, u8_, v8) = vram_slot_coords_tim8(s);
+            assert_eq!((tp, u, v), (tp4, u4, v4));
+            assert_eq!((tp, u, v), (tp8, u8_, v8));
+            assert_eq!(y15, y4);
+            assert_eq!(y15, y8);
+            // Page origin (column 0) is shared by every depth.
+            let page_x = TRACK_VRAM_SLOTS[tp].0;
+            assert_eq!(x4 - u4 as u16 / 4, page_x);
+            assert_eq!(x8 - u8_ as u16 / 2, page_x);
+            assert!(x15 >= page_x);
+        }
+        assert_eq!(slot_count_for_bpp(4), 256);
+        assert_eq!(slot_count_for_bpp(8), 128);
+        assert_eq!(slot_count_for_bpp(15), 64);
     }
 }
