@@ -433,7 +433,7 @@ verify-levels:
 # a broken build rather than a missing input.
 .PHONY: require-track-images
 require-track-images:
-	@if ls tracks/*.data.png >/dev/null 2>&1; then exit 0; fi; \
+	@if find tracks -name "*.data.png" | grep -q .; then exit 0; fi; \
 	echo "ERROR: no tracks/*.data.png."; \
 	echo ""; \
 	echo "  make atlas compiles the authored circuit images; it does not draw"; \

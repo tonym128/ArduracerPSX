@@ -24,9 +24,15 @@
       { "track": "Frostpeak Summit", "dev": 1352, "gold": 1668, "silver": 1868, "bronze": 2135, "tuned_ticks": 1352, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Golden Horizon", "dev": 1293, "gold": 1577, "silver": 1766, "bronze": 2019, "tuned_ticks": 1293, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Phantom Ravine", "dev": 1286, "gold": 1550, "silver": 1736, "bronze": 1984, "tuned_ticks": 1286, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Frost Cascade", "dev": 1237, "gold": 1541, "silver": 1726, "bronze": 1972, "tuned_ticks": 1237, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Lunar Gorge", "dev": 665, "gold": 806, "silver": 903, "bronze": 1032, "tuned_ticks": 665, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Frost Cascade", "dev": 1286, "gold": 1583, "silver": 1773, "bronze": 2026, "tuned_ticks": 1286, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Lunar Gorge", "dev": 671, "gold": 817, "silver": 915, "bronze": 1046, "tuned_ticks": 671, "tuning": [7, 5, 4, 2, 2] },
       { "track": "Onyx Run", "dev": 954, "gold": 1173, "silver": 1314, "bronze": 1501, "tuned_ticks": 954, "tuning": [7, 5, 4, 2, 2] },
-      { "track": "Titan Circuit", "dev": 7933, "gold": 10036, "silver": 11240, "bronze": 12846, "tuned_ticks": 7933, "tuning": [6, 6, 3, 3, 2] }
+      { "track": "Titan Circuit", "dev": 7933, "gold": 10036, "silver": 11240, "bronze": 12846, "tuned_ticks": 7933, "tuning": [6, 6, 3, 3, 2] },
+      { "track": "Metro 8", "dev": 1394, "gold": 1647, "silver": 1845, "bronze": 2108, "tuned_ticks": 1394, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Speedway Boulevard", "dev": 1284, "gold": 1590, "silver": 1781, "bronze": 2035, "tuned_ticks": 1284, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Serpent Canyon", "dev": 2368, "gold": 2926, "silver": 3277, "bronze": 3745, "tuned_ticks": 2368, "tuning": [6, 6, 3, 3, 2] },
+      { "track": "Alleyway Chicanes", "dev": 3878, "gold": 4544, "silver": 5089, "bronze": 5816, "tuned_ticks": 3878, "tuning": [5, 7, 4, 2, 2] },
+      { "track": "Oil Rig Slipway", "dev": 1491, "gold": 1734, "silver": 1942, "bronze": 2220, "tuned_ticks": 1491, "tuning": [7, 5, 4, 2, 2] },
+      { "track": "Apex Arena", "dev": 3424, "gold": 4221, "silver": 4728, "bronze": 5403, "tuned_ticks": 3424, "tuning": [6, 6, 3, 3, 2] }
   ]
 }

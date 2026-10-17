@@ -9902,10 +9902,10 @@ pub static TRACK_FROST_CASCADE: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 1972,
-        silver_ticks: 1726,
-        gold_ticks: 1541,
-        dev_platinum_ticks: 1237,
+        bronze_ticks: 2026,
+        silver_ticks: 1773,
+        gold_ticks: 1583,
+        dev_platinum_ticks: 1286,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -10372,10 +10372,10 @@ pub static TRACK_LUNAR_GORGE: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 1032,
-        silver_ticks: 903,
-        gold_ticks: 806,
-        dev_platinum_ticks: 665,
+        bronze_ticks: 1046,
+        silver_ticks: 915,
+        gold_ticks: 817,
+        dev_platinum_ticks: 671,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -11742,10 +11742,10 @@ pub static TRACK_METRO_8: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 5400,
-        silver_ticks: 4800,
-        gold_ticks: 4300,
-        dev_platinum_ticks: 3900,
+        bronze_ticks: 2108,
+        silver_ticks: 1845,
+        gold_ticks: 1647,
+        dev_platinum_ticks: 1394,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -12212,10 +12212,10 @@ pub static TRACK_SPEEDWAY_BOULEVARD: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 5400,
-        silver_ticks: 4800,
-        gold_ticks: 4300,
-        dev_platinum_ticks: 3900,
+        bronze_ticks: 2035,
+        silver_ticks: 1781,
+        gold_ticks: 1590,
+        dev_platinum_ticks: 1284,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -12682,10 +12682,10 @@ pub static TRACK_SERPENT_CANYON: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 5400,
-        silver_ticks: 4800,
-        gold_ticks: 4300,
-        dev_platinum_ticks: 3900,
+        bronze_ticks: 3745,
+        silver_ticks: 3277,
+        gold_ticks: 2926,
+        dev_platinum_ticks: 2368,
     },
     checkpoint_count: 8,
     checkpoints: [
@@ -13162,10 +13162,10 @@ pub static TRACK_ALLEYWAY_CHICANES: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 5400,
-        silver_ticks: 4800,
-        gold_ticks: 4300,
-        dev_platinum_ticks: 3900,
+        bronze_ticks: 5816,
+        silver_ticks: 5089,
+        gold_ticks: 4544,
+        dev_platinum_ticks: 3878,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -13632,10 +13632,10 @@ pub static TRACK_OIL_RIG_SLIPWAY: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 5400,
-        silver_ticks: 4800,
-        gold_ticks: 4300,
-        dev_platinum_ticks: 3900,
+        bronze_ticks: 2220,
+        silver_ticks: 1942,
+        gold_ticks: 1734,
+        dev_platinum_ticks: 1491,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -14102,10 +14102,10 @@ pub static TRACK_APEX_ARENA: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 5400,
-        silver_ticks: 4800,
-        gold_ticks: 4300,
-        dev_platinum_ticks: 3900,
+        bronze_ticks: 5403,
+        silver_ticks: 4728,
+        gold_ticks: 4221,
+        dev_platinum_ticks: 3424,
     },
     checkpoint_count: 9,
     checkpoints: [

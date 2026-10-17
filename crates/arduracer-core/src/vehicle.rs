@@ -889,13 +889,8 @@ impl VehicleState {
         // With hysteresis to prevent rapid gear-hunting jitter on corner exits:
         let current_gear = self.gear.clamp(1, 5);
         let new_gear = match current_gear {
-            1 => {
-                if s >= 819 {
-                    2
-                } else {
-                    1
-                }
-            }
+            1 if s >= 819 => 2,
+            1 => 1,
             2 => {
                 if s >= 1720 {
                     3
@@ -2801,8 +2796,8 @@ mod tests {
         }
 
         // Must work through all 5 gears:
-        for g in 1..=5 {
-            assert!(gears_visited[g], "car must work through gear {g}");
+        for (g, &visited) in gears_visited.iter().enumerate().skip(1) {
+            assert!(visited, "car must work through gear {g}");
         }
 
         // On upshift from 1 to 2, 2's entry RPM must be lower than 1's redline RPM:
