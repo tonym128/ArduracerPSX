@@ -557,9 +557,12 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     out.append("    },")
 
     cps = []
-    for k in range(1, checkpoints + 1):
-        i = int(len(centre) * k / (checkpoints + 1)) % len(centre)
-        cps.append(centre[i])
+    if isinstance(checkpoints, int):
+        for k in range(1, checkpoints + 1):
+            i = int(len(centre) * k / (checkpoints + 1)) % len(centre)
+            cps.append(centre[i])
+    else:
+        cps = list(checkpoints)
     out.append(f"    checkpoint_count: {len(cps)},")
     out.append("    checkpoints: [")
     for i, (cx, cy) in enumerate(cps):

@@ -919,6 +919,14 @@ def write_outputs(spec: dict, outdir: str) -> dict:
         "grid": int(spec.get("grid", GRID)),
         "road_half_cells": road_hw,
         "half_width_world": int(round(road_hw * WORLD_PER_CELL)),
+        "source": "svg",
+        "marks": [
+            {
+                "kind": "start" if m[1] == 10 else "gate" if m[1] == 11 else "boost" if m[1] == 9 else "oil",
+                "frac": float(m[0]),
+            }
+            for m in spec.get("marks", [])
+        ],
     }
     if os.path.exists(level_json_path):
         try:
@@ -1311,25 +1319,6 @@ CIRCUITS = [
         "note": "Mountain spine with dramatic chicanes, double kinks, oil slicks, and dragon's ridge shortcut.",
     },
     {
-        "name": "Neon Boulevard",
-        "shape": "polygon",
-        "vertices": [
-            (18.0, 18.0),
-            (62.0, 18.0),
-            (62.0, 36.0),
-            (42.0, 36.0),
-            (42.0, 50.0),
-            (62.0, 50.0),
-            (62.0, 64.0),
-            (18.0, 64.0),
-        ],
-        "radii": [4.5, 4.5, 4.0, 3.5, 3.5, 4.0, 4.5, 4.5],
-        "shortcuts": ["M 62.0 36.0 L 62.0 50.0"],
-        "runoff": GRAVEL,
-        "marks": standard_marks((1, 3), (2, 5)),
-        "note": "Broad neon-lit boulevard into tight city-block 90-degree corners with back-alley shortcut.",
-    },
-    {
         "name": "Redwood Pass",
         "shape": "polygon",
         "vertices": [
@@ -1387,27 +1376,6 @@ CIRCUITS = [
         "note": "Deceptive desert canyon with switchback S-curves, blinding apexes, and mirage canyon shortcut.",
     },
     {
-        "name": "Obsidian Loop",
-        "shape": "polygon",
-        "vertices": [
-            (16.0, 16.0),
-            (64.0, 16.0),
-            (64.0, 38.0),
-            (50.0, 46.0),
-            (38.0, 46.0),
-            (52.0, 62.0),
-            (16.0, 62.0),
-            (16.0, 38.0),
-        ],
-        "radii": [5.0, 5.0, 4.0, 3.5, 3.5, 5.0, 5.0, 4.5],
-        "shortcuts": ["M 64.0 38.0 L 52.0 62.0"],
-        "runoff": GRAVEL,
-        "marks": standard_marks((1, 3, 5), (2, 4)),
-        "note": "Dark volcanic speedway with long straights, carousel chicane, and lava chute shortcut.",
-    },
-
-    # --- PLATINUM CUP (Tracks 19 - 24) ---
-    {
         "name": "Apex Predator",
         "shape": "polygon",
         "vertices": [
@@ -1445,6 +1413,8 @@ CIRCUITS = [
         "marks": standard_marks((2, 5), (3, 6)),
         "note": "Coiled serpentine track demanding precise drift angles with sudden chicane and venom shortcut.",
     },
+
+    # --- PLATINUM CUP (Tracks 19 - 21 in generator, 22-24 in level editor) ---
     {
         "name": "Frostpeak Summit",
         "shape": "polygon",
@@ -1503,25 +1473,6 @@ CIRCUITS = [
         "note": "Intense cliffside ravine circuit with double hairpins, oil traps, and ravine bridge shortcut.",
     },
     {
-        "name": "Grand Finale",
-        "shape": "polygon",
-        "vertices": [
-            (16.0, 16.0),
-            (64.0, 16.0),
-            (64.0, 36.0),
-            (46.0, 44.0),
-            (62.0, 52.0),
-            (62.0, 64.0),
-            (34.0, 64.0),
-            (16.0, 48.0),
-        ],
-        "radii": [5.0, 5.0, 4.0, 3.5, 4.0, 5.0, 5.0, 4.5],
-        "shortcuts": ["M 64.0 36.0 L 62.0 52.0"],
-        "runoff": GRASS,
-        "marks": standard_marks((1, 3, 5), (2, 4, 6)),
-        "note": "The ultimate grand championship test combining every feature: long boost straights, technical chicanes, hairpin switchback, and championship bypass shortcut.",
-    },
-    {
         "name": "Titan Circuit",
         "grid": 160,
         "visual_size": 2048,
@@ -1544,6 +1495,52 @@ CIRCUITS = [
     },
 ]
 
+# Keep a reference to the canonical circuits list
+CANONICAL_CIRCUITS = list(CIRCUITS)
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_MANIA_CUP_FILE = os.path.join(ROOT, "tracks", ".mania_cup")
+
+
+def apply_mania_cup(cup: str | None, persist: bool = True) -> None:
+    if not cup:
+        return
+    cup = cup.lower().strip()
+    if cup in ("none", "off", "0", "false"):
+        if persist and os.path.exists(_MANIA_CUP_FILE):
+            try:
+                os.remove(_MANIA_CUP_FILE)
+            except OSError:
+                pass
+        return
+    _ranges = {"bronze": (0, 6), "silver": (6, 12), "gold": (12, 18), "platinum": (18, 21)}
+    if cup in _ranges:
+        try:
+            from race_mania_generator import MANIA_CUP_TRACKS
+            _s, _e = _ranges[cup]
+            CIRCUITS[_s:_e] = MANIA_CUP_TRACKS
+            if persist:
+                try:
+                    with open(_MANIA_CUP_FILE, "w", encoding="utf-8") as f:
+                        f.write(cup)
+                except OSError:
+                    pass
+        except ImportError:
+            pass
+
+
+_mania_cup_env = os.environ.get("MANIA_CUP")
+if _mania_cup_env:
+    apply_mania_cup(_mania_cup_env, persist=True)
+elif os.path.exists(_MANIA_CUP_FILE):
+    try:
+        with open(_MANIA_CUP_FILE, encoding="utf-8") as _f:
+            _saved = _f.read().strip()
+            if _saved:
+                apply_mania_cup(_saved, persist=False)
+    except OSError:
+        pass
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
@@ -1551,7 +1548,17 @@ def main() -> int:
     ap.add_argument("--out", default=None,
                     help="output directory (default: <repo>/tracks)")
     ap.add_argument("--only", default=None, help="generate just this circuit")
+    ap.add_argument("--mania-cup", choices=["bronze", "silver", "gold", "platinum", "none"],
+                    help="Replace specified cup with the 6 Mania Cup circuits (or 'none' to restore)")
     args = ap.parse_args()
+
+    if args.mania_cup:
+        os.environ["MANIA_CUP"] = args.mania_cup.lower()
+        if args.mania_cup.lower() == "none":
+            CIRCUITS[:] = list(CANONICAL_CIRCUITS)
+            apply_mania_cup("none", persist=True)
+        else:
+            apply_mania_cup(args.mania_cup, persist=True)
 
     root = os.path.dirname(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))))

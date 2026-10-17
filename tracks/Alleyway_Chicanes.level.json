@@ -1,0 +1,9 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Alleyway Chicanes",
+ "stem": "Alleyway_Chicanes",
+ "grid": 80,
+ "road_half_cells": 2.0,
+ "half_width_world": 64,
+ "source": "svg"
+}

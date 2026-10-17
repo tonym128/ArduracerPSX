@@ -1,0 +1,9 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Metro 8",
+ "stem": "Metro_8",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg"
+}

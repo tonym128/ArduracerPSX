@@ -507,7 +507,19 @@ impl VehicleState {
         // could describe scaled with speed, so at top speed full lock was a
         // 32-unit radius and the car could not hold a racing line.
         let speed_fraction = (self.speed / BASE_TOP_SPEED).clamp(Fixed::ZERO, Fixed::ONE);
-        let grip_authority = Fixed::ONE - (Fixed::ONE - TOP_SPEED_STEER_AUTHORITY) * speed_fraction;
+        let base_grip_authority =
+            Fixed::ONE - (Fixed::ONE - TOP_SPEED_STEER_AUTHORITY) * speed_fraction;
+        // Weight transfer:
+        // Under acceleration, weight shifts rearward -> mild power understeer.
+        // Under lift-off (coasting) or braking (trail braking), weight shifts forward -> crisp turn-in bite.
+        let weight_factor = if input.brake > Fixed::ZERO {
+            Fixed::from_raw(4710) // ~1.15x: trail braking bites hard
+        } else if input.throttle > Fixed::ZERO {
+            Fixed::from_raw(3788) // ~0.925x: power understeer
+        } else {
+            Fixed::from_raw(4300) // ~1.05x: lift-off turn-in
+        };
+        let grip_authority = (base_grip_authority * weight_factor) / Fixed::ONE;
         // Whether the car will be sideways when this tick is integrated, which is
         // not quite the same question as `drift.is_drifting()`: the handbrake
         // press that *opens* a slide happens later in this same tick, so testing
@@ -548,8 +560,16 @@ impl VehicleState {
             // `gearing` shapes the torque curve rather than adding a flat
             // multiplier: a short ratio pulls harder low down and tapers at the
             // top, a long ratio the reverse. Neutral for the default car.
-            let gear = self.tuning.gear_thrust_factor(speed_fraction);
-            let accel = self.tuning.scaled_acceleration(BASE_ACCEL) * gear;
+            let gear_tune = self.tuning.gear_thrust_factor(speed_fraction);
+            let gear_ratio_mult = match self.gear {
+                1 => Fixed::from_raw(4710), // ~1.15x: punchy launch in 1st
+                2 => Fixed::from_raw(4300), // ~1.05x: strong pull in 2nd
+                3 => Fixed::from_raw(3890), // ~0.95x: solid 3rd
+                4 => Fixed::from_raw(3380), // ~0.825x: tall 4th, takes time to wind out
+                _ => Fixed::from_raw(2867), // ~0.70x: overdrive 5th, gradual build to top speed
+            };
+            let accel = (self.tuning.scaled_acceleration(BASE_ACCEL) * gear_tune * gear_ratio_mult)
+                / Fixed::ONE;
             self.velocity = self.velocity + forward_dir.scale(accel * input.throttle * traction);
         }
 
@@ -769,7 +789,27 @@ impl VehicleState {
 
             let damped_lateral = (lateral_speed * lateral_hold).clamp(-lateral_cap, lateral_cap);
 
-            self.velocity = forward_dir.scale(damped_forward) + right_dir.scale(damped_lateral);
+            // Induced tire scrub: when lateral speed pushes near/past the grip limit,
+            // the tires convert kinetic energy to heat/noise and scrub forward speed.
+            let scrub_threshold = (lateral_cap * Fixed::from_raw(3072)) / Fixed::ONE; // ~75% of max grip
+            let (scrubbed_forward, tire_screech) =
+                if lateral_speed.abs() > scrub_threshold && self.speed > Fixed::from_int(1) {
+                    let excess = lateral_speed.abs() - scrub_threshold;
+                    let scrub_loss = (excess * Fixed::from_raw(60)) / BASE_TOP_SPEED;
+                    (
+                        damped_forward
+                            * (Fixed::ONE - scrub_loss.clamp(Fixed::ZERO, Fixed::from_raw(400))),
+                        true,
+                    )
+                } else {
+                    (damped_forward, false)
+                };
+
+            if tire_screech && self.speed > Fixed::from_int(2) {
+                self.is_drifting = true;
+            }
+
+            self.velocity = forward_dir.scale(scrubbed_forward) + right_dir.scale(damped_lateral);
         }
 
         // 6. Surface speed cap & absolute top-speed clamp -------------------------
@@ -823,16 +863,104 @@ impl VehicleState {
         }
 
         // 10. Engine RPM & gear for audio / HUD ----------------------------------
-        let ratio = (self.speed.raw() as i64 * 8000) / (BASE_TOP_SPEED.raw() as i64).max(1);
-        let target_rpm = (1000 + ratio).clamp(0, 8000) as u16;
-        self.engine_rpm = target_rpm;
-        self.gear = match target_rpm {
-            0..=2200 => 1,
-            2201..=3800 => 2,
-            3801..=5400 => 3,
-            5401..=7000 => 4,
-            _ => 5,
+        self.update_transmission(input.throttle);
+    }
+
+    /// Updates the gear and engine RPM based on current speed and throttle.
+    pub fn update_transmission(&mut self, throttle: Fixed) {
+        if self.is_reversing {
+            self.gear = 1;
+            let ratio =
+                (self.speed.raw() as i64 * 3000) / (REVERSE_SPEED_LIMIT.raw() as i64).max(1);
+            self.engine_rpm = (1200 + ratio).clamp(1000, 4500) as u16;
+            return;
+        }
+
+        let speed = self.speed;
+        let top = self.tuning.scaled_top_speed(BASE_TOP_SPEED);
+        let s = (speed.raw() as i64 * 4096) / top.raw().max(1) as i64; // 0..4096 scale
+
+        // Gear shift points (Q12: 4096 == top speed):
+        // 1st: 0..819     (0%..20%)
+        // 2nd: 819..1720  (20%..42%)
+        // 3rd: 1720..2703 (42%..66%)
+        // 4th: 2703..3522 (66%..86%)
+        // 5th: 3522+      (86%+)
+        // With hysteresis to prevent rapid gear-hunting jitter on corner exits:
+        let current_gear = self.gear.clamp(1, 5);
+        let new_gear = match current_gear {
+            1 => {
+                if s >= 819 {
+                    2
+                } else {
+                    1
+                }
+            }
+            2 => {
+                if s >= 1720 {
+                    3
+                } else if s < 655 {
+                    1
+                } else {
+                    2
+                }
+            }
+            3 => {
+                if s >= 2703 {
+                    4
+                } else if s < 1556 {
+                    2
+                } else {
+                    3
+                }
+            }
+            4 => {
+                if s >= 3522 {
+                    5
+                } else if s < 2539 {
+                    3
+                } else {
+                    4
+                }
+            }
+            5 => {
+                if s < 3358 {
+                    4
+                } else {
+                    5
+                }
+            }
+            _ => 1,
         };
+        self.gear = new_gear;
+
+        // Realistic RPM calculation per gear:
+        // In each gear, RPM climbs from its shift-entry RPM up to redline (~7200-7800).
+        let (min_s, max_s, min_rpm, max_rpm) = match new_gear {
+            1 => (0i64, 819i64, 1200i64, 7300i64),
+            2 => (819, 1720, 4200, 7400),
+            3 => (1720, 2703, 4800, 7500),
+            4 => (2703, 3522, 5400, 7600),
+            _ => (3522, 4096, 5900, 7800),
+        };
+
+        let span_s = (max_s - min_s).max(1);
+        let progress = ((s - min_s).max(0) * 4096) / span_s;
+        let mut rpm = min_rpm + (progress * (max_rpm - min_rpm)) / 4096;
+
+        // At low speed in 1st gear, throttle adds launch revs:
+        if new_gear == 1 && s < 400 && throttle > Fixed::ZERO {
+            let launch_rev = (throttle.raw() as i64 * 1200) / 4096;
+            rpm = (rpm + launch_rev).min(max_rpm);
+        }
+
+        // Overdrive rev ceiling for boost / nitro:
+        if s > 4096 {
+            let over_s = (s - 4096).min(1024);
+            rpm += (over_s * 600) / 1024;
+        }
+
+        self.engine_rpm = rpm.clamp(1000, 8500) as u16;
     }
 
     /// Resolves the vehicle against the track: solid barriers bounce the car back
@@ -2605,5 +2733,96 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn weight_transfer_lift_off_turns_sharper_than_power_understeer() {
+        // At speed, lifting off throttle shifts weight forward, yielding sharper turn-in
+        // than holding full throttle (power understeer).
+        let test_rate = |throttle: Fixed| -> i32 {
+            let mut car = VehicleState {
+                velocity: Vec2::new(Fixed::ZERO, -Fixed::from_int(2)),
+                speed: Fixed::from_int(2),
+                ..VehicleState::default()
+            };
+            let input = VehicleInput {
+                throttle,
+                steer: Fixed::ONE,
+                ..VehicleInput::default()
+            };
+            car.tick(input, SurfaceType::Tarmac);
+            crate::ai::angle_error(0, car.heading)
+        };
+        let power_turn = test_rate(Fixed::ONE);
+        let lift_turn = test_rate(Fixed::ZERO);
+        assert!(
+            lift_turn > power_turn,
+            "lift-off turn ({lift_turn}) must bite sharper than power understeer ({power_turn})"
+        );
+    }
+
+    #[test]
+    fn hard_cornering_scrubs_forward_speed() {
+        // Sustained hard steering at speed induces tire scrub drag, bleeding forward speed
+        // compared to straight-line travel.
+        let mut straight = VehicleState {
+            velocity: Vec2::new(Fixed::ZERO, -BASE_TOP_SPEED),
+            speed: BASE_TOP_SPEED,
+            ..VehicleState::default()
+        };
+        let mut cornering = straight;
+
+        for _ in 0..60 {
+            straight.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+            cornering.tick(flat(Fixed::ONE, Fixed::ONE), SurfaceType::Tarmac);
+        }
+
+        assert!(
+            cornering.speed < straight.speed,
+            "cornering car ({:?}) must scrub forward speed compared to straight car ({:?})",
+            cornering.speed,
+            straight.speed
+        );
+    }
+
+    #[test]
+    fn gearing_works_through_gears_and_drops_rpm_on_shifts() {
+        let mut car = VehicleState::default();
+        let mut gears_visited = [false; 6];
+        let mut max_rpm_in_gear = [0u16; 6];
+        let mut min_rpm_in_gear = [u16::MAX; 6];
+
+        for _ in 0..600 {
+            car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+            let g = car.gear as usize;
+            gears_visited[g] = true;
+            max_rpm_in_gear[g] = max_rpm_in_gear[g].max(car.engine_rpm);
+            min_rpm_in_gear[g] = min_rpm_in_gear[g].min(car.engine_rpm);
+        }
+
+        // Must work through all 5 gears:
+        for g in 1..=5 {
+            assert!(gears_visited[g], "car must work through gear {g}");
+        }
+
+        // On upshift from 1 to 2, 2's entry RPM must be lower than 1's redline RPM:
+        assert!(
+            max_rpm_in_gear[1] > min_rpm_in_gear[2],
+            "upshift 1->2 must drop revs: redline 1 ({}) > entry 2 ({})",
+            max_rpm_in_gear[1],
+            min_rpm_in_gear[2]
+        );
+        assert!(
+            max_rpm_in_gear[2] > min_rpm_in_gear[3],
+            "upshift 2->3 must drop revs: redline 2 ({}) > entry 3 ({})",
+            max_rpm_in_gear[2],
+            min_rpm_in_gear[3]
+        );
+        assert!(
+            max_rpm_in_gear[3] > min_rpm_in_gear[4],
+            "upshift 3->4 must drop revs: redline 3 ({}) > entry 4 ({})",
+            max_rpm_in_gear[3],
+            min_rpm_in_gear[4]
+        );
     }
 }

@@ -1,0 +1,9 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Speedway Boulevard",
+ "stem": "Speedway_Boulevard",
+ "grid": 80,
+ "road_half_cells": 4.0,
+ "half_width_world": 128,
+ "source": "svg"
+}

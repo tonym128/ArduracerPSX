@@ -13,7 +13,7 @@ pub struct CityInfo {
     pub country: &'static str,
     pub landmarks: &'static str,
     pub track: &'static TrackDef,
-    pub track_id: usize, // 99 for Cape Town, 98 for Melbourne, 97 for London
+    pub track_id: usize, // 25 for Cape Town, 26 for Melbourne, 27 for London
 }
 
 pub static CITIES: [CityInfo; 3] = [
@@ -22,21 +22,21 @@ pub static CITIES: [CityInfo; 3] = [
         country: "SOUTH AFRICA (ATLANTIC COAST)",
         landmarks: "GREEN POINT & V&A WATERFRONT",
         track: &TRACK_CAPETOWN,
-        track_id: 99,
+        track_id: 25,
     },
     CityInfo {
         name: "MELBOURNE",
         country: "AUSTRALIA (VICTORIA)",
         landmarks: "ALBERT PARK GP & ST KILDA",
         track: &TRACK_MELBOURNE,
-        track_id: 98,
+        track_id: 26,
     },
     CityInfo {
         name: "LONDON",
         country: "UNITED KINGDOM (CENTRAL)",
         landmarks: "THE MALL, WESTMINSTER & THAMES",
         track: &TRACK_LONDON,
-        track_id: 97,
+        track_id: 27,
     },
 ];
 

@@ -287,16 +287,22 @@ def discover_circuits() -> list[tuple[str, float]]:
                 # store is meant to hold far more circuits than the game has slots
                 # for -- so it is skipped quietly rather than shouted about.
                 continue
-            seen.add(stem)
             side = os.path.join(tracks_dir, fname)
             try:
                 with open(side, encoding="utf-8") as f:
                     meta = json.load(f)
-                half = float(meta.get("road_half_cells", default_half))
             except (ValueError, OSError, json.JSONDecodeError) as exc:
                 print(f"  note: {stem} sidecar unreadable ({exc}); using the "
                       f"default road width", file=sys.stderr)
-                half = default_half
+                continue
+            # Only include genuine level_editor authored levels here.
+            # Generator circuits that were swapped out or superseded are not editor levels.
+            if meta.get("source") != "level_editor":
+                continue
+            if len(out) >= 24:
+                break
+            seen.add(stem)
+            half = float(meta.get("road_half_cells", default_half))
             out.append((stem.replace("_", " "), half))
     out.extend(large_out)
     return out
@@ -387,7 +393,23 @@ def build_one(name: str) -> tuple:
     centre = [(p[0], p[1]) for p in d["samples"]]
     if len(centre) < 3:
         return None, [f"centreline has only {len(centre)} samples"]
-    return (grid, centre), []
+
+    cps = None
+    level_json = stem + LEVEL_SIDECAR_SUFFIX
+    if os.path.exists(level_json):
+        try:
+            with open(level_json, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            gate_fractions = [
+                float(m["frac"]) for m in meta.get("marks", [])
+                if m.get("kind") == "gate" and "frac" in m
+            ]
+            if gate_fractions:
+                cps = [centre[int(round(frac * len(centre))) % len(centre)] for frac in gate_fractions]
+        except Exception:
+            pass
+
+    return (grid, centre, cps), []
 
 
 def fmt_generated(path: str) -> None:
@@ -639,6 +661,49 @@ def pack_visual(
     vis_path = stem + ".visual.png"
     gen_path = stem + ".visual.gen.png"
     jpg_path = stem + ".jpg"
+
+    if clean_name.lower() in ("cape_town", "capetown", "melbourne", "london"):
+        city_slug = "capetown" if "cape" in clean_name.lower() else clean_name.lower()
+        city_dir = os.path.join(ROOT, "tracks", f"{city_slug}_10km")
+        grid_bx = 3
+        grid_by = 3
+        crops = []
+        for by in range(3):
+            for bx in range(3):
+                p = os.path.join(city_dir, f"{city_slug}_b{bx}_b{by}.jpg")
+                crops.append(Image.open(p).convert("RGB"))
+
+        thumb = Image.new("RGB", (384, 384))
+        for idx, crop in enumerate(crops):
+            bx = idx % 3
+            by = idx // 3
+            thumb.paste(crop.resize((128, 128), Image.Resampling.BILINEAR), (bx * 128, by * 128))
+
+        pal16_im = thumb.quantize(colors=16, method=Image.Quantize.MEDIANCUT)
+        raw16 = pal16_im.getpalette() or []
+        shared_pal16 = [(raw16[i * 3], raw16[i * 3 + 1], raw16[i * 3 + 2]) for i in range(16)]
+        while len(shared_pal16) < 16:
+            shared_pal16.append((0, 0, 0))
+
+        pal256_im = thumb.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
+        raw256 = pal256_im.getpalette() or []
+        shared_pal256 = [(raw256[i * 3], raw256[i * 3 + 1], raw256[i * 3 + 2]) for i in range(len(raw256) // 3)]
+        while len(shared_pal256) < 256:
+            shared_pal256.append((0, 0, 0))
+        shared_pal256 = shared_pal256[:256]
+
+        blocks = []
+        for crop in crops:
+            jpeg_data = compress_1024_jpeg_500kb(crop)
+            qoi_data = compress_1024_qoi_500kb(crop)
+            arsv_data = None
+            tim_data = pack_tim_block(crop)
+            tim4_data = pack_tim4_block(crop, shared_palette=shared_pal16)
+            tim8_data = pack_tim8_block(crop, shared_palette=shared_pal256)
+            blocks.append((jpeg_data, qoi_data, arsv_data, tim_data, tim4_data, tim8_data))
+
+        print(f"  packed visual: {name} (3x3 = 9 blocks from tracks/{city_slug}_10km)", flush=True)
+        return name, grid_bx, grid_by, blocks
 
     svg_im, cell = rasterise_svg_visual(name)
     if os.path.exists(gen_path):
@@ -1303,24 +1368,15 @@ def emit_visual_tex(
             )
         f.write("];\n\n")
 
-        for city_prefix, var_name, city_title in [
-            ("capetown", "CAPETOWN_BLOCK_SECTORS", "Cape Town"),
-            ("melbourne", "MELBOURNE_BLOCK_SECTORS", "Melbourne"),
-            ("london", "LONDON_BLOCK_SECTORS", "London"),
+        for city_prefix, var_name, city_title, base_idx in [
+            ("capetown", "CAPETOWN_BLOCK_SECTORS", "Cape Town", 28),
+            ("melbourne", "MELBOURNE_BLOCK_SECTORS", "Melbourne", 37),
+            ("london", "LONDON_BLOCK_SECTORS", "London", 46),
         ]:
-            city_dir = os.path.join(ROOT, "tracks", f"{city_prefix}_10km")
             f.write(f"/// {city_title} 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].\n")
             f.write(f"pub static {var_name}: [TileSectorEntry; 9] = [\n")
-            current_sec = 0
-            for by in range(3):
-                for bx in range(3):
-                    jpg = os.path.join(city_dir, f"{city_prefix}_b{bx}_b{by}.jpg")
-                    b_sz = os.path.getsize(jpg) if os.path.exists(jpg) else 200000
-                    f.write(
-                        f"    TileSectorEntry {{ sector_offset: {current_sec}, "
-                        f"sector_count: {SECTORS_PER_CITY}, byte_len: {b_sz} }},\n"
-                    )
-                    current_sec += SECTORS_PER_CITY
+            for i in range(9):
+                f.write(f"    CIRCUIT_BLOCK_SECTORS[{base_idx + i}],\n")
             f.write("];\n\n")
 
         f.write("/// Alias matching single-entry lookup for backwards compatibility.\n")
@@ -1384,7 +1440,7 @@ def main() -> int:
     if len(results) > TRACK_SLOTS:
         print(f"\n{len(results)} circuits authored but only {TRACK_SLOTS} "
               f"slots exist; not emitting", file=sys.stderr)
-        extra = [n for n, _, _, _ in results[len(TRACK_SLOTS):]]
+        extra = [n for n, _, _, _ in results[TRACK_SLOTS:]]
         if extra:
             # Name the overflow. `ALL_TRACKS` is filled round-robin, so the
             # circuits past the slot count would appear in slots 0..n and
@@ -1407,7 +1463,11 @@ def main() -> int:
     # than by hand. Cooked blocks are swept too: a circuit that no longer exists
     # must not leave a `tracks/<Name>.qoi` behind for someone to mistake for a
     # real asset.
-    keep = {n.replace(" ", "_") for n, _, _, _ in results}
+    canonical_stems = {spec["name"].replace(" ", "_") for spec in gen.CIRCUITS}
+    if hasattr(gen, "CANONICAL_CIRCUITS"):
+        canonical_stems |= {spec["name"].replace(" ", "_") for spec in gen.CANONICAL_CIRCUITS}
+    canonical_stems |= {"Frost_Cascade", "Lunar_Gorge", "Onyx_Run", "Titan_Circuit"}
+    keep = {n.replace(" ", "_") for n, _, _, _ in results} | canonical_stems
     stale = [f for f in sorted(os.listdir(os.path.join(ROOT, "tracks")))
              if f.endswith((".data.png", ".visual.png", ".visual.gen.png", ".visual.detailed.png",
                             ".line.json", ".palette.json", ".qoi"))
@@ -1533,7 +1593,7 @@ def main() -> int:
     with open(out, "w") as f:
         f.write("\n".join(code))
     import concurrent.futures
-    track_names = [n for n, _, _, _ in results]
+    track_names = [n for n, _, _, _ in results] + ["Cape Town", "Melbourne", "London"]
     with concurrent.futures.ProcessPoolExecutor() as executor:
         visual_packs = list(executor.map(pack_visual, track_names))
     emit_visual_tex(visual_packs)
@@ -1542,6 +1602,11 @@ def main() -> int:
     # formatting only `levels.rs` left the other one failing `fmt-check`.
     fmt_generated(out)
     print(f"\nwrote {out} ({len(results)} authored circuits, {TRACK_SLOTS} slots)")
+    try:
+        import make_levels_bin
+        make_levels_bin.main()
+    except Exception as e:
+        print(f"  warning: failed to update LEVELS.BIN ({e})", file=sys.stderr)
     # Per-circuit, not aggregate: a missing calibration is a property of one
     # circuit's par row, and a single summary line would either hide it or blame
     # the wrong circuit. Reported in `CIRCUITS` order so it lines up with the

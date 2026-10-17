@@ -2249,11 +2249,12 @@ fn test_visual_circuit_15bit_streaming_lzss_roundtrip() {
     use arduracer_core::jpeg::{decode_tile_64x64, JpegHeader};
     use arduracer_core::visual_tex;
 
-    assert_eq!(visual_tex::COUNT, 28);
+    assert_eq!(visual_tex::COUNT, 55);
+    assert_eq!(visual_tex::CIRCUIT_COUNT, 28);
     assert_eq!(visual_tex::BLOCK_DIM, 1024);
     assert_eq!(visual_tex::BLOCK_SECTORS, 250);
     assert_eq!(visual_tex::BLOCK_MAX_BYTES, 512000);
-    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 28);
+    assert_eq!(visual_tex::CIRCUIT_BLOCK_SECTORS.len(), 55);
 
     let tracks_bin_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

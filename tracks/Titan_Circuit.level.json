@@ -4,5 +4,6 @@
  "stem": "Titan_Circuit",
  "grid": 160,
  "road_half_cells": 3.0,
- "half_width_world": 96
+ "half_width_world": 96,
+ "source": "svg"
 }

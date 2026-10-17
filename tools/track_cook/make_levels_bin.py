@@ -36,15 +36,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 #: other circuit's terrain under this one's name. The order below is taken from
 #: the `ALL_TRACKS` emit in `levels.rs`, the only definition of "slot N is this
 #: circuit".
-CIRCUITS = [
-    "Cascade_Falls", "Copper_Gorge", "Longbow", "Amber_Mesa",
-    "Emerald_Glen", "Sunburst_Valley", "Whispering_Pines", "Ironstone_Quarry",
-    "Silverstone_Mist", "Falcon_Crest", "Willow_Creek", "Cobalt_Run",
-    "Dragon's_Spine", "Redwood_Pass", "Thunder_Basin", "Canyon_Mirage",
-    "Apex_Predator", "Viper's_Tail", "Frostpeak_Summit", "Golden_Horizon",
-    "Phantom_Ravine", "Frost_Cascade", "Lunar_Gorge", "Onyx_Run",
-    "Titan_Circuit",
-]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_atlas
+
+CIRCUITS = [name.replace(" ", "_") for name, _ in build_atlas.discover_circuits()]
 
 CITIES = ["capetown", "melbourne", "london"]
 

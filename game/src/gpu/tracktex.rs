@@ -48,8 +48,7 @@ use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{Camera, M7_HORIZON, M7_Z_FAR, M7_Z_NEAR};
 use crate::gpu::texlayout::{
-    self, BLOCK_DIM, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
-    VRAM_TILE_DIM,
+    self, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT, VRAM_TILE_DIM,
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
@@ -426,11 +425,6 @@ static mut TIM8TRACKS_BIN_LBA: Option<u32> = None;
 /// Circuit whose 256-colour palette is currently resident in the TIM8 CLUT.
 static mut TIM8_CLUT_CIRCUIT: usize = usize::MAX;
 
-static mut CAPETOWN_BIN_LBA: Option<u32> = None;
-static mut MELBOURNE_BIN_LBA: Option<u32> = None;
-static mut LONDON_BIN_LBA: Option<u32> = None;
-static mut ACTIVE_CITY: usize = 0; // 0 = standard circuits, 99 = Cape Town, 98 = Melbourne, 97 = London
-
 /// Whether QOI streaming is compiled in for this build.
 #[cfg(feature = "qoi-track-stream")]
 const QOI_ENABLED: bool = true;
@@ -462,8 +456,7 @@ const TIM_TILE_SECTORS: u32 = visual_tex::TIM_TILE_SECTORS;
 /// this disc, and where it starts `(block_lba, sector_count)`.
 ///
 /// `None` covers every way the path can be unavailable: the feature is off, the
-/// disc has no matching `.BIN`, the circuit is one of the three 10 km^2 cities
-/// (which ship JPEG only), or the cooker recorded no block for it.
+/// disc has no matching `.BIN`, or the cooker recorded no block for it.
 #[inline]
 fn uncompressed_block_for(
     codec: Codec,
@@ -471,9 +464,6 @@ fn uncompressed_block_for(
     block_x: usize,
     block_y: usize,
 ) -> Option<(u32, u32)> {
-    if active_city() != 0 {
-        return None;
-    }
     let block_idx = visual_tex::circuit_block_index(circuit, block_x, block_y);
     if block_idx >= visual_tex::COUNT {
         return None;
@@ -670,14 +660,6 @@ const _: () = assert!(
     visual_tex::TIM8_TILE_BYTES as u32 == TIM8_TILE_SECTORS * 2048,
     "an 8bpp tile must be a whole number of CD sectors"
 );
-
-/// Reads `ACTIVE_CITY` without taking a reference to a mutable static.
-///
-/// `load_block_into_ram` copies the same field out for the same reason.
-#[inline(always)]
-fn active_city() -> usize {
-    unsafe { core::ptr::read_volatile(core::ptr::addr_of!(ACTIVE_CITY)) }
-}
 
 /// Sampling parameters for whichever codec is active.
 ///
@@ -941,27 +923,31 @@ pub const LEVEL_DIMS: [(u8, u8); 28] = [
 /// Call after `init_track_texture`, which is what locates the asset.
 pub fn load_level_grid(circuit: usize, track: &'static arduracer_core::TrackDef) -> bool {
     // 25 circuits occupy 0..24; the cities follow at 25..27.
-    let index = match circuit {
-        97 => 25,
-        98 => 26,
-        99 => 27,
-        c => c,
-    };
-    if index >= LEVEL_DIMS.len() {
+    if circuit >= LEVEL_DIMS.len() {
         return false;
     }
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-    crate::level_grid::load(reader, unsafe { LEVELS_BIN_LBA }, track, index, &LEVEL_DIMS)
+    crate::level_grid::load(
+        reader,
+        unsafe { LEVELS_BIN_LBA },
+        track,
+        circuit,
+        &LEVEL_DIMS,
+    )
+}
+
+fn track_def_for(circuit: usize) -> Option<&'static arduracer_core::TrackDef> {
+    match circuit {
+        0..=24 => arduracer_core::levels::ALL_TRACKS.get(circuit).copied(),
+        25 => Some(&arduracer_core::TRACK_CAPETOWN),
+        26 => Some(&arduracer_core::TRACK_MELBOURNE),
+        27 => Some(&arduracer_core::TRACK_LONDON),
+        _ => None,
+    }
 }
 
 pub fn init_track_texture(circuit: usize) {
-    let city_id = if circuit == 99 || circuit == 98 || circuit == 97 {
-        circuit
-    } else {
-        0
-    };
     unsafe {
-        ACTIVE_CITY = city_id;
         ACTIVE_CIRCUIT = circuit;
         let vram_slots = &mut *core::ptr::addr_of_mut!(VRAM_SLOTS);
         for slot in vram_slots.iter_mut() {
@@ -980,7 +966,7 @@ pub fn init_track_texture(circuit: usize) {
         if !TRACKS_PROBED {
             let reader = &mut *core::ptr::addr_of_mut!(DISC_READER);
             crate::dbg::println(
-                "[TRACKTEX] Probing disc for TRACKS.BIN, CAPETOWN.BIN, MELBOURNE.BIN, LONDON.BIN...",
+                "[TRACKTEX] Probing disc for TRACKS.BIN, QOITRACKS.BIN, SVGTRACKS.BIN, TIMTRACKS.BIN, TIM4TRACKS.BIN, TIM8TRACKS.BIN...",
             );
             TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TRACKS_BIN_NAME);
             QOITRACKS_BIN_LBA = reader.find_file_lba(visual_tex::QOITRACKS_BIN_NAME);
@@ -989,36 +975,12 @@ pub fn init_track_texture(circuit: usize) {
             TIM4TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TIM4TRACKS_BIN_NAME);
             TIM8TRACKS_BIN_LBA = reader.find_file_lba(visual_tex::TIM8TRACKS_BIN_NAME);
             LEVELS_BIN_LBA = reader.find_file_lba(visual_tex::LEVELS_BIN_NAME);
-            CAPETOWN_BIN_LBA = reader.find_file_lba(visual_tex::CAPETOWN_BIN_NAME);
-            MELBOURNE_BIN_LBA = reader.find_file_lba(visual_tex::MELBOURNE_BIN_NAME);
-            LONDON_BIN_LBA = reader.find_file_lba(visual_tex::LONDON_BIN_NAME);
             crate::dbg::print("[TRACKTEX] TRACKS: 0x");
             if let Some(lba) = TRACKS_BIN_LBA {
                 crate::dbg::print_hex(lba);
             } else {
                 crate::dbg::print("NONE");
             }
-            crate::dbg::print("  CAPETOWN: 0x");
-            if let Some(lba) = CAPETOWN_BIN_LBA {
-                crate::dbg::print_hex(lba);
-            } else {
-                crate::dbg::print("NONE");
-            }
-            crate::dbg::print("  MELBOURNE: 0x");
-            if let Some(lba) = MELBOURNE_BIN_LBA {
-                crate::dbg::print_hex(lba);
-            } else {
-                crate::dbg::print("NONE");
-            }
-            crate::dbg::print("  LONDON: 0x");
-            if let Some(lba) = LONDON_BIN_LBA {
-                crate::dbg::print_hex(lba);
-            } else {
-                crate::dbg::print("NONE");
-            }
-            // Reported last because it is the one that decides the codec: a
-            // disc without it (or a build with the flag off) silently streams
-            // every circuit from JPEG, and this line is how that shows up.
             crate::dbg::print("  QOITRACKS: 0x");
             if let Some(lba) = QOITRACKS_BIN_LBA {
                 crate::dbg::print_hex(lba);
@@ -1054,32 +1016,23 @@ pub fn init_track_texture(circuit: usize) {
         }
 
         // Preload initial 1024x1024 block for the circuit into RAM slot 0 before race starts
-        // Cape Town: block (1, 1) covers Helen Suzman Blvd & Green Point stadium spawn
-        // Melbourne: block (1, 2) covers Albert Park pit straight spawn (cell 125, 177)
-        // London: block (1, 1) covers The Mall spawn (cell 89, 147)
-        let (init_bx, init_by) = match city_id {
-            99 => (1, 1),
-            98 => (1, 2),
-            97 => (1, 1),
-            _ => {
-                if circuit < visual_tex::CIRCUIT_COUNT {
-                    let (g_bx, g_by) = visual_tex::circuit_block_grid(circuit);
-                    if g_bx > 1 || g_by > 1 {
-                        let trk = arduracer_core::levels::ALL_TRACKS[circuit];
-                        let b_wu_x = (trk.world_width() / g_bx as i32).max(1);
-                        let b_wu_y = (trk.world_height() / g_by as i32).max(1);
-                        let bx =
-                            (trk.start_pos.x.to_int() / b_wu_x).clamp(0, g_bx as i32 - 1) as usize;
-                        let by =
-                            (trk.start_pos.y.to_int() / b_wu_y).clamp(0, g_by as i32 - 1) as usize;
-                        (bx, by)
-                    } else {
-                        (0, 0)
-                    }
+        let (init_bx, init_by) = if circuit < visual_tex::CIRCUIT_COUNT {
+            let (g_bx, g_by) = visual_tex::circuit_block_grid(circuit);
+            if g_bx > 1 || g_by > 1 {
+                if let Some(trk) = track_def_for(circuit) {
+                    let b_wu_x = (trk.world_width() / g_bx as i32).max(1);
+                    let b_wu_y = (trk.world_height() / g_by as i32).max(1);
+                    let bx = (trk.start_pos.x.to_int() / b_wu_x).clamp(0, g_bx as i32 - 1) as usize;
+                    let by = (trk.start_pos.y.to_int() / b_wu_y).clamp(0, g_by as i32 - 1) as usize;
+                    (bx, by)
                 } else {
                     (0, 0)
                 }
+            } else {
+                (0, 0)
             }
+        } else {
+            (0, 0)
         };
         crate::dbg::print("[TRACKTEX] circuit ");
         crate::dbg::print_dec(circuit as u32);
@@ -1500,25 +1453,11 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
     }
 
     let active_circuit = unsafe { ACTIVE_CIRCUIT };
-    let (block_wu_x, block_wu_y) = if active_circuit >= 97 {
-        let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-            world_w.max(1)
-        } else {
-            BLOCK_DIM as i32 * 5 / 2
-        };
-        let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-            world_h.max(1)
-        } else {
-            BLOCK_DIM as i32 * 5 / 2
-        };
-        (bx, by)
-    } else {
-        let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
-        (
-            (world_w / g_bx as i32).max(1),
-            (world_h / g_by as i32).max(1),
-        )
-    };
+    let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
+    let (block_wu_x, block_wu_y) = (
+        (world_w / g_bx as i32).max(1),
+        (world_h / g_by as i32).max(1),
+    );
 
     let tile_wu_x = (block_wu_x / (TILES_PER_BLOCK_AXIS as i32)).max(1);
     let tile_wu_y = (block_wu_y / (TILES_PER_BLOCK_AXIS as i32)).max(1);
@@ -1549,11 +1488,7 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
                 .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
             let sub_ty = ((wy0 % block_wu_y) / tile_wu_y)
                 .clamp(0, (TILES_PER_BLOCK_AXIS - 1) as i32) as usize;
-            let b_idx = if active_circuit >= 97 {
-                (by * 3 + bx).min(8) as u32
-            } else {
-                visual_tex::circuit_block_index(active_circuit, bx, by) as u32
-            };
+            let b_idx = visual_tex::circuit_block_index(active_circuit, bx, by) as u32;
             let tile_idx = b_idx * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS) as u32
                 + (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
 
@@ -1605,52 +1540,26 @@ fn block_location(
     block_x: usize,
     block_y: usize,
     codec: Codec,
-    city: usize,
 ) -> Option<(u32, visual_tex::TileSectorEntry, bool, bool)> {
-    let use_arsv = codec == Codec::Arsv && city == 0;
-    let use_qoi = codec == Codec::Qoi && city == 0;
+    let c = visual_tex::circuit_block_index(circuit, block_x, block_y);
+    let use_arsv = codec == Codec::Arsv && visual_tex::CIRCUIT_ARSV_SECTORS[c].sector_count > 0;
+    let use_qoi = codec == Codec::Qoi && visual_tex::CIRCUIT_QOI_SECTORS[c].sector_count > 0;
 
-    let (bin_lba, entry) = match city {
-        99 => {
-            let b_idx = (block_y * 3 + block_x).min(8);
-            (
-                unsafe { CAPETOWN_BIN_LBA },
-                visual_tex::CAPETOWN_BLOCK_SECTORS[b_idx],
-            )
-        }
-        98 => {
-            let b_idx = (block_y * 3 + block_x).min(8);
-            (
-                unsafe { MELBOURNE_BIN_LBA },
-                visual_tex::MELBOURNE_BLOCK_SECTORS[b_idx],
-            )
-        }
-        97 => {
-            let b_idx = (block_y * 3 + block_x).min(8);
-            (
-                unsafe { LONDON_BIN_LBA },
-                visual_tex::LONDON_BLOCK_SECTORS[b_idx],
-            )
-        }
-        _ => {
-            let c = visual_tex::circuit_block_index(circuit, block_x, block_y);
-            if use_arsv {
-                (
-                    unsafe { SVGTRACKS_BIN_LBA },
-                    visual_tex::CIRCUIT_ARSV_SECTORS[c],
-                )
-            } else if use_qoi {
-                (
-                    unsafe { QOITRACKS_BIN_LBA },
-                    visual_tex::CIRCUIT_QOI_SECTORS[c],
-                )
-            } else {
-                (
-                    unsafe { TRACKS_BIN_LBA },
-                    visual_tex::CIRCUIT_BLOCK_SECTORS[c],
-                )
-            }
-        }
+    let (bin_lba, entry) = if use_arsv {
+        (
+            unsafe { SVGTRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_ARSV_SECTORS[c],
+        )
+    } else if use_qoi {
+        (
+            unsafe { QOITRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_QOI_SECTORS[c],
+        )
+    } else {
+        (
+            unsafe { TRACKS_BIN_LBA },
+            visual_tex::CIRCUIT_BLOCK_SECTORS[c],
+        )
     };
     let lba = bin_lba?;
     Some((lba + entry.sector_offset, entry, use_arsv, use_qoi))
@@ -1670,9 +1579,8 @@ fn load_block_sync(circuit: usize, block_x: usize, block_y: usize, slot_idx: usi
         return false;
     }
 
-    let city = unsafe { ACTIVE_CITY };
     let Some((block_lba, entry, use_arsv, use_qoi)) =
-        block_location(circuit, block_x, block_y, codec, city)
+        block_location(circuit, block_x, block_y, codec)
     else {
         let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[slot_idx] };
         ram_slot.resident_circuit = circuit;
@@ -1778,9 +1686,8 @@ fn start_async_block_load(
     if codec == Codec::Tim || codec == Codec::Tim4 || codec == Codec::Tim8 {
         return false;
     }
-    let city = unsafe { ACTIVE_CITY };
     let Some((block_lba, entry, use_arsv, use_qoi)) =
-        block_location(circuit, block_x, block_y, codec, city)
+        block_location(circuit, block_x, block_y, codec)
     else {
         return false;
     };
@@ -2193,11 +2100,7 @@ fn tile_priority_key(
         0u32
     };
 
-    let b_idx = if active_circuit >= 97 {
-        (by * 3 + bx).min(8) as u32
-    } else {
-        visual_tex::circuit_block_index(active_circuit, bx, by) as u32
-    };
+    let b_idx = visual_tex::circuit_block_index(active_circuit, bx, by) as u32;
     let idx = b_idx * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS) as u32
         + (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
     (needs_ram_block << 28) | (depth_tier << 20) | (idx & 0x000F_FFFF)
@@ -2435,25 +2338,7 @@ pub fn render_track_extents(
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
 
     // Compute exact world units per 64x64 tile along X and Y axes.
-    // For standard circuits (< 97): block grid comes from visual_tex::circuit_block_grid (1x1 for single tracks, 4x4 for multi-block tracks).
-    // For large cities (>= 97): partitioned into blocks of 2560 world units.
-    let (g_bx, g_by) = if active_circuit >= 97 {
-        let bx = if world_w <= (BLOCK_DIM as i32 * 5 / 2) {
-            1
-        } else {
-            ((world_w + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1)
-                as usize
-        };
-        let by = if world_h <= (BLOCK_DIM as i32 * 5 / 2) {
-            1
-        } else {
-            ((world_h + (BLOCK_DIM as i32 * 5 / 2) - 1) / (BLOCK_DIM as i32 * 5 / 2)).max(1)
-                as usize
-        };
-        (bx, by)
-    } else {
-        visual_tex::circuit_block_grid(active_circuit)
-    };
+    let (g_bx, g_by) = visual_tex::circuit_block_grid(active_circuit);
     let (block_wu_x, block_wu_y) = (
         (world_w / g_bx as i32).max(1),
         (world_h / g_by as i32).max(1),
@@ -2784,12 +2669,11 @@ pub fn render_track_extents(
     // VBlank period. If the period elapses during decode, or the budget is exhausted, stop.
     let mut rows_decoded = 0;
     let period = frame_period();
-    let rows_per_budget =
-        if active_circuit >= 97 || visual_tex::circuit_block_grid(active_circuit).0 > 1 {
-            8
-        } else {
-            4
-        };
+    let rows_per_budget = if visual_tex::circuit_block_grid(active_circuit).0 > 1 {
+        8
+    } else {
+        4
+    };
     let min_rows = {
         let job = unsafe { &*core::ptr::addr_of!(ACTIVE_JOB) };
         if job.active || (0..vis_count).any(|i| slot_for_tile[i] == usize::MAX) {

@@ -1,0 +1,9 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Oil Rig Slipway",
+ "stem": "Oil_Rig_Slipway",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg"
+}

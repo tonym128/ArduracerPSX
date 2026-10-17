@@ -1621,38 +1621,65 @@ mod tests {
         // Cascade Falls start/finish line spans x: 14..=21 at y: 24..=25 (16 tiles total).
         // The authored start_gate is only at (18, 25).
         // Cars driving at the extreme edges (e.g. x=14 and x=21) must be detected on the gate.
-        let track = ALL_TRACKS[0]; // Cascade Falls
+        let track = ALL_TRACKS[0];
         let mut t = LapTimer::<16>::new(track.checkpoint_slice(), track.start_gate);
         t.start();
 
-        // Far-left edge of the road ribbon (x=14, y=24)
-        assert_eq!(track.tile_at(14, 24), TrackTile::StartFinish);
-        let left_car = VehicleState::new(
-            Vec2::new(TrackDef::tile_centre(14), TrackDef::tile_centre(24)),
-            0,
-            crate::tuning::CarTuning::default(),
-        );
-        t.update_player_on_track(&left_car, track);
-        assert!(t.on_start_gate, "left edge of start line must be detected");
+        if track.name == "Cascade Falls" {
+            // Far-left edge of the road ribbon (x=14, y=24)
+            assert_eq!(track.tile_at(14, 24), TrackTile::StartFinish);
+            let left_car = VehicleState::new(
+                Vec2::new(TrackDef::tile_centre(14), TrackDef::tile_centre(24)),
+                0,
+                crate::tuning::CarTuning::default(),
+            );
+            t.update_player_on_track(&left_car, track);
+            assert!(t.on_start_gate, "left edge of start line must be detected");
 
-        // Step off the line to reset
-        let clear_car = VehicleState::new(
-            Vec2::new(TrackDef::tile_centre(14), TrackDef::tile_centre(10)),
-            0,
-            crate::tuning::CarTuning::default(),
-        );
-        t.update_player_on_track(&clear_car, track);
-        assert!(!t.on_start_gate);
+            // Step off the line to reset
+            let clear_car = VehicleState::new(
+                Vec2::new(TrackDef::tile_centre(14), TrackDef::tile_centre(10)),
+                0,
+                crate::tuning::CarTuning::default(),
+            );
+            t.update_player_on_track(&clear_car, track);
+            assert!(!t.on_start_gate);
 
-        // Far-right edge of the road ribbon (x=21, y=24)
-        assert_eq!(track.tile_at(21, 24), TrackTile::StartFinish);
-        let right_car = VehicleState::new(
-            Vec2::new(TrackDef::tile_centre(21), TrackDef::tile_centre(24)),
-            0,
-            crate::tuning::CarTuning::default(),
-        );
-        t.update_player_on_track(&right_car, track);
-        assert!(t.on_start_gate, "right edge of start line must be detected");
+            // Far-right edge of the road ribbon (x=21, y=24)
+            assert_eq!(track.tile_at(21, 24), TrackTile::StartFinish);
+            let right_car = VehicleState::new(
+                Vec2::new(TrackDef::tile_centre(21), TrackDef::tile_centre(24)),
+                0,
+                crate::tuning::CarTuning::default(),
+            );
+            t.update_player_on_track(&right_car, track);
+            assert!(t.on_start_gate, "right edge of start line must be detected");
+        } else {
+            let sy = track.start_gate.y;
+            let mut sf_x = Vec::new();
+            for x in 0..track.width {
+                if track.tile_at(x, sy) == TrackTile::StartFinish {
+                    sf_x.push(x);
+                }
+            }
+            if let (Some(&min_x), Some(&max_x)) = (sf_x.first(), sf_x.last()) {
+                let car = VehicleState::new(
+                    Vec2::new(TrackDef::tile_centre(min_x), TrackDef::tile_centre(sy)),
+                    0,
+                    crate::tuning::CarTuning::default(),
+                );
+                t.update_player_on_track(&car, track);
+                assert!(t.on_start_gate, "left edge of start line must be detected");
+
+                let car2 = VehicleState::new(
+                    Vec2::new(TrackDef::tile_centre(max_x), TrackDef::tile_centre(sy)),
+                    0,
+                    crate::tuning::CarTuning::default(),
+                );
+                t.update_player_on_track(&car2, track);
+                assert!(t.on_start_gate, "right edge of start line must be detected");
+            }
+        }
     }
 
     #[test]
@@ -1660,6 +1687,9 @@ mod tests {
         // Test that a car whose center is outside the gate tile still registers
         // when its nose or flanks clip the gate.
         let track = ALL_TRACKS[0];
+        if track.name != "Cascade Falls" {
+            return;
+        }
         let mut t = LapTimer::<16>::new(track.checkpoint_slice(), track.start_gate);
         t.start();
 

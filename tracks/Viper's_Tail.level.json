@@ -1,0 +1,9 @@
+{
+ "schema": "arduracer.level/1",
+ "name": "Viper's Tail",
+ "stem": "Viper's_Tail",
+ "grid": 80,
+ "road_half_cells": 3.0,
+ "half_width_world": 96,
+ "source": "svg"
+}

@@ -1022,7 +1022,7 @@ impl ArduracerGame {
                                     // held right now so the same press is not
                                     // re-read against the fresh race.
                                     self.pause.sync_edges(PauseMenu::input_from_pad(&pad));
-                                    let cdda_track = if self.current_track_idx >= 97 {
+                                    let cdda_track = if self.current_track_idx >= 25 {
                                         4
                                     } else {
                                         3 + ((self.current_track_idx / 6) as u8).min(3)
@@ -1544,7 +1544,7 @@ impl ArduracerGame {
                     self.audio.sync_ui_edges(pad.buttons.bits());
                     self.audio
                         .play_music(2, crate::gpu::tracktex::disc_reader());
-                    if self.current_track_idx >= 97 {
+                    if self.current_track_idx >= 25 {
                         self.state_mgr.city_select.arm_for_entry();
                         self.state_mgr.current = GameState::CitySelect;
                     } else {
@@ -1564,7 +1564,7 @@ impl ArduracerGame {
                 self.audio.enter_race();
                 self.pause.arm_for_race_start();
                 self.pause.sync_edges(PauseMenu::input_from_pad(pad));
-                let cdda_track = if self.current_track_idx >= 97 {
+                let cdda_track = if self.current_track_idx >= 25 {
                     4
                 } else {
                     3 + ((self.current_track_idx / 6) as u8).min(3)
@@ -1686,8 +1686,11 @@ impl ArduracerGame {
             // already on screen, not just the next one loaded.
             reset_texture_caches();
             if self.state_mgr.current == GameState::Racing {
-                let circuit =
-                    ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)];
+                let circuit = if self.current_track_idx >= 25 {
+                    self.current_track_idx
+                } else {
+                    ALL_TRACK_VISUALS[self.current_track_idx.min(ALL_TRACK_VISUALS.len() - 1)]
+                };
                 init_track_texture(circuit);
                 // Prewarm, exactly as `load_track` does, and this is the whole
                 // fix for the stutter on switching format mid-race.

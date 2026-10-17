@@ -386,6 +386,38 @@ def generate(params: GenParams | None = None, *, avoid: set[str] | None = None) 
         name = make_name(rng)
         tries += 1
 
+    if p.mode == "race_mania":
+        import sys
+        import os
+        here = os.path.dirname(os.path.abspath(__file__))
+        track_cook_dir = os.path.join(os.path.dirname(os.path.dirname(here)), "track_cook")
+        if track_cook_dir not in sys.path:
+            sys.path.insert(0, track_cook_dir)
+        import race_mania_generator as rmg
+
+        spec = rmg.generate_race_mania_track(seed=p.seed, name=name)
+        placed = spec["vertices"]
+        radii = spec["radii"]
+        level = Level(
+            name=name,
+            nodes=[Node(x, y, r) for (x, y), r in zip(placed, radii)],
+            mode="poly",
+            road_half_cells=p.road_half_cells,
+            runoff=spec.get("runoff", rng.choice(_RUNOFF) if p.runoff is None else p.runoff),
+            infield=rng.choice(_INFIELD) if p.infield is None else p.infield,
+            outside=rng.choice(_INFIELD) if p.outside is None else p.outside,
+            meta={
+                "generated": True,
+                "seed": p.seed,
+                "difficulty": p.difficulty,
+                "generator": "race_mania",
+                "editor": "level_editor",
+            },
+        )
+        level.clamp_to_grid(1.0)
+        _lay_out_marks(level, p, rng)
+        return level
+
     # Corners first, then straight runs between them. Both modes need a real
     # straight -- `test_circuits_are_wide_and_have_long_straights` fails below
     # 24 route samples, and a ring built purely out of smooth curvature has no
