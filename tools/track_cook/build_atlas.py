@@ -1445,11 +1445,12 @@ def emit_visual_tex(
             )
         f.write("];\n\n")
 
-        for city_prefix, var_name, city_title, base_idx in [
-            ("capetown", "CAPETOWN_BLOCK_SECTORS", "Cape Town", 28),
-            ("melbourne", "MELBOURNE_BLOCK_SECTORS", "Melbourne", 37),
-            ("london", "LONDON_BLOCK_SECTORS", "London", 46),
-        ]:
+        city_bases = [
+            ("capetown", "CAPETOWN_BLOCK_SECTORS", "Cape Town", circuit_block_base[-3]),
+            ("melbourne", "MELBOURNE_BLOCK_SECTORS", "Melbourne", circuit_block_base[-2]),
+            ("london", "LONDON_BLOCK_SECTORS", "London", circuit_block_base[-1]),
+        ]
+        for city_prefix, var_name, city_title, base_idx in city_bases:
             f.write(f"/// {city_title} 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].\n")
             f.write(f"pub static {var_name}: [TileSectorEntry; 9] = [\n")
             for i in range(9):

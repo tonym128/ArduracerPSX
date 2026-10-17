@@ -50,8 +50,12 @@ impl InputManager {
     ) -> VehicleInput {
         let input = self.controller.poll_from(pad);
 
-        self.rumble
-            .tick(surface, player.is_drifting, player.engine_rpm);
+        self.rumble.tick(
+            surface,
+            player.is_drifting,
+            player.tire_scrub,
+            player.engine_rpm,
+        );
 
         let (small, large) = self.rumble.actuator_bytes();
         psx_pad::set_rumble_port1(small, large);

@@ -116,7 +116,7 @@ impl MainMenu {
             "4. MANIA TRIALS",
             "5. FREE ROAM",
             "6. TUNING GARAGE",
-            "7. RECORDS & MEDALS",
+            "7. STAGE CHALLENGES",
             "8. SETTINGS",
         ];
 

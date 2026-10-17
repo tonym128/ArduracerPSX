@@ -13,11 +13,11 @@
 //! half -- the racer blips -- stays as primitives drawn on top.
 
 use crate::gpu::texlayout::{
-    minimap_colour, minimap_px_tile, minimap_tile_px, MINIMAP_INNER, MINIMAP_SIZE,
+    minimap_colour, minimap_tile_px, minimap_tile_rect, MINIMAP_INNER, MINIMAP_SIZE,
 };
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
-use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
+use arduracer_core::{AiRacer, LapTimer, TrackDef, TrackTile, VehicleState, NITRO_MAX_TICKS};
 use psx_gpu as gpu;
 use psx_gpu::material::BlendMode;
 
@@ -33,19 +33,64 @@ use psx_gpu::material::BlendMode;
 /// 4. Start/finish and checkpoint gates are stamped with highest priority.
 pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
     slot.begin_compose();
-    // Per-pixel downsample: sample the tile that each minimap pixel belongs to.
-    // The world is 96 tiles across and the inner window is 48 px, so a tile a
-    // `step` of 1 px would carry the bake past the slot -- this is the direct
-    // mapping that keeps the entire circuit in the window.
-    for py in 0..MINIMAP_INNER {
-        for px in 0..MINIMAP_INNER {
-            let tx = minimap_px_tile(track.width, px, MINIMAP_INNER);
-            let ty = minimap_px_tile(track.height, py, MINIMAP_INNER);
-            let tile = track.tile_at(tx as u8, ty as u8);
-            let (r, g, b) = minimap_colour(tile);
-            slot.set_pixel_rgb(px as u16, py as u16, r, g, b);
+    let bg = minimap_colour(TrackTile::OffRoad);
+    slot.fill_rect(0, 0, MINIMAP_INNER, MINIMAP_INNER, bg);
+
+    let tiles = track.tile_grid();
+    if tiles.is_empty() {
+        slot.upload();
+        return;
+    }
+
+    let w = track.width;
+    let h = track.height;
+
+    // Pass 1: Barriers and boundary walls
+    for ty in 0..h {
+        let row_idx = ty as usize * w as usize;
+        for tx in 0..w {
+            if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                if tile == TrackTile::Barrier {
+                    let (r, g, b) = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    slot.fill_rect(px, py, pw, ph, (r, g, b));
+                }
+            }
         }
     }
+
+    // Pass 2: Drivable road surface, curbs, and hazards (drawn on top of barriers/terrain)
+    for ty in 0..h {
+        let row_idx = ty as usize * w as usize;
+        for tx in 0..w {
+            if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                if tile.is_road()
+                    || tile == TrackTile::Curb
+                    || tile == TrackTile::BoostPad
+                    || tile == TrackTile::OilSlick
+                {
+                    let (r, g, b) = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    slot.fill_rect(px, py, pw, ph, (r, g, b));
+                }
+            }
+        }
+    }
+
+    // Pass 3: Start/finish and checkpoint gates (highest visual priority)
+    for ty in 0..h {
+        let row_idx = ty as usize * w as usize;
+        for tx in 0..w {
+            if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                if tile == TrackTile::StartFinish || tile == TrackTile::Checkpoint {
+                    let (r, g, b) = minimap_colour(tile);
+                    let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                    slot.fill_rect(px, py, pw, ph, (r, g, b));
+                }
+            }
+        }
+    }
+
     slot.upload();
 }
 
@@ -323,4 +368,77 @@ pub fn render_hud<const N: usize>(
         230,
         0,
     );
+}
+
+/// Renders a standalone vector minimap for UI screens (track select, championship, stage table).
+///
+/// Draws the track's route outline, start/finish line, and checkpoint gates inside the
+/// specified `(x, y, w, h)` bounding box. Runs entirely via hardware GP0 lines and rects,
+/// requiring no resident level grid or CD-ROM streaming.
+pub fn draw_ui_minimap(x: i16, y: i16, w: u16, h: u16, track: &TrackDef) {
+    if w < 10 || h < 10 {
+        return;
+    }
+    // Background and border
+    gpu::draw_rect_flat(x, y, w, h, 14, 16, 24);
+    gpu::draw_rect_flat(x + 1, y + 1, w - 2, h - 2, 28, 34, 48);
+    gpu::draw_rect_flat(x + 2, y + 2, w - 4, h - 4, 10, 12, 18);
+
+    let inner_x = x + 4;
+    let inner_y = y + 4;
+    let inner_w = (w - 8) as i32;
+    let inner_h = (h - 8) as i32;
+
+    let total_w = track.width as i32 * arduracer_core::TILE_SIZE;
+    let total_h = track.height as i32 * arduracer_core::TILE_SIZE;
+    if total_w <= 0 || total_h <= 0 {
+        return;
+    }
+
+    // 1. Draw route line
+    if track.route.len() >= 2 {
+        for i in 0..track.route.len() {
+            let next_i = if i + 1 < track.route.len() { i + 1 } else { 0 };
+            let p0 = track.route[i];
+            let p1 = track.route[next_i];
+
+            let x0 = inner_x + ((p0.x.to_int().clamp(0, total_w) * inner_w) / total_w) as i16;
+            let y0 = inner_y + ((p0.y.to_int().clamp(0, total_h) * inner_h) / total_h) as i16;
+            let x1 = inner_x + ((p1.x.to_int().clamp(0, total_w) * inner_w) / total_w) as i16;
+            let y1 = inner_y + ((p1.y.to_int().clamp(0, total_h) * inner_h) / total_h) as i16;
+
+            // Base road line (light silver-blue)
+            gpu::draw_line_mono(x0, y0, x1, y1, 200, 210, 230);
+            // 1-pixel offset for slight thickness
+            gpu::draw_line_mono(x0 + 1, y0, x1 + 1, y1, 140, 150, 170);
+        }
+    } else {
+        // Fallback: connect checkpoints if route is absent
+        let cps = track.checkpoint_slice();
+        if !cps.is_empty() {
+            for i in 0..cps.len() {
+                let next_i = if i + 1 < cps.len() { i + 1 } else { 0 };
+                let c0 = cps[i];
+                let c1 = cps[next_i];
+                let x0 = inner_x + ((c0.x as i32 * inner_w) / track.width as i32) as i16;
+                let y0 = inner_y + ((c0.y as i32 * inner_h) / track.height as i32) as i16;
+                let x1 = inner_x + ((c1.x as i32 * inner_w) / track.width as i32) as i16;
+                let y1 = inner_y + ((c1.y as i32 * inner_h) / track.height as i32) as i16;
+                gpu::draw_line_mono(x0, y0, x1, y1, 180, 190, 210);
+            }
+        }
+    }
+
+    // 2. Checkpoints (cyan dots)
+    let cps = track.checkpoint_slice();
+    for cp in cps {
+        let cx = inner_x + ((cp.x as i32 * inner_w) / track.width as i32) as i16;
+        let cy = inner_y + ((cp.y as i32 * inner_h) / track.height as i32) as i16;
+        gpu::draw_rect_flat(cx, cy, 2, 2, 0, 210, 255);
+    }
+
+    // 3. Start / Finish line (bright gold marker)
+    let sx = inner_x + ((track.start_gate.x as i32 * inner_w) / track.width as i32) as i16;
+    let sy = inner_y + ((track.start_gate.y as i32 * inner_h) / track.height as i32) as i16;
+    gpu::draw_rect_flat(sx - 1, sy - 1, 3, 3, 255, 230, 40);
 }

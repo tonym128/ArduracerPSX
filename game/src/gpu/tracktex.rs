@@ -875,54 +875,14 @@ pub fn reset_texture_caches() {
 }
 
 /// Prepares the track texture streaming cache for a new circuit or city.
-#[allow(clippy::needless_range_loop)]
 /// Grid dimensions of every shipped level, in `LEVELS.BIN` order.
-///
-/// The prefix-sum table [`crate::level_grid::offset_in_asset`] indexes. It
-/// duplicates `TrackDef::width`/`height` deliberately: the loader computes an
-/// offset for a level it has not bound yet, and asking a `TrackDef` for its own
-/// dimensions would require the grid to already exist -- which is the thing being
-/// loaded. A mismatch here is the one failure that produces a plausible-looking
-/// level that is quietly the wrong terrain, so it is pinned by a host test.
-pub const LEVEL_DIMS: [(u8, u8); 28] = [
-    // 24 circuits
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    (80, 80),
-    // Map 25 (Titan Circuit)
-    (160, 160),
-    // 3 free-roam cities
-    (240, 240),
-    (240, 240),
-    (240, 240),
-];
+pub use arduracer_core::levels::LEVEL_DIMS;
 
 /// Loads `track`'s tile grid from disc and binds it.
 ///
 /// Call after `init_track_texture`, which is what locates the asset.
 pub fn load_level_grid(circuit: usize, track: &'static arduracer_core::TrackDef) -> bool {
-    // 25 circuits occupy 0..24; the cities follow at 25..27.
+    // 31 circuits occupy 0..30; the cities follow at 31..33.
     if circuit >= LEVEL_DIMS.len() {
         return false;
     }

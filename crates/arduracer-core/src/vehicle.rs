@@ -207,6 +207,8 @@ pub struct VehicleState {
     /// A slick is an area, not an event: re-arming it as soon as the previous
     /// spin-out expired would mean a car parked on one could never drive out.
     pub oil_slick_latch: bool,
+    /// Lateral tire scrub / slip intensity.
+    pub tire_scrub: Fixed,
     /// Car tuning profile.
     pub tuning: CarTuning,
 }
@@ -231,6 +233,7 @@ impl Default for VehicleState {
             slide_catch: 0,
             spinout_cooldown: 0,
             oil_slick_latch: false,
+            tire_scrub: Fixed::ZERO,
             tuning: CarTuning::default(),
         }
     }
@@ -377,6 +380,7 @@ impl VehicleState {
         self.slide_catch = 0;
         self.spinout_cooldown = 0;
         self.oil_slick_latch = false;
+        self.tire_scrub = Fixed::ZERO;
     }
 
     /// Unit right-hand lateral vector for the current heading.
@@ -788,6 +792,11 @@ impl VehicleState {
             let lateral_cap = damped_forward.abs() * slip_cap_ratio + LATERAL_CAP_FLOOR;
 
             let damped_lateral = (lateral_speed * lateral_hold).clamp(-lateral_cap, lateral_cap);
+            self.tire_scrub = if lateral_cap > Fixed::ZERO {
+                ((lateral_speed * lateral_hold).abs() * Fixed::ONE) / lateral_cap
+            } else {
+                Fixed::ZERO
+            };
 
             // Induced tire scrub: when lateral speed pushes near/past the grip limit,
             // the tires convert kinetic energy to heat/noise and scrub forward speed.

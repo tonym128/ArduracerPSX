@@ -42,6 +42,24 @@ mod texlayout;
 #[path = "../../../game/src/ui/title_input.rs"]
 mod title_input;
 
+pub mod ui {
+    pub mod font {
+        pub fn draw_char(_x: u16, _y: u16, _ch: u8, _colour: (u8, u8, u8), _scale: u16) {}
+        pub fn draw_text(_x: u16, _y: u16, _text: &str, _colour: (u8, u8, u8), _scale: u16) {}
+    }
+}
+
+pub mod gpu {
+    use arduracer_core::TrackDef;
+    pub fn draw_ui_minimap(_x: u16, _y: u16, _w: u16, _h: u16, _track: &TrackDef) {}
+}
+
+#[path = "../../../game/src/ui/stage_table.rs"]
+pub mod stage_table;
+
+#[path = "../../../game/src/ui/track_select.rs"]
+pub mod track_select;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -2608,6 +2626,105 @@ mod texture_pipeline_tests {
             "Checkpoint pixels must be present and visible"
         );
     }
+
+    /// Every Mania cup circuit produces a continuous and legible minimap with road and checkpoint visibility.
+    #[test]
+    fn mania_maps_bake_valid_continuous_minimaps() {
+        use arduracer_core::levels::ALL_TRACKS;
+        for &track in &ALL_TRACKS[25..=30] {
+            let tiles = track.tile_grid();
+            assert!(
+                !tiles.is_empty(),
+                "Track {} grid must be loaded",
+                track.name
+            );
+            let w = track.width;
+            let h = track.height;
+            let bg = minimap_colour(TrackTile::OffRoad);
+            let mut buffer = [bg; (MINIMAP_INNER * MINIMAP_INNER) as usize];
+
+            // Pass 1: Barriers
+            for ty in 0..h {
+                let row_idx = ty as usize * w as usize;
+                for tx in 0..w {
+                    if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                        if tile == TrackTile::Barrier {
+                            let col = minimap_colour(tile);
+                            let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                            for y in py..(py + ph) {
+                                for x in px..(px + pw) {
+                                    buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Pass 2: Road & curbs & hazards
+            for ty in 0..h {
+                let row_idx = ty as usize * w as usize;
+                for tx in 0..w {
+                    if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                        if tile.is_road()
+                            || tile == TrackTile::Curb
+                            || tile == TrackTile::BoostPad
+                            || tile == TrackTile::OilSlick
+                        {
+                            let col = minimap_colour(tile);
+                            let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                            for y in py..(py + ph) {
+                                for x in px..(px + pw) {
+                                    buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Pass 3: Start/finish and checkpoints
+            for ty in 0..h {
+                let row_idx = ty as usize * w as usize;
+                for tx in 0..w {
+                    if let Some(&tile) = tiles.get(row_idx + tx as usize) {
+                        if tile == TrackTile::StartFinish || tile == TrackTile::Checkpoint {
+                            let col = minimap_colour(tile);
+                            let (px, py, pw, ph) = minimap_tile_rect(tx, ty, w, h);
+                            for y in py..(py + ph) {
+                                for x in px..(px + pw) {
+                                    buffer[(y * MINIMAP_INNER + x) as usize] = col;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let road_col = minimap_colour(TrackTile::Tarmac);
+            let cp_col = minimap_colour(TrackTile::Checkpoint);
+            let sf_col = minimap_colour(TrackTile::StartFinish);
+
+            let road_pixels = buffer.iter().filter(|&&c| c == road_col).count();
+            let cp_pixels = buffer
+                .iter()
+                .filter(|&&c| c == cp_col || c == sf_col)
+                .count();
+
+            assert!(
+                road_pixels >= 200,
+                "{}: road must be clearly visible on minimap (got {} px)",
+                track.name,
+                road_pixels
+            );
+            assert!(
+                cp_pixels >= 4,
+                "{}: checkpoints must be visible on minimap (got {} px)",
+                track.name,
+                cp_pixels
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2655,8 +2772,22 @@ mod minimap_load_order_tests {
 #[cfg(test)]
 mod city_level_grid_tests {
     const LEVEL_GRID_SRC: &str = include_str!("../../../game/src/level_grid.rs");
+    const TRACKTEX_SRC: &str = include_str!("../../../game/src/gpu/tracktex.rs");
 
     use arduracer_core::levels::LEVEL_DIMS;
+
+    #[test]
+    fn tracktex_level_dims_matches_all_shipped_levels() {
+        assert!(
+            TRACKTEX_SRC.contains("pub use arduracer_core::levels::LEVEL_DIMS;"),
+            "tracktex must re-export arduracer_core::levels::LEVEL_DIMS so all 31 circuits and 3 cities match LEVELS.BIN layout"
+        );
+        assert_eq!(
+            LEVEL_DIMS.len(),
+            34,
+            "LEVEL_DIMS must contain exactly 31 circuits and 3 free-roam cities"
+        );
+    }
 
     const MAX_LEVEL_TILES: usize = 57_600;
     const STAGE_SLACK: usize = 4096;
@@ -3524,5 +3655,133 @@ mod graphics_settings {
                 assert!(reached, "settings screen could not reach format {v}");
             }
         }
+    }
+
+    fn test_pad(mask: u16) -> psx_pad::PadState {
+        psx_pad::PadState {
+            buttons: psx_pad::ButtonState::from_bits(mask),
+            mode: psx_pad::PadMode::Digital,
+            sticks: psx_pad::AnalogSticks::CENTERED,
+            id_low: 0x41,
+        }
+    }
+
+    #[test]
+    fn stage_table_tabs_and_active_tracks() {
+        use super::stage_table::{StageFilterTab, StageTableScreen};
+
+        assert_eq!(StageFilterTab::All.name(), "ALL STAGES (31)");
+        assert_eq!(StageFilterTab::GrandPrix.name(), "GP TRIALS (25)");
+        assert_eq!(StageFilterTab::Mania.name(), "MANIA TRIALS (6)");
+
+        assert_eq!(StageFilterTab::All.next(), StageFilterTab::GrandPrix);
+        assert_eq!(StageFilterTab::GrandPrix.next(), StageFilterTab::Mania);
+        assert_eq!(StageFilterTab::Mania.next(), StageFilterTab::All);
+
+        assert_eq!(StageFilterTab::All.prev(), StageFilterTab::Mania);
+        assert_eq!(StageFilterTab::Mania.prev(), StageFilterTab::GrandPrix);
+        assert_eq!(StageFilterTab::GrandPrix.prev(), StageFilterTab::All);
+
+        let mut screen = StageTableScreen::new();
+        screen.tab = StageFilterTab::All;
+        assert_eq!(screen.active_tracks().len(), 31);
+        assert_eq!(screen.active_tracks()[0], 0);
+        assert_eq!(screen.active_tracks()[30], 30);
+
+        screen.tab = StageFilterTab::GrandPrix;
+        assert_eq!(screen.active_tracks().len(), 25);
+        assert_eq!(screen.active_tracks()[24], 24);
+
+        screen.tab = StageFilterTab::Mania;
+        assert_eq!(screen.active_tracks().len(), 6);
+        assert_eq!(screen.active_tracks()[0], 25);
+        assert_eq!(screen.active_tracks()[5], 30);
+    }
+
+    #[test]
+    fn stage_table_navigation_and_actions() {
+        use super::stage_table::{StageFilterTab, StageTableAction, StageTableScreen};
+        use psx_pad::button;
+
+        let mut screen = StageTableScreen::new();
+        screen.arm_for_entry(StageFilterTab::Mania);
+        assert_eq!(screen.selected_row, 0);
+        assert_eq!(screen.scroll_top, 0);
+
+        // Initial held edge release
+        let action = screen.update(&test_pad(0));
+        assert_eq!(action, StageTableAction::None);
+
+        // Down advances row
+        screen.update(&test_pad(button::DOWN));
+        screen.update(&test_pad(0));
+        assert_eq!(screen.selected_row, 1);
+
+        // Wrapping: 6 mania tracks (rows 0..=5). Advance to 5 then down wraps to 0.
+        for _ in 0..4 {
+            screen.update(&test_pad(button::DOWN));
+            screen.update(&test_pad(0));
+        }
+        assert_eq!(screen.selected_row, 5);
+
+        screen.update(&test_pad(button::DOWN));
+        screen.update(&test_pad(0));
+        assert_eq!(screen.selected_row, 0, "DOWN from last row wraps to 0");
+
+        // UP from 0 wraps to last row
+        screen.update(&test_pad(button::UP));
+        screen.update(&test_pad(0));
+        assert_eq!(screen.selected_row, 5, "UP from 0 wraps to last row");
+
+        // Tab switch with RIGHT
+        screen.update(&test_pad(button::RIGHT));
+        screen.update(&test_pad(0));
+        assert_eq!(screen.tab, StageFilterTab::All);
+        assert_eq!(screen.selected_row, 0, "tab switch resets selected row");
+
+        // Action on CROSS confirms stage challenge
+        let action = screen.update(&test_pad(button::CROSS));
+        assert_eq!(action, StageTableAction::SelectStage(0));
+        screen.update(&test_pad(0));
+
+        // Action on CIRCLE backs out
+        let action = screen.update(&test_pad(button::CIRCLE));
+        assert_eq!(action, StageTableAction::Back);
+        screen.update(&test_pad(0));
+
+        // Action on SELECT switches to carousel
+        let action = screen.update(&test_pad(button::SELECT));
+        assert_eq!(action, StageTableAction::SwitchToCarousel);
+    }
+
+    #[test]
+    fn track_select_open_table_toggle() {
+        use super::track_select::TrackSelectScreen;
+        use arduracer_core::levels::GameMode;
+        use psx_pad::button;
+
+        let mut screen = TrackSelectScreen::new();
+        screen.arm_for_entry(GameMode::GrandPrix, false);
+        assert_eq!(screen.track_range(), (0, 25));
+        assert!(!screen.check_open_table());
+
+        // Release buttons
+        screen.update(&test_pad(0));
+
+        // Press SELECT triggers open_table
+        screen.update(&test_pad(button::SELECT));
+        assert!(screen.check_open_table(), "SELECT toggles open_table flag");
+        assert!(
+            !screen.check_open_table(),
+            "check_open_table consumes the flag"
+        );
+
+        // Mania mode track range
+        screen.arm_for_entry(GameMode::Mania, false);
+        assert_eq!(screen.track_range(), (25, 31));
+
+        // Records mode track range (all tracks)
+        screen.arm_for_entry(GameMode::GrandPrix, true);
+        assert_eq!(screen.track_range(), (0, 31));
     }
 }

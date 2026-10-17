@@ -207,14 +207,6 @@ pub fn minimap_world_pos(world: arduracer_core::Fixed, extent_tiles: u8) -> i16 
 
 /// Pixels per tile along each axis when scaling a `w` x `h` circuit into the
 /// minimap's inner area.
-
-///
-/// One pixel per tile is only true when the circuit is at most `inner` tiles
-/// across. Tracks are 96x96 and `inner` is 48, so the direct mapping halves the
-/// step: two tiles share a pixel. The old `minimap_step` floored that to 1, so
-
-/// Pixels per tile along each axis when scaling a `w` x `h` circuit into the
-/// minimap's inner area.
 ///
 /// Never zero, even for a degenerate grid, or every tile would stack on one pixel
 /// and the outline would smear.

@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 arduracer-core = { path = "../../crates/arduracer-core" }
+psx-pad = { path = "../../psoxide/sdk/crates/psx-pad" }
+psx-gpu = { path = "../../psoxide/sdk/crates/psx-gpu" }

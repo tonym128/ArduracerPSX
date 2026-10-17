@@ -16,7 +16,7 @@ Sources, in the order `LEVELS.BIN` lays them out:
   own dimensions.
 
 Order matters and is not negotiable: the runtime slices the asset by a prefix
-sum over `game::gpu::tracktex::LEVEL_DIMS`, which is 24 circuits then 3 cities.
+sum over `arduracer_core::levels::LEVEL_DIMS`, which is 31 circuits then 3 cities.
 `crates/arduracer-core/tests/level_grid_asset.rs` asserts the resulting layout
 against a golden hash captured from the committed sources.
 

@@ -163,7 +163,10 @@ impl TextureSlot {
     /// If `w` or `h` exceeds the slot.
     pub fn blit_region(&self, x: i16, y: i16, w: u16, h: u16, blend: BlendMode) {
         assert!(w <= self.rect.w, "TextureSlot: blit width {w} exceeds slot");
-        assert!(h <= self.rect.h, "TextureSlot: blit height {h} exceeds slot");
+        assert!(
+            h <= self.rect.h,
+            "TextureSlot: blit height {h} exceeds slot"
+        );
         let material =
             TextureMaterial::blended(0, self.tpage.uv_tpage_word(0), (0xFF, 0xFF, 0xFF), blend);
         gpu::draw_sprite_material(x, y, w, h, (0, 0), material);

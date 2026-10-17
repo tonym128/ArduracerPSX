@@ -136,3 +136,103 @@ fn test_loaded_city_maps_start_on_road_and_can_move() {
         );
     }
 }
+
+#[test]
+fn test_city_level_dims_and_disc_offsets_are_canonical() {
+    use arduracer_core::levels::LEVEL_DIMS;
+
+    assert_eq!(
+        LEVEL_DIMS.len(),
+        34,
+        "LEVEL_DIMS must encompass all 31 circuits and 3 free-roam cities"
+    );
+
+    // Circuits 0..30 must be standard circuits, 31..33 are the 240x240 cities
+    assert_eq!(LEVEL_DIMS[31], (240, 240), "Cape Town must be 240x240");
+    assert_eq!(LEVEL_DIMS[32], (240, 240), "Melbourne must be 240x240");
+    assert_eq!(LEVEL_DIMS[33], (240, 240), "London must be 240x240");
+
+    let mut offset = 0usize;
+    for (i, &(w, h)) in LEVEL_DIMS.iter().enumerate() {
+        if i == 31 {
+            assert_eq!(
+                offset, 217_600,
+                "Cape Town grid must start at byte 217,600 in LEVELS.BIN"
+            );
+        } else if i == 32 {
+            assert_eq!(
+                offset, 275_200,
+                "Melbourne grid must start at byte 275,200 in LEVELS.BIN"
+            );
+        } else if i == 33 {
+            assert_eq!(
+                offset, 332_800,
+                "London grid must start at byte 332,800 in LEVELS.BIN"
+            );
+        }
+        offset += w as usize * h as usize;
+    }
+    assert_eq!(
+        offset, 390_400,
+        "Total uncompressed LEVELS.BIN size across all 34 levels must be 390,400 bytes"
+    );
+}
+
+#[test]
+fn test_city_block_sectors_match_circuit_block_indices() {
+    use arduracer_core::visual_tex::{
+        circuit_block_index, CAPETOWN_BLOCK_SECTORS, CIRCUIT_BLOCK_SECTORS, LONDON_BLOCK_SECTORS,
+        MELBOURNE_BLOCK_SECTORS,
+    };
+
+    // Cape Town is circuit 31 (base block 34)
+    assert_eq!(circuit_block_index(31, 0, 0), 34);
+    for by in 0..3 {
+        for bx in 0..3 {
+            let expected_idx = circuit_block_index(31, bx, by);
+            let block_idx = by * 3 + bx;
+            assert_eq!(
+                CAPETOWN_BLOCK_SECTORS[block_idx], CIRCUIT_BLOCK_SECTORS[expected_idx],
+                "Cape Town block ({bx}, {by}) sector entry mismatch"
+            );
+            assert!(
+                CAPETOWN_BLOCK_SECTORS[block_idx].sector_count > 0,
+                "Cape Town block ({bx}, {by}) must have non-zero sectors"
+            );
+        }
+    }
+
+    // Melbourne is circuit 32 (base block 43)
+    assert_eq!(circuit_block_index(32, 0, 0), 43);
+    for by in 0..3 {
+        for bx in 0..3 {
+            let expected_idx = circuit_block_index(32, bx, by);
+            let block_idx = by * 3 + bx;
+            assert_eq!(
+                MELBOURNE_BLOCK_SECTORS[block_idx], CIRCUIT_BLOCK_SECTORS[expected_idx],
+                "Melbourne block ({bx}, {by}) sector entry mismatch"
+            );
+            assert!(
+                MELBOURNE_BLOCK_SECTORS[block_idx].sector_count > 0,
+                "Melbourne block ({bx}, {by}) must have non-zero sectors"
+            );
+        }
+    }
+
+    // London is circuit 33 (base block 52)
+    assert_eq!(circuit_block_index(33, 0, 0), 52);
+    for by in 0..3 {
+        for bx in 0..3 {
+            let expected_idx = circuit_block_index(33, bx, by);
+            let block_idx = by * 3 + bx;
+            assert_eq!(
+                LONDON_BLOCK_SECTORS[block_idx], CIRCUIT_BLOCK_SECTORS[expected_idx],
+                "London block ({bx}, {by}) sector entry mismatch"
+            );
+            assert!(
+                LONDON_BLOCK_SECTORS[block_idx].sector_count > 0,
+                "London block ({bx}, {by}) must have non-zero sectors"
+            );
+        }
+    }
+}

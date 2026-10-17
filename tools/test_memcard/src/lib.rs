@@ -483,4 +483,28 @@ mod tests {
             "a refused setup must not be written as anything else"
         );
     }
+
+    /// If the player exits a stage early (e.g. Pause -> Restart or QuitToMenu),
+    /// completed lap times and medals/trophies earned for best laps must be
+    /// recorded to the memory card immediately and persisted across reload.
+    #[test]
+    fn early_stage_exit_persists_best_lap_times_and_medals_to_card() {
+        let mut card = FaultCard::formatted();
+        let mut m = MemoryCardManager::new();
+        assert_eq!(m.probe_with(&mut card), MemcardStatus::FreshProfile);
+
+        // Player completes lap 1 on track 4 with a silver medal time (1500 ticks, medal 2)
+        assert!(m.record_lap(4, 1500, 2));
+        assert!(m.is_dirty);
+
+        // Player pauses and exits early: manager flushes dirty save data.
+        assert_eq!(m.flush_with(&mut card), MemcardStatus::Saved);
+        assert!(!m.is_dirty);
+
+        // Reload card as if rebooting or re-entering menus
+        let mut reloaded = MemoryCardManager::new();
+        assert_eq!(reloaded.probe_with(&mut card), MemcardStatus::Loaded);
+        assert_eq!(reloaded.save_data.best_lap_ticks[4], 1500);
+        assert_eq!(reloaded.save_data.medals_earned[4], 2);
+    }
 }

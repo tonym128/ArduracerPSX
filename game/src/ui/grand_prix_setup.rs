@@ -171,56 +171,60 @@ impl GrandPrixSetupScreen {
         None
     }
 
-    pub fn render(&self, saved_champ: Option<&ChampionshipSession>) {
+    pub fn render(
+        &self,
+        saved_champ: Option<&ChampionshipSession>,
+        save: Option<&arduracer_core::SaveData>,
+    ) {
         // Outer box and drop shadow
-        gpu::draw_rect_flat(18, 14, 284, 212, 10, 12, 18);
-        gpu::draw_rect_flat(20, 16, 280, 208, 18, 22, 32);
-        gpu::draw_rect_flat(22, 18, 276, 204, 26, 32, 46);
+        gpu::draw_rect_flat(14, 12, 292, 216, 10, 12, 18);
+        gpu::draw_rect_flat(16, 14, 288, 212, 18, 22, 32);
+        gpu::draw_rect_flat(18, 16, 284, 208, 26, 32, 46);
 
         // Header Title
         let header_str = match self.mode {
             GameMode::Mania => "MANIA PRIX CHAMPIONSHIP",
             _ => "GRAND PRIX CHAMPIONSHIP",
         };
-        draw_text(66, 24, header_str, (255, 220, 0), 1);
-        gpu::draw_rect_flat(36, 38, 248, 2, 220, 40, 60);
+        draw_text(60, 22, header_str, (255, 220, 0), 1);
+        gpu::draw_rect_flat(30, 34, 260, 2, 220, 40, 60);
 
         let pulse = (self.anim_timer >> 3) & 1 == 0;
         let hl_bg = if pulse { (220, 35, 55) } else { (180, 25, 45) };
 
-        let mut y = 48i16;
+        // Left Column: Navigation Options
+        let mut y = 42i16;
 
         // 0. Resume Championship (if available)
         if self.resume_available {
             let is_sel = self.selected_row == 0;
             if is_sel {
-                gpu::draw_rect_flat(36, y - 2, 248, 22, hl_bg.0, hl_bg.1, hl_bg.2);
-                draw_text(44, y as u16 + 4, "> RESUME SAVED CUP", (255, 255, 255), 1);
+                gpu::draw_rect_flat(24, y - 2, 146, 22, hl_bg.0, hl_bg.1, hl_bg.2);
+                draw_text(28, y as u16 + 4, "> RESUME CUP", (255, 255, 255), 1);
             } else {
-                gpu::draw_rect_flat(36, y - 2, 248, 22, 35, 40, 55);
-                draw_text(44, y as u16 + 4, "  RESUME SAVED CUP", (180, 210, 240), 1);
+                gpu::draw_rect_flat(24, y - 2, 146, 22, 35, 40, 55);
+                draw_text(28, y as u16 + 4, "  RESUME CUP", (180, 210, 240), 1);
             }
             if let Some(sc) = saved_champ {
                 let cup_str = sc.cup_name();
-                let _stage_num = sc.current_stage + 1;
-                draw_text(180, y as u16 + 4, cup_str, (255, 215, 0), 1);
+                draw_text(104, y as u16 + 4, cup_str, (255, 215, 0), 1);
             }
             y += 26;
         }
 
         // Section header
-        draw_text(40, y as u16, "--- NEW CHAMPIONSHIP ---", (120, 140, 165), 1);
-        y += 18;
+        draw_text(26, y as u16, "-- CHAMPIONSHIP --", (120, 140, 165), 1);
+        y += 16;
 
         // 1. Select Cup
         {
             let is_sel = self.selected_row == 1;
             if is_sel {
-                gpu::draw_rect_flat(36, y - 2, 248, 22, hl_bg.0, hl_bg.1, hl_bg.2);
-                draw_text(44, y as u16 + 4, "> CUP:", (255, 255, 255), 1);
+                gpu::draw_rect_flat(24, y - 2, 146, 22, hl_bg.0, hl_bg.1, hl_bg.2);
+                draw_text(28, y as u16 + 4, "> CUP:", (255, 255, 255), 1);
             } else {
-                gpu::draw_rect_flat(36, y - 2, 248, 22, 35, 40, 55);
-                draw_text(44, y as u16 + 4, "  CUP:", (180, 190, 205), 1);
+                gpu::draw_rect_flat(24, y - 2, 146, 22, 35, 40, 55);
+                draw_text(28, y as u16 + 4, "  CUP:", (180, 190, 205), 1);
             }
             let cups = self.active_cups();
             let cup_name = cups
@@ -233,9 +237,9 @@ impl GrandPrixSetupScreen {
                 2 => (255, 215, 0),
                 _ => (0, 220, 255),
             };
-            draw_text(110, y as u16 + 4, "<", (255, 235, 40), 1);
-            draw_text(124, y as u16 + 4, cup_name, cup_col, 1);
-            draw_text(244, y as u16 + 4, ">", (255, 235, 40), 1);
+            draw_text(74, y as u16 + 4, "<", (255, 235, 40), 1);
+            draw_text(84, y as u16 + 4, cup_name, cup_col, 1);
+            draw_text(160, y as u16 + 4, ">", (255, 235, 40), 1);
             y += 26;
         }
 
@@ -243,11 +247,11 @@ impl GrandPrixSetupScreen {
         {
             let is_sel = self.selected_row == 2;
             if is_sel {
-                gpu::draw_rect_flat(36, y - 2, 248, 22, hl_bg.0, hl_bg.1, hl_bg.2);
-                draw_text(44, y as u16 + 4, "> DIFFICULTY:", (255, 255, 255), 1);
+                gpu::draw_rect_flat(24, y - 2, 146, 22, hl_bg.0, hl_bg.1, hl_bg.2);
+                draw_text(28, y as u16 + 4, "> DIFF:", (255, 255, 255), 1);
             } else {
-                gpu::draw_rect_flat(36, y - 2, 248, 22, 35, 40, 55);
-                draw_text(44, y as u16 + 4, "  DIFFICULTY:", (180, 190, 205), 1);
+                gpu::draw_rect_flat(24, y - 2, 146, 22, 35, 40, 55);
+                draw_text(28, y as u16 + 4, "  DIFF:", (180, 190, 205), 1);
             }
             let diff_name = self.selected_difficulty.name();
             let diff_col = match self.selected_difficulty {
@@ -255,9 +259,9 @@ impl GrandPrixSetupScreen {
                 Difficulty::Medium => (255, 215, 0),
                 Difficulty::Hard => (255, 60, 60),
             };
-            draw_text(150, y as u16 + 4, "<", (255, 235, 40), 1);
-            draw_text(164, y as u16 + 4, diff_name, diff_col, 1);
-            draw_text(224, y as u16 + 4, ">", (255, 235, 40), 1);
+            draw_text(84, y as u16 + 4, "<", (255, 235, 40), 1);
+            draw_text(96, y as u16 + 4, diff_name, diff_col, 1);
+            draw_text(152, y as u16 + 4, ">", (255, 235, 40), 1);
             y += 28;
         }
 
@@ -265,22 +269,117 @@ impl GrandPrixSetupScreen {
         {
             let is_sel = self.selected_row == 3;
             let (btn_str, btn_unsel) = match self.mode {
-                GameMode::Mania => (">> START MANIA PRIX <<", "   START MANIA PRIX   "),
-                _ => (">> START GRAND PRIX <<", "   START GRAND PRIX   "),
+                GameMode::Mania => (">> START MANIA <<", "   START MANIA   "),
+                _ => (">> START RACE <<", "   START RACE   "),
             };
             if is_sel {
-                gpu::draw_rect_flat(50, y, 220, 24, hl_bg.0, hl_bg.1, hl_bg.2);
-                draw_text(80, y as u16 + 7, btn_str, (255, 255, 255), 1);
+                gpu::draw_rect_flat(24, y, 146, 24, hl_bg.0, hl_bg.1, hl_bg.2);
+                draw_text(36, y as u16 + 7, btn_str, (255, 255, 255), 1);
             } else {
-                gpu::draw_rect_flat(50, y, 220, 24, 45, 55, 75);
-                draw_text(80, y as u16 + 7, btn_unsel, (200, 210, 230), 1);
+                gpu::draw_rect_flat(24, y, 146, 24, 45, 55, 75);
+                draw_text(36, y as u16 + 7, btn_unsel, (200, 210, 230), 1);
             }
+        }
+
+        // Right Column: Minimap, Records, Par Times & Level Passed
+        gpu::draw_rect_flat(178, 40, 122, 156, 30, 36, 48);
+        let preview_track_idx = if self.selected_row == 0 && self.resume_available {
+            saved_champ.map(|c| c.current_track_idx()).unwrap_or(0)
+        } else {
+            let cups = self.active_cups();
+            let cup = cups.get(self.selected_cup as usize);
+            cup.and_then(|c| c.track_indices.first().copied())
+                .unwrap_or(0)
+        };
+        let track = arduracer_core::levels::ALL_TRACKS
+            [preview_track_idx.min(arduracer_core::levels::ALL_TRACKS.len() - 1)];
+
+        draw_text(182, 44, "STAGE PREVIEW:", (255, 225, 30), 1);
+        draw_text(182, 54, track.name, (255, 255, 255), 1);
+
+        // Minimap
+        crate::gpu::draw_ui_minimap(182, 66, 62, 54, track);
+
+        // Par Times
+        let gold_sec = track.par_times.gold_ticks / 60;
+        draw_text(248, 70, "GOLD:", (255, 215, 0), 1);
+        let g_str = [
+            b'0' + ((gold_sec / 10) % 10) as u8,
+            b'0' + (gold_sec % 10) as u8,
+            b'S',
+            0,
+        ];
+        let mut gx = 250u16;
+        for &ch in g_str.iter() {
+            if ch == 0 {
+                break;
+            }
+            crate::ui::font::draw_char(gx, 82, ch, (255, 255, 255), 1);
+            gx += 7;
+        }
+
+        // Personal Best
+        let best_ticks = save
+            .and_then(|s| s.best_lap_ticks.get(preview_track_idx))
+            .copied()
+            .unwrap_or(arduracer_core::timing::NO_BEST_LAP);
+        draw_text(182, 124, "BEST:", (180, 200, 220), 1);
+        if best_ticks != arduracer_core::timing::NO_BEST_LAP && best_ticks != u32::MAX {
+            let (m, s, cs) = arduracer_core::LapTimer::<1>::format_ticks(best_ticks);
+            let time_str = [
+                b'0' + ((m / 10) % 10) as u8,
+                b'0' + (m % 10) as u8,
+                b':',
+                b'0' + ((s / 10) % 10) as u8,
+                b'0' + (s % 10) as u8,
+                b'.',
+                b'0' + ((cs / 10) % 10) as u8,
+                b'0' + (cs % 10) as u8,
+                0,
+            ];
+            let mut cur_x = 224u16;
+            for &ch in time_str.iter() {
+                if ch == 0 {
+                    break;
+                }
+                crate::ui::font::draw_char(cur_x, 124, ch, (255, 230, 40), 1);
+                cur_x += 6;
+            }
+        } else {
+            draw_text(224, 124, "--:--.--", (140, 150, 160), 1);
+        }
+
+        // Medal
+        let medal_code = save
+            .and_then(|s| s.medals_earned.get(preview_track_idx))
+            .copied()
+            .unwrap_or(0);
+        draw_text(182, 138, "MEDAL:", (180, 200, 220), 1);
+        let (medal_str, medal_col) = match medal_code {
+            1 => ("BRONZE", (205, 127, 50)),
+            2 => ("SILVER", (192, 192, 192)),
+            3 => ("GOLD", (255, 215, 0)),
+            4 => ("DEV PLAT", (100, 220, 255)),
+            _ => ("NONE", (140, 150, 160)),
+        };
+        draw_text(228, 138, medal_str, medal_col, 1);
+
+        // Level Passed Status
+        draw_text(182, 154, "LEVEL:", (180, 200, 220), 1);
+        let is_passed = medal_code > 0
+            || (best_ticks != arduracer_core::timing::NO_BEST_LAP && best_ticks != u32::MAX);
+        if is_passed {
+            gpu::draw_rect_flat(182, 166, 114, 16, 25, 75, 35);
+            draw_text(216, 170, "PASSED", (100, 255, 120), 1);
+        } else {
+            gpu::draw_rect_flat(182, 166, 114, 16, 45, 48, 56);
+            draw_text(202, 170, "NOT PASSED", (170, 180, 195), 1);
         }
 
         // Instructions Footer
         draw_text(
-            44,
-            198,
+            24,
+            202,
             "D-PAD: CHANGE   CROSS: CONFIRM   O: BACK",
             (140, 155, 175),
             1,

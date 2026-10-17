@@ -24,7 +24,6 @@ pub mod prof;
 pub mod state;
 pub mod ui;
 pub mod video;
-
 use arduracer_core::levels::GameMode;
 use arduracer_core::save::CdAudioMode;
 use arduracer_core::{
@@ -47,7 +46,7 @@ use state::{GameState, StateManager};
 use ui::font::draw_text;
 use ui::{
     CityInfo, GrandPrixSetupAction, MenuItem, PauseChoice, PauseMenu, ResultsAction, ResultsScreen,
-    SettingsChoice, SettingsInput, SettingsValues, VictoryScreen,
+    SettingsChoice, SettingsInput, SettingsValues, StageFilterTab, StageTableAction, VictoryScreen,
 };
 
 pub const SCREEN_WIDTH: u16 = 320;
@@ -834,9 +833,9 @@ impl ArduracerGame {
                             MenuItem::Records => {
                                 self.state_mgr.championship = None;
                                 self.state_mgr
-                                    .track_select
-                                    .arm_for_entry(GameMode::GrandPrix, true);
-                                self.state_mgr.current = GameState::TrackSelect;
+                                    .stage_table
+                                    .arm_for_entry(StageFilterTab::All);
+                                self.state_mgr.current = GameState::StageTable;
                             }
                             MenuItem::Settings => {
                                 // Seed the screen from the settings in force so it
@@ -879,7 +878,9 @@ impl ArduracerGame {
                     }
                     self.fb.clear(15, 18, 25);
                     let saved_champ = self.memcard.save_data.load_championship();
-                    self.state_mgr.gp_setup.render(saved_champ.as_ref());
+                    self.state_mgr
+                        .gp_setup
+                        .render(saved_champ.as_ref(), Some(&self.memcard.save_data));
                 }
                 GameState::CitySelect => {
                     self.audio.ui_frame(pad.buttons.bits());
@@ -950,7 +951,14 @@ impl ArduracerGame {
                 GameState::TrackSelect => {
                     self.audio.ui_frame(pad.buttons.bits());
                     let (confirmed, cancelled) = self.state_mgr.track_select.update(&pad);
-                    if let Some(track_idx) = confirmed {
+                    if self.state_mgr.track_select.check_open_table() {
+                        let initial_tab = match self.state_mgr.track_select.mode {
+                            arduracer_core::levels::GameMode::Mania => StageFilterTab::Mania,
+                            _ => StageFilterTab::GrandPrix,
+                        };
+                        self.state_mgr.stage_table.arm_for_entry(initial_tab);
+                        self.state_mgr.current = GameState::StageTable;
+                    } else if let Some(track_idx) = confirmed {
                         if self.state_mgr.track_select.is_records_mode {
                             self.state_mgr.current = GameState::MainMenu;
                             self.state_mgr.menu.arm_for_entry();
@@ -978,6 +986,31 @@ impl ArduracerGame {
                     self.fb.clear(15, 18, 25);
                     self.state_mgr
                         .track_select
+                        .render(Some(&self.memcard.save_data));
+                }
+                GameState::StageTable => {
+                    self.audio.ui_frame(pad.buttons.bits());
+                    match self.state_mgr.stage_table.update(&pad) {
+                        StageTableAction::SelectStage(track_idx) => {
+                            self.load_track(track_idx);
+                            self.state_mgr.current = GameState::Racing;
+                        }
+                        StageTableAction::Back => {
+                            self.state_mgr.current = GameState::MainMenu;
+                            self.state_mgr.menu.arm_for_entry();
+                        }
+                        StageTableAction::SwitchToCarousel => {
+                            self.state_mgr.track_select.arm_for_entry(
+                                GameMode::GrandPrix,
+                                self.state_mgr.track_select.is_records_mode,
+                            );
+                            self.state_mgr.current = GameState::TrackSelect;
+                        }
+                        StageTableAction::None => {}
+                    }
+                    self.fb.clear(15, 18, 25);
+                    self.state_mgr
+                        .stage_table
                         .render(Some(&self.memcard.save_data));
                 }
                 GameState::Racing => {
@@ -1031,6 +1064,19 @@ impl ArduracerGame {
                                     self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                                 }
                                 PauseChoice::RestartRace => {
+                                    if self.timer.has_best_lap() {
+                                        let medal = track
+                                            .par_times
+                                            .evaluate_medal(self.timer.best_lap_ticks);
+                                        self.memcard.record_lap(
+                                            self.current_track_idx,
+                                            self.timer.best_lap_ticks,
+                                            medal as u8,
+                                        );
+                                        if self.memcard.is_dirty {
+                                            self.memcard.flush();
+                                        }
+                                    }
                                     if let Some(backup) = self.state_mgr.champ_stage_backup {
                                         self.state_mgr.championship = Some(backup);
                                     }
@@ -1058,6 +1104,19 @@ impl ArduracerGame {
                                     self.apply_settings(values);
                                 }
                                 PauseChoice::QuitToMenu => {
+                                    if self.timer.has_best_lap() {
+                                        let medal = track
+                                            .par_times
+                                            .evaluate_medal(self.timer.best_lap_ticks);
+                                        self.memcard.record_lap(
+                                            self.current_track_idx,
+                                            self.timer.best_lap_ticks,
+                                            medal as u8,
+                                        );
+                                        if self.memcard.is_dirty {
+                                            self.memcard.flush();
+                                        }
+                                    }
                                     self.input_mgr.silence();
                                     self.state_mgr.championship = None;
                                     self.state_mgr.champ_stage_backup = None;
@@ -1379,6 +1438,16 @@ impl ArduracerGame {
             let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
             self.ghost.finish_lap(lap_ticks, is_record);
             self.ghost.start_lap();
+
+            // Record completed lap times and trophies earned
+            if self.timer.has_best_lap() {
+                let medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                self.memcard.record_lap(
+                    self.current_track_idx,
+                    self.timer.best_lap_ticks,
+                    medal as u8,
+                );
+            }
         }
 
         let (standings, contacts) = {
@@ -1496,9 +1565,13 @@ impl ArduracerGame {
                 .service_music(crate::gpu::tracktex::disc_reader());
         }
 
-        // Emit smoke particles and skidmarks during hard turns or drifts
-        if self.player.is_drifting {
+        // Emit smoke particles and skidmarks during hard turns, limit scrubbing, or drifts
+        if self.player.is_drifting || self.player.tire_scrub > Fixed::ONE {
             self.particles.emit_smoke(self.player.position);
+            self.skidmarks
+                .emit(self.player.position, self.player.visual_angle);
+        } else if self.player.tire_scrub > Fixed::from_raw(3200) && (self.frame_counter & 1) == 0 {
+            // Intermittent skidmarks when scrubbing tires near the limit of grip
             self.skidmarks
                 .emit(self.player.position, self.player.visual_angle);
         }

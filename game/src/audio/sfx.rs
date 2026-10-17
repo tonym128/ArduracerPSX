@@ -110,16 +110,19 @@ impl SfxPlayer {
         hit_wall: bool,
         checkpoints_cleared: u8,
     ) {
-        // 1. Tire Screech during drift
-        if player.is_drifting && player.speed > Fixed::from_int(2) {
+        // 1. Tire Screech during drift or dynamic cornering scrub
+        let is_scrubbing = (player.is_drifting || player.tire_scrub > Fixed::from_raw(2800))
+            && player.speed > Fixed::from_int(2);
+        if is_scrubbing {
             if !self.skid_playing {
                 Voice::key_on(VOICE_SKID.mask());
                 self.skid_playing = true;
             }
 
-            // Volume scales with speed and slip angle (up to 0x2400)
+            // Volume scales with speed and scrub intensity (up to 0x2400)
             let speed_ratio = (player.speed.raw().min(40960) * 0x2400) / 40960;
-            let target_vol = speed_ratio as i16;
+            let scrub_mult = player.tire_scrub.raw().clamp(2048, 4096);
+            let target_vol = ((speed_ratio as i64 * scrub_mult as i64) / 4096) as i16;
             self.skid_vol = self
                 .skid_vol
                 .saturating_add((target_vol - self.skid_vol) >> 1);

@@ -42,8 +42,14 @@ impl RumbleDriver {
         self.small_motor = true;
     }
 
-    /// Updates rumble motors for the current 60Hz tick based on vehicle dynamics and surface.
-    pub fn tick(&mut self, surface: SurfaceType, is_drifting: bool, rpm: u16) {
+    /// Updates rumble motors for the current 60Hz tick based on vehicle dynamics, tire scrub, and surface.
+    pub fn tick(
+        &mut self,
+        surface: SurfaceType,
+        is_drifting: bool,
+        tire_scrub: arduracer_core::Fixed,
+        rpm: u16,
+    ) {
         let mut target_small = false;
         let mut target_large: u8 = 0;
 
@@ -52,7 +58,7 @@ impl RumbleDriver {
             SurfaceType::Curb => {
                 // High-frequency rumble strip chatter
                 target_small = true;
-                target_large = 60;
+                target_large = 70;
             }
             SurfaceType::OffRoad => {
                 // Low-frequency rough terrain drag
@@ -65,10 +71,17 @@ impl RumbleDriver {
             _ => {}
         }
 
-        // 2. High-speed drift slide vibration
+        // 2. High-speed drift slide vibration and tire scrub warning
         if is_drifting {
             target_small = true;
             target_large = target_large.max(90);
+        } else if tire_scrub > arduracer_core::Fixed::from_raw(3000) {
+            // Tactile warning as tires fight for grip near adhesion limit
+            target_small = true;
+            if tire_scrub > arduracer_core::Fixed::ONE {
+                // Outward washout slide
+                target_large = target_large.max(60);
+            }
         }
 
         // 3. Engine rev-limiter redline buzz (> 8000 RPM)

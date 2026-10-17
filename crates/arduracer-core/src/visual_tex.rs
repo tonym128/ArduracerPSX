@@ -2051,41 +2051,41 @@ pub static CIRCUIT_TIM8_SECTORS: [TileSectorEntry; COUNT] = [
 
 /// Cape Town 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
 pub static CAPETOWN_BLOCK_SECTORS: [TileSectorEntry; 9] = [
-    CIRCUIT_BLOCK_SECTORS[28],
-    CIRCUIT_BLOCK_SECTORS[29],
-    CIRCUIT_BLOCK_SECTORS[30],
-    CIRCUIT_BLOCK_SECTORS[31],
-    CIRCUIT_BLOCK_SECTORS[32],
-    CIRCUIT_BLOCK_SECTORS[33],
     CIRCUIT_BLOCK_SECTORS[34],
     CIRCUIT_BLOCK_SECTORS[35],
     CIRCUIT_BLOCK_SECTORS[36],
-];
-
-/// Melbourne 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
-pub static MELBOURNE_BLOCK_SECTORS: [TileSectorEntry; 9] = [
     CIRCUIT_BLOCK_SECTORS[37],
     CIRCUIT_BLOCK_SECTORS[38],
     CIRCUIT_BLOCK_SECTORS[39],
     CIRCUIT_BLOCK_SECTORS[40],
     CIRCUIT_BLOCK_SECTORS[41],
     CIRCUIT_BLOCK_SECTORS[42],
+];
+
+/// Melbourne 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
+pub static MELBOURNE_BLOCK_SECTORS: [TileSectorEntry; 9] = [
     CIRCUIT_BLOCK_SECTORS[43],
     CIRCUIT_BLOCK_SECTORS[44],
     CIRCUIT_BLOCK_SECTORS[45],
-];
-
-/// London 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
-pub static LONDON_BLOCK_SECTORS: [TileSectorEntry; 9] = [
     CIRCUIT_BLOCK_SECTORS[46],
     CIRCUIT_BLOCK_SECTORS[47],
     CIRCUIT_BLOCK_SECTORS[48],
     CIRCUIT_BLOCK_SECTORS[49],
     CIRCUIT_BLOCK_SECTORS[50],
     CIRCUIT_BLOCK_SECTORS[51],
+];
+
+/// London 10 km^2 3x3 block sector mapping [block_y * 3 + block_x].
+pub static LONDON_BLOCK_SECTORS: [TileSectorEntry; 9] = [
     CIRCUIT_BLOCK_SECTORS[52],
     CIRCUIT_BLOCK_SECTORS[53],
     CIRCUIT_BLOCK_SECTORS[54],
+    CIRCUIT_BLOCK_SECTORS[55],
+    CIRCUIT_BLOCK_SECTORS[56],
+    CIRCUIT_BLOCK_SECTORS[57],
+    CIRCUIT_BLOCK_SECTORS[58],
+    CIRCUIT_BLOCK_SECTORS[59],
+    CIRCUIT_BLOCK_SECTORS[60],
 ];
 
 /// Alias matching single-entry lookup for backwards compatibility.
