@@ -891,40 +891,17 @@ impl VehicleState {
         let new_gear = match current_gear {
             1 if s >= 819 => 2,
             1 => 1,
-            2 => {
-                if s >= 1720 {
-                    3
-                } else if s < 655 {
-                    1
-                } else {
-                    2
-                }
-            }
-            3 => {
-                if s >= 2703 {
-                    4
-                } else if s < 1556 {
-                    2
-                } else {
-                    3
-                }
-            }
-            4 => {
-                if s >= 3522 {
-                    5
-                } else if s < 2539 {
-                    3
-                } else {
-                    4
-                }
-            }
-            5 => {
-                if s < 3358 {
-                    4
-                } else {
-                    5
-                }
-            }
+            2 if s >= 1720 => 3,
+            2 if s < 655 => 1,
+            2 => 2,
+            3 if s >= 2703 => 4,
+            3 if s < 1556 => 2,
+            3 => 3,
+            4 if s >= 3522 => 5,
+            4 if s < 2539 => 3,
+            4 => 4,
+            5 if s < 3358 => 4,
+            5 => 5,
             _ => 1,
         };
         self.gear = new_gear;

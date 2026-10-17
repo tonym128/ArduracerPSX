@@ -41,11 +41,10 @@ pub const MAX_LEVEL_TILES: usize = 57_600;
 ///
 /// `LEVELS.BIN` packs grids back to back, so a grid rarely starts on a sector
 /// boundary and the read has to land `first` bytes into the buffer before the
-/// wanted run is compacted down. The slack is what lets that read happen *in
-/// place*: a separate staging array was 57,600 bytes on the stack, and the
-/// guest's stack reserve is 32 KiB, so it overran into the game struct and left
-/// the player car at the origin.
-const STAGE_SLACK: usize = 2048;
+/// wanted run is compacted down. Up to 4096 bytes (2 sectors) of slack ensures
+/// that any sector-aligned read spanning `first + len` fits in `GRID_BYTES` even
+/// when `first` is near a sector end and `len == MAX_LEVEL_TILES`.
+const STAGE_SLACK: usize = 4096;
 
 /// The buffer is one byte per cell, not a `TrackTile`, because that is the disc
 /// format: sectors are read straight in and decoded in place, which is what
@@ -167,7 +166,7 @@ pub fn load(
     let first = offset % 2048;
     let count = (first + len).div_ceil(2048);
 
-    if count * 2048 > GRID_BYTES || first + len > MAX_LEVEL_TILES {
+    if count * 2048 > GRID_BYTES || len > MAX_LEVEL_TILES {
         crate::dbg::println("[LEVELS] FAIL: grid does not fit the buffer");
         return false;
     }
