@@ -48,6 +48,7 @@ from PIL import Image
 
 import json
 import os
+from dataclasses import dataclass
 import struct
 import subprocess
 import sys
@@ -211,101 +212,173 @@ PAR_CALIBRATION = os.path.join(HERE, "par_calibration.json")
 LEVEL_SIDECAR_SUFFIX = ".level.json"
 
 
-def discover_circuits() -> list[tuple[str, float]]:
-    """Every circuit to compile: the generator's table, then editor levels.
+LEVEL_SIDECAR_SUFFIX = ".level.json"
 
-    Returns `(name, road_half_cells)` pairs. The width is in cells and comes from
-    the generator's global constant for a table circuit, or from the level's own
-    sidecar for an editor one.
 
-    Order matters and is not alphabetical: `gen.CIRCUITS` (80x80) first, in its
-    authored order, followed by the editor levels so the twenty-four shipped
-    80x80 circuits keep their exact track-select slots (0..23), cup placement
-    and calibrated par times, followed by large-grid circuits (Map 25, 128x128 =
-    4096x4096 world units) at slot 24.
-    """
-    import generate_svg_circuit as gen
+@dataclass
+class DiscoveredCircuit:
+    name: str
+    stem: str
+    mode: str           # "grand_prix", "mania", "city"
+    cup: str            # "bronze", "silver", "gold", "platinum", "endurance", "mania_cup", etc.
+    cup_name: str       # "BRONZE CUP", "MANIA CUP", etc.
+    order: int          # index within cup
+    road_half_cells: float
+    stem_path: str      # path to stem (without extension)
+    grid: int = 80
+    is_large: bool = False
 
+
+def find_track_stem(name: str) -> str:
+    clean = name.replace(" ", "_")
     tracks_dir = os.path.join(ROOT, "tracks")
-    # `cc.TILE_SIZE`, read out of the Rust engine, is the only cell size that
-    # may be used to convert a half-width into `TrackDef.half_width`. The
-    # generator's `WORLD_PER_CELL` says the same thing and `main` asserts they
-    # agree, but the engine is the one that has to be right.
+    for root, dirs, files in os.walk(tracks_dir):
+        if (clean + ".data.png" in files) or (clean + ".svg" in files) or (clean + LEVEL_SIDECAR_SUFFIX in files):
+            return os.path.join(root, clean)
+    return os.path.join(tracks_dir, clean)
+
+
+CANONICAL_GP_CUPS = [
+    ("bronze", "BRONZE CUP", [
+        "Cascade Falls", "Copper Gorge", "Longbow", "Amber Mesa", "Emerald Glen", "Sunburst Valley"
+    ]),
+    ("silver", "SILVER CUP", [
+        "Whispering Pines", "Ironstone Quarry", "Silverstone Mist", "Falcon Crest", "Willow Creek", "Cobalt Run"
+    ]),
+    ("gold", "GOLD CUP", [
+        "Dragon's Spine", "Redwood Pass", "Thunder Basin", "Canyon Mirage", "Apex Predator", "Viper's Tail"
+    ]),
+    ("platinum", "PLATINUM CUP", [
+        "Frostpeak Summit", "Golden Horizon", "Phantom Ravine", "Frost Cascade", "Lunar Gorge", "Onyx Run"
+    ]),
+    ("endurance", "DIAMOND CUP", [
+        "Titan Circuit"
+    ]),
+]
+
+CANONICAL_MANIA_CUPS = [
+    ("mania_cup", "MANIA CUP", [
+        "Metro 8", "Speedway Boulevard", "Serpent Canyon", "Alleyway Chicanes", "Oil Rig Slipway", "Apex Arena"
+    ]),
+]
+
+
+def discover_circuits_detailed() -> list[DiscoveredCircuit]:
+    import generate_svg_circuit as gen
+    tracks_dir = os.path.join(ROOT, "tracks")
     default_half = gen.ROAD_HALF_WORLD / cc.TILE_SIZE
 
-    def compiled(stem: str) -> bool:
-        return os.path.exists(os.path.join(tracks_dir, stem + ".data.png"))
-
-    def drawn(stem: str) -> bool:
-        return os.path.exists(os.path.join(tracks_dir, stem + ".svg"))
-
-    out: list[tuple[str, float]] = []
-    large_out: list[tuple[str, float]] = []
+    circuits: list[DiscoveredCircuit] = []
     seen: set[str] = set()
-    for spec in gen.CIRCUITS:
-        stem = spec["name"].replace(" ", "_")
-        if stem in seen:
-            continue
-        if not compiled(stem):
-            # `tracks/` is the source of truth for what is in the game: this
-            # script compiles what is there and `make circuits` draws it. A
-            # generator circuit with a drawing but no compiled images was
-            # published-then-deleted, or half-copied, and is worth saying so --
-            # the alternative is a level silently vanishing from the game's
-            # track list, which is exactly the failure this note exists to
-            # prevent. With no drawing either, it has simply never been built.
-            if drawn(stem):
-                print(f"  note: {stem}.svg is present but {stem}.data.png is "
-                      f"not; skipping it. Run 'make circuits' to rebuild it.",
-                      file=sys.stderr)
-            continue
-        seen.add(stem)
-        half = float(spec.get("road_half_cells", spec.get("width", default_half)))
-        side = os.path.join(tracks_dir, stem + LEVEL_SIDECAR_SUFFIX)
-        if os.path.exists(side):
-            try:
-                with open(side, encoding="utf-8") as f:
-                    meta = json.load(f)
-                half = float(meta.get("road_half_cells", half))
-            except (ValueError, OSError, json.JSONDecodeError):
-                pass
-        if int(spec.get("grid", gen.GRID)) > gen.GRID:
-            large_out.append((spec["name"], half))
-        else:
-            out.append((spec["name"], half))
 
-    if os.path.isdir(tracks_dir):
-        for fname in sorted(os.listdir(tracks_dir)):
-            if not fname.endswith(LEVEL_SIDECAR_SUFFIX):
+    # 1. Discover all Grand Prix cups & tracks
+    for cup_id, cup_name, tr_names in CANONICAL_GP_CUPS:
+        for order, name in enumerate(tr_names):
+            stem = name.replace(" ", "_")
+            stem_p = find_track_stem(name)
+            if not os.path.exists(stem_p + ".data.png") and not os.path.exists(stem_p + ".svg"):
                 continue
-            stem = fname[: -len(LEVEL_SIDECAR_SUFFIX)]
-            if stem in seen:
-                continue
-            if not compiled(stem):
-                # A sidecar with no compiled images is a level that has been
-                # unpublished. That is a normal state for an editor level -- the
-                # store is meant to hold far more circuits than the game has slots
-                # for -- so it is skipped quietly rather than shouted about.
-                continue
-            side = os.path.join(tracks_dir, fname)
-            try:
-                with open(side, encoding="utf-8") as f:
-                    meta = json.load(f)
-            except (ValueError, OSError, json.JSONDecodeError) as exc:
-                print(f"  note: {stem} sidecar unreadable ({exc}); using the "
-                      f"default road width", file=sys.stderr)
-                continue
-            # Only include genuine level_editor authored levels here.
-            # Generator circuits that were swapped out or superseded are not editor levels.
-            if meta.get("source") != "level_editor":
-                continue
-            if len(out) >= 24:
-                break
+            half = default_half
+            grid = 160 if name == "Titan Circuit" else 80
+            side = stem_p + LEVEL_SIDECAR_SUFFIX
+            if os.path.exists(side):
+                try:
+                    with open(side, encoding="utf-8") as f:
+                        meta = json.load(f)
+                    half = float(meta.get("road_half_cells", half))
+                    grid = int(meta.get("grid", grid))
+                except Exception:
+                    pass
+            circuits.append(DiscoveredCircuit(
+                name=name,
+                stem=stem,
+                mode="grand_prix",
+                cup=cup_id,
+                cup_name=cup_name,
+                order=order,
+                road_half_cells=half,
+                stem_path=stem_p,
+                grid=grid,
+                is_large=(grid > 80),
+            ))
             seen.add(stem)
-            half = float(meta.get("road_half_cells", default_half))
-            out.append((stem.replace("_", " "), half))
-    out.extend(large_out)
-    return out
+
+    # 2. Discover all Mania cups & tracks
+    for cup_id, cup_name, tr_names in CANONICAL_MANIA_CUPS:
+        for order, name in enumerate(tr_names):
+            stem = name.replace(" ", "_")
+            stem_p = find_track_stem(name)
+            if not os.path.exists(stem_p + ".data.png") and not os.path.exists(stem_p + ".svg"):
+                continue
+            half = default_half
+            grid = 80
+            side = stem_p + LEVEL_SIDECAR_SUFFIX
+            if os.path.exists(side):
+                try:
+                    with open(side, encoding="utf-8") as f:
+                        meta = json.load(f)
+                    half = float(meta.get("road_half_cells", half))
+                    grid = int(meta.get("grid", grid))
+                except Exception:
+                    pass
+            circuits.append(DiscoveredCircuit(
+                name=name,
+                stem=stem,
+                mode="mania",
+                cup=cup_id,
+                cup_name=cup_name,
+                order=order,
+                road_half_cells=half,
+                stem_path=stem_p,
+                grid=grid,
+            ))
+            seen.add(stem)
+
+    # 3. Discover any additional custom tracks in tracks/grand_prix or tracks/mania
+    if os.path.isdir(tracks_dir):
+        for root, dirs, files in os.walk(tracks_dir):
+            for fname in sorted(files):
+                if not fname.endswith(LEVEL_SIDECAR_SUFFIX):
+                    continue
+                stem = fname[: -len(LEVEL_SIDECAR_SUFFIX)]
+                if stem in seen or stem.lower().startswith("cape") or stem.lower().startswith("melb") or stem.lower().startswith("lond"):
+                    continue
+                stem_p = os.path.join(root, stem)
+                if not os.path.exists(stem_p + ".data.png"):
+                    continue
+                try:
+                    with open(os.path.join(root, fname), encoding="utf-8") as f:
+                        meta = json.load(f)
+                except Exception:
+                    continue
+                tname = meta.get("name", stem.replace("_", " "))
+                half = float(meta.get("road_half_cells", default_half))
+                grid = int(meta.get("grid", 80))
+                mode = meta.get("mode", "mania" if "mania" in root else "grand_prix")
+                cup = meta.get("cup", os.path.basename(root) if root != tracks_dir else "custom")
+                cname = meta.get("cup_name", cup.replace("_", " ").upper() + " CUP")
+                circuits.append(DiscoveredCircuit(
+                    name=tname,
+                    stem=stem,
+                    mode=mode,
+                    cup=cup,
+                    cup_name=cname,
+                    order=len(circuits),
+                    road_half_cells=half,
+                    stem_path=stem_p,
+                    grid=grid,
+                    is_large=(grid > 80),
+                ))
+                seen.add(stem)
+
+    return circuits
+
+
+def discover_circuits(detailed: bool = False):
+    c = discover_circuits_detailed()
+    if detailed:
+        return c
+    return [(item.name, item.road_half_cells) for item in c]
 
 #: Fallback par times, in ticks, when a circuit has no measurement. 3600 ticks is
 #: 60 seconds at 60 Hz -- generous on purpose, since an uncalibrated par should
@@ -347,11 +420,13 @@ def calibrated_par(name: str) -> tuple[int, int, int, int]:
     return (found["bronze"], found["silver"], found["gold"], found["dev"])
 
 
-def build_one(name: str) -> tuple:
+def build_one(name: str, stem_path: str = None) -> tuple:
     """Generate both images for `name` into `tracks/`, then compile them."""
-    outdir = os.path.join(ROOT, "tracks")
-    clean_name = name.replace(" ", "_")
-    stem = os.path.join(outdir, clean_name)
+    if stem_path is None:
+        stem = find_track_stem(name)
+    else:
+        stem = stem_path
+    clean_name = os.path.basename(stem)
     data_png = stem + ".data.png"
     palette_json = stem + ".palette.json"
     line_json = stem + ".line.json"
@@ -543,8 +618,8 @@ def rasterise_svg_visual(name: str):
 
     Returns `(image, code_map)`.
     """
-    clean_name = name.replace(" ", "_")
-    stem = os.path.join(ROOT, "tracks", clean_name)
+    stem = find_track_stem(name)
+    clean_name = os.path.basename(stem)
     svg_path = stem + ".svg"
     data_path = stem + ".data.png"
     palette_json = stem + ".palette.json"
@@ -656,15 +731,17 @@ def pack_visual(
 
     Returns `(name, grid_bx, grid_by, blocks)`.
     """
-    clean_name = name.replace(" ", "_")
-    stem = os.path.join(ROOT, "tracks", clean_name)
+    stem = find_track_stem(name)
+    clean_name = os.path.basename(stem)
     vis_path = stem + ".visual.png"
     gen_path = stem + ".visual.gen.png"
     jpg_path = stem + ".jpg"
 
     if clean_name.lower() in ("cape_town", "capetown", "melbourne", "london"):
         city_slug = "capetown" if "cape" in clean_name.lower() else clean_name.lower()
-        city_dir = os.path.join(ROOT, "tracks", f"{city_slug}_10km")
+        city_dir = os.path.join(ROOT, "tracks", "cities", f"{city_slug}_10km")
+        if not os.path.exists(city_dir):
+            city_dir = os.path.join(ROOT, "tracks", f"{city_slug}_10km")
         grid_bx = 3
         grid_by = 3
         crops = []
@@ -1401,27 +1478,24 @@ def emit_visual_tex(
 
 
 def main() -> int:
-    # Importing the generator for its CIRCUITS table keeps the name list in one
-    # place: the drawing step and the compiling step cannot disagree about what
-    # exists.
     import generate_svg_circuit as gen
 
-    circuits = discover_circuits()
+    circuits = discover_circuits_detailed()
 
     results = []
     failures = []
-    for name, half_cells in circuits:
-        data, errors = build_one(name)
+    for c in circuits:
+        data, errors = build_one(c.name, stem_path=c.stem_path)
         if errors:
-            failures.append((name, errors))
-            print(f"  {name:16} FAILED", file=sys.stderr)
+            failures.append((c.name, errors))
+            print(f"  {c.name:16} FAILED", file=sys.stderr)
             for e in errors:
                 print(f"     {e}", file=sys.stderr)
             continue
-        grid, centre = data
-        results.append((name, grid, centre, half_cells))
-        print(f"  {name:16} {grid.shape[1]}x{grid.shape[0]} cells, "
-              f"centreline {len(centre)}, road {int(half_cells * 2)} cells wide")
+        grid, centre, cps = data
+        results.append((c, grid, centre, cps))
+        print(f"  {c.name:16} [{c.mode}/{c.cup}] {grid.shape[1]}x{grid.shape[0]} cells, "
+              f"centreline {len(centre)}, road {int(c.road_half_cells * 2)} cells wide")
 
     if failures:
         print(f"\n{len(failures)} circuit(s) failed validation; not emitting",
@@ -1432,52 +1506,7 @@ def main() -> int:
         print("\nno authored circuits; not emitting", file=sys.stderr)
         return 1
 
-    # More circuits than slots would silently drop some of them: `ALL_TRACKS` is
-    # filled round-robin, so slot 24 would be the only place a fifth circuit
-    # appeared and it would appear nowhere. Refused here rather than discovered in
-    # the track-select carousel, where a missing circuit looks like a bug in the
-    # carousel.
-    if len(results) > TRACK_SLOTS:
-        print(f"\n{len(results)} circuits authored but only {TRACK_SLOTS} "
-              f"slots exist; not emitting", file=sys.stderr)
-        extra = [n for n, _, _, _ in results[TRACK_SLOTS:]]
-        if extra:
-            # Name the overflow. `ALL_TRACKS` is filled round-robin, so the
-            # circuits past the slot count would appear in slots 0..n and
-            # nowhere else -- silently, and only visible in the track-select
-            # carousel as a missing circuit. Naming them here is the difference
-            # between "you have too many levels" and "the level editor ate my
-            # championship".
-            print(f"  past the {TRACK_SLOTS}th slot: "
-                  f"{', '.join(extra)}", file=sys.stderr)
-            print("  Remove one with "
-                  "`python3 tools/level_editor/level_editor_cli.py unpublish "
-                  "<Stem>`, or raise TRACK_SLOTS if the runtime indexing has "
-                  "room for it.", file=sys.stderr)
-        return 1
-
-    # The 23 superseded image sets from the parametric pipeline are still tracked
-    # in `tracks/`. Nothing reads them -- `build_atlas` iterates
-    # `generate_svg_circuit.CIRCUITS` -- so they are dead weight that looks like
-    # the source of truth. Removed here, where the irrelevance is provable, rather
-    # than by hand. Cooked blocks are swept too: a circuit that no longer exists
-    # must not leave a `tracks/<Name>.qoi` behind for someone to mistake for a
-    # real asset.
-    canonical_stems = {spec["name"].replace(" ", "_") for spec in gen.CIRCUITS}
-    if hasattr(gen, "CANONICAL_CIRCUITS"):
-        canonical_stems |= {spec["name"].replace(" ", "_") for spec in gen.CANONICAL_CIRCUITS}
-    canonical_stems |= {"Frost_Cascade", "Lunar_Gorge", "Onyx_Run", "Titan_Circuit"}
-    keep = {n.replace(" ", "_") for n, _, _, _ in results} | canonical_stems
-    stale = [f for f in sorted(os.listdir(os.path.join(ROOT, "tracks")))
-             if f.endswith((".data.png", ".visual.png", ".visual.gen.png", ".visual.detailed.png",
-                            ".line.json", ".palette.json", ".qoi"))
-             and not any(f.startswith(k) for k in keep)]
-    if stale:
-        print(f"\nremoving {len(stale)} superseded image file(s) for the "
-              f"circuits that no longer exist", file=sys.stderr)
-        git(["rm", "-q", "--"] + [f"tracks/{f}" for f in stale])
-
-    idents = ["TRACK_" + "".join(c if c.isalnum() else "_" for c in n).upper() for n, _, _, _ in results]
+    idents = ["TRACK_" + "".join(ch if ch.isalnum() else "_" for ch in c.name).upper() for c, _, _, _ in results]
     code = [
         "//! Racetrack definitions for Arduracer PSX.",
         "//!",
@@ -1491,50 +1520,25 @@ def main() -> int:
         "const EMPTY_GATE: CheckpointGate = CheckpointGate { x: 0, y: 0, width: 0, height: 0 };",
         "",
     ]
-    # No `{ident}_TILES` array is emitted. The tile grids moved to
-    # LEVELS.BIN (`tools/track_cook/make_levels_bin.py`) and are installed into
-    # one shared buffer at level load; emitting them here would restore
-    # 326,400 bytes of per-level geometry to the executable and quietly undo
-    # that. What this emit still produces is everything that is *not* bulk
-    # grid: dimensions, gates, par times, the centreline, and the visual slot.
-    for (name, grid, centre, half_cells), ident in zip(results, idents):
-        # Route control points. Capped by the runtime: `MAX_ROUTE_SAMPLES / 8`
-        # spans, where 8 is `DEFAULT_SAMPLES_PER_SPAN`. The compiler derives the
-        # actual count from the circuit's perimeter, since control points closer
-        # than a cell collapse onto a shared tile centre -- see
-        # `compile_circuit.control_points`.
-        par = calibrated_par(name)
-        # The road half-width is specified in world units by whoever drew the
-        # circuit and converted here, rather than left as a cell count. The cell
-        # size has already changed once (64 -> 32 world units); a cell count
-        # baked into this call would have halved the width of every road in the
-        # game the next time it did, with nothing failing -- `half_width` is just
-        # a number in a struct literal.
-        #
-        # It is per circuit now, not global: `discover_circuits` takes it from
-        # each level's own sidecar. `cc.TILE_SIZE` rather than the generator's
-        # `WORLD_PER_CELL` is the conversion that matters, and the two are
-        # asserted equal below.
+    for (c, grid, centre, cps), ident in zip(results, idents):
+        par = calibrated_par(c.name)
+        checkpoints_arg = cps if cps is not None else CHECKPOINTS
         code.append(cc.emit_rust(
-            name.replace(" ", "_"), grid, centre, ident=ident,
-            checkpoints=CHECKPOINTS, par=par, route_nodes=ROUTE_NODES,
-            half_width_cells=half_cells))
+            c.name.replace(" ", "_"), grid, centre, ident=ident,
+            checkpoints=checkpoints_arg, par=par, route_nodes=ROUTE_NODES,
+            half_width_cells=c.road_half_cells))
         code.append("")
+
     assert int(gen.ROAD_HALF_WORLD / cc.TILE_SIZE * cc.TILE_SIZE) == gen.ROAD_HALF_WORLD, (
         "ROAD_HALF_WORLD is not a whole number of cells wide at the current "
         "TILE_SIZE; the compiled road would be narrower than authored"
     )
-    for name, _grid, _centre, half_cells in results:
-        assert abs(half_cells * cc.TILE_SIZE - round(half_cells * cc.TILE_SIZE)) < 1e-9, (
-            f"{name} was drawn {2 * half_cells:g} cells wide, which is not a "
+    for c, _grid, _centre, _cps in results:
+        assert abs(c.road_half_cells * cc.TILE_SIZE - round(c.road_half_cells * cc.TILE_SIZE)) < 1e-9, (
+            f"{c.name} was drawn {2 * c.road_half_cells:g} cells wide, which is not a "
             f"whole number of {cc.TILE_SIZE}-world-unit cells; TrackDef.half_width "
             f"could not state it and the compiled road would be narrower than drawn"
         )
-    # The generator sizes its shapes in cells; the compiler sizes the world. If
-    # those two definitions of a cell disagree, every circuit silently changes
-    # size and nothing downstream can tell -- the images still validate and the
-    # tiles still compile. They are the same constant, asserted rather than
-    # restated.
     assert gen.WORLD_PER_CELL == cc.TILE_SIZE, (
         f"generator assumes {gen.WORLD_PER_CELL} world units per cell, the engine "
         f"says {cc.TILE_SIZE}; every circuit would be the wrong size"
@@ -1550,42 +1554,98 @@ def main() -> int:
 
     code.append(f"/// Authored circuits: {len(results)}.")
     code.append(f"pub const AUTHORED_TRACK_COUNT: usize = {len(results)};")
+    code.append(f"pub const TOTAL_TRACKS: usize = {len(results)};")
     code.append("")
-    code.append("/// The authored circuits, deduplicated.")
-    code.append("///")
-    code.append(f"/// `ALL_TRACKS` is a fixed {TRACK_SLOTS} slots and currently holds these")
-    code.append(f"/// {len(results)} repeated round-robin, so anything that wants *the circuits*")
-    code.append("/// rather than *the slots* wants this. Without it a caller iterating")
-    code.append("/// `ALL_TRACKS` to validate circuits walks the same oval many times and")
-    code.append("/// reports many passes where there is one thing that could have passed.")
-    code.append(f"pub const AUTHORED_TRACKS: [&TrackDef; AUTHORED_TRACK_COUNT] = "
-                f"[{', '.join('&' + n for n in idents)}];")
+    code.append("/// Game mode classification.")
+    code.append("#[derive(Copy, Clone, Debug, PartialEq, Eq)]")
+    code.append("#[repr(u8)]")
+    code.append("pub enum GameMode {")
+    code.append("    GrandPrix = 0,")
+    code.append("    Mania = 1,")
+    code.append("    FreeRoam = 2,")
+    code.append("}")
     code.append("")
-    code.append(f"pub const ALL_TRACKS: [&TrackDef; {TRACK_SLOTS}] = [")
-    # One entry per line. `cargo fmt` reflows a repeated item that would fit on
-    # shared lines, so a compact emit is not stable under `fmt-check` -- the
-    # generator and the formatter fight and CI fails on generated output.
-    slot_of = [idents[i % len(idents)] for i in range(TRACK_SLOTS)]
-    for ident in slot_of:
+    code.append("/// Cup specification grouping a sequence of circuit indices.")
+    code.append("#[derive(Clone, Debug, PartialEq, Eq)]")
+    code.append("pub struct CupDef {")
+    code.append("    pub name: &'static str,")
+    code.append("    pub mode: GameMode,")
+    code.append("    pub track_indices: &'static [usize],")
+    code.append("}")
+    code.append("")
+    code.append("impl CupDef {")
+    code.append("    pub fn track_at(&self, stage: usize) -> Option<&'static TrackDef> {")
+    code.append("        self.track_indices.get(stage).map(|&idx| ALL_TRACKS[idx])")
+    code.append("    }")
+    code.append("    pub fn total_stages(&self) -> usize {")
+    code.append("        self.track_indices.len()")
+    code.append("    }")
+    code.append("}")
+    code.append("")
+
+    gp_cup_map = {}
+    mania_cup_map = {}
+    for idx, (c, _, _, _) in enumerate(results):
+        if c.mode == "mania":
+            mania_cup_map.setdefault(c.cup_name, []).append(idx)
+        else:
+            gp_cup_map.setdefault(c.cup_name, []).append(idx)
+
+    code.append(f"pub static GRAND_PRIX_CUPS: [CupDef; {len(gp_cup_map)}] = [")
+    for cname, indices in gp_cup_map.items():
+        code.append("    CupDef {")
+        code.append(f'        name: "{cname}",')
+        code.append("        mode: GameMode::GrandPrix,")
+        code.append(f"        track_indices: &[{', '.join(str(i) for i in indices)}],")
+        code.append("    },")
+    code.append("];")
+    code.append("")
+
+    code.append(f"pub static MANIA_CUPS: [CupDef; {len(mania_cup_map)}] = [")
+    for cname, indices in mania_cup_map.items():
+        code.append("    CupDef {")
+        code.append(f'        name: "{cname}",')
+        code.append("        mode: GameMode::Mania,")
+        code.append(f"        track_indices: &[{', '.join(str(i) for i in indices)}],")
+        code.append("    },")
+    code.append("];")
+    code.append("")
+
+    total_cups = len(gp_cup_map) + len(mania_cup_map)
+    code.append(f"pub static ALL_CUPS: [CupDef; {total_cups}] = [")
+    for cname, indices in gp_cup_map.items():
+        code.append("    CupDef {")
+        code.append(f'        name: "{cname}",')
+        code.append("        mode: GameMode::GrandPrix,")
+        code.append(f"        track_indices: &[{', '.join(str(i) for i in indices)}],")
+        code.append("    },")
+    for cname, indices in mania_cup_map.items():
+        code.append("    CupDef {")
+        code.append(f'        name: "{cname}",')
+        code.append("        mode: GameMode::Mania,")
+        code.append(f"        track_indices: &[{', '.join(str(i) for i in indices)}],")
+        code.append("    },")
+    code.append("];")
+    code.append("")
+
+    code.append(f"pub const ALL_TRACKS: [&TrackDef; {len(results)}] = [")
+    for ident in idents:
         code.append(f"    &{ident},")
     code.append("];")
     code.append("")
-    # Which authored circuit each slot's *visual* belongs to, for the renderer.
-    #
-    # `gpu::tracktex` has to upload the right one of `visual_tex::PACKED` when a
-    # track loads, and it is handed a slot index, not a `TrackDef` it can compare
-    # against anything. Emitting the mapping here -- from the same round-robin that
-    # built `ALL_TRACKS` -- is what keeps the two in step. Deriving it in the game
-    # as `slot % AUTHORED_TRACK_COUNT` would be the same arithmetic written down
-    # twice, and the day the round-robin order changes the renderer would show
-    # the wrong circuit's road with nothing failing.
-    code.append("/// Authored-circuit index for each `ALL_TRACKS` slot, for the renderer.")
-    code.append("///")
-    code.append("/// `gpu::tracktex::init_track_texture` takes one of these and uploads the")
-    code.append("/// matching entry of `visual_tex::PACKED`.")
-    code.append(f"pub const ALL_TRACK_VISUALS: [usize; {TRACK_SLOTS}] = [")
-    for i in range(TRACK_SLOTS):
-        code.append(f"    {i % len(idents)},")
+    code.append(f"pub const AUTHORED_TRACKS: [&TrackDef; {len(results)}] = ALL_TRACKS;")
+    code.append("")
+    code.append(f"pub const ALL_TRACK_VISUALS: [usize; {len(results)}] = [")
+    for i in range(len(results)):
+        code.append(f"    {i},")
+    code.append("];")
+    code.append("")
+    code.append(f"pub const LEVEL_DIMS: [(u8, u8); {len(results) + 3}] = [")
+    for c, grid, _, _ in results:
+        code.append(f"    ({grid.shape[1]}, {grid.shape[0]}),")
+    code.append("    (240, 240),")
+    code.append("    (240, 240),")
+    code.append("    (240, 240),")
     code.append("];")
     code.append("")
 
@@ -1593,31 +1653,25 @@ def main() -> int:
     with open(out, "w") as f:
         f.write("\n".join(code))
     import concurrent.futures
-    track_names = [n for n, _, _, _ in results] + ["Cape Town", "Melbourne", "London"]
+    track_names = [c.name for c, _, _, _ in results] + ["Cape Town", "Melbourne", "London"]
     with concurrent.futures.ProcessPoolExecutor() as executor:
         visual_packs = list(executor.map(pack_visual, track_names))
     emit_visual_tex(visual_packs)
-    # Last, so it covers both generated files. `visual_tex.rs` in particular is
-    # one 200 KB byte array, which `rustfmt` reflows -- emitting it unformatted and
-    # formatting only `levels.rs` left the other one failing `fmt-check`.
     fmt_generated(out)
-    print(f"\nwrote {out} ({len(results)} authored circuits, {TRACK_SLOTS} slots)")
+    print(f"\nwrote {out} ({len(results)} authored circuits across {total_cups} cups)")
     try:
         import make_levels_bin
         make_levels_bin.main()
     except Exception as e:
         print(f"  warning: failed to update LEVELS.BIN ({e})", file=sys.stderr)
-    # Per-circuit, not aggregate: a missing calibration is a property of one
-    # circuit's par row, and a single summary line would either hide it or blame
-    # the wrong circuit. Reported in `CIRCUITS` order so it lines up with the
-    # table `generate_svg_circuit.py` printed.
+
     uncalibrated = []
-    for name, _, _, _ in results:
-        par = calibrated_par(name)
+    for c, _, _, _ in results:
+        par = calibrated_par(c.name)
         if par == FALLBACK_PAR:
-            uncalibrated.append(name)
+            uncalibrated.append(c.name)
         else:
-            print(f"  {name:16} par measured (bronze/silver/gold/dev "
+            print(f"  {c.name:16} par measured (bronze/silver/gold/dev "
                   f"{par[0]}/{par[1]}/{par[2]}/{par[3]})")
     if uncalibrated:
         print(f"  WARNING: no calibration for {', '.join(uncalibrated)}; par "

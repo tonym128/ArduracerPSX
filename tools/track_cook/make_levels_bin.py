@@ -39,12 +39,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_atlas
 
-CIRCUITS = [name.replace(" ", "_") for name, _ in build_atlas.discover_circuits()]
+circuits_detailed = build_atlas.discover_circuits_detailed()
+CIRCUITS = [c.stem for c in circuits_detailed]
+CIRCUIT_GRID = {c.stem: c.grid for c in circuits_detailed}
 
 CITIES = ["capetown", "melbourne", "london"]
 
 def circuit_cells(name):
-    return 160 * 160 if name == "Titan_Circuit" else 80 * 80
+    g = CIRCUIT_GRID.get(name, 160 if name == "Titan_Circuit" else 80)
+    return g * g
 
 CITY_CELLS = 240 * 240
 
@@ -57,6 +60,9 @@ def city_path(city):
     p1 = os.path.join(ROOT, "tracks", f"{city}_10km", f"{city}_10km_collision.bin")
     if os.path.exists(p1):
         return p1
+    p2 = os.path.join(ROOT, "tracks", "cities", f"{city}_10km", f"{city}_10km_collision.bin")
+    if os.path.exists(p2):
+        return p2
     return os.path.join(ROOT, "build", "cities", city, "levelgrid.bin")
 
 

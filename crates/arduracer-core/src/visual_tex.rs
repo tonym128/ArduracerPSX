@@ -15,9 +15,9 @@ pub const TILES_PER_BLOCK_AXIS: usize = 16;
 /// Total number of 64x64 tiles per 1024x1024 block (256).
 pub const TILES_PER_BLOCK: usize = 256;
 /// Number of authored circuits.
-pub const CIRCUIT_COUNT: usize = 28;
+pub const CIRCUIT_COUNT: usize = 34;
 /// Total number of 1024x1024 visual blocks across all circuits.
-pub const COUNT: usize = 55;
+pub const COUNT: usize = 61;
 /// Maximum bytes per 1024x1024 compressed block (500 KB = 512,000 bytes).
 pub const BLOCK_MAX_BYTES: usize = 512000;
 /// Number of 2048-byte CD sectors allocated per circuit block (250 sectors = 500 KB).
@@ -41,19 +41,19 @@ pub const TRACKS_BIN_NAME: &[u8] = b"TRACKS.BIN";
 /// Name of the segmented-QOI track visual asset file on the CD-ROM disc.
 pub const QOITRACKS_BIN_NAME: &[u8] = b"QOITRACKS.BIN";
 /// Number of visual blocks with a segmented-QOI block on this disc.
-pub const QOI_CIRCUIT_COUNT: usize = 28;
+pub const QOI_CIRCUIT_COUNT: usize = 33;
 /// Name of the SVG-derived track visual asset file on the CD-ROM disc.
 pub const SVGTRACKS_BIN_NAME: &[u8] = b"SVGTRACKS.BIN";
 /// Number of visual blocks with an ARSV block on this disc.
-pub const ARSV_CIRCUIT_COUNT: usize = 28;
+pub const ARSV_CIRCUIT_COUNT: usize = 33;
 /// Name of the uncompressed-TIM track visual asset file on the CD-ROM disc.
 pub const TIMTRACKS_BIN_NAME: &[u8] = b"TIMTRACKS.BIN";
 /// Number of visual blocks with an uncompressed TIM block on this disc.
-pub const TIM_CIRCUIT_COUNT: usize = 55;
+pub const TIM_CIRCUIT_COUNT: usize = 61;
 /// Name of the uncompressed 4bpp CLUT-indexed track visual asset file.
 pub const TIM4TRACKS_BIN_NAME: &[u8] = b"TIM4TRACKS.BIN";
 /// Number of visual blocks with an uncompressed 4bpp block on this disc.
-pub const TIM4_CIRCUIT_COUNT: usize = 55;
+pub const TIM4_CIRCUIT_COUNT: usize = 61;
 /// Texels per 4bpp TIM tile, on each axis.
 pub const TIM4_TILE_DIM: usize = TILE_DIM;
 /// Bytes per 4bpp TIM tile: four indices per halfword.
@@ -79,7 +79,7 @@ pub const TIM4_TILE_HALFWORDS_WIDE: usize = TIM4_TILE_DIM / TIM4_TEXELS_PER_HALF
 /// Name of the uncompressed 8bpp CLUT-indexed track visual asset file.
 pub const TIM8TRACKS_BIN_NAME: &[u8] = b"TIM8TRACKS.BIN";
 /// Number of visual blocks with an uncompressed 8bpp block on this disc.
-pub const TIM8_CIRCUIT_COUNT: usize = 55;
+pub const TIM8_CIRCUIT_COUNT: usize = 61;
 /// Texels per 8bpp TIM tile, on each axis.
 pub const TIM8_TILE_DIM: usize = TILE_DIM;
 /// Bytes per 8bpp TIM tile: two indices per halfword.
@@ -122,7 +122,7 @@ pub struct TileSectorEntry {
 /// Base flat block index in `CIRCUIT_*_SECTORS` for each circuit [circuit].
 pub static CIRCUIT_BLOCK_BASE: [usize; CIRCUIT_COUNT] = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 28,
-    37, 46,
+    29, 30, 31, 32, 33, 34, 43, 52,
 ];
 
 /// Number of 1024x1024 blocks along (x, y) for each circuit [circuit].
@@ -152,6 +152,12 @@ pub static CIRCUIT_BLOCK_GRID: [(u8, u8); CIRCUIT_COUNT] = [
     (1, 1),
     (1, 1),
     (2, 2),
+    (1, 1),
+    (1, 1),
+    (1, 1),
+    (1, 1),
+    (1, 1),
+    (1, 1),
     (3, 3),
     (3, 3),
     (3, 3),
@@ -194,32 +200,32 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 0,
         sector_count: 250,
-        byte_len: 126920,
+        byte_len: 111225,
     },
     TileSectorEntry {
         sector_offset: 250,
         sector_count: 250,
-        byte_len: 121732,
+        byte_len: 128820,
     },
     TileSectorEntry {
         sector_offset: 500,
         sector_count: 250,
-        byte_len: 158684,
+        byte_len: 139851,
     },
     TileSectorEntry {
         sector_offset: 750,
         sector_count: 250,
-        byte_len: 151518,
+        byte_len: 497343,
     },
     TileSectorEntry {
         sector_offset: 1000,
         sector_count: 250,
-        byte_len: 126437,
+        byte_len: 138756,
     },
     TileSectorEntry {
         sector_offset: 1250,
         sector_count: 250,
-        byte_len: 147541,
+        byte_len: 147733,
     },
     TileSectorEntry {
         sector_offset: 1500,
@@ -334,135 +340,165 @@ pub static CIRCUIT_BLOCK_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 7000,
         sector_count: 250,
-        byte_len: 172466,
+        byte_len: 126920,
     },
     TileSectorEntry {
         sector_offset: 7250,
         sector_count: 250,
-        byte_len: 360341,
+        byte_len: 121732,
     },
     TileSectorEntry {
         sector_offset: 7500,
         sector_count: 250,
-        byte_len: 378628,
+        byte_len: 158684,
     },
     TileSectorEntry {
         sector_offset: 7750,
         sector_count: 250,
-        byte_len: 506318,
+        byte_len: 151518,
     },
     TileSectorEntry {
         sector_offset: 8000,
         sector_count: 250,
-        byte_len: 503335,
+        byte_len: 126437,
     },
     TileSectorEntry {
         sector_offset: 8250,
         sector_count: 250,
-        byte_len: 494735,
+        byte_len: 147541,
     },
     TileSectorEntry {
         sector_offset: 8500,
         sector_count: 250,
-        byte_len: 491487,
+        byte_len: 172466,
     },
     TileSectorEntry {
         sector_offset: 8750,
         sector_count: 250,
-        byte_len: 401433,
+        byte_len: 360341,
     },
     TileSectorEntry {
         sector_offset: 9000,
         sector_count: 250,
-        byte_len: 496320,
+        byte_len: 378628,
     },
     TileSectorEntry {
         sector_offset: 9250,
         sector_count: 250,
-        byte_len: 496262,
+        byte_len: 506318,
     },
     TileSectorEntry {
         sector_offset: 9500,
         sector_count: 250,
-        byte_len: 509182,
+        byte_len: 503335,
     },
     TileSectorEntry {
         sector_offset: 9750,
         sector_count: 250,
-        byte_len: 510304,
+        byte_len: 494735,
     },
     TileSectorEntry {
         sector_offset: 10000,
         sector_count: 250,
-        byte_len: 502246,
+        byte_len: 491487,
     },
     TileSectorEntry {
         sector_offset: 10250,
         sector_count: 250,
-        byte_len: 409242,
+        byte_len: 401433,
     },
     TileSectorEntry {
         sector_offset: 10500,
         sector_count: 250,
-        byte_len: 495051,
+        byte_len: 496320,
     },
     TileSectorEntry {
         sector_offset: 10750,
         sector_count: 250,
-        byte_len: 446774,
+        byte_len: 496262,
     },
     TileSectorEntry {
         sector_offset: 11000,
         sector_count: 250,
-        byte_len: 497668,
+        byte_len: 509182,
     },
     TileSectorEntry {
         sector_offset: 11250,
         sector_count: 250,
-        byte_len: 505150,
+        byte_len: 510304,
     },
     TileSectorEntry {
         sector_offset: 11500,
         sector_count: 250,
-        byte_len: 492104,
+        byte_len: 502246,
     },
     TileSectorEntry {
         sector_offset: 11750,
         sector_count: 250,
-        byte_len: 494176,
+        byte_len: 409242,
     },
     TileSectorEntry {
         sector_offset: 12000,
         sector_count: 250,
-        byte_len: 501873,
+        byte_len: 495051,
     },
     TileSectorEntry {
         sector_offset: 12250,
         sector_count: 250,
-        byte_len: 506128,
+        byte_len: 446774,
     },
     TileSectorEntry {
         sector_offset: 12500,
         sector_count: 250,
-        byte_len: 486400,
+        byte_len: 497668,
     },
     TileSectorEntry {
         sector_offset: 12750,
         sector_count: 250,
-        byte_len: 488183,
+        byte_len: 505150,
     },
     TileSectorEntry {
         sector_offset: 13000,
         sector_count: 250,
-        byte_len: 505968,
+        byte_len: 492104,
     },
     TileSectorEntry {
         sector_offset: 13250,
         sector_count: 250,
-        byte_len: 505335,
+        byte_len: 494176,
     },
     TileSectorEntry {
         sector_offset: 13500,
+        sector_count: 250,
+        byte_len: 501873,
+    },
+    TileSectorEntry {
+        sector_offset: 13750,
+        sector_count: 250,
+        byte_len: 506128,
+    },
+    TileSectorEntry {
+        sector_offset: 14000,
+        sector_count: 250,
+        byte_len: 486400,
+    },
+    TileSectorEntry {
+        sector_offset: 14250,
+        sector_count: 250,
+        byte_len: 488183,
+    },
+    TileSectorEntry {
+        sector_offset: 14500,
+        sector_count: 250,
+        byte_len: 505968,
+    },
+    TileSectorEntry {
+        sector_offset: 14750,
+        sector_count: 250,
+        byte_len: 505335,
+    },
+    TileSectorEntry {
+        sector_offset: 15000,
         sector_count: 250,
         byte_len: 502350,
     },
@@ -473,142 +509,172 @@ pub static CIRCUIT_QOI_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 0,
         sector_count: 250,
-        byte_len: 97657,
+        byte_len: 83625,
     },
     TileSectorEntry {
         sector_offset: 250,
         sector_count: 250,
-        byte_len: 86627,
+        byte_len: 95261,
     },
     TileSectorEntry {
         sector_offset: 500,
         sector_count: 250,
-        byte_len: 100079,
+        byte_len: 100692,
+    },
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 0,
+        byte_len: 0,
     },
     TileSectorEntry {
         sector_offset: 750,
         sector_count: 250,
-        byte_len: 107563,
+        byte_len: 104892,
     },
     TileSectorEntry {
         sector_offset: 1000,
         sector_count: 250,
-        byte_len: 97183,
+        byte_len: 109907,
     },
     TileSectorEntry {
         sector_offset: 1250,
         sector_count: 250,
-        byte_len: 106197,
+        byte_len: 107508,
     },
     TileSectorEntry {
         sector_offset: 1500,
         sector_count: 250,
-        byte_len: 107508,
+        byte_len: 101047,
     },
     TileSectorEntry {
         sector_offset: 1750,
         sector_count: 250,
-        byte_len: 101047,
+        byte_len: 96543,
     },
     TileSectorEntry {
         sector_offset: 2000,
         sector_count: 250,
-        byte_len: 96543,
+        byte_len: 98203,
     },
     TileSectorEntry {
         sector_offset: 2250,
         sector_count: 250,
-        byte_len: 98203,
+        byte_len: 89714,
     },
     TileSectorEntry {
         sector_offset: 2500,
         sector_count: 250,
-        byte_len: 89714,
+        byte_len: 91900,
     },
     TileSectorEntry {
         sector_offset: 2750,
         sector_count: 250,
-        byte_len: 91900,
+        byte_len: 105780,
     },
     TileSectorEntry {
         sector_offset: 3000,
         sector_count: 250,
-        byte_len: 105780,
+        byte_len: 101132,
     },
     TileSectorEntry {
         sector_offset: 3250,
         sector_count: 250,
-        byte_len: 101132,
+        byte_len: 112357,
     },
     TileSectorEntry {
         sector_offset: 3500,
         sector_count: 250,
-        byte_len: 112357,
+        byte_len: 100473,
     },
     TileSectorEntry {
         sector_offset: 3750,
         sector_count: 250,
-        byte_len: 100473,
+        byte_len: 107826,
     },
     TileSectorEntry {
         sector_offset: 4000,
         sector_count: 250,
-        byte_len: 107826,
+        byte_len: 98463,
     },
     TileSectorEntry {
         sector_offset: 4250,
         sector_count: 250,
-        byte_len: 98463,
+        byte_len: 104381,
     },
     TileSectorEntry {
         sector_offset: 4500,
         sector_count: 250,
-        byte_len: 104381,
+        byte_len: 86671,
     },
     TileSectorEntry {
         sector_offset: 4750,
         sector_count: 250,
-        byte_len: 86671,
+        byte_len: 114166,
     },
     TileSectorEntry {
         sector_offset: 5000,
         sector_count: 250,
-        byte_len: 114166,
+        byte_len: 145603,
     },
     TileSectorEntry {
         sector_offset: 5250,
         sector_count: 250,
-        byte_len: 145603,
+        byte_len: 101939,
     },
     TileSectorEntry {
         sector_offset: 5500,
         sector_count: 250,
-        byte_len: 101939,
+        byte_len: 124576,
     },
     TileSectorEntry {
         sector_offset: 5750,
         sector_count: 250,
-        byte_len: 124576,
+        byte_len: 67183,
     },
     TileSectorEntry {
         sector_offset: 6000,
         sector_count: 250,
-        byte_len: 67183,
+        byte_len: 72917,
     },
     TileSectorEntry {
         sector_offset: 6250,
         sector_count: 250,
-        byte_len: 72917,
+        byte_len: 67097,
     },
     TileSectorEntry {
         sector_offset: 6500,
         sector_count: 250,
-        byte_len: 67097,
+        byte_len: 89880,
     },
     TileSectorEntry {
         sector_offset: 6750,
         sector_count: 250,
-        byte_len: 89880,
+        byte_len: 97657,
+    },
+    TileSectorEntry {
+        sector_offset: 7000,
+        sector_count: 250,
+        byte_len: 86627,
+    },
+    TileSectorEntry {
+        sector_offset: 7250,
+        sector_count: 250,
+        byte_len: 100079,
+    },
+    TileSectorEntry {
+        sector_offset: 7500,
+        sector_count: 250,
+        byte_len: 107563,
+    },
+    TileSectorEntry {
+        sector_offset: 7750,
+        sector_count: 250,
+        byte_len: 97183,
+    },
+    TileSectorEntry {
+        sector_offset: 8000,
+        sector_count: 250,
+        byte_len: 106197,
     },
     TileSectorEntry {
         sector_offset: 0,
@@ -752,142 +818,172 @@ pub static CIRCUIT_ARSV_SECTORS: [TileSectorEntry; COUNT] = [
     TileSectorEntry {
         sector_offset: 0,
         sector_count: 250,
-        byte_len: 100889,
+        byte_len: 86857,
     },
     TileSectorEntry {
         sector_offset: 250,
         sector_count: 250,
-        byte_len: 89859,
+        byte_len: 98493,
     },
     TileSectorEntry {
         sector_offset: 500,
         sector_count: 250,
-        byte_len: 103311,
+        byte_len: 103924,
+    },
+    TileSectorEntry {
+        sector_offset: 0,
+        sector_count: 0,
+        byte_len: 0,
     },
     TileSectorEntry {
         sector_offset: 750,
         sector_count: 250,
-        byte_len: 110795,
+        byte_len: 108124,
     },
     TileSectorEntry {
         sector_offset: 1000,
         sector_count: 250,
-        byte_len: 100415,
+        byte_len: 113139,
     },
     TileSectorEntry {
         sector_offset: 1250,
         sector_count: 250,
-        byte_len: 109429,
+        byte_len: 110740,
     },
     TileSectorEntry {
         sector_offset: 1500,
         sector_count: 250,
-        byte_len: 110740,
+        byte_len: 104279,
     },
     TileSectorEntry {
         sector_offset: 1750,
         sector_count: 250,
-        byte_len: 104279,
+        byte_len: 99775,
     },
     TileSectorEntry {
         sector_offset: 2000,
         sector_count: 250,
-        byte_len: 99775,
+        byte_len: 101435,
     },
     TileSectorEntry {
         sector_offset: 2250,
         sector_count: 250,
-        byte_len: 101435,
+        byte_len: 92946,
     },
     TileSectorEntry {
         sector_offset: 2500,
         sector_count: 250,
-        byte_len: 92946,
+        byte_len: 95132,
     },
     TileSectorEntry {
         sector_offset: 2750,
         sector_count: 250,
-        byte_len: 95132,
+        byte_len: 109012,
     },
     TileSectorEntry {
         sector_offset: 3000,
         sector_count: 250,
-        byte_len: 109012,
+        byte_len: 104364,
     },
     TileSectorEntry {
         sector_offset: 3250,
         sector_count: 250,
-        byte_len: 104364,
+        byte_len: 115589,
     },
     TileSectorEntry {
         sector_offset: 3500,
         sector_count: 250,
-        byte_len: 115589,
+        byte_len: 103705,
     },
     TileSectorEntry {
         sector_offset: 3750,
         sector_count: 250,
-        byte_len: 103705,
+        byte_len: 111058,
     },
     TileSectorEntry {
         sector_offset: 4000,
         sector_count: 250,
-        byte_len: 111058,
+        byte_len: 101695,
     },
     TileSectorEntry {
         sector_offset: 4250,
         sector_count: 250,
-        byte_len: 101695,
+        byte_len: 107613,
     },
     TileSectorEntry {
         sector_offset: 4500,
         sector_count: 250,
-        byte_len: 107613,
+        byte_len: 89903,
     },
     TileSectorEntry {
         sector_offset: 4750,
         sector_count: 250,
-        byte_len: 89903,
+        byte_len: 117398,
     },
     TileSectorEntry {
         sector_offset: 5000,
         sector_count: 250,
-        byte_len: 117398,
+        byte_len: 148835,
     },
     TileSectorEntry {
         sector_offset: 5250,
         sector_count: 250,
-        byte_len: 148835,
+        byte_len: 105171,
     },
     TileSectorEntry {
         sector_offset: 5500,
         sector_count: 250,
-        byte_len: 105171,
+        byte_len: 127808,
     },
     TileSectorEntry {
         sector_offset: 5750,
         sector_count: 250,
-        byte_len: 127808,
+        byte_len: 70415,
     },
     TileSectorEntry {
         sector_offset: 6000,
         sector_count: 250,
-        byte_len: 70415,
+        byte_len: 76149,
     },
     TileSectorEntry {
         sector_offset: 6250,
         sector_count: 250,
-        byte_len: 76149,
+        byte_len: 70329,
     },
     TileSectorEntry {
         sector_offset: 6500,
         sector_count: 250,
-        byte_len: 70329,
+        byte_len: 93112,
     },
     TileSectorEntry {
         sector_offset: 6750,
         sector_count: 250,
-        byte_len: 93112,
+        byte_len: 100889,
+    },
+    TileSectorEntry {
+        sector_offset: 7000,
+        sector_count: 250,
+        byte_len: 89859,
+    },
+    TileSectorEntry {
+        sector_offset: 7250,
+        sector_count: 250,
+        byte_len: 103311,
+    },
+    TileSectorEntry {
+        sector_offset: 7500,
+        sector_count: 250,
+        byte_len: 110795,
+    },
+    TileSectorEntry {
+        sector_offset: 7750,
+        sector_count: 250,
+        byte_len: 100415,
+    },
+    TileSectorEntry {
+        sector_offset: 8000,
+        sector_count: 250,
+        byte_len: 109429,
     },
     TileSectorEntry {
         sector_offset: 0,
@@ -1303,6 +1399,36 @@ pub static CIRCUIT_TIM_SECTORS: [TileSectorEntry; COUNT] = [
         sector_count: 1024,
         byte_len: 2097152,
     },
+    TileSectorEntry {
+        sector_offset: 56320,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 57344,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 58368,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 59392,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 60416,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
+    TileSectorEntry {
+        sector_offset: 61440,
+        sector_count: 1024,
+        byte_len: 2097152,
+    },
 ];
 
 /// Uncompressed 4bpp block sector index [block_idx].
@@ -1582,6 +1708,36 @@ pub static CIRCUIT_TIM4_SECTORS: [TileSectorEntry; COUNT] = [
         sector_count: 257,
         byte_len: 526336,
     },
+    TileSectorEntry {
+        sector_offset: 14135,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 14392,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 14649,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 14906,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 15163,
+        sector_count: 257,
+        byte_len: 526336,
+    },
+    TileSectorEntry {
+        sector_offset: 15420,
+        sector_count: 257,
+        byte_len: 526336,
+    },
 ];
 
 /// Uncompressed 8bpp block sector index [block_idx].
@@ -1858,6 +2014,36 @@ pub static CIRCUIT_TIM8_SECTORS: [TileSectorEntry; COUNT] = [
     },
     TileSectorEntry {
         sector_offset: 27702,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 28215,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 28728,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 29241,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 29754,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 30267,
+        sector_count: 513,
+        byte_len: 1050624,
+    },
+    TileSectorEntry {
+        sector_offset: 30780,
         sector_count: 513,
         byte_len: 1050624,
     },
