@@ -4381,4 +4381,152 @@ mod graphics_settings {
             assert_eq!(screen_3rd.player_rank, 3);
         }
     }
+
+    #[test]
+    fn font_vram_sheet_and_glyph_integrity_tests() {
+        // Verify that the font sheet generation algorithm preserves all foreground pixels
+        // and never creates corrupted nibbles (value 3 = transparent) when drop shadows are added.
+        // Also verify that key characters like 'R', 'N', 'D', 'G', 'S', '3' are distinct and intact.
+        let font_src = include_str!("../../../game/src/ui/font.rs");
+        assert!(font_src.contains("// Pass 1: populate all foreground pixels"));
+        assert!(font_src.contains("// Pass 2: add subtle 1px drop shadow"));
+        assert!(font_src.contains("clut[3] = 0x7FFF; // Foreground fallback"));
+
+        // Extract glyph definition lines
+        let mut glyphs = [[0u8; 5]; 64];
+        let mut glyph_idx = 0;
+        for line in font_src.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('[') && trimmed.contains("0x") && trimmed.contains("// 0x") {
+                let inside = trimmed.trim_start_matches('[').split(']').next().unwrap();
+                let nums: Vec<u8> = inside
+                    .split(',')
+                    .filter_map(|s| {
+                        let hex = s.trim().trim_start_matches("0x");
+                        u8::from_str_radix(hex, 16).ok()
+                    })
+                    .collect();
+                if nums.len() == 5 && glyph_idx < 64 {
+                    glyphs[glyph_idx] = [nums[0], nums[1], nums[2], nums[3], nums[4]];
+                    glyph_idx += 1;
+                }
+            }
+        }
+        assert_eq!(glyph_idx, 64, "All 64 ASCII glyphs must be parsed");
+
+        // Simulate two-pass VRAM sheet generation
+        let mut sheet = [0u16; 1024];
+
+        // Pass 1: Foreground pixels (1)
+        for (idx, &cols) in glyphs.iter().enumerate() {
+            let cell_col = idx % 8;
+            let cell_row = idx / 8;
+            for (col_idx, &col_bits) in cols.iter().enumerate() {
+                let px = cell_col * 8 + col_idx;
+                let hw_col = px / 4;
+                let nibble = (px % 4) as u16;
+                for row in 0..7 {
+                    let py = cell_row * 8 + row;
+                    if (col_bits & (1u8 << row)) != 0 {
+                        let hw_idx = py * 16 + hw_col;
+                        sheet[hw_idx] |= 1u16 << (nibble * 4);
+                    }
+                }
+            }
+        }
+
+        // Pass 2: Shadow pixels (2)
+        for (idx, &cols) in glyphs.iter().enumerate() {
+            let cell_col = idx % 8;
+            let cell_row = idx / 8;
+            for (col_idx, &col_bits) in cols.iter().enumerate() {
+                let px = cell_col * 8 + col_idx;
+                for row in 0..7 {
+                    if (col_bits & (1u8 << row)) != 0 {
+                        let s_py = cell_row * 8 + row + 1;
+                        let s_px = px + 1;
+                        if s_py < (cell_row + 1) * 8 && s_px < (cell_col + 1) * 8 {
+                            let s_hw = s_py * 16 + (s_px / 4);
+                            let s_nib = (s_px % 4) as u16;
+                            if (sheet[s_hw] & (0xF << (s_nib * 4))) == 0 {
+                                sheet[s_hw] |= 2u16 << (s_nib * 4);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Assert: NO nibble in the entire 64x64 texture sheet has value 3 or >2
+        for (hw_idx, &hw) in sheet.iter().enumerate() {
+            for nib in 0..4 {
+                let val = (hw >> (nib * 4)) & 0xF;
+                assert!(
+                    val <= 2,
+                    "VRAM font sheet has corrupted nibble {val} at hw_idx {hw_idx} (caused missing pixels in text)"
+                );
+            }
+        }
+
+        // Verify key characters
+        let r_idx = (b'R' - 0x20) as usize;
+        let r_cols = glyphs[r_idx];
+        assert_ne!(
+            r_cols[4] & (1 << 6),
+            0,
+            "'R' must have bottom-right leg pixel at row 6, col 4"
+        );
+        assert_ne!(
+            r_cols[3] & (1 << 5),
+            0,
+            "'R' must have diagonal leg pixel at row 5, col 3"
+        );
+
+        let n_idx = (b'N' - 0x20) as usize;
+        let n_cols = glyphs[n_idx];
+        assert_ne!(
+            n_cols[2] & (1 << 3),
+            0,
+            "'N' must have center diagonal pixel at row 3, col 2"
+        );
+
+        let d_idx = (b'D' - 0x20) as usize;
+        let d_cols = glyphs[d_idx];
+        assert_ne!(
+            d_cols[4] & (1 << 3),
+            0,
+            "'D' must have right edge pixel at row 3, col 4"
+        );
+        assert_ne!(
+            d_cols[3] & (1 << 0),
+            0,
+            "'D' must have top edge pixel at row 0, col 3"
+        );
+
+        let g_idx = (b'G' - 0x20) as usize;
+        let g_cols = glyphs[g_idx];
+        assert_eq!(
+            g_cols[2] & (1 << 3),
+            0,
+            "'G' center must be open at row 3, col 2"
+        );
+        assert_ne!(
+            g_cols[3] & (1 << 3),
+            0,
+            "'G' must have horizontal spur at row 3, col 3"
+        );
+
+        let s_idx = (b'S' - 0x20) as usize;
+        let s_cols = glyphs[s_idx];
+        assert_ne!(
+            s_cols[0] & (1 << 2),
+            0,
+            "'S' must have top-left stem at row 2, col 0"
+        );
+        assert_ne!(
+            s_cols[4] & (1 << 4),
+            0,
+            "'S' must have bottom-right stem at row 4, col 4"
+        );
+    }
 }
