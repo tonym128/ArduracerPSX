@@ -11272,10 +11272,10 @@ pub static TRACK_TITAN_CIRCUIT: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 12954,
-        silver_ticks: 11334,
-        gold_ticks: 10120,
-        dev_platinum_ticks: 7978,
+        bronze_ticks: 12732,
+        silver_ticks: 11141,
+        gold_ticks: 9947,
+        dev_platinum_ticks: 7795,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -14105,7 +14105,7 @@ pub static TRACK_APEX_ARENA: TrackDef = TrackDef {
         bronze_ticks: 5403,
         silver_ticks: 4728,
         gold_ticks: 4221,
-        dev_platinum_ticks: 3424,
+        dev_platinum_ticks: 3426,
     },
     checkpoint_count: 9,
     checkpoints: [
