@@ -243,7 +243,7 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 - [x] **`NO1-048` — Upgrade MDEC Video to 24bpp True-Color & Locked `.STR` Audio Sync (`game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py`)**
   - **Problem**: `video.rs:529` decodes MDEC in 15bpp (`DECODE_15BPP`) with visible 5-bit banding and runs `INTRO.ADPCM` open-loop on SPU Voice 5 (`main.rs:344-358`).
   - **Action**: Upgrade `video.rs` to 24-bit MDEC true-color output (`DECODE_24BPP` + `GP1(08h)` 24bpp display mode) and pace frame presentation against the hardware audio clock for drift-free lip/beat sync.
-- [ ] **`NO1-049` — Title Screen Attract Mode Loop (FMV + Live AI Autopilot Demo Races) (`game/src/ui/title.rs`, `autopilot.rs`, `main.rs`)**
+- [x] **`NO1-049` — Title Screen Attract Mode Loop (FMV + Live AI Autopilot Demo Races) (`game/src/ui/title.rs`, `autopilot.rs`, `main.rs`)**
   - **Problem**: Leaving `TitleScreen` idle never replays `INTRO.STR` or demonstrates gameplay, even though `autopilot::generate_autopilot_input` (`game/src/autopilot.rs:35-111`) is already implemented!
   - **Action**: After 20 seconds of inactivity on `TitleScreen`, enter **Attract Mode**: alternate between replaying `INTRO.STR` and running a 30-second live **AI Autopilot Demo Race** on a showcase circuit with dynamic Broadcast TV cameras and an `"ARDURACER PSX — PRESS START"` arcade overlay!
 - [ ] **`NO1-050` — Championship Podium / Victory Ceremony & Outro `.STR` FMV (`game/src/ui/victory.rs`, `tools/fmv_cook/`)**

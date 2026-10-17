@@ -10,7 +10,6 @@ extern crate psx_rt;
 
 pub mod async_tile;
 pub mod audio;
-#[cfg(feature = "profiling")]
 pub mod autopilot;
 pub mod cd_fs;
 pub mod dbg;
@@ -342,10 +341,13 @@ pub struct ArduracerGame {
     pub input_mgr2: InputManager,
     /// True if Player 1 won the 2P duel; False if Player 2 won.
     pub p1_won_2p: bool,
-    /// Synthetic driver used only by `profiling` builds to get the car on
-    /// circuit without a pad. Absent from shipping builds, so the struct keeps
-    /// no room for it.
-    #[cfg(feature = "profiling")]
+    /// Whether the game is currently running a live AI autopilot attract demo race.
+    pub is_attract_demo: bool,
+    /// Frame counter for the 30-second attract demo race.
+    pub attract_demo_timer: u32,
+    /// Attract mode alternating cycle counter (even = FMV, odd = Live AI Demo).
+    pub attract_cycle: u8,
+    /// Synthetic AI autopilot driver used for attract mode demos and profiling.
     pub autopilot: autopilot::Autopilot,
 }
 
@@ -489,7 +491,9 @@ impl ArduracerGame {
             input_mgr2,
             p1_won_2p: false,
             memcard,
-            #[cfg(feature = "profiling")]
+            is_attract_demo: false,
+            attract_demo_timer: 0,
+            attract_cycle: 0,
             autopilot: autopilot::Autopilot::new(track),
         };
         // Restore the saved graphics settings before anything renders, so the
@@ -982,6 +986,29 @@ impl ArduracerGame {
                     if self.state_mgr.title.update(&pad) {
                         dbg::println("[STATE] Title screen confirmed -> entering MainMenu");
                         self.state_mgr.current = GameState::MainMenu;
+                    } else if self.state_mgr.title.timer() >= 1200 {
+                        // 20 seconds idle -> enter Attract Mode
+                        if self.attract_cycle.is_multiple_of(2) {
+                            dbg::println("[ATTRACT] 20s idle -> Playing Intro FMV");
+                            self.attract_cycle = self.attract_cycle.wrapping_add(1);
+                            self.state_mgr.title = crate::ui::TitleScreen::new();
+                            let _ = video::play_video("INTRO.STR");
+                            self.state_mgr.title = crate::ui::TitleScreen::new();
+                        } else {
+                            dbg::println("[ATTRACT] 20s idle -> Launching AI Autopilot Demo Race");
+                            self.attract_cycle = self.attract_cycle.wrapping_add(1);
+                            self.is_attract_demo = true;
+                            self.attract_demo_timer = 0;
+                            let demo_track = match (self.attract_cycle / 2) % 3 {
+                                0 => 0,  // Cascade Falls
+                                1 => 19, // Frostpeak Summit
+                                _ => 25, // Metro 8
+                            };
+                            self.load_track(demo_track);
+                            self.camera = Camera::new_rotating(self.player.position, self.current_track.start_heading);
+                            self.autopilot = autopilot::Autopilot::new(self.current_track);
+                            self.state_mgr.current = GameState::Racing;
+                        }
                     }
                     self.fb.clear(12, 14, 20);
                     self.state_mgr.title.render();
@@ -1272,6 +1299,47 @@ impl ArduracerGame {
                 }
                 GameState::Racing => {
                     let track = self.current_track;
+
+                    if self.is_attract_demo {
+                        let exit_pressed = pad.buttons.is_held(psx_pad::button::START)
+                            || pad.buttons.is_held(psx_pad::button::CROSS)
+                            || pad.buttons.is_held(psx_pad::button::CIRCLE)
+                            || pad.buttons.is_held(psx_pad::button::SQUARE);
+                        self.attract_demo_timer = self.attract_demo_timer.saturating_add(1);
+
+                        if exit_pressed {
+                            dbg::println("[ATTRACT] Button pressed during demo race -> entering MainMenu");
+                            self.is_attract_demo = false;
+                            self.audio.cdda.stop();
+                            self.audio.leave_race();
+                            self.camera = match self.camera_view {
+                                0 => Camera::new_chase(self.player.position, self.current_track.start_heading),
+                                2 => Camera::new_rotating(self.player.position, self.current_track.start_heading),
+                                _ => Camera::new(self.player.position),
+                            };
+                            self.state_mgr.current = GameState::MainMenu;
+                            self.fb.clear(12, 14, 20);
+                            self.close_frame();
+                            prof::end_frame();
+                            continue;
+                        } else if self.attract_demo_timer >= 1800 {
+                            dbg::println("[ATTRACT] 30s demo timeout reached -> returning to TitleScreen");
+                            self.is_attract_demo = false;
+                            self.audio.cdda.stop();
+                            self.audio.leave_race();
+                            self.camera = match self.camera_view {
+                                0 => Camera::new_chase(self.player.position, self.current_track.start_heading),
+                                2 => Camera::new_rotating(self.player.position, self.current_track.start_heading),
+                                _ => Camera::new(self.player.position),
+                            };
+                            self.state_mgr.title = crate::ui::TitleScreen::new();
+                            self.state_mgr.current = GameState::Title;
+                            self.fb.clear(12, 14, 20);
+                            self.close_frame();
+                            prof::end_frame();
+                            continue;
+                        }
+                    }
 
                     // GAME.md §7: Start pauses, Select toggles HUD / minimap.
                     // `PauseMenu` owns all button edge state -- the race loop
@@ -1626,6 +1694,14 @@ impl ArduracerGame {
                             }
                         }
 
+                        // Attract Mode Arcade HUD Banner:
+                        if self.is_attract_demo {
+                            crate::ui::font::draw_text(60, 16, "★ LIVE AI DEMO RACE ★", (0, 220, 255), 1);
+                            if (self.attract_demo_timer / 30).is_multiple_of(2) {
+                                crate::ui::font::draw_text(76, 212, "PRESS START TO RACE", (255, 230, 0), 1);
+                            }
+                        }
+
                         // j. In-game debug metrics and performance telemetry overlay
                         if self.show_hud && self.debug_metrics > 0 {
                             self.debug_overlay.mode = self.debug_metrics;
@@ -1809,9 +1885,14 @@ impl ArduracerGame {
         let pre_surface = pre_tile.surface();
         let mut input = self.input_mgr.update(pad, &self.player, pre_surface);
 
-        #[cfg(feature = "profiling")]
-        self.autopilot
-            .override_input(track, &mut self.player, &mut input);
+        if self.is_attract_demo {
+            self.autopilot
+                .override_input(track, &mut self.player, &mut input);
+        } else {
+            #[cfg(feature = "profiling")]
+            self.autopilot
+                .override_input(track, &mut self.player, &mut input);
+        }
 
         // Start sequence: hold the car on the grid, allow rev-matching throttle
         // feathering during the countdown, then arm the lap clock and evaluate

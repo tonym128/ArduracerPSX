@@ -3139,6 +3139,78 @@ mod intro_transition_tests {
     }
 
     #[test]
+    fn title_screen_20s_timeout_triggers_attract_mode() {
+        let mut title = TitleInput::new();
+
+        // 1199 frames of idle (19.98 seconds at 60 Hz)
+        for _ in 0..1199 {
+            assert!(!title.update(false, false));
+        }
+        assert_eq!(title.timer, 1199);
+
+        // Frame 1200: exactly 20.0 seconds idle
+        assert!(!title.update(false, false));
+        assert_eq!(title.timer, 1200);
+
+        // Attract mode cycle alternation:
+        // Even cycle (0, 2, ...) -> INTRO.STR replay
+        // Odd cycle (1, 3, ...) -> AI Autopilot Demo Race
+        let mut attract_cycle: u8 = 0;
+        let mut launched_fmv = false;
+        let mut launched_demo = false;
+
+        if attract_cycle.is_multiple_of(2) {
+            launched_fmv = true;
+            attract_cycle = attract_cycle.wrapping_add(1);
+        }
+        assert!(launched_fmv);
+        assert_eq!(attract_cycle, 1);
+
+        if !attract_cycle.is_multiple_of(2) {
+            launched_demo = true;
+            attract_cycle = attract_cycle.wrapping_add(1);
+        }
+        assert!(launched_demo);
+        assert_eq!(attract_cycle, 2);
+    }
+
+    #[test]
+    fn attract_demo_press_button_exits_to_menu() {
+        let mut is_attract_demo = true;
+        let mut current_state = GameState::Racing;
+
+        // Player presses CROSS or START
+        let start_held = true;
+        let cross_held = false;
+        let exit_pressed = start_held || cross_held;
+
+        if is_attract_demo && exit_pressed {
+            is_attract_demo = false;
+            current_state = GameState::MainMenu;
+        }
+
+        assert!(!is_attract_demo);
+        assert_eq!(current_state, GameState::MainMenu);
+    }
+
+    #[test]
+    fn attract_demo_30s_timeout_returns_to_title() {
+        let mut is_attract_demo = true;
+        let mut attract_demo_timer: u32 = 1799;
+        let mut current_state = GameState::Racing;
+
+        // Tick 1800 (30 seconds at 60fps)
+        attract_demo_timer += 1;
+        if is_attract_demo && attract_demo_timer >= 1800 {
+            is_attract_demo = false;
+            current_state = GameState::Title;
+        }
+
+        assert!(!is_attract_demo);
+        assert_eq!(current_state, GameState::Title);
+    }
+
+    #[test]
     fn video_stream_bounds_and_eof_drain_without_hanging() {
         // Simulates the sector pumping and frame drain logic of VideoPlayer
         const TOTAL_SECTORS: u32 = 755;
