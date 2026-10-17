@@ -52,6 +52,7 @@ impl InputManager {
 
         self.rumble.tick(
             surface,
+            player.speed,
             player.is_drifting,
             player.tire_scrub,
             player.engine_rpm,

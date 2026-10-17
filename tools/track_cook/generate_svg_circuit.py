@@ -1473,6 +1473,72 @@ CIRCUITS = [
         "note": "Intense cliffside ravine circuit with double hairpins, oil traps, and ravine bridge shortcut.",
     },
     {
+        "name": "Frost Cascade",
+        "shape": "polygon",
+        "vertices": [
+            (62.77, 45.30),
+            (59.96, 50.81),
+            (43.86, 67.96),
+            (40.03, 70.00),
+            (35.70, 70.05),
+            (26.56, 66.16),
+            (21.93, 60.64),
+            (15.73, 40.41),
+            (15.51, 35.16),
+            (16.68, 27.23),
+            (20.27, 21.73),
+            (28.92, 17.53),
+            (38.14, 14.80),
+            (45.66, 13.50),
+            (49.23, 13.73),
+            (54.03, 16.29),
+            (59.03, 21.47),
+            (61.16, 24.99),
+            (62.35, 29.69),
+        ],
+        "radii": [
+            4.0, 5.0, 4.0, 3.5, 3.5, 4.5, 5.0, 5.0, 5.5, 4.5,
+            4.0, 6.0, 6.0, 4.5, 3.5, 4.5, 4.5, 4.0, 5.0,
+        ],
+        "shortcuts": [],
+        "runoff": GRAVEL,
+        "marks": standard_marks((1, 2, 6), (3,)),
+        "note": "Glacial cascade loop with sweeping high-speed mountain arcs and technical lower hairpins.",
+    },
+    {
+        "name": "Lunar Gorge",
+        "shape": "polygon",
+        "vertices": [
+            (34.73, 56.81),
+            (24.85, 40.93),
+            (34.21, 25.04),
+            (53.64, 29.82),
+            (51.33, 49.22),
+        ],
+        "radii": [4.5, 5.0, 4.5, 4.5, 5.0],
+        "shortcuts": [],
+        "runoff": GRAVEL,
+        "marks": standard_marks((4, 5, 6), (3,)),
+        "note": "High-velocity five-apex canyon ring carved into a moonlit gorge.",
+    },
+    {
+        "name": "Onyx Run",
+        "shape": "polygon",
+        "vertices": [
+            (45.49, 61.27),
+            (26.43, 55.38),
+            (22.04, 33.51),
+            (32.08, 15.94),
+            (52.50, 23.41),
+            (60.29, 50.92),
+        ],
+        "radii": [5.0, 5.0, 6.0, 4.5, 5.5, 4.5],
+        "shortcuts": [],
+        "runoff": GRASS,
+        "marks": standard_marks((1, 2, 6), (4,)),
+        "note": "Wide-corridor night sprint with fast banked hex corners and triple boost zones.",
+    },
+    {
         "name": "Titan Circuit",
         "grid": 160,
         "visual_size": 2048,
@@ -1513,7 +1579,7 @@ def apply_mania_cup(cup: str | None, persist: bool = True) -> None:
             except OSError:
                 pass
         return
-    _ranges = {"bronze": (0, 6), "silver": (6, 12), "gold": (12, 18), "platinum": (18, 21)}
+    _ranges = {"bronze": (0, 6), "silver": (6, 12), "gold": (12, 18), "platinum": (18, 24)}
     if cup in _ranges:
         try:
             from race_mania_generator import MANIA_CUP_TRACKS

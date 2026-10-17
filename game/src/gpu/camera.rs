@@ -323,9 +323,11 @@ impl Camera {
             // and let the perspective supply the look-ahead.
             let diff_x = target_pos.x - self.pos.x;
             let diff_y = target_pos.y - self.pos.y;
-            self.pos.x = self.pos.x + diff_x * Fixed::from_raw(M7_POSITION_EASE);
-            self.pos.y = self.pos.y + diff_y * Fixed::from_raw(M7_POSITION_EASE);
-            let _ = (target_velocity, speed, world_w, world_h);
+            self.pos.x = (self.pos.x + diff_x * Fixed::from_raw(M7_POSITION_EASE))
+                .clamp(Fixed::ZERO, Fixed::from_int(world_w.max(0)));
+            self.pos.y = (self.pos.y + diff_y * Fixed::from_raw(M7_POSITION_EASE))
+                .clamp(Fixed::ZERO, Fixed::from_int(world_h.max(0)));
+            let _ = (target_velocity, speed);
             return;
         }
 
@@ -354,6 +356,8 @@ impl Camera {
             let target_zoom = ZOOM_REST - ((ZOOM_REST - ZOOM_FAST) * speed_ratio) / FP_ONE;
             let zoom_diff = target_zoom - self.zoom.raw();
             self.zoom = Fixed::from_raw(self.zoom.raw() + (zoom_diff * ZOOM_EASE) / FP_ONE);
+
+            self.clamp_to_bounds(world_w, world_h);
             return;
         }
         // Look-ahead leads along the direction of travel. Driven by heading

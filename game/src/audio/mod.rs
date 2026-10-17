@@ -96,11 +96,31 @@ impl AudioSystem {
         // two would share the drive. Stopping here also silences playback
         // immediately if the player switched the music off entirely.
         self.cdda.stop();
+        crate::audio::xa::player().stop(reader);
         self.xa.stop(reader);
         if !mode.enabled() || self.last_music_track == 0 {
             return;
         }
         self.play_music(self.last_music_track, reader);
+    }
+
+    /// Pauses the active music stream (both CD-DA and XA) when entering the pause veil.
+    pub fn pause_music(&mut self) {
+        self.cdda.pause();
+        crate::audio::xa::player().suspend();
+    }
+
+    /// Resumes the active music stream (CD-DA or XA) when leaving the pause veil.
+    pub fn resume_music(&mut self, reader: &mut crate::cd_fs::DiscReader) {
+        match arduracer_core::save::CdAudioMode::from_saved(self.cd_audio) {
+            arduracer_core::save::CdAudioMode::Xa => {
+                crate::audio::xa::player().resume(reader);
+            }
+            arduracer_core::save::CdAudioMode::Cdda => {
+                self.cdda.resume();
+            }
+            arduracer_core::save::CdAudioMode::Off => {}
+        }
     }
 
     /// Keeps the XA stream alive across a frame, resuming after a preemption.
@@ -194,8 +214,8 @@ impl AudioSystem {
     /// Returns the cue so a test can assert on it.
     pub fn tick_ui(&mut self, buttons: u16) -> Option<UiSound> {
         let cue = self.policy.ui_sound(buttons);
-        if cue.is_some() {
-            self.sfx.play_ui_move();
+        if let Some(sound) = cue {
+            self.sfx.play_ui(sound);
         }
         cue
     }

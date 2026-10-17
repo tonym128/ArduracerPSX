@@ -57,6 +57,19 @@ impl SfxPlayer {
 
     /// Triggers a menu navigation blip.
     pub fn play_ui_move(&self) {
+        VOICE_UI.set_pitch(Pitch::raw(0x1000));
+        Voice::key_on(VOICE_UI.mask());
+    }
+
+    /// Triggers a menu UI sound effect with pitch tailored to Move, Confirm, or Back.
+    pub fn play_ui(&self, cue: crate::audio::audio_policy::UiSound) {
+        use crate::audio::audio_policy::UiSound;
+        let pitch = match cue {
+            UiSound::Move => 0x1000,
+            UiSound::Confirm => 0x1500,
+            UiSound::Back => 0x0B80,
+        };
+        VOICE_UI.set_pitch(Pitch::raw(pitch));
         Voice::key_on(VOICE_UI.mask());
     }
 

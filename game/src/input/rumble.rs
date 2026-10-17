@@ -42,33 +42,39 @@ impl RumbleDriver {
         self.small_motor = true;
     }
 
-    /// Updates rumble motors for the current 60Hz tick based on vehicle dynamics, tire scrub, and surface.
+    /// Updates rumble motors for the current 60Hz tick based on vehicle dynamics, speed, tire scrub, and surface.
     pub fn tick(
         &mut self,
         surface: SurfaceType,
+        speed: arduracer_core::Fixed,
         is_drifting: bool,
         tire_scrub: arduracer_core::Fixed,
         rpm: u16,
     ) {
         let mut target_small = false;
         let mut target_large: u8 = 0;
+        let abs_speed = speed.abs();
+        let is_moving = abs_speed > arduracer_core::Fixed::from_raw(200);
+        let speed_scale = (abs_speed.raw().clamp(0, 14_000) * 256) / 14_000;
 
-        // 1. Surface tactile rumble
-        match surface {
-            SurfaceType::Curb => {
-                // High-frequency rumble strip chatter
-                target_small = true;
-                target_large = 70;
+        // 1. Surface tactile rumble (only when rolling)
+        if is_moving {
+            match surface {
+                SurfaceType::Curb => {
+                    // High-frequency rumble strip chatter
+                    target_small = true;
+                    target_large = ((70 * speed_scale) >> 8).clamp(35, 70) as u8;
+                }
+                SurfaceType::OffRoad => {
+                    // Low-frequency rough terrain drag
+                    target_large = ((110 * speed_scale) >> 8).clamp(45, 110) as u8;
+                }
+                SurfaceType::OilSlick => {
+                    // Smooth slippery loss of traction
+                    target_small = false;
+                }
+                _ => {}
             }
-            SurfaceType::OffRoad => {
-                // Low-frequency rough terrain drag
-                target_large = 110;
-            }
-            SurfaceType::OilSlick => {
-                // Smooth slippery loss of traction
-                target_small = false;
-            }
-            _ => {}
         }
 
         // 2. High-speed drift slide vibration and tire scrub warning

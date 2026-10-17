@@ -202,7 +202,7 @@ pub struct AiRacer {
     /// Index of the next route node the rival is chasing.
     pub target_gate_idx: u8,
     /// Checkpoints touched this lap (mirrors `LapTimer::checkpoint_mask`).
-    pub checkpoint_mask: u16,
+    pub checkpoint_mask: u64,
     pub current_lap: u8,
     pub is_finished: bool,
     /// Set once the rival has left the grid (mirrors the lap timer's arming).
@@ -732,12 +732,13 @@ impl AiRacer {
 
         // Track checkpoint coverage so rivals can be ranked against the player.
         for i in 0..checkpoint_count {
-            if self.checkpoint_mask & (1 << i) != 0 {
+            let bit = 1u64.checked_shl(i as u32).unwrap_or(0);
+            if bit == 0 || self.checkpoint_mask & bit != 0 {
                 continue;
             }
             match track.checkpoints.get(i) {
                 Some(gate) if gate.contains_tile_or_nearby(tx, ty, 1) => {
-                    self.checkpoint_mask |= 1 << i
+                    self.checkpoint_mask |= bit
                 }
                 _ => {}
             }
@@ -1777,17 +1778,28 @@ mod tests {
 
     #[test]
     fn checkpoint_mask_saturates_at_the_track_checkpoint_count() {
-        let track = ALL_TRACKS[0];
-        let mut racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
-        for _ in 0..2000 {
-            racer.tick(track, &[]);
-            assert!(
-                racer.checkpoints_cleared() <= track.active_checkpoint_count() as u32,
-                "{}: the checkpoint mask outran the checkpoint list",
-                track.name
-            );
-            if racer.is_finished {
-                break;
+        for &track in &[ALL_TRACKS[0], ALL_TRACKS[24]] {
+            let mut racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
+            // Verify touching every checkpoint index (including indices 16..24 on Titan Circuit)
+            // sets its bit cleanly without shift overflow.
+            let total = track.active_checkpoint_count();
+            for i in 0..total {
+                let gate = track.checkpoints[i];
+                racer.update_route_progress(track, gate.x, gate.y);
+            }
+            assert_eq!(racer.checkpoints_cleared(), total as u32);
+
+            racer.checkpoint_mask = 0;
+            for _ in 0..2000 {
+                racer.tick(track, &[]);
+                assert!(
+                    racer.checkpoints_cleared() <= total as u32,
+                    "{}: the checkpoint mask outran the checkpoint list",
+                    track.name
+                );
+                if racer.is_finished {
+                    break;
+                }
             }
         }
     }

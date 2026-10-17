@@ -22,6 +22,12 @@ impl ParticleSystem {
                 continue;
             }
 
+            let scale_q12 = if camera.mode7 {
+                camera.m7_scale_q12(p.pos)
+            } else {
+                camera.zoom.raw().max(1024)
+            };
+
             match p.ptype {
                 ParticleType::TireSmoke => {
                     // Grows as it ages and *fades out*. The fade used to be
@@ -29,16 +35,18 @@ impl ParticleSystem {
                     // because nothing in the renderer could blend; with
                     // `draw_quad_flat_blended` there it is a real gradient
                     // (TASK-1205).
-                    let half = Self::smoke_half_extent(age);
+                    let base_half = Self::smoke_half_extent(age) as i32;
+                    let half = ((base_half * scale_q12 + 2048) >> 12).clamp(1, 10) as i16;
                     // Older smoke is dimmer as well as larger, so the two cues
                     // reinforce each other.
                     let level = (age as u16 * 110) / 255;
                     let (r, g, b) = (230 - level as u8, 235 - level as u8, 240 - level as u8);
+                    // Z-order (TL, TR, BL, BR) required by psx_gpu::draw_quad_flat_blended
                     let verts = [
                         (sx - half, sy - half),
                         (sx + half, sy - half),
-                        (sx + half, sy + half),
                         (sx - half, sy + half),
+                        (sx + half, sy + half),
                     ];
                     gpu::draw_quad_flat_blended(verts, r, g, b, BlendMode::Average);
                 }
@@ -48,7 +56,9 @@ impl ParticleSystem {
                     } else {
                         (255, 120, 20) // Cooling ember
                     };
-                    gpu::draw_rect_flat(sx - 1, sy - 1, 2, 2, r, g, b);
+                    let spark_w = ((2 * scale_q12 + 2048) >> 12).clamp(1, 4) as u16;
+                    let half = (spark_w / 2) as i16;
+                    gpu::draw_rect_flat(sx - half, sy - half, spark_w, spark_w, r, g, b);
                 }
                 ParticleType::None => {}
             }

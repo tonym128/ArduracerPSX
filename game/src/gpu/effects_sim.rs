@@ -135,13 +135,17 @@ impl ParticleSystem {
         Some(idx)
     }
 
-    /// Emits a puff of tire smoke that drifts away from the car.
-    ///
-    /// The old version placed the puff at the car's exact centre with zero
-    /// velocity, so it sat inside the opaque body quad and never moved. It now
-    /// starts slightly behind and beside the car and drifts, which both clears
-    /// the body and reads as smoke.
+    /// Emits a puff of tire smoke at a default heading (2048 = South, rear = -Y).
     pub fn emit_smoke(&mut self, pos: Vec2) -> bool {
+        self.emit_smoke_at(pos, 2048)
+    }
+
+    /// Emits a puff of tire smoke behind the car's rear axle according to `angle`.
+    ///
+    /// The old version ignored `angle` and always spawned smoke at `pos.y - SMOKE_DRIFT * 2`
+    /// drifting in `-Y` (world North), so a car driving North or East emitted smoke
+    /// out of its nose or side.
+    pub fn emit_smoke_at(&mut self, pos: Vec2, angle: u16) -> bool {
         let Some(idx) = self.claim() else {
             return false;
         };
@@ -149,15 +153,28 @@ impl ParticleSystem {
         // Alternate the lateral side so two wheels' worth of smoke does not
         // stack into one column.
         let side = if self.spread & 1 == 0 { 1 } else { -1 };
-        let lateral = Fixed::from_raw(side * 0x1000);
+        let cos_a = math::cos(angle);
+        let sin_a = math::sin(angle);
+
+        // Unit right vector: (cos_a, sin_a); unit rear vector: (-sin_a, cos_a).
+        let right_x = cos_a.raw() * side;
+        let right_y = sin_a.raw() * side;
+        let rear_x = -sin_a.raw();
+        let rear_y = cos_a.raw();
+
+        let spawn_offset = Vec2::new(
+            Fixed::from_raw((rear_x * SMOKE_DRIFT * 2 + right_x * 0x0800) >> math::FP_SHIFT),
+            Fixed::from_raw((rear_y * SMOKE_DRIFT * 2 + right_y * 0x0800) >> math::FP_SHIFT),
+        );
+        let drift_vel = Vec2::new(
+            Fixed::from_raw((rear_x * SMOKE_DRIFT + right_x * 0x1000) >> math::FP_SHIFT),
+            Fixed::from_raw((rear_y * SMOKE_DRIFT + right_y * 0x1000) >> math::FP_SHIFT),
+        );
+
         self.pool[idx] = Particle {
             ptype: ParticleType::TireSmoke,
-            // Spawn behind and beside the car, not on its centre.
-            pos: Vec2::new(
-                pos.x + Fixed::from_raw(lateral.raw() / 2),
-                pos.y + Fixed::from_raw(-SMOKE_DRIFT * 2),
-            ),
-            vel: Vec2::new(lateral, Fixed::from_raw(-SMOKE_DRIFT)),
+            pos: pos + spawn_offset,
+            vel: drift_vel,
             life: SMOKE_LIFE,
             max_life: SMOKE_LIFE,
         };

@@ -336,8 +336,14 @@ impl Default for ArduracerGame {
 
 impl ArduracerGame {
     pub fn new() -> Self {
-        dbg::log_step(1, 9, "Initializing GPU (320x240 NTSC)...");
-        psx_gpu_mod::init(VideoMode::Ntsc, Resolution::R320X240);
+        let video_mode = if is_pal_mode() {
+            dbg::log_step(1, 9, "Initializing GPU (320x240 PAL)...");
+            VideoMode::Pal
+        } else {
+            dbg::log_step(1, 9, "Initializing GPU (320x240 NTSC)...");
+            VideoMode::Ntsc
+        };
+        psx_gpu_mod::init(video_mode, Resolution::R320X240);
         dbg::check_faults();
 
         dbg::log_step(2, 9, "Starting intro audio (SPU ADPCM)...");
@@ -818,13 +824,11 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::CitySelect;
                             }
                             MenuItem::TuningGarage => {
-                                // Load the active preset from the memory card.
+                                // Load all three presets and the active slot from the memory card.
                                 let slot = self.memcard.save_data.active_tuning_slot as usize;
-                                if slot < 3 {
-                                    self.state_mgr
-                                        .garage
-                                        .load_tuning(self.memcard.save_data.tuning_slots[slot]);
-                                }
+                                self.state_mgr
+                                    .garage
+                                    .load_slots(&self.memcard.save_data.tuning_slots, slot);
                                 // A `Cross`/`Start` held on the main menu must
                                 // not save-and-exit on the garage's first frame.
                                 self.state_mgr.garage.sync_edges(&pad);
@@ -929,16 +933,15 @@ impl ArduracerGame {
                     if self.state_mgr.garage.update(&pad) {
                         let tuning = self.state_mgr.garage.tuning();
                         self.player.tuning = tuning;
-                        // Persist the preset to the active save slot (TASK-602).
-                        // `store_tuning` reports a refusal: the garage's own
-                        // bounds now match `is_valid`, so this should not fire,
-                        // but a silent discard here would lose the player's work
-                        // with no indication (TASK-1210).
-                        // Persist to the preset the player selected in the
-                        // garage, and record the selection so it is the one
-                        // loaded next time (TASK-1217).
                         let slot = self.state_mgr.garage.slot();
-                        if self.memcard.store_tuning(slot, tuning) {
+                        let slots = *self.state_mgr.garage.slots();
+                        let mut any_stored = false;
+                        for (idx, preset) in slots.iter().copied().enumerate() {
+                            if self.memcard.store_tuning(idx, preset) {
+                                any_stored = true;
+                            }
+                        }
+                        if self.memcard.store_tuning(slot, tuning) || any_stored {
                             self.memcard.save_data.active_tuning_slot = slot as u8;
                             self.memcard.mark_dirty();
                             self.memcard.flush();
@@ -1032,9 +1035,9 @@ impl ArduracerGame {
                         self.audio.set_paused(self.paused);
                         if self.paused {
                             self.input_mgr.silence();
-                            self.audio.cdda.pause();
+                            self.audio.pause_music();
                         } else {
-                            self.audio.cdda.resume();
+                            self.audio.resume_music(crate::gpu::tracktex::disc_reader());
                             self.sim_accumulator = 0;
                             self.last_vblank_count = psx_rt::interrupts::vblank_count();
                             self.last_flip_vblank = psx_rt::interrupts::vblank_count();
@@ -1058,7 +1061,7 @@ impl ArduracerGame {
                                 PauseChoice::Resume => {
                                     self.paused = false;
                                     self.audio.set_paused(false);
-                                    self.audio.cdda.resume();
+                                    self.audio.resume_music(crate::gpu::tracktex::disc_reader());
                                     self.sim_accumulator = 0;
                                     self.last_vblank_count = psx_rt::interrupts::vblank_count();
                                     self.last_flip_vblank = psx_rt::interrupts::vblank_count();
@@ -1567,13 +1570,29 @@ impl ArduracerGame {
 
         // Emit smoke particles and skidmarks during hard turns, limit scrubbing, or drifts
         if self.player.is_drifting || self.player.tire_scrub > Fixed::ONE {
-            self.particles.emit_smoke(self.player.position);
+            self.particles
+                .emit_smoke_at(self.player.position, self.player.visual_angle);
             self.skidmarks
                 .emit(self.player.position, self.player.visual_angle);
         } else if self.player.tire_scrub > Fixed::from_raw(3200) && (self.frame_counter & 1) == 0 {
             // Intermittent skidmarks when scrubbing tires near the limit of grip
             self.skidmarks
                 .emit(self.player.position, self.player.visual_angle);
+        }
+
+        // AI rivals also lay down rubber and billow smoke when drifting or scrubbing hard
+        if RIVALS_ENABLED {
+            for (idx, rival) in self.rivals.iter().enumerate() {
+                if !rival.is_finished {
+                    let rc = &rival.state;
+                    if rc.is_drifting || rc.tire_scrub > Fixed::ONE {
+                        if ((self.frame_counter as usize + idx) & 1) == 0 {
+                            self.particles.emit_smoke_at(rc.position, rc.visual_angle);
+                        }
+                        self.skidmarks.emit(rc.position, rc.visual_angle);
+                    }
+                }
+            }
         }
         // Wall scrape sparks + heavy rumble on a barrier hit.
         if hit_wall {

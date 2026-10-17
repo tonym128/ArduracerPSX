@@ -768,6 +768,38 @@ mod camera_tests {
         assert_eq!(right.0, SCREEN_W / 2, "half-width must reach the edge");
         assert_eq!(bottom.1, SCREEN_H / 2, "half-height must reach the edge");
     }
+
+    #[test]
+    fn rotating_and_chase_cameras_clamp_to_bounds() {
+        let world = (2_000i32, 2_000i32);
+        let mut rot = Camera::new_rotating(Vec2::ZERO, 0);
+        for _ in 0..120 {
+            rot.update(
+                Vec2::ZERO,
+                Vec2::new(Fixed::from_int(30), Fixed::ZERO),
+                Fixed::from_raw(14_000),
+                world.0,
+                world.1,
+            );
+        }
+        let (hw, hh) = rot.visible_half_extents();
+        assert!(rot.pos.x.to_int() >= hw && rot.pos.x.to_int() <= world.0 - hw);
+        assert!(rot.pos.y.to_int() >= hh && rot.pos.y.to_int() <= world.1 - hh);
+
+        let mut chase =
+            Camera::new_chase(Vec2::new(Fixed::from_int(-50), Fixed::from_int(2_100)), 0);
+        for _ in 0..60 {
+            chase.update(
+                Vec2::new(Fixed::from_int(-50), Fixed::from_int(2_100)),
+                Vec2::ZERO,
+                Fixed::ZERO,
+                world.0,
+                world.1,
+            );
+        }
+        assert!(chase.pos.x >= Fixed::ZERO && chase.pos.x <= Fixed::from_int(world.0));
+        assert!(chase.pos.y >= Fixed::ZERO && chase.pos.y <= Fixed::from_int(world.1));
+    }
 }
 
 #[cfg(test)]
@@ -1929,6 +1961,33 @@ mod effects_tests {
             particles.emit_smoke(SOMEWHERE),
             "a full pool of dead particles stopped accepting new ones"
         );
+    }
+
+    #[test]
+    fn smoke_spawns_and_drifts_behind_car_for_any_heading() {
+        // Heading 0 = North (-Y) -> rear is South (+Y)
+        // Heading 1024 = East (+X) -> rear is West (-X)
+        // Heading 2048 = South (+Y) -> rear is North (-Y)
+        // Heading 3072 = West (-X) -> rear is East (+X)
+        let mut north = ParticleSystem::new();
+        assert!(north.emit_smoke_at(SOMEWHERE, 0));
+        let p_n = north.pool[0];
+        assert!(p_n.pos.y > SOMEWHERE.y && p_n.vel.y > Fixed::ZERO);
+
+        let mut east = ParticleSystem::new();
+        assert!(east.emit_smoke_at(SOMEWHERE, 1024));
+        let p_e = east.pool[0];
+        assert!(p_e.pos.x < SOMEWHERE.x && p_e.vel.x < Fixed::ZERO);
+
+        let mut south = ParticleSystem::new();
+        assert!(south.emit_smoke_at(SOMEWHERE, 2048));
+        let p_s = south.pool[0];
+        assert!(p_s.pos.y < SOMEWHERE.y && p_s.vel.y < Fixed::ZERO);
+
+        let mut west = ParticleSystem::new();
+        assert!(west.emit_smoke_at(SOMEWHERE, 3072));
+        let p_w = west.pool[0];
+        assert!(p_w.pos.x > SOMEWHERE.x && p_w.vel.x > Fixed::ZERO);
     }
 }
 

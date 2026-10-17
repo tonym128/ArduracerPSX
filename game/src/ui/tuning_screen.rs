@@ -15,6 +15,8 @@ pub struct TuningScreen {
     /// Selection, budget and edge state. All of it is hardware-free and
     /// unit-tested in `tools/test_ui` via `tuning_input.rs` (TASK-1210).
     menu: TuningMenu,
+    /// Cached setups for all three garage preset slots while editing.
+    slots: [CarTuning; SLOT_COUNT],
     pub preview_angle: u16,
     /// Frames left showing the refusal banner, so a short press is legible.
     banner_frames: u8,
@@ -29,6 +31,7 @@ impl TuningScreen {
     pub fn new(initial: CarTuning) -> Self {
         TuningScreen {
             menu: TuningMenu::new(initial),
+            slots: [initial; SLOT_COUNT],
             preview_angle: 0,
             banner_frames: 0,
             last_reject: Reject::NoPointsLeft,
@@ -40,6 +43,11 @@ impl TuningScreen {
         self.menu.tuning
     }
 
+    /// All three preset slots, including any edits made before switching slots.
+    pub fn slots(&self) -> &[CarTuning; SLOT_COUNT] {
+        &self.slots
+    }
+
     /// Which preset the garage is editing.
     pub fn slot(&self) -> usize {
         self.menu.slot
@@ -47,8 +55,10 @@ impl TuningScreen {
 
     /// Adopts the presets stored on the card and selects `slot`.
     pub fn load_slots(&mut self, slots: &[CarTuning; SLOT_COUNT], slot: usize) {
-        self.menu = TuningMenu::new(slots[slot.min(SLOT_COUNT - 1)]);
-        self.menu.load_slot(slot, slots[slot.min(SLOT_COUNT - 1)]);
+        let idx = slot.min(SLOT_COUNT - 1);
+        self.slots = *slots;
+        self.menu = TuningMenu::new(self.slots[idx]);
+        self.menu.load_slot(idx, self.slots[idx]);
         self.banner_frames = 0;
     }
 
@@ -60,6 +70,7 @@ impl TuningScreen {
     /// Adopts a stored preset, discarding any in-progress edits and any armed
     /// reset prompt.
     pub fn load_tuning(&mut self, tuning: CarTuning) {
+        self.slots[0] = tuning;
         self.menu = TuningMenu::new(tuning);
         self.banner_frames = 0;
     }
@@ -104,7 +115,20 @@ impl TuningScreen {
     pub fn update(&mut self, pad: &PadState) -> bool {
         self.preview_angle = (self.preview_angle + 24) % 4096;
 
+        let prev_slot = self.menu.slot.min(SLOT_COUNT - 1);
+        if self.menu.tuning.is_valid() {
+            self.slots[prev_slot] = self.menu.tuning;
+        }
+
         let frame = self.menu.update(Self::input_from_pad(pad));
+
+        let new_slot = self.menu.slot.min(SLOT_COUNT - 1);
+        if new_slot != prev_slot {
+            self.menu.tuning = self.slots[new_slot];
+            self.menu.mark_dirty();
+        } else if self.menu.tuning.is_valid() {
+            self.slots[new_slot] = self.menu.tuning;
+        }
 
         if let Some(reject) = frame.rejected {
             self.last_reject = reject;
@@ -260,8 +284,13 @@ impl TuningScreen {
             );
         }
 
+        let slot_label = match self.menu.slot {
+            0 => "1/3",
+            1 => "2/3",
+            _ => "3/3",
+        };
         draw_text(24, 182, "L1/R1: PRESET", (130, 150, 170), 1);
-        draw_text(150, 182, "1/3", (255, 220, 0), 1);
+        draw_text(150, 182, slot_label, (255, 220, 0), 1);
 
         // Instructions Footer
         draw_text(

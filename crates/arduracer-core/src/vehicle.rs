@@ -119,9 +119,10 @@ const BOOST_PAD_COOLDOWN_TICKS: u16 = 12;
 pub const HARD_IMPACT_THRESHOLD: Fixed = Fixed::from_raw(900);
 /// Speed retained after a hard impact (30% scrub).
 const HARD_IMPACT_SCRUB: Fixed = Fixed::from_raw(2867);
-/// Full nitro meter: 1.5 s of continuous boost, recharging in ~6 s.
+/// Full nitro meter: 1.5 s of continuous boost (90 ticks), recharging passively
+/// in 6.0 s (360 ticks = 4 ticks per unit, or 2x faster while drifting).
 pub const NITRO_MAX_TICKS: u16 = 90;
-pub const NITRO_RECHARGE_TICKS: u16 = 6;
+pub const NITRO_RECHARGE_TICKS: u16 = 4;
 /// Per-tick nitro thrust (well above the engine's own push).
 const NITRO_THRUST: Fixed = Fixed::from_raw(150);
 /// Minimum speed for the handbrake to break traction.
@@ -170,6 +171,8 @@ pub struct VehicleState {
     /// Nitro meter: 0..=NITRO_MAX_TICKS of accumulated charge. Drains while
     /// `VehicleInput::nitro` is held and refills when it is not.
     pub nitro_charge: u16,
+    /// Sub-tick accumulator for passive and drift-assisted nitro recharge.
+    pub nitro_recharge_sub: u8,
     /// Cooldown before a boost pad can fire again.
     pub boost_pad_cooldown: u16,
     /// Current engine RPM (1000..8000 scale).
@@ -225,6 +228,7 @@ impl Default for VehicleState {
             drift: DriftState::Grip,
             boost_ticks: 0,
             nitro_charge: NITRO_MAX_TICKS,
+            nitro_recharge_sub: 0,
             boost_pad_cooldown: 0,
             engine_rpm: 1000,
             gear: 1,
@@ -372,6 +376,7 @@ impl VehicleState {
         self.drift = DriftState::Grip;
         self.boost_ticks = 0;
         self.nitro_charge = NITRO_MAX_TICKS;
+        self.nitro_recharge_sub = 0;
         self.boost_pad_cooldown = 0;
         self.is_reversing = false;
         self.gear = 1;
@@ -584,14 +589,25 @@ impl VehicleState {
 
         // 2b. Nitro ----------------------------------------------------------------
         // Held nitro spends the meter and keeps the car above its normal ceiling
-        // for as long as the charge lasts.
+        // for as long as the charge lasts. When not spending, passive recharge
+        // accumulates 1 sub-tick per frame (reaching 1 charge every
+        // `NITRO_RECHARGE_TICKS` = 4 ticks -> 6.0 s full refill), and active
+        // drifting doubles the recharge rate (2 sub-ticks/frame -> 3.0 s refill).
         let nitro_active = input.nitro && self.nitro_charge > 0 && traction > Fixed::ZERO;
         if nitro_active {
             self.nitro_charge -= 1;
+            self.nitro_recharge_sub = 0;
             self.boost_ticks = self.boost_ticks.max(2);
             self.velocity = self.velocity + forward_dir.scale(NITRO_THRUST);
         } else if self.nitro_charge < NITRO_MAX_TICKS {
-            self.nitro_charge = (self.nitro_charge + NITRO_RECHARGE_TICKS).min(NITRO_MAX_TICKS);
+            let sub_step = if sliding || self.is_drifting { 2 } else { 1 };
+            self.nitro_recharge_sub = self.nitro_recharge_sub.saturating_add(sub_step);
+            if self.nitro_recharge_sub as u16 >= NITRO_RECHARGE_TICKS {
+                self.nitro_recharge_sub -= NITRO_RECHARGE_TICKS as u8;
+                self.nitro_charge = (self.nitro_charge + 1).min(NITRO_MAX_TICKS);
+            }
+        } else {
+            self.nitro_recharge_sub = 0;
         }
 
         // 3. Braking & reverse ---------------------------------------------------
@@ -2804,6 +2820,46 @@ mod tests {
             "upshift 3->4 must drop revs: redline 3 ({}) > entry 4 ({})",
             max_rpm_in_gear[3],
             min_rpm_in_gear[4]
+        );
+    }
+
+    #[test]
+    fn nitro_recharges_passively_in_six_seconds_and_faster_while_drifting() {
+        let mut passive = VehicleState {
+            nitro_charge: 0,
+            ..VehicleState::default()
+        };
+        let coast = flat(Fixed::ONE, Fixed::ZERO);
+
+        // After 15 ticks (the old 0.25s bug window), meter must only have recovered 3 units.
+        for _ in 0..15 {
+            passive.tick(coast, SurfaceType::Tarmac);
+        }
+        assert_eq!(passive.nitro_charge, 3);
+
+        // Remaining 345 ticks (total 360 ticks = 6.0 s at 60 Hz) brings it to full 90.
+        for _ in 0..344 {
+            passive.tick(coast, SurfaceType::Tarmac);
+        }
+        assert_eq!(passive.nitro_charge, NITRO_MAX_TICKS - 1);
+        passive.tick(coast, SurfaceType::Tarmac);
+        assert_eq!(passive.nitro_charge, NITRO_MAX_TICKS);
+
+        // Drifting doubles the recharge rate compared to straight-line grip.
+        let mut grip_car = rolling(2.5);
+        grip_car.nitro_charge = 0;
+        let mut drift_car = rolling(2.5);
+        drift_car.nitro_charge = 0;
+
+        for _ in 0..40 {
+            grip_car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::Tarmac);
+            drift_car.tick(hb(Fixed::ONE), SurfaceType::Tarmac);
+        }
+        assert!(
+            drift_car.nitro_charge > grip_car.nitro_charge,
+            "drifting must recharge nitro faster than straight grip: {} vs {}",
+            drift_car.nitro_charge,
+            grip_car.nitro_charge
         );
     }
 }
