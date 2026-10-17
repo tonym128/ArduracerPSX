@@ -240,7 +240,7 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 - [x] **`NO1-047` — Interactive Web Track Studio & Shareable Track Codes (`web/`, `tools/track_cook/`)**
   - **Problem**: `web/index.html:375-399` is a static wrapper with an outdated 24-track list and no track authoring tools.
   - **Action**: Update `web/index.html` to reflect all 31 circuits + 3 cities, and add an interactive **Browser TrackMania Canvas Builder** tab that exports shareable URL codes, `.svg`/`.data.png` circuits, or injects custom tracks straight into the WebAssembly emulator's Virtual Memory Card!
-- [ ] **`NO1-048` — Upgrade MDEC Video to 24bpp True-Color & Locked `.STR` Audio Sync (`game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py`)**
+- [x] **`NO1-048` — Upgrade MDEC Video to 24bpp True-Color & Locked `.STR` Audio Sync (`game/src/video.rs`, `tools/fmv_cook/cook_intro_str.py`)**
   - **Problem**: `video.rs:529` decodes MDEC in 15bpp (`DECODE_15BPP`) with visible 5-bit banding and runs `INTRO.ADPCM` open-loop on SPU Voice 5 (`main.rs:344-358`).
   - **Action**: Upgrade `video.rs` to 24-bit MDEC true-color output (`DECODE_24BPP` + `GP1(08h)` 24bpp display mode) and pace frame presentation against the hardware audio clock for drift-free lip/beat sync.
 - [ ] **`NO1-049` — Title Screen Attract Mode Loop (FMV + Live AI Autopilot Demo Races) (`game/src/ui/title.rs`, `autopilot.rs`, `main.rs`)**

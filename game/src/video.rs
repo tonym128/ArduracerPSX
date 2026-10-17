@@ -23,7 +23,9 @@ use core::ptr::addr_of_mut;
 use psx_fmv::{bs, mdec, str as strfmt};
 use psx_gpu as gpu;
 use psx_gpu::framebuf::FrameBuffer;
+use psx_hw::gpu::gp1;
 use psx_io::dma;
+use psx_io::gpu::write_gp1;
 use psx_pack::cd::{SectorReader, SECTOR_WORDS};
 use psx_pad::{button, ButtonState, PadState};
 use psx_vram::{dma_copy_to_vram, upload_words, VramRect};
@@ -46,8 +48,8 @@ pub const SLOT_WORDS: usize = MAX_CHUNKS as usize * strfmt::CHUNK_PAYLOAD_BYTES 
 pub const SLOTS: usize = 2;
 /// MDEC run-length buffer in u32 words (32 KB headroom).
 pub const RLE_WORDS: usize = 8 * 1024;
-/// Decoded pixels in one 16x240 column: 8 words per row.
-pub const COLUMN_WORDS: usize = 8 * VIDEO_H as usize;
+/// Decoded pixels in one 16x240 column in 24bpp true-color: 12 words (48 bytes) per row.
+pub const COLUMN_WORDS: usize = 12 * VIDEO_H as usize;
 
 /// Display periods with no sector and nothing to show before the stream is declared stalled.
 const STALL_VBLANKS: u32 = 120;
@@ -127,6 +129,7 @@ pub struct VideoPlayer {
     last_sector_vblank: u32,
     wait_started_vblank: u32,
     pub eof: bool,
+    pub audio_started: bool,
 }
 
 impl Default for VideoPlayer {
@@ -169,6 +172,7 @@ impl VideoPlayer {
             last_sector_vblank: 0,
             wait_started_vblank: 0,
             eof: false,
+            audio_started: false,
         }
     }
 
@@ -245,6 +249,7 @@ impl VideoPlayer {
         self.last_sector_vblank = now;
         self.wait_started_vblank = now;
         self.eof = false;
+        self.audio_started = false;
         self.saved_irq_mask = psx_io::irq::mask();
         self.irq_mask_saved = true;
     }
@@ -485,6 +490,10 @@ impl VideoPlayer {
         if popped_slot.is_some() {
             fb.swap();
             self.last_swap_vblank = psx_rt::interrupts::vblank_count();
+            if self.frames_shown == 0 && !self.audio_started {
+                crate::audio::play_intro_audio();
+                self.audio_started = true;
+            }
             self.frames_shown += 1;
         }
         self.next_flip_vblank =
@@ -526,7 +535,7 @@ impl VideoPlayer {
             mdec::decode_start(
                 core::slice::from_raw_parts(addr_of_mut!(storage.rle) as *const u32, words),
                 words,
-                mdec::DECODE_15BPP,
+                mdec::DECODE_24BPP,
             );
         }
 
@@ -537,7 +546,7 @@ impl VideoPlayer {
                 ok = false;
                 break;
             }
-            let rect = VramRect::new(c * 16, fb_y, 16, VIDEO_H);
+            let rect = VramRect::new(c * 24, fb_y, 24, VIDEO_H);
             if self.vram_dma_ok && dma_copy_to_vram(rect, storage.column.as_ptr()) {
                 self.vram_dma_columns += 1;
             } else {
@@ -568,6 +577,14 @@ impl VideoPlayer {
         }
         self.finished = true;
 
+        if self.audio_started {
+            crate::audio::stop_intro_audio();
+            self.audio_started = false;
+        }
+
+        // Restore GPU to standard 15bpp RGB555 display mode for gameplay
+        write_gp1(gp1::display_mode(0, 0, false, false, false));
+
         if self.irq_mask_saved {
             unsafe {
                 self.cd_reader.stop();
@@ -585,9 +602,12 @@ impl VideoPlayer {
     }
 }
 
-/// Plays a named STR video file from CD-ROM at locked 15 FPS.
+/// Plays a named STR video file from CD-ROM at locked 15 FPS in 24bpp true-color mode.
 pub fn play_video(filename: &str) -> VideoResult {
     psx_rt::interrupts::install_vblank_counter();
+
+    // Switch GPU display hardware to 24-bit direct color mode
+    write_gp1(gp1::display_mode(0, 0, false, true, false));
 
     let mut fb = FrameBuffer::new(VIDEO_W, VIDEO_H);
     fb.clear(0, 0, 0);
@@ -597,6 +617,7 @@ pub fn play_video(filename: &str) -> VideoResult {
 
     if !player.using_cd {
         crate::dbg::println("[VIDEO] Disc streaming not active. Returning Unavailable.");
+        player.stop();
         return VideoResult::Unavailable;
     }
 

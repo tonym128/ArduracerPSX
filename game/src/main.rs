@@ -368,11 +368,11 @@ impl ArduracerGame {
         crate::ui::font::init_vram_font();
         dbg::check_faults();
 
-        dbg::log_step(2, 9, "Starting intro audio (SPU ADPCM)...");
-        audio::play_intro_audio();
+        dbg::log_step(2, 9, "Preparing SPU soundbank & intro audio...");
+        audio::stop_intro_audio();
         dbg::check_faults();
 
-        dbg::log_step(3, 9, "Playing attract FMV (INTRO.STR)...");
+        dbg::log_step(3, 9, "Playing attract FMV (INTRO.STR in 24bpp with locked audio)...");
         // A profiling run wants frames on circuit, and the attract movie is
         // 755 sectors of single-speed CD reads before the first one. Skipping
         // it means the report windows are all racing frames.
@@ -382,7 +382,7 @@ impl ArduracerGame {
         let intro_res = video::play_video("INTRO.STR");
         dbg::check_faults();
 
-        dbg::log_step(4, 9, "Stopping intro audio...");
+        dbg::log_step(4, 9, "Ensuring intro audio stopped...");
         audio::stop_intro_audio();
         dbg::check_faults();
         // The FMV has just run a full CD sector stream (and, if it played, the
