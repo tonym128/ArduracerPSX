@@ -59,6 +59,20 @@ SURFACE = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15}
 # so counting it made every circuit look like it had a stray island of road.
 ROAD = {1, 2, 3, 4, 8, 9, 10, 11, 13, 14}
 
+#: Codes the *runtime* calls racing surface, i.e. `TrackTile::is_road`.
+#:
+#: `ROAD` above is the validator's looser set: it includes OIL (8) and BOOST (9)
+#: because both sit on the tarmac and neither should read as a hole in the
+#: circuit. But `TrackTile::is_road` is Tarmac | Curb | StartFinish | Checkpoint
+#: only, so oil and boost are *not* road to the engine -- and a gate grown over
+#: them produces a gate the engine considers to be in the runoff.
+#:
+#: Gate geometry has to agree with the engine's definition, not the validator's.
+#: Growing over this set instead measured: 8 gates across the 24 circuits
+#: straddled an oil slick or a boost pad and were rejected as off-road by
+#: `make playtest`.
+GATE_ROAD = {1, 2, 3, 4, 10, 11, 13, 14}
+
 
 def load_data(path, palette_path):
     """Reads the data image back into code indices by exact palette match."""
@@ -300,7 +314,30 @@ CODE_TO_TILE = {
 
 import math
 
-TILE_SIZE = 64
+# World units per grid cell. Must match `arduracer_core::track::TILE_SIZE`, which
+# is the same constant the runtime indexes the map with: the two are the contract
+# between this compiler and the game, and a mismatch shows up as gates and
+# centreline points sitting at the wrong world position.
+TILE_SIZE = 32
+
+# World units per *authoring* cell. The circuits are drawn as 48x48 cells of 64
+# units (a 3,072-unit world); `generate_circuit_images.SURF` splits each of those
+# into `SURF` grid cells, so the grid cell is 64 / SURF world units. Anything
+# expressed in authoring units -- road half-width above all -- has to use this,
+# not `TILE_SIZE`, or the road comes out half or twice as wide as it was drawn.
+AUTHORING_CELL = 64
+
+#: Authoring cells per grid cell: `generate_circuit_images.SURF`. The centreline
+#: sidecar is in authoring cells; the surface grid is `SURF` times finer, so every
+#: centreline coordinate is scaled by this before it is used against the grid.
+#: Without it the centreline lands in the top-left quarter of the map and the
+#: gates sit away from the road they belong to.
+SURF = 2
+
+#: Drivable half-width in authoring cells, from `generate_circuit_images.ROAD_CELLS`.
+#: The road is twice this many *grid* cells across, which is what gate spans and
+#: anything else that has to cover the road is measured against.
+ROAD_CELLS = 2.5
 MAX_CHECKPOINTS = 24
 
 
@@ -352,6 +389,338 @@ def resample_uniform(points, count):
     return out
 
 
+#: Most cells a gate may span across the road.
+#:
+#: Scoped from the road half-width, so it tracks resolution: the road is
+#: `ROAD_CELLS * SURF` cells across, and a gate narrower than the road is a gate
+#: the car drives just outside of. At `SURF = 2` the road is 10 cells and an
+#: uncapped-5 span covered half of it -- measured on The Esses, where every lap
+#: went unscored for that reason.
+#:
+#: The cap still matters: growing "while the tiles stay road" is unbounded where
+#: the circuit folds back on itself, and measured on Sunset Ridgeway that
+#: produced a 21-cell gate whose corners sat in the infield.
+MAX_GATE_SPAN = int(ROAD_CELLS * SURF) + 1
+
+
+def gate_span(grid, cx, cy, dx, dy):
+    """Road extent across the direction of travel at `(cx, cy)`, in cells.
+
+    Grown symmetrically from the centreline cell along whichever single axis is
+    most nearly perpendicular to the heading, and only while the tiles stay
+    racing surface -- so the gate is a line across the road, its corners cannot
+    land in the runoff, and it stays bounded by [`MAX_GATE_SPAN`] where the
+    circuit folds back on itself.
+
+    Returns `(lo, hi)` inclusive cell indices along that axis.
+    """
+    h, w = grid.shape
+    def road(x, y):
+        return 0 <= x < w and 0 <= y < h and int(grid[y, x]) in GATE_ROAD
+
+    cx = max(0, min(w - 1, int(cx)))
+    cy = max(0, min(h - 1, int(cy)))
+    if not road(cx, cy):
+        return (0, 0)
+
+    # `dx`/`dy` are the heading in cells. The axis to span across is the one the
+    # heading barely moves along; a diagonal heading spans across the larger
+    # component's other axis, which keeps the gate a thin slice rather than a
+    # block.
+    if abs(dx) >= abs(dy):
+        lo = hi = cy
+        while lo - 1 >= 0 and road(cx, lo - 1) and cy - lo + 1 < MAX_GATE_SPAN:
+            lo -= 1
+        while hi + 1 < h and road(cx, hi + 1) and hi - cy + 1 < MAX_GATE_SPAN:
+            hi += 1
+        return (lo, hi)
+
+    lo = hi = cx
+    while lo - 1 >= 0 and road(lo - 1, cy) and cx - lo + 1 < MAX_GATE_SPAN:
+        lo -= 1
+    while hi + 1 < w and road(hi + 1, cy) and hi - cx + 1 < MAX_GATE_SPAN:
+        hi += 1
+    return (lo, hi)
+
+
+def gate_box(grid, cx, cy, dx=1, dy=0):
+    """`CheckpointGate` cell rectangle spanning the road across the direction of travel.
+
+    A 1x1 gate is a point target on a road 2-3 cells wide, so a car anywhere else
+    on the tarmac drives straight past it: measured on the 24 circuits, a rival
+    following the racing line missed 1x1 gates on 21 of 24 circuits, up to three
+    per lap, and a lap only scores when every gate is touched -- so no lap ever
+    completed. The gate has to span the road.
+
+    Returns `(x, y, width, height)`, always containing `(cx, cy)`.
+    """
+    if abs(dx) >= abs(dy):
+        lo, hi = gate_span(grid, cx, cy, dx, dy)
+        return int(cx), int(lo), 1, int(hi - lo + 1)
+    lo, hi = gate_span(grid, cx, cy, dx, dy)
+    return int(lo), int(cy), int(hi - lo + 1), 1
+
+
+def gate_is_disjoint(box, other):
+    """Whether two gate rectangles share no cell.
+
+    `TrackDef::min_route_length` sums the gaps between consecutive gate
+    rectangles, so overlapping gates report a zero-length circuit and take the
+    lap-time floor with them.
+    """
+    ax, ay, aw, ah = box
+    bx, by, bw, bh = other
+    return not (ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah)
+
+
+def trim_to_road(grid, box, cx, cy):
+    """Narrow `box` to the contiguous run of racing surface containing `(cx, cy)`.
+
+    `(cx, cy)` is the centreline cell the gate was placed on, so it is always
+    road and always inside `box` -- the run is therefore never empty. Cells are
+    dropped from whichever end reaches non-road first, which keeps the gate a
+    line across the road rather than a rectangle with a corner in the runoff.
+    """
+    h, w = grid.shape
+    def road(x, y):
+        return 0 <= x < w and 0 <= y < h and int(grid[y, x]) in GATE_ROAD
+
+    x, y, bw, bh = box
+    if not road(cx, cy):
+        return (cx, cy, 1, 1)
+
+    while bw > 1 and not road(x, y):
+        x += 1
+        bw -= 1
+    while bw > 1 and not road(x + bw - 1, y):
+        bw -= 1
+    while bh > 1 and not road(x, y):
+        y += 1
+        bh -= 1
+    while bh > 1 and not road(x, y + bh - 1):
+        bh -= 1
+    return (x, y, bw, bh)
+
+
+def shrink_until_disjoint(box, *others):
+    """Narrowest sub-rectangle of `box` that touches none of `others`.
+
+    Drops one cell at a time from whichever side is currently overlapping, so the
+    gate keeps as much of the road as it can while staying disjoint. Returns
+    `None` if even a 1x1 core cannot be made disjoint -- the caller then places
+    the gate on the bare centreline cell, which is the last resort.
+
+    Bounded: at most `w + h` reductions, each of which strictly shrinks the
+    rectangle, so this cannot loop.
+    """
+    x, y, w, h = box
+    for _ in range(w + h):
+        if all(gate_is_disjoint((x, y, w, h), o) for o in others):
+            return (x, y, w, h)
+        # Prefer narrowing the longer axis: it is where the slack is.
+        if h >= w and h > 1:
+            if not any(gate_is_disjoint((x, y, w, h - 1), o) for o in others):
+                h -= 1
+                continue
+        if w > 1 and not any(gate_is_disjoint((x, y, w - 1, h), o) for o in others):
+            w -= 1
+            continue
+        if h > 1 and not any(gate_is_disjoint((x, y, w, h - 1), o) for o in others):
+            h -= 1
+            continue
+        if w > 1:
+            w -= 1
+            continue
+        if h > 1:
+            h -= 1
+            continue
+        return None
+    return None
+
+
+def snap_to_road(grid, cx, cy, prev=None, limit=None, also_near=None, also_limit=None):
+    """Nearest racing-surface cell centre to `(cx, cy)`, as `(x, y)` cells.
+
+    The centreline is resampled by equal arc length, which is what makes the
+    runtime spline's tangents stable -- but it also cuts the corner the walker
+    went round, because a straight chord between two control points 60-200 units
+    apart passes inside the turn. Measured across the 24 circuits that put 868 of
+    the resampled samples (4.7%) on runoff rather than tarmac, worst case Neon
+    Causeway at 70, and the worst cases are all tight corners.
+
+    Snapping each control point back to the nearest racing-surface cell is what
+    makes the centreline agree with the image by construction, which is the whole
+    premise of the format: the line the car drives and the road it drives on are
+    then the same thing.
+
+    `prev` and `limit` keep the snap *local*, which is not optional on a circuit
+    whose road passes close to itself. Snapping each point independently lets a
+    point cut off at one hairpin snap onto a different hairpin a few cells away:
+    measured on Alpine Serpent that turned steps of 64-128 units into 286 and
+    404, and a step that long makes the runtime walk leap across the circuit, so
+    the car aims at the far side of the map once per lap. With `prev` given, a
+    candidate further than `limit` from it is rejected, so a point can only ever
+    move as far as the walk itself would.
+
+    Falls back to the input cell when nothing qualifies, so a badly-placed point
+    is left alone rather than teleported.
+    """
+    h, w = grid.shape
+    def road(x, y):
+        return 0 <= x < w and 0 <= y < h and int(grid[y, x]) in GATE_ROAD
+
+    cx, cy = int(cx), int(cy)
+    if road(cx, cy):
+        return cx, cy
+    best = None
+    best_d = None
+    r = MAX_SNAP_CELLS
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            x, y = cx + dx, cy + dy
+            if not road(x, y):
+                continue
+            if prev is not None and limit is not None:
+                if math.dist((x, y), prev) > limit:
+                    continue
+            if also_near is not None and also_limit is not None:
+                if math.dist((x, y), also_near) > also_limit:
+                    continue
+            d = dx * dx + dy * dy
+            if best_d is None or d < best_d:
+                best_d, best = d, (x, y)
+    return best if best is not None else (cx, cy)
+
+
+#: Farthest a control point may be pulled to find racing surface, in cells.
+#:
+#: Three cells is a little over one road width, so a corner cut by a single cell
+#: is recovered without the line jumping to a different part of the circuit.
+MAX_SNAP_CELLS = 3
+
+
+def route_control_points(grid, centre, count=96):
+    """The control points the runtime's `route` array will actually hold.
+
+    Single source of truth for both the emitted route and the gate positions, so
+    a gate cannot drift off the line the car is driving. Deduplicates the
+    walker's repeated closing point (a zero-length span gives Catmull-Rom a
+    degenerate tangent neighbour at the seam), resamples to equal arc length, and
+    snaps each point back onto the racing surface (`snap_to_road`).
+    """
+    pts = list(centre)
+    while (len(pts) > 2
+           and math.dist(pts[0][:2], pts[-1][:2]) < 1e-6):
+        pts.pop()
+    # Resample the *closed* loop. `resample_uniform` distributes points by arc
+    # length along an open polyline, so its last point sits one step short of
+    # where it started and the seam -- the span from the last point back to the
+    # first -- absorbs whatever the walker's own closing gap happened to be.
+    # Measured on Alpine Serpent: every step was ~2.85 cells and the seam was
+    # 8.75, so the runtime walk had to jump three times further than usual once
+    # per lap, at a point where the road turns back on itself. Appending the
+    # first point makes the loop closed before the arc lengths are accumulated,
+    # so the seam is one step like all the others.
+    # No trailing point is dropped: with the loop closed, the `count` samples are
+    # already spaced `total / count` apart *including* the seam, which is what
+    # makes the last span back to the first an ordinary step.
+    out = resample_uniform(pts + [pts[0]], count)
+
+    # Snap sequentially, each point bounded by the previous one, so a point cut
+    # off at a corner can only move as far as the walk itself would. Snapping
+    # independently let Alpine Serpent's steps grow from 64-128 units to 286 and
+    # 404 -- see `snap_to_road`.
+    raw_steps = [math.dist(out[i][:2], out[i + 1][:2]) for i in range(len(out) - 1)]
+    # A generous multiple of the walk's own step. The bound exists to stop a
+    # point snapping onto a *different* part of the circuit -- on a serpentine the
+    # road passes within a couple of cells of itself, so "nearest racing surface"
+    # is sometimes on the far side of the track. It must not be so tight that
+    # ordinary corner-cutting cannot be corrected at all: measured, a bound of one
+    # step left Chicane Park's centreline 25 units off the road at a hairpin, and
+    # the car left the racing surface there on every lap.
+    step_limit = (sorted(raw_steps)[len(raw_steps) // 2] * 3.0) if raw_steps else 6.0
+    snapped = [snap_to_road(grid, out[0][0], out[0][1])]
+    for i in range(1, len(out) - 1):
+        snapped.append(
+            snap_to_road(grid, out[i][0], out[i][1],
+                         prev=snapped[-1], limit=step_limit)
+        )
+
+    # Close the seam last, and by moving only the *last* point.
+    #
+    # The first and last control points of a closed loop are neighbours, so the
+    # span between them must be one step like every other. Sequential snapping
+    # cannot guarantee that: each end drifts to its own nearest racing-surface
+    # cell, and on a serpentine those are on different sides of the circuit.
+    # Measured: the seam grew from 2.9 cells to 9.1 on Alpine Serpent against a
+    # 2.8-cell median step, and the runtime walk then aimed across the map once
+    # per lap.
+    #
+    # Moving the first point instead would be wrong: it is the start position,
+    # and `start_heading` is taken from the first two control points, so
+    # displacing it both moves the grid and rotates the field. Measured: doing so
+    # left steps of 286 and 404 units where the walk's own is ~190.
+    #
+    # So the last point is bounded by *both* its neighbours -- the point before
+    # it, so the span stays a step, and the first point, so the loop stays shut.
+    last = snap_to_road(grid, out[-1][0], out[-1][1],
+                        prev=snapped[-2], limit=step_limit,
+                        also_near=snapped[0], also_limit=step_limit)
+    if last is None:
+        last = snapped[-2]
+    snapped.append(last)
+    return rotate_to_straightest(snapped)
+
+
+def rotate_to_straightest(points):
+    """Rotates a closed route so `points[0]` is its straightest point.
+
+    A closed loop has no natural start, and the one it arrives with -- the first
+    centreline sample -- is wherever the walker happened to begin, which is
+    wherever the *drawing* began. On a technical circuit that can be the apex of a
+    hairpin, and an apex is the worst possible place to put three things at once:
+    the start pose, the start/finish gate, and the seam.
+
+    Measured on The Esses: the route passed through (83,53), (81,55), (77,55),
+    (73,54) and then turned south. That last turn sits exactly on the gate line,
+    so the emitted start/finish was a one-cell-thick strip at y=54 spanning
+    x=68..78 while the route crossed y=54 three times -- once at x=82, well
+    outside it. Every lap the car crossed the line where the road was, missed the
+    gate, and never closed a lap.
+
+    Rotating to the straightest point fixes all three at once: the car starts
+    facing down a straight, the seam is a straight span, and the gate is a
+    transverse line the route crosses once. The rotation is cyclic, so the
+    direction of travel and every span are preserved.
+    """
+    n = len(points)
+    if n < 5:
+        return points
+    best = 0
+    best_turn = None
+    for i in range(n):
+        prev = points[(i - 1) % n]
+        cur = points[i]
+        nxt = points[(i + 1) % n]
+        ax, ay = cur[0] - prev[0], cur[1] - prev[1]
+        bx, by = nxt[0] - cur[0], nxt[1] - cur[1]
+        alen = math.hypot(ax, ay)
+        blen = math.hypot(bx, by)
+        if alen == 0 or blen == 0:
+            turn = math.pi
+        else:
+            # cos of the turn angle: 1 is dead straight, -1 is a hairpin.
+            cos = (ax * bx + ay * by) / (alen * blen)
+            turn = 1.0 - max(-1.0, min(1.0, cos))
+        # Ties broken towards the earliest point, so the output is deterministic.
+        if best_turn is None or turn < best_turn - 1e-12:
+            best_turn = turn
+            best = i
+    if best == 0:
+        return points
+    return points[best:] + points[:best]
+
+
 def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
               half_width_cells=2.5, par=(6000, 5000, 4000, 3000)):
     """Writes one circuit as a complete `TrackDef` static.
@@ -369,24 +738,27 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     while len(tiles) % 16:
         tiles.append("T_OFFROAD")
 
+    # The centreline arrives in authoring cells and the grid is `SURF` times
+    # finer, so it is scaled once here. Everything below -- the route control
+    # points, the gates, the start pose -- is in grid cells from this point on,
+    # which is the resolution the game indexes with.
+    centre = [(cx * SURF, cy * SURF) for (cx, cy) in centre]
+
     out.append(f"pub static {ident}: TrackDef = TrackDef {{")
     out.append(f'    name: "{name.title().replace("_", " ")}",')
     out.append(f"    width: {cw},")
     out.append(f"    height: {ch},")
 
-    # Start: the first centreline sample, in world units (tile centre).
-    sx, sy = centre[0]
+    # The emitted centreline, computed up front: the start pose and the gates
+    # must both agree with the route the car actually drives.
+    route_pts = [p[:2] for p in route_control_points(grid, centre)]
+
+    # Start: the first centreline control point, in world units (tile centre).
+    sx, sy = route_pts[0]
     out.append(f"    start_pos: Vec2 {{ x: Fixed({tile_centre(sx) * 4096}), "
                f"y: Fixed({tile_centre(sy) * 4096}) }},")
-    nx, ny = centre[1]
+    nx, ny = route_pts[1]
     out.append(f"    start_heading: {heading_bams(sx, sy, nx, ny)},")
-
-    out.append("    start_gate: CheckpointGate {")
-    out.append(f"        x: {int(sx)},")
-    out.append(f"        y: {int(sy)},")
-    out.append("        width: 1,")
-    out.append("        height: 1,")
-    out.append("    },")
 
     b, sv, g, dv = par  # bronze, silver, gold, dev -- dev is fastest
     out.append("    par_times: ParTimes {")
@@ -396,21 +768,114 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     out.append(f"        dev_platinum_ticks: {dv},")
     out.append("    },")
 
-    cps = []
+    # Gates are picked from the *emitted* centreline, not the raw walk.
+    #
+    # The route is resampled to 96 equal-arc-length control points
+    # (`route_control_points` below), so its sample positions do not line up with
+    # `centre`'s. Indexing gates into `centre` therefore places them wherever
+    # that index happened to fall in the *original* parameterisation, which can
+    # be a tile the emitted line never passes through: measured across the 24
+    # circuits, 21 gates sat off the emitted centreline, up to 143 units (2
+    # tiles) away. A gate the racing line does not touch can never be scored, so
+    # the car drives a whole lap past it and the lap does not count.
+    def heading_at(i):
+        """Centreline heading in cells at control point `i`, from its neighbours."""
+        n = len(route_pts)
+        a = route_pts[(i - 1) % n]
+        b = route_pts[(i + 1) % n]
+        return int(b[0]) - int(a[0]), int(b[1]) - int(a[1])
+
+    # Gate rectangles, each spanning the road across the direction of travel.
+    # Consecutive gates must not touch: `TrackDef::min_route_length` measures the
+    # circuit by summing the gaps between gate rectangles, so an overlap reports
+    # a zero-length circuit and collapses the lap-time floor with it. Growing the
+    # span "while the tiles stay road" is what caused the overlaps -- at a corner
+    # that runs the full length of the straight -- so a gate that would touch its
+    # neighbour collapses to the single centreline cell.
+    boxes = []
     for k in range(1, checkpoints + 1):
-        i = int(len(centre) * k / (checkpoints + 1)) % len(centre)
-        cps.append(centre[i])
-    out.append(f"    checkpoint_count: {len(cps)},")
+        i = int(len(route_pts) * k / (checkpoints + 1)) % len(route_pts)
+        cx, cy = int(route_pts[i][0]), int(route_pts[i][1])
+        gdx, gdy = heading_at(i)
+        boxes.append((i, gate_box(grid, cx, cy, gdx, gdy)))
+
+    start_box = gate_box(grid, int(sx), int(sy),
+                         int(nx) - int(sx), int(ny) - int(sy))
+
+    out.append("    start_gate: CheckpointGate {")
+    out.append(f"        x: {start_box[0]},")
+    out.append(f"        y: {start_box[1]},")
+    out.append(f"        width: {start_box[2]},")
+    out.append(f"        height: {start_box[3]},")
+    out.append("    },")
+
+    # Trim an over-wide gate rather than dropping it to 1x1. A gate that touches
+    # its neighbour is only *just* too wide, and collapsing it to a single cell
+    # puts back exactly the bug the span exists to fix: measured before this,
+    # 30 of the 24 circuits' gates ended up 1x1 and rivals drove past them.
+    # Shrinking from the far end keeps the gate on the racing surface, keeps
+    # consecutive gates disjoint, and still spans most of the road.
+    for slot, (i, box) in enumerate(boxes):
+        cx, cy = int(route_pts[i][0]), int(route_pts[i][1])
+        box = trim_to_road(grid, box, cx, cy)
+        boxes[slot] = (i, box)
+
+    # Now narrow for disjointness. Road-trimming first, then disjointness, in
+    # that order: `trim_to_road` keeps the contiguous run of tarmac under the
+    # gate, and shrinking a *road* rectangle can only make it safer, whereas
+    # disjointness-shrinking first is what used to leave gates straddling the
+    # road's edge (Foundry Spiral's checkpoint 0 spanned (29,38)-(37,38) with a
+    # gap at (31,38); Longbow's checkpoint 4 spanned (14,15)-(14,20) with three
+    # gaps).
+    #
+    # Two passes, because narrowing one gate can bring it into its neighbour.
+    for _ in range(2):
+        for slot in range(len(boxes)):
+            i, box = boxes[slot]
+            prev_box = boxes[slot - 1][1] if slot > 0 else start_box
+            next_box = boxes[slot + 1][1] if slot + 1 < len(boxes) else start_box
+            if gate_is_disjoint(box, prev_box) and gate_is_disjoint(box, next_box):
+                continue
+            trimmed = shrink_until_disjoint(box, prev_box, next_box)
+            if trimmed is None:
+                cx, cy = int(route_pts[i][0]), int(route_pts[i][1])
+                trimmed = (cx, cy, 1, 1)
+            cx, cy = int(route_pts[i][0]), int(route_pts[i][1])
+            boxes[slot] = (i, trim_to_road(grid, trimmed, cx, cy))
+
+    # Same disjointness rule for the start/finish against its two neighbours: the
+    # last checkpoint and the first.
+    for _ in range(2):
+        if not boxes:
+            break
+        if not gate_is_disjoint(start_box, boxes[0][1]):
+            start_box = (int(sx), int(sy), 1, 1)
+        if not gate_is_disjoint(start_box, boxes[-1][1]):
+            start_box = (int(sx), int(sy), 1, 1)
+        for slot in range(len(boxes)):
+            i, box = boxes[slot]
+            prev_box = boxes[slot - 1][1] if slot > 0 else start_box
+            next_box = boxes[slot + 1][1] if slot + 1 < len(boxes) else start_box
+            if gate_is_disjoint(box, prev_box) and gate_is_disjoint(box, next_box):
+                continue
+            trimmed = shrink_until_disjoint(box, prev_box, next_box)
+            if trimmed is None:
+                trimmed = (int(route_pts[i][0]), int(route_pts[i][1]), 1, 1)
+            cx, cy = int(route_pts[i][0]), int(route_pts[i][1])
+            boxes[slot] = (i, trim_to_road(grid, trimmed, cx, cy))
+    sgx, sgy, sgw, sgh = start_box
+
+    out.append(f"    checkpoint_count: {len(boxes)},")
     out.append("    checkpoints: [")
-    for i, (cx, cy) in enumerate(cps):
+    for (_, (gx0, gy0, gw, gh)) in boxes:
         out.append("        CheckpointGate {")
-        out.append(f"            x: {int(cx)},")
-        out.append(f"            y: {int(cy)},")
-        out.append("            width: 1,")
-        out.append("            height: 1,")
+        out.append(f"            x: {gx0},")
+        out.append(f"            y: {gy0},")
+        out.append(f"            width: {gw},")
+        out.append(f"            height: {gh},")
         out.append("        },")
-    while len(cps) < MAX_CHECKPOINTS:
-        cps.append(None)
+    while len(boxes) < MAX_CHECKPOINTS:
+        boxes.append(None)
         out.append("        EMPTY_GATE,")
     out.append("    ],")
 
@@ -426,18 +891,14 @@ def emit_rust(name, grid, centre, ident="TRACK", checkpoints=6,
     # tangent at the seam. That is what put route nodes off-road and made the
     # hinted and full arc scans disagree. The route is closed by the runtime, so
     # it wants 96 *distinct* control points.
-    route_src = list(centre)
-    while (len(route_src) > 2
-           and math.dist(route_src[0][:2], route_src[-1][:2]) < 1e-6):
-        route_src.pop()
-    pts = resample_uniform(route_src, 96)
+    pts = route_control_points(grid, centre)
     for (cx, cy) in pts:
         out.append("        Vec2 {")
         out.append(f"            x: Fixed({tile_centre(cx) * 4096}),")
         out.append(f"            y: Fixed({tile_centre(cy) * 4096}),")
         out.append("        },")
     out.append("    ],")
-    out.append(f"    half_width: {int(half_width_cells * TILE_SIZE)},")
+    out.append(f"    half_width: {int(half_width_cells * AUTHORING_CELL)},")
     out.append("};")
     return "\n".join(out)
 

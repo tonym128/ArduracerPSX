@@ -51,6 +51,15 @@ pub const MAX_TRACKED_CHECKPOINTS: usize = 64;
 /// and be persisted to the memory card.
 pub const MIN_PLAUSIBLE_LAP_TICKS: u32 = 30;
 
+/// Half-width, in tiles, of the halo [`CheckpointGate::touches_tile`] adds around
+/// every gate.
+///
+/// One tile absorbs the error a car accumulates tracking the centreline on a
+/// straight; the measured miss at hairpins is more like two. Scored across the
+/// whole track by the circuit suite: 1 is too tight, 3 wedges rivals on folded
+/// corners (measured on Copper Gorge) -- 2 is where every rival laps.
+pub const TILE_TOUCH_HALO: i32 = 2;
+
 /// Checkpoint gate representation on the track.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct CheckpointGate {
@@ -68,6 +77,22 @@ impl CheckpointGate {
             && tx < self.x.saturating_add(self.width)
             && ty >= self.y
             && ty < self.y.saturating_add(self.height)
+    }
+
+    /// Forgiving touch test: `contains_tile` plus a one-tile halo.
+    ///
+    /// Every gate is a thin line across the centreline, and rivals/reference
+    /// cars follow that centreline to within roughly a cell -- measured on The
+    /// Esses and Longbow, where a car missed the gate line by exactly a column
+    /// or row and so the lap could never close. Scoring the crossing with a
+    /// one-tile halo makes a one-cell miss a hit, while keeping the gate's
+    /// *geometry* (for route length and disjointness) a strict one-cell line.
+    #[inline]
+    pub fn touches_tile(&self, tx: u8, ty: u8) -> bool {
+        tx.wrapping_add(TILE_TOUCH_HALO as u8 + 1) >= self.x
+            && tx <= self.x.saturating_add(self.width) + TILE_TOUCH_HALO as u8
+            && ty.wrapping_add(TILE_TOUCH_HALO as u8 + 1) >= self.y
+            && ty <= self.y.saturating_add(self.height) + TILE_TOUCH_HALO as u8
     }
 
     /// Whether this gate has any area at all (inactive padding gates do not).
@@ -696,7 +721,14 @@ mod tests {
             drive_to(&mut t, *g, per_gate);
         }
         t.update_player_tile(track.start_gate.x, track.start_gate.y);
-        assert!(t.update_player_tile(track.start_gate.x.wrapping_add(4), track.start_gate.y));
+        // Step clear of the start/finish to close the lap. Gates span the road
+        // (a 1x1 gate on a 2-3 cell road is a target a car drives straight past),
+        // so "clear" means past the gate's own width, not a fixed four tiles.
+        let past = track.start_gate.x.wrapping_add(track.start_gate.width + 2);
+        assert!(
+            t.update_player_tile(past, track.start_gate.y),
+            "leaving the start gate must arm the lap"
+        );
         assert_eq!(
             t.best_lap_ticks(),
             None,
@@ -722,8 +754,9 @@ mod tests {
             drive_to(timer, *g, per_gate);
         }
         timer.update_player_tile(track.start_gate.x, track.start_gate.y);
+        let past = track.start_gate.x.wrapping_add(track.start_gate.width + 2);
         assert!(
-            timer.update_player_tile(track.start_gate.x.wrapping_add(4), track.start_gate.y),
+            timer.update_player_tile(past, track.start_gate.y),
             "the reference lap must score"
         );
     }

@@ -44,19 +44,28 @@ pub const fn pack_bgr555(r: u8, g: u8, b: u8) -> u16 {
     (((b as u16) >> 3) << 10) | (((g as u16) >> 3) << 5) | ((r as u16) >> 3)
 }
 
-/// Pixels per tile along each axis when scaling a `w` x `h` circuit into the
-/// minimap's inner area.
+/// Maps a tile index on an axis of `extent` tiles to a pixel coordinate in the
+/// minimap's `inner` area.
 ///
-/// Never zero, even for a degenerate grid, or every tile would stack on one pixel
-/// and the outline would smear.
-pub const fn minimap_step(extent: u8) -> i32 {
-    let divisor = if extent == 0 { 1 } else { extent as i32 };
-    let step = MINIMAP_INNER / divisor;
-    if step < 1 {
-        1
-    } else {
-        step
-    }
+/// One pixel per tile is only true when the circuit is at most `inner` tiles
+/// across. Tracks are 96x96 and `inner` is 48, so the direct mapping halves the
+/// step: two tiles share a pixel. The old `minimap_step` floored that to 1, so
+/// a 96-tile circuit drew only its top-left quadrant into the 48px window and
+/// the live blips drove across pixels the bake never filled -- the messy,
+/// cut-off map the HUD was showing.
+#[inline]
+pub const fn minimap_tile_px(extent: u8, tile: i32, inner: i32) -> i32 {
+    let e = if extent == 0 { 1 } else { extent as i32 };
+    tile * inner / e
+}
+
+/// Inverse of `minimap_tile_px`: the tile whose block contains `pixel`, for the
+/// bake's per-pixel downsample.
+#[inline]
+pub const fn minimap_px_tile(extent: u8, pixel: i32, inner: i32) -> i32 {
+    let e = if extent == 0 { 1 } else { extent as i32 };
+    let i = if inner == 0 { 1 } else { inner };
+    pixel * e / i
 }
 
 /// Whether the texture slot would overlap either framebuffer.

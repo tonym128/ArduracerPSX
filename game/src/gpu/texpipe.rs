@@ -147,9 +147,26 @@ impl TextureSlot {
     /// One GP0(64h) sprite packet, regardless of how many pixels it covers --
     /// the property TASK-1202 needs.
     pub fn blit(&self, x: i16, y: i16, blend: BlendMode) {
+        self.blit_region(x, y, self.rect.w, self.rect.h, blend);
+    }
+
+    /// Blits the top-left `w` x `h` of the slot to the screen at `(x, y)`.
+    ///
+    /// The slot is a fixed [`MAX_DIM`] square, but an image composed into it is
+    /// usually smaller -- the minimap fills only its inner window. Blitting the
+    /// whole slot therefore drew the untouched border too: composed with
+    /// [`BlendMode::Opaque`], that is a black rectangle hanging off the panel and
+    /// off the bottom of the screen, over whatever the HUD is drawn on top of.
+    /// `#[allow(clippy::too_many_arguments)]`-free by construction.
+    ///
+    /// # Panics
+    /// If `w` or `h` exceeds the slot.
+    pub fn blit_region(&self, x: i16, y: i16, w: u16, h: u16, blend: BlendMode) {
+        assert!(w <= self.rect.w, "TextureSlot: blit width {w} exceeds slot");
+        assert!(h <= self.rect.h, "TextureSlot: blit height {h} exceeds slot");
         let material =
             TextureMaterial::blended(0, self.tpage.uv_tpage_word(0), (0xFF, 0xFF, 0xFF), blend);
-        gpu::draw_sprite_material(x, y, self.rect.w, self.rect.h, (0, 0), material);
+        gpu::draw_sprite_material(x, y, w, h, (0, 0), material);
     }
 }
 

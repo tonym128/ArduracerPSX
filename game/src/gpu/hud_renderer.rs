@@ -12,7 +12,7 @@
 //! image that cannot change while the circuit does not (TASK-1202). The moving
 //! half -- the racer blips -- stays as primitives drawn on top.
 
-use crate::gpu::texlayout::{minimap_colour, minimap_step, MINIMAP_SIZE};
+use crate::gpu::texlayout::{minimap_colour, minimap_px_tile, minimap_tile_px, MINIMAP_INNER, MINIMAP_SIZE};
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
 use arduracer_core::{AiRacer, LapTimer, TrackDef, VehicleState, NITRO_MAX_TICKS};
@@ -25,16 +25,17 @@ use psx_gpu::material::BlendMode;
 /// the image is static for the whole race.
 pub fn bake_minimap(slot: &TextureSlot, track: &TrackDef) {
     slot.begin_compose();
-    let step_x = minimap_step(track.width);
-    let step_y = minimap_step(track.height);
-    // One pixel of overlap so adjacent tiles do not leave seams at this scale.
-    let w = step_x.max(1) + 1;
-    let h = step_y.max(1) + 1;
-    for ty in 0..track.height as i32 {
-        for tx in 0..track.width as i32 {
+    // Per-pixel downsample: sample the tile that each minimap pixel belongs to.
+    // The world is 96 tiles across and the inner window is 48 px, so a tile a
+    // `step` of 1 px would carry the bake past the slot -- this is the direct
+    // mapping that keeps the entire circuit in the window.
+    for py in 0..MINIMAP_INNER {
+        for px in 0..MINIMAP_INNER {
+            let tx = minimap_px_tile(track.width, px, MINIMAP_INNER);
+            let ty = minimap_px_tile(track.height, py, MINIMAP_INNER);
             let tile = track.tile_at(tx as u8, ty as u8);
             let (r, g, b) = minimap_colour(tile);
-            slot.fill_rect(tx * step_x, ty * step_y, w, h, (r, g, b));
+            slot.set_pixel_rgb(px as u16, py as u16, r, g, b);
         }
     }
     slot.upload();
@@ -253,12 +254,18 @@ pub fn render_hud<const N: usize>(
         36,
     );
 
-    let step_x = minimap_step(track.width);
-    let step_y = minimap_step(track.height);
-
     // The circuit outline is already in VRAM; one sprite packet replaces the
     // per-tile rectangle walk.
-    minimap_texture.blit(map_x + 4, map_y + 4, BlendMode::Opaque);
+    // Only the composed window, not the whole slot: the slot is 64px square but
+    // the map is 48, and blitting the slot drew the untouched border as an
+    // opaque black rectangle past the panel and off the bottom of the screen.
+    minimap_texture.blit_region(
+        map_x + 4,
+        map_y + 4,
+        MINIMAP_INNER as u16,
+        MINIMAP_INNER as u16,
+        BlendMode::Opaque,
+    );
 
     // Rival blips
     for rival in rivals {
@@ -266,8 +273,8 @@ pub fn render_hud<const N: usize>(
         let r_ty = TrackDef::tile_y_of(rival.state.position.y) as i32;
         let (rc, gc, bc) = rival.profile.color;
         gpu::draw_rect_flat(
-            map_x + 4 + (r_tx * step_x) as i16,
-            map_y + 4 + (r_ty * step_y) as i16,
+            map_x + 4 + minimap_tile_px(track.width, r_tx, MINIMAP_INNER) as i16,
+            map_y + 4 + minimap_tile_px(track.height, r_ty, MINIMAP_INNER) as i16,
             2,
             2,
             rc,
@@ -280,8 +287,8 @@ pub fn render_hud<const N: usize>(
     let p_tx = TrackDef::tile_x_of(player.position.x) as i32;
     let p_ty = TrackDef::tile_y_of(player.position.y) as i32;
     gpu::draw_rect_flat(
-        map_x + 3 + (p_tx * step_x) as i16,
-        map_y + 3 + (p_ty * step_y) as i16,
+        map_x + 3 + minimap_tile_px(track.width, p_tx, MINIMAP_INNER) as i16,
+        map_y + 3 + minimap_tile_px(track.height, p_ty, MINIMAP_INNER) as i16,
         3,
         3,
         255,

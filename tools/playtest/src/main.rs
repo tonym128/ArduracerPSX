@@ -36,6 +36,7 @@
 
 use std::fmt::Write as _;
 
+use arduracer_core::line::{RacingLine, DEFAULT_LOOKAHEAD_UNITS};
 use arduracer_core::*;
 
 #[cfg(test)]
@@ -70,6 +71,7 @@ const MIN_TUNING_GAIN_PCT: u32 = 5;
 struct ReferenceDriver {
     car: VehicleState,
     node: usize,
+    line: RacingLine,
 }
 
 impl ReferenceDriver {
@@ -77,13 +79,31 @@ impl ReferenceDriver {
         ReferenceDriver {
             car: VehicleState::new(track.start_pos, track.start_heading, tuning),
             node: 0,
+            line: RacingLine::new(),
         }
     }
 
     fn tick(&mut self, track: &TrackDef) {
         let route = track.route_len();
-        let target = TrackDef::gate_centre(&track.route_node(self.node % route));
-        let desired = heading_towards(self.car.position, target);
+        // Steer along the road, not at the gate: the circuit's centreline is the
+        // polyline the road was stamped along, so it is the only target
+        // guaranteed to be drivable. Aiming at the gate instead -- which is what
+        // this did before -- sends the car across the infield, because on a
+        // closed circuit the gates are 800-1300 units apart. Measured: the
+        // reference driver completed 0 of 5 laps on 6 of the 24 circuits.
+        //
+        // `RacingLine` is the same code the AI steers with, which is the point:
+        // the playability oracle and the thing it is checking have to agree on
+        // where the road is.
+        let fallback = TrackDef::gate_centre(&track.route_node(self.node % route));
+        let aim = self.line.aim(
+            track,
+            self.car.position,
+            self.car.heading,
+            DEFAULT_LOOKAHEAD_UNITS,
+            fallback,
+        );
+        let desired = heading_towards(self.car.position, aim);
         let err = angle_error(self.car.heading, desired);
         let abs_err = err.abs();
 
@@ -113,7 +133,7 @@ impl ReferenceDriver {
 
         let tx = TrackDef::tile_x_of(self.car.position.x);
         let ty = TrackDef::tile_y_of(self.car.position.y);
-        if track.route_node(self.node % route).contains_tile(tx, ty) {
+        if track.route_node(self.node % route).touches_tile(tx, ty) {
             self.node += 1;
         }
     }
@@ -308,7 +328,7 @@ fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
     if track.start_gate.width == 0 || track.start_gate.height == 0 {
         errors.push(format!("{}: start/finish gate is empty", label));
     }
-    if !track.start_gate.contains_tile(
+    if !track.start_gate.touches_tile(
         TrackDef::tile_x_of(track.start_pos.x),
         TrackDef::tile_y_of(track.start_pos.y),
     ) {
@@ -329,11 +349,32 @@ fn check_geometry(idx: usize, track: &TrackDef, errors: &mut Vec<String>) {
         if !g.is_active() {
             errors.push(format!("{}: checkpoint {} is empty", label, i));
         }
-        if !track.tile_at(g.x, g.y).is_road() {
-            errors.push(format!(
-                "{}: checkpoint {} at ({},{}) is off the racing surface",
-                label, i, g.x, g.y
-            ));
+        // Every cell of the gate has to be racing surface. A gate is a rectangle
+        // spanning the road (`compile_circuit.gate_box`), so checking only its
+        // origin lets a gate whose far end has run off into the runoff pass
+        // here and then be uncrossable: the car drives the road and misses the
+        // gate. Foundry Spiral's checkpoint 0 spans (29,38)-(37,38) and cell
+        // (31,38) is a gap in the circuit, which is exactly this.
+        for dy in 0..g.height {
+            for dx in 0..g.width {
+                let tx = g.x.wrapping_add(dx);
+                let ty = g.y.wrapping_add(dy);
+                if tx >= track.width || ty >= track.height {
+                    continue;
+                }
+                if !track.tile_at(tx, ty).is_road() {
+                    errors.push(format!(
+                        "{}: checkpoint {} spans ({},{})-({},{}), which is off the \
+                         racing surface at ({tx},{ty})",
+                        label,
+                        i,
+                        g.x,
+                        g.y,
+                        g.x + g.width - 1,
+                        g.y + g.height - 1
+                    ));
+                }
+            }
         }
         if seen.contains(&g) {
             errors.push(format!(
@@ -596,7 +637,7 @@ fn render_ascii(idx: usize, track: &TrackDef) {
         let mut line = String::new();
         for tx in 0..track.width {
             let t = track.tile_at(tx, ty);
-            if track.start_gate.contains_tile(tx, ty) {
+            if track.start_gate.touches_tile(tx, ty) {
                 line.push('S');
             } else if route.contains(&(tx, ty)) {
                 line.push('C');

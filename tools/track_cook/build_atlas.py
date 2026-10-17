@@ -34,6 +34,62 @@ spec.loader.exec_module(cc)
 
 TILE_SIZE = 64
 
+#: Par times used when a circuit has no usable measured entry. The order is
+#: `(bronze, silver, gold, dev)`, matching `emit_rust`.
+DEFAULT_PAR = (6000, 5000, 4000, 3000)
+
+#: Below this, a measured par is a failed measurement rather than a lap time.
+#:
+#: `timing::MIN_PLAUSIBLE_LAP_TICKS` is 30, and a par at or under half the
+#: fastest reference lap becomes the floor that rejects real laps. So anything
+#: this small cannot be a lap time on a circuit thousands of units long.
+MIN_PLAUSIBLE_PAR = 100
+
+
+def load_par_table():
+    """Measured par times by circuit name, from the playtest calibration.
+
+    `tools/playtest --calibrate` writes this file from real laps driven through
+    `arduracer-core`. It has to be read *here* as well as by the retired
+    `convert_levels.py`: the atlas pipeline is now the only thing that writes
+    `levels.rs`, so a par table nothing reads is a par table that never reaches
+    the game. Measured before this was wired up: `make playtest` reported all 24
+    circuits as "par table is stale (dev 3000->1)", because every emitted circuit
+    was carrying the placeholder above.
+    """
+    path = os.path.join(ROOT, "tools", "track_cook", "par_calibration.json")
+    if not os.path.exists(path):
+        print(f"  no {path}; emitting placeholder par times", file=sys.stderr)
+        return {}
+    with open(path) as f:
+        doc = json.load(f)
+    out = {}
+    for entry in doc.get("tracks", []):
+        name = entry.get("track")
+        if not name:
+            continue
+        par = (
+            int(entry["bronze"]),
+            int(entry["silver"]),
+            int(entry["gold"]),
+            int(entry["dev"]),
+        )
+        # A measured par of 1 tick means the calibration could not complete a lap
+        # on this circuit, not that a lap takes one tick. Emitting it would give
+        # the circuit a par table that no lap can beat and that fails
+        # `every_shipped_track_admits_its_measured_reference_lap`. Fall back to
+        # the placeholder and say which circuit, so the measurement gap is
+        # visible instead of silently becoming a medal target.
+        if min(par) <= MIN_PLAUSIBLE_PAR:
+            print(
+                f"  {name}: calibration recorded {par}, which is not a lap; "
+                f"using placeholder par times",
+                file=sys.stderr,
+            )
+            continue
+        out[name] = par
+    return out
+
 
 def build_one(circuit):
     """Generate both images for `circuit` into a scratch dir, then compile."""
@@ -56,12 +112,24 @@ def build_one(circuit):
 
     with open(info["line"]) as f:
         d = json.load(f)
-    centre = [(round(p[0]), round(p[1])) for p in d["samples"]]
+    # Sub-cell precision, deliberately. The walker emits fractional cell
+    # coordinates, and rounding each sample to an integer cell *before*
+    # resampling quantises the line onto the cell grid: on a tight corner that
+    # alone moves the centreline off the road, and the resampled spline then
+    # inherits the error. `compile_circuit.route_control_points` snaps the
+    # resampled points back onto the racing surface, which needs the fractional
+    # positions to snap from.
+    centre = [(p[0], p[1]) for p in d["samples"]]
     return (grid, centre), [], info
 
 
 def main():
     circuits = gen.CIRCUITS
+    par_table = load_par_table()
+
+    def par_for(name):
+        return par_table.get(name, DEFAULT_PAR)
+
     results = []
     failures = []
     for c in circuits:
@@ -89,7 +157,7 @@ def main():
             "",
             "use crate::math::{Fixed, Vec2};",
             "use crate::timing::{CheckpointGate, ParTimes};",
-            "use crate::track::{TrackDef, TrackTile, TILE_SIZE};",
+            "use crate::track::{TrackDef, TrackTile};",
             "",
             "const EMPTY_GATE: CheckpointGate = CheckpointGate { x: 0, y: 0, width: 0, height: 0 };",
             ""]
@@ -107,7 +175,8 @@ def main():
             code.append("    " + ", ".join(flat[i:i + 16]) + ",")
         code.append("];")
         code.append(cc.emit_rust(name.replace(" ", "_"), grid, centre,
-                                 ident=ident, checkpoints=6))
+                                 ident=ident, checkpoints=6,
+                                 par=par_for(name)))
         names.append(ident)
     code.append("")
     code.append(f"pub const ALL_TRACKS: [&TrackDef; {len(names)}] = [")

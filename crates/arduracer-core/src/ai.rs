@@ -14,6 +14,7 @@
 //! itself gets itself out again.
 
 use crate::ai_profiles::{Aggression, AiProfile, DriftTendency};
+use crate::line::{RacingLine, DEFAULT_LOOKAHEAD_UNITS as AIM_LOOKAHEAD_UNITS};
 use crate::math::{Fixed, Vec2};
 use crate::timing::TOTAL_LAPS;
 use crate::track::{TrackDef, TILE_SIZE};
@@ -73,26 +74,6 @@ pub fn heading_towards(from: Vec2, to: Vec2) -> u16 {
     atan2_bams((to.y - from.y).to_int(), (to.x - from.x).to_int())
 }
 
-/// Length of a world-space delta, in whole world units.
-///
-/// Integer square root: the core is Q20.12 fixed point with no floating point
-/// anywhere, and the AI needs Euclidean -- not Manhattan -- distances to place
-/// its look-ahead along the route.
-fn segment_units(dx: i32, dy: i32) -> i32 {
-    let (x, y) = (dx.unsigned_abs() as u64, dy.unsigned_abs() as u64);
-    let square = x * x + y * y;
-    if square < 2 {
-        return square as i32;
-    }
-    let mut x0 = square;
-    let mut x1 = x0.div_ceil(2);
-    while x1 < x0 {
-        x0 = x1;
-        x1 = (x0 + square / x0) / 2;
-    }
-    x0.min(i32::MAX as u64) as i32
-}
-
 /// Whether a tile coordinate is somewhere a car can actually be driven.
 ///
 /// `tile_at` answers `Barrier` outside the grid, so this doubles as an in-bounds
@@ -106,52 +87,21 @@ fn is_drivable(track: &TrackDef, tx: u8, ty: u8) -> bool {
 const CREEP_SPEED: Fixed = Fixed::from_int(3);
 /// Distance (world units) over which the AI ramps its corner speed limit in.
 const CORNER_LEAD_UNITS: i32 = 448;
-/// How far ahead along the racing line a rival aims, in world units.
-///
-/// Aiming at the next gate centre makes a rival cut every corner and beeline
-/// across the infield: TRACK_01's 1792-unit centre line was being covered in
-/// 1170 units, and VIPER "lapped" it in 383 ticks against a >=525-tick floor.
-/// Aiming four tiles further down the road-following line is what puts the whole
-/// lap back.
-const AIM_LOOKAHEAD_UNITS: i32 = 256;
-/// Maximum tiles the racing-line walk will cross.
-const MAX_TILE_WALK: usize = 14;
-/// Neighbour offsets the racing-line walk considers, axis-aligned first so a
-/// straight tile is preferred over a diagonal one on equal merit.
-const TILE_NEIGHBOURS: [(i32, i32); 8] = [
-    (1, 0),
-    (0, 1),
-    (-1, 0),
-    (0, -1),
-    (1, 1),
-    (-1, 1),
-    (1, -1),
-    (-1, -1),
-];
-/// Score penalty for a drivable tile that is not part of the racing surface.
-///
-/// Large enough to lose to any positional term, so a racing-surface tile is
-/// always chosen while one is available.
-const OFF_LINE_PENALTY: i64 = 1 << 50;
-
-/// World-space centre of a tile.
-fn tile_centre_world(tx: u8, ty: u8) -> Vec2 {
-    Vec2::new(
-        Fixed::from_int(tx as i32 * TILE_SIZE + TILE_SIZE / 2),
-        Fixed::from_int(ty as i32 * TILE_SIZE + TILE_SIZE / 2),
-    )
-}
-
-/// Half-width of the obstacle-avoidance box, expressed in tiles.
+/// Half-width of the obstacle-avoidance box, in world units.
 ///
 /// The old test was `ox.abs() < 14 && oy.abs() < 20` on *world* deltas: a 14x20
-/// unit box, smaller than one 64-unit tile, so rivals routinely drove through
-/// each other. Sized in tiles instead.
-const AVOIDANCE_TILES: i32 = 1;
+/// unit box, smaller than a single grid cell, so rivals routinely drove through
+/// each other. Now a car width.
+///
+/// Deliberately *not* expressed in tiles. This is a driving distance, not a grid
+/// resolution: written as `TILE_SIZE` it halved along with the surface grid, and
+/// a 32-unit box is a quarter of the road width -- measured on The Esses, where
+/// the rival stopped seeing the infield it was wedged against and never recovered.
+const AVOIDANCE_HALF_UNITS: i32 = 64;
 /// Lateral offset used to dodge an obstacle, in world units.
-const AVOIDANCE_OFFSET_UNITS: i32 = TILE_SIZE;
+const AVOIDANCE_OFFSET_UNITS: i32 = 64;
 /// Distance beyond which an obstacle is ignored entirely (world units).
-const AVOIDANCE_RANGE_UNITS: i32 = AVOIDANCE_TILES * TILE_SIZE * 2;
+const AVOIDANCE_RANGE_UNITS: i32 = 256;
 /// Proportional steering gain; full lock is reached at ~54 degrees of error.
 ///
 /// Deliberately modest. At the old gain of 6 the loop saturated after 15 degrees
@@ -192,6 +142,16 @@ pub struct AiRacer {
     pub progress_ticks: u16,
     /// Total ticks spent wedged (for HUD / telemetry).
     pub wedged_total_ticks: u32,
+    /// The racing line this rival follows, and where on the centreline it was
+    /// last matched.
+    line: RacingLine,
+    /// Last centreline index fed to [`AiRacer::update_progress`], so forward
+    /// movement can be told from a jump across the circuit.
+    route_last_idx: usize,
+    /// Monotonic count of control points passed forwards around the circuit.
+    route_advance: u32,
+    /// Highest [`AiRacer::route_advance`] seen on the current gate.
+    best_route_advance: u32,
 }
 
 impl AiRacer {
@@ -209,6 +169,10 @@ impl AiRacer {
             best_gate_distance: i32::MAX,
             progress_ticks: 0,
             wedged_total_ticks: 0,
+            line: RacingLine::new(),
+            route_last_idx: 0,
+            route_advance: 0,
+            best_route_advance: 0,
         }
     }
 
@@ -241,102 +205,40 @@ impl AiRacer {
         TrackDef::gate_centre(&track.route_node(self.target_gate_idx as usize % route))
     }
 
+    #[doc(hidden)]
+    pub fn probe_target(&self, track: &TrackDef) -> Vec2 {
+        self.target_position(track)
+    }
+
     /// A point `lookahead` world units further along the racing line.
     ///
-    /// Greedy road-following pure pursuit. Aiming at the next gate centre makes a
-    /// rival cut every corner and beeline across the infield; aiming at a fixed
-    /// distance along the route polyline is no better, because the straight line
-    /// between two gates regularly leaves the racing surface -- on TRACK_01 the
-    /// line from the start tile to the first gate runs across three tiles of
-    /// grass. So this walks the tile grid one tile at a time towards the route
-    /// node the rival is chasing, only ever accepting tiles the car can be driven
-    /// on and strongly preferring tiles that are part of the racing surface.
-    ///
-    /// The walk cannot get lost: it is bounded by [`MAX_TILE_WALK`] steps, a
-    /// `visited` list stops it doubling back, and the winner is always the tile
-    /// closest to the gate, so every step makes route progress.
-    ///
-    /// Total: every tile index is bounds-checked and `visited` is sized to hold
-    /// every step it is ever asked to record.
-    fn racing_line_point(&self, track: &TrackDef, lookahead: i32) -> Vec2 {
-        let route = track.route_len();
-        let node =
-            TrackDef::gate_centre(&track.route_node((self.target_gate_idx as usize) % route));
-        let mut visited = [(0u8, 0u8); MAX_TILE_WALK + 1];
-        let mut visited_len = 1usize;
-        let mut tx = TrackDef::tile_x_of(self.state.position.x).min(track.width.saturating_sub(1));
-        let mut ty = TrackDef::tile_y_of(self.state.position.y).min(track.height.saturating_sub(1));
-        visited[0] = (tx, ty);
-
-        let mut from = self.state.position;
-        let mut travelled = 0i32;
-        // Direction the line is currently going; seeded from the car's heading so
-        // the walk starts by following the car and only bends when the road does.
-        let mut leg = self.state.heading;
-        for _ in 0..MAX_TILE_WALK {
-            let mut best_score = i64::MAX;
-            let mut best: Option<(u8, u8)> = None;
-            for (dx, dy) in TILE_NEIGHBOURS {
-                let nx = tx as i32 + dx;
-                let ny = ty as i32 + dy;
-                if nx < 0 || ny < 0 || nx >= track.width as i32 || ny >= track.height as i32 {
-                    continue;
-                }
-                let (nx, ny) = (nx as u8, ny as u8);
-                if !is_drivable(track, nx, ny) || visited[..visited_len].contains(&(nx, ny)) {
-                    continue;
-                }
-                let centre = tile_centre_world(nx, ny);
-                let to_x = (node.x - centre.x).to_int() as i64;
-                let to_y = (node.y - centre.y).to_int() as i64;
-                let distance = to_x * to_x + to_y * to_y;
-                // Shaping: among near-equal candidates keep going the way the line
-                // is already going, so it hugs the middle of the road instead of
-                // sawing across it.
-                let align = angle_error(heading_towards(from, centre), leg).abs() as i64;
-                // Racing surface first; off-road is drivable but a line that uses
-                // it is a line that cuts.
-                let surface = if track.is_road_at(nx, ny) {
-                    0
-                } else {
-                    OFF_LINE_PENALTY
-                };
-                let score = distance * 8 + align * 64 + surface;
-                if score < best_score {
-                    best_score = score;
-                    best = Some((nx, ny));
-                }
-            }
-            let (nx, ny) = match best {
-                Some(next) => next,
-                None => break,
-            };
-            let centre = tile_centre_world(nx, ny);
-            let step =
-                segment_units((centre.x - from.x).to_int(), (centre.y - from.y).to_int()).max(1);
-            if travelled + step >= lookahead {
-                let fraction = ((lookahead - travelled).max(0) as i64 * 4096) / step.max(1) as i64;
-                return from
-                    + (centre - from).scale(Fixed::from_raw(fraction.clamp(0, 4096) as i32));
-            }
-            travelled += step;
-            leg = heading_towards(from, centre);
-            from = centre;
-            tx = nx;
-            ty = ny;
-            visited[visited_len] = (nx, ny);
-            visited_len += 1;
-        }
-        from
+    /// Delegates to [`RacingLine`], which owns the geometry and the reasoning:
+    /// the circuit's centreline gives the direction, and a road-preferring tile
+    /// walk turns that into an aim point the car can actually be driven onto.
+    /// `make playtest`'s reference driver steers with the same code, which is the
+    /// point -- the oracle and the AI have to agree about where the road is.
+    fn racing_line_point(&mut self, track: &TrackDef, lookahead: i32) -> Vec2 {
+        // With no authored centreline (hand-built test fixtures) there is no
+        // racing line to follow, so aim at the gate being chased as before.
+        let fallback = TrackDef::gate_centre(
+            &track.route_node((self.target_gate_idx as usize) % track.route_len()),
+        );
+        self.line.aim(
+            track,
+            self.state.position,
+            self.state.heading,
+            lookahead,
+            fallback,
+        )
     }
 
     /// Lateral dodge, in world units, to steer around cars in the near field.
     ///
-    /// The box is sized in *tiles* (`AVOIDANCE_TILES`), because the old
-    /// `ox.abs() < 14 && oy.abs() < 20` world-delta test was a 14x20 unit box --
-    /// smaller than a single tile -- so rivals drove through each other.
+    /// The box is sized in *world* units (`AVOIDANCE_HALF_UNITS`), because the
+    /// old `ox.abs() < 14 && oy.abs() < 20` world-delta test was a 14x20 unit box
+    /// -- smaller than a single grid cell -- so rivals drove through each other.
     fn avoidance_offset(&self, other_positions: &[Vec2]) -> i32 {
-        let half = AVOIDANCE_TILES * TILE_SIZE;
+        let half = AVOIDANCE_HALF_UNITS;
         let mut offset = 0i32;
         for other_pos in other_positions {
             let dx = (other_pos.x - self.state.position.x).to_int();
@@ -360,12 +262,31 @@ impl AiRacer {
 
     /// Corner severity between the current target and the one after it, in BAMs.
     fn upcoming_corner(&self, track: &TrackDef) -> i32 {
-        let n = track.route_len();
-        let a = TrackDef::gate_centre(&track.route_node(self.target_gate_idx as usize % n));
-        let b = TrackDef::gate_centre(&track.route_node((self.target_gate_idx as usize + 1) % n));
-        let heading_a = heading_towards(a, b);
-        let heading_here = heading_towards(self.state.position, a);
-        angle_error(heading_here, heading_a).abs()
+        // The corner-speed governor used to measure the bend *between two
+        // checkpoint bearings* -- gates spaced a quarter of the lap apart -- so
+        // it saw almost nothing and carried top speed into corners it should
+        // have braked for. That is why one cell of lateral error accumulated
+        // everywhere a gate sat down a technical sequence: the car never
+        // tightened up.
+        //
+        // Measure the road's own bend in the few route segments ahead of the
+        // car instead. The window length sets the braking distance: the car
+        // brakes for the worst turn a short lookahead reveals.
+        let n = track.route.len();
+        if n < 3 {
+            return 0;
+        }
+        let i = self.line.hint() % n;
+        let mut worst = 0i32;
+        for k in 0..3 {
+            let a = track.route[(i + k) % n];
+            let b = track.route[(i + k + 1) % n];
+            let c = track.route[(i + k + 2) % n];
+            let ab = heading_towards(a, b);
+            let bc = heading_towards(b, c);
+            worst = worst.max(angle_error(ab, bc).abs());
+        }
+        worst
     }
 
     /// Whether the rival is spinning, or has stopped making route progress.
@@ -381,10 +302,46 @@ impl AiRacer {
 
     /// Records whether the rival got any closer to the gate it is chasing.
     fn update_progress(&mut self, track: &TrackDef) {
-        let target = self.target_position(track);
-        let distance = (target - self.state.position).length().to_int();
-        if distance < self.best_gate_distance {
-            self.best_gate_distance = distance;
+        // Progress is forward movement *along the centreline*, not shrinking
+        // straight-line distance to the next gate.
+        //
+        // The gate distance looks reasonable and is wrong on a closed circuit,
+        // because the gate is up to a quarter of the way round the ring: driving
+        // the racing line correctly around a corner routinely carries a car
+        // further from the next gate in a straight line than it started. Measured
+        // on Sunset Ridgeway, a rival driving correctly along the road held a
+        // gate distance of 558 units for 211 consecutive ticks -- real progress
+        // the whole time -- so the old measure declared it wedged, and it spent
+        // the rest of the lap reversing and respawning. This is the same
+        // beeline assumption that made the aim point leave the road.
+        //
+        // Falls back to the gate distance only for a track with no centreline,
+        // where there is nothing better to measure.
+        let advanced = if self.line.has_match() {
+            let n = track.route.len();
+            if n < 2 {
+                false
+            } else {
+                let cur = self.line.hint() % n;
+                // Forward distance in control points, wrapping at the seam. A
+                // jump larger than a third of the loop is a respawn or a slide
+                // across the circuit, not progress, and must not count.
+                let forward = (cur + n - self.route_last_idx % n) % n;
+                let forward = if forward * 3 > n { 0 } else { forward };
+                self.route_last_idx = cur;
+                if forward > 0 {
+                    self.route_advance = self.route_advance.saturating_add(forward as u32);
+                }
+                self.route_advance > self.best_route_advance
+            }
+        } else {
+            let target = self.target_position(track);
+            let distance = (target - self.state.position).length().to_int();
+            distance < self.best_gate_distance
+        };
+
+        if advanced {
+            self.best_route_advance = self.route_advance;
             self.progress_ticks = 0;
         } else {
             self.progress_ticks = self.progress_ticks.saturating_add(1);
@@ -413,7 +370,12 @@ impl AiRacer {
         self.state.respawn_at(pos, heading);
         self.wedged_ticks = 0;
         self.best_gate_distance = i32::MAX;
+        self.best_route_advance = self.route_advance;
         self.progress_ticks = 0;
+        // Teleported: the cached centreline match describes where the car was.
+        // It would still be re-validated, but dropping it makes the next tick a
+        // full scan instead of a confident wrong answer.
+        self.line.reset();
     }
 
     /// Evaluates navigation and obstacle avoidance to generate vehicle input.
@@ -554,13 +516,13 @@ impl AiRacer {
         let checkpoint_count = track.active_checkpoint_count();
 
         // Start/finish arming.
-        if !track.start_gate.contains_tile(tx, ty) {
+        if !track.start_gate.touches_tile(tx, ty) {
             self.left_start_gate = true;
         }
 
         // Advance along the racing line when the current node is reached.
         let node = (self.target_gate_idx as usize) % route;
-        if track.route_node(node).contains_tile(tx, ty) {
+        if track.route_node(node).touches_tile(tx, ty) {
             let next = node + 1;
             self.target_gate_idx = if next >= route {
                 // Wrapped past the start/finish: a full circuit is done.
@@ -571,6 +533,7 @@ impl AiRacer {
             };
             // A new gate means a new distance to make.
             self.best_gate_distance = i32::MAX;
+            self.best_route_advance = self.route_advance;
             self.progress_ticks = 0;
         }
 
@@ -580,7 +543,7 @@ impl AiRacer {
                 continue;
             }
             match track.checkpoints.get(i) {
-                Some(gate) if gate.contains_tile(tx, ty) => self.checkpoint_mask |= 1 << i,
+                Some(gate) if gate.touches_tile(tx, ty) => self.checkpoint_mask |= 1 << i,
                 _ => {}
             }
         }
@@ -622,8 +585,11 @@ impl AiRacer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `segment_units` moved to `crate::line` with the racing-line geometry; its
+    // test came with it, and this re-export keeps it covered here too.
     use crate::ai_profiles::AI_PROFILES;
     use crate::levels::ALL_TRACKS;
+    use crate::line::segment_units;
 
     /// Fraction of the centre-line a rival must actually drive to prove it is not
     /// cutting the circuit.
@@ -936,30 +902,55 @@ mod tests {
     }
 
     #[test]
-    fn progress_resets_when_the_rival_gets_closer_or_picks_up_a_new_gate() {
+    fn progress_resets_only_on_forward_movement_along_the_centreline() {
+        // Progress is forward movement along the centreline, not shrinking
+        // distance to the next gate -- see `update_progress` for why the gate
+        // distance is wrong on a closed circuit.
         let track = ALL_TRACKS[0];
+        let route = track.route;
         let mut racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
+        // Settle the centreline match first: progress is measured from it.
+        racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+        // A car that has not moved has made no progress, and that is the state
+        // this is asserting -- there is nothing to reset *from* yet.
         racer.update_progress(track);
-        assert_eq!(racer.progress_ticks, 0);
-        // Nudge the rival back a long way: no progress.
-        // Two tiles further from the gate: that is not progress.
-        let gate = racer.target_position(track);
-        let away = if gate.x >= racer.state.position.x {
-            Vec2::new(-Fixed::from_int(2 * TILE_SIZE), Fixed::ZERO)
-        } else {
-            Vec2::new(Fixed::from_int(2 * TILE_SIZE), Fixed::ZERO)
-        };
-        racer.state.position = racer.state.position + away;
-        racer.update_progress(track);
-        for _ in 0..4 {
+        for _ in 0..3 {
             racer.update_progress(track);
         }
-        assert_eq!(racer.progress_ticks, 5, "no progress, so no reset");
-        // Halfway back to where it was: closer is progress.
-        racer.state.position =
-            racer.state.position - away - Vec2::new(away.x * Fixed::HALF, Fixed::ZERO);
+        assert_eq!(racer.progress_ticks, 4, "no movement, so no reset");
+
+        // Moving *backwards* along the line is not progress either. This is the
+        // case the old gate-distance measure got wrong: reversing away from a
+        // gate looks like progress to it.
+        //
+        // Each step drives a whole tick's worth of work: the centreline match is
+        // re-derived (as `tick` does) before progress is measured against it.
+        racer.state.position = route[(racer.line.hint() + route.len() - 3) % route.len()];
+        racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
         racer.update_progress(track);
-        assert_eq!(racer.progress_ticks, 0, "closer is progress");
+        racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+        racer.update_progress(track);
+        assert_eq!(
+            racer.progress_ticks, 6,
+            "going backwards up the centreline is not progress"
+        );
+
+        // Moving forwards is.
+        racer.state.position = route[(racer.line.hint() + 3) % route.len()];
+        racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+        racer.update_progress(track);
+        assert_eq!(racer.progress_ticks, 0, "forward movement is progress");
+
+        // And a jump most of the way round the loop is a respawn or a slide
+        // across the circuit, not a shortcut.
+        let before = racer.route_advance;
+        racer.state.position = route[(racer.line.hint() + route.len() / 2) % route.len()];
+        racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+        racer.update_progress(track);
+        assert!(
+            racer.route_advance - before < route.len() as u32 / 3,
+            "a jump across the circuit must not count as progress"
+        );
     }
 
     #[test]
@@ -1002,9 +993,22 @@ mod tests {
         racer.state.speed = BASE_TOP_SPEED;
         // Point the rival exactly down its own racing line so the assertion is
         // about the nitro gate and not about how straight the circuit is here.
-        let aim = racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
-        racer.state.heading = heading_towards(racer.state.position, aim);
-        let clear = racer.compute_input(track, &[]);
+        //
+        // Two rounds, because the aim point is *seeded from the car's heading*
+        // (`RacingLine::tile_walk` starts by following the car and only bends
+        // when the road does). So the desired heading depends on the heading,
+        // and one round leaves the two disagreeing: set the heading from the aim,
+        // recompute, and the walk now seeds from the new heading and can pick a
+        // different tile. The test passed on one round only where the walk
+        // happened to be heading-independent at that start pose -- which stopped
+        // being true once the route was rotated to put the start on a straight.
+        // Iterating converges on the fixed point: heading == desired heading.
+        let mut clear = racer.compute_input(track, &[]);
+        for _ in 0..2 {
+            let aim = racer.racing_line_point(track, AIM_LOOKAHEAD_UNITS);
+            racer.state.heading = heading_towards(racer.state.position, aim);
+            clear = racer.compute_input(track, &[]);
+        }
         assert_eq!(clear.steer, Fixed::ZERO, "the rival is already on line");
         assert!(
             clear.nitro,
@@ -1019,25 +1023,29 @@ mod tests {
     }
 
     #[test]
-    fn the_avoidance_box_is_sized_in_tiles_not_world_units() {
+    fn the_avoidance_box_is_a_car_wide_in_world_units() {
         // Reproduced: `ox.abs() < 14 && oy.abs() < 20` on world deltas is a box
         // smaller than one 64-unit tile, so rivals drove straight through each
         // other.
+        //
+        // The box is in world units and must NOT track `TILE_SIZE`: doing so
+        // halved it when the surface grid went to 32-unit cells, which is a
+        // quarter of the road width.
         let track = ALL_TRACKS[0];
         let racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
-        let half = AVOIDANCE_TILES * TILE_SIZE;
-        assert!(half >= TILE_SIZE, "the box must be at least one tile wide");
+        let half = AVOIDANCE_HALF_UNITS;
+        assert!(half >= TILE_SIZE, "the box must be at least one cell wide");
 
         // Inside the box -> dodge.
         let inside = racer.state.position + Vec2::new(Fixed::from_int(half - 8), Fixed::ZERO);
         assert_ne!(racer.avoidance_offset(&[inside]), 0);
 
-        // Two tiles away laterally -> ignored.
-        let outside = racer.state.position + Vec2::new(Fixed::from_int(2 * TILE_SIZE), Fixed::ZERO);
+        // A full box width away laterally -> ignored.
+        let outside = racer.state.position + Vec2::new(Fixed::from_int(half * 2), Fixed::ZERO);
         assert_eq!(racer.avoidance_offset(&[outside]), 0);
 
         // Dead astern at long range -> ignored.
-        let far = racer.state.position + Vec2::new(Fixed::ZERO, Fixed::from_int(8 * TILE_SIZE));
+        let far = racer.state.position + Vec2::new(Fixed::ZERO, Fixed::from_int(8 * half));
         assert_eq!(racer.avoidance_offset(&[far]), 0);
 
         // Coincident -> no divide-by-zero, no dodge.

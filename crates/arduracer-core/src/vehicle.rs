@@ -1,7 +1,7 @@
 //! Vehicle state, dynamics, and drift simulation.
 //!
 //! Units: `speed` and `velocity` are expressed in **world units per 60 Hz tick**.
-//! A track tile is [`crate::track::TILE_SIZE`] (64) world units, so a car at top
+//! A track tile is [`crate::track::TILE_SIZE`] (32) world units, so a car at top
 //! speed (`BASE_TOP_SPEED` = 3.42 u/tick, ~205 u/s) crosses one tile in ~19 ticks
 //! and the 320x240 viewport in ~1.6 s - matching the 90s arcade pace ArduRacer FX
 //! ran at on its 640x640 px level space.
@@ -1126,27 +1126,29 @@ mod tests {
             "the east-wall fixture lost its barrier column"
         );
         // And the cars these tests place must actually be able to reach it.
-        for start_x in [560, 630] {
-            let tx = TrackDef::tile_x_of(Fixed::from_int(start_x));
+        // In tile coordinates, not world units: the fixture is 14 cells of
+        // `TILE_SIZE` world units and `TILE_SIZE` is a moving constant.
+        for tx in [10u8, 9] {
             assert!(
                 track.tile_at(tx, 5) != TrackTile::Barrier,
-                "the car starts inside the wall at x={start_x}"
+                "the car starts inside the wall at tile x={tx}"
             );
         }
         // There must be a solid tile somewhere east of both starting positions,
         // with road in between -- that is what makes these tests meaningful.
-        for start_x in [560, 630] {
-            let start_tx = TrackDef::tile_x_of(Fixed::from_int(start_x));
+        // In tile coordinates: the fixture is 14 cells of `TILE_SIZE` world
+        // units, and `TILE_SIZE` is a moving constant.
+        for start_tx in [10u8, 9] {
             assert_eq!(
                 track.tile_at(start_tx, 5),
                 TrackTile::Tarmac,
-                "the car does not start on road at x={start_x}"
+                "the car does not start on road at tile x={start_tx}"
             );
             let wall =
                 (start_tx + 1..track.width).find(|x| track.tile_at(*x, 5) == TrackTile::Barrier);
             assert!(
                 wall.is_some(),
-                "no barrier east of x={start_x}: the car would drive into open road"
+                "no barrier east of tile x={start_tx}: the car would drive into open road"
             );
         }
     }
@@ -1171,7 +1173,7 @@ mod tests {
         // existed while measuring nothing at all, which is why the loss of
         // track 1's barriers went unnoticed alongside it.
         let mut car = VehicleState {
-            position: Vec2::new(Fixed::from_int(560), Fixed::from_int(320)),
+            position: Vec2::new(Fixed::from_int(10 * TILE_SIZE + 8), Fixed::from_int(5 * TILE_SIZE + 16)),
             heading: 1024, // due east, into the wall
             velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
             speed: Fixed::from_int(3),
@@ -1223,7 +1225,7 @@ mod tests {
         // and the car backs off, with no respawn.
         let track = track_with_east_wall();
         let mut car = VehicleState {
-            position: Vec2::new(Fixed::from_int(560), Fixed::from_int(320)),
+            position: Vec2::new(Fixed::from_int(10 * TILE_SIZE + 8), Fixed::from_int(5 * TILE_SIZE + 16)),
             heading: 1024, // due east
             velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
             speed: Fixed::from_int(3),
@@ -1435,7 +1437,7 @@ mod tests {
         // tile with zero traction and zero top speed.
         let track = track_with_east_wall();
         let mut car = VehicleState {
-            position: Vec2::new(Fixed::from_int(630), Fixed::from_int(320)),
+            position: Vec2::new(Fixed::from_int(11 * TILE_SIZE + 8), Fixed::from_int(5 * TILE_SIZE + 16)),
             heading: 1024,
             velocity: Vec2::new(Fixed::from_int(3), Fixed::ZERO),
             speed: Fixed::from_int(3),
@@ -1469,11 +1471,11 @@ mod tests {
     #[test]
     fn the_outer_bound_is_the_last_legal_coordinate_of_the_grid() {
         for track in ALL_TRACKS.iter() {
-            for units in [0, 1, 63, 64, track.world_width() - 1] {
+            for units in [0, 1, TILE_SIZE - 1, TILE_SIZE, track.world_width() - 1] {
                 let tx = TrackDef::tile_x_of(Fixed::from_int(units));
                 assert!(tx < track.width, "{}: x={units} -> {tx}", track.name);
             }
-            for units in [0, 1, 63, 64, track.world_height() - 1] {
+            for units in [0, 1, TILE_SIZE - 1, TILE_SIZE, track.world_height() - 1] {
                 let ty = TrackDef::tile_y_of(Fixed::from_int(units));
                 assert!(ty < track.height, "{}: y={units} -> {ty}", track.name);
             }
@@ -1518,13 +1520,20 @@ mod tests {
         let track = walled_track();
         // A car whose centre sits 4 units inside the LEFT edge of the block at
         // (4,4) must exit west; 4 units inside the TOP edge must exit north.
+        // Local offsets are inside the cell, so they are expressed against
+        // `TILE_SIZE` rather than as fixed world numbers: the cell is 32 units
+        // now, and `60` would be a coordinate in the next cell entirely, which
+        // is why this test failed with the car not moving at all.
+        let near = 2i32;
+        let far = TILE_SIZE - 3;
+        let mid = TILE_SIZE / 2;
         let cases = [
-            (4i32, 4i32, 4i32, 20i32, -1i32, 0i32), // left face -> (-1, 0)
-            (4, 4, 60, 4, 0, -1),                   // top face  -> ( 0,-1)
-            (5, 5, 4, 60, 0, 1),                    // right block, bottom face
+            (4i32, 4i32, near, mid, -1i32, 0i32), // left face  -> (-1, 0)
+            (4, 4, mid, near, 0, -1),             // top face   -> ( 0,-1)
+            (5, 5, near, far, 0, 1),              // right block, bottom face
             // Equidistant from all four faces of the block's corner tile: the
             // tie breaks towards the face the car is moving out through.
-            (4, 4, 60, 60, 0, -1),
+            (4, 4, mid, mid, 0, -1),
         ];
         for (tx, ty, lx, ly, nx_expected, ny_expected) in cases {
             let mut car = VehicleState {

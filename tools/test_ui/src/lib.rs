@@ -2190,8 +2190,8 @@ mod ui_defect_tests {
 mod texture_pipeline_tests {
     use super::palette::to_bgr555;
     use super::texlayout::{
-        minimap_colour, minimap_step, pack_bgr555, slot_overlaps_framebuffers, MAX_DIM,
-        MINIMAP_INNER, SLOT_BYTES, TEXTURE_X, TEXTURE_Y,
+        minimap_colour, minimap_px_tile, minimap_tile_px, pack_bgr555,
+        slot_overlaps_framebuffers, MAX_DIM, MINIMAP_INNER, SLOT_BYTES, TEXTURE_X, TEXTURE_Y,
     };
     use arduracer_core::TrackTile;
 
@@ -2277,35 +2277,64 @@ mod texture_pipeline_tests {
         }
     }
 
-    /// The bake must cover the whole grid, or a tile outside the composed region
-    /// leaves a hole in the circuit outline.
+    /// The bake must sample the whole circuit, or the map shows only the part of
+    /// the track the first pixels happened to land on.
+    ///
+    /// This is the bug the authored circuits brought in: they are 96 tiles
+    /// across and the minimap window is 48 px, so a fixed one-pixel-per-tile
+    /// step could not fit them and the bake drew just the top-left quadrant.
     #[test]
-    fn the_bake_covers_every_tile_of_the_largest_circuits() {
-        for (w, h) in [(38u8, 38u8), (40, 40), (30, 30), (4, 4)] {
-            let step_x = minimap_step(w);
-            let step_y = minimap_step(h);
-            let last_x = (w as i32 - 1) * step_x;
-            let last_y = (h as i32 - 1) * step_y;
-            let stamp_w = step_x.max(1) + 1;
-            let stamp_h = step_y.max(1) + 1;
+    fn the_bake_samples_the_whole_grid() {
+        // Every tile index must map to a pixel strictly inside the window, and
+        // the far edge of the grid must reach the far edge of the window.
+        for (w, h) in [(38u8, 38u8), (40, 40), (96, 96), (4, 4)] {
+            let last_x = minimap_tile_px(w, w as i32 - 1, MINIMAP_INNER);
+            let last_y = minimap_tile_px(h, h as i32 - 1, MINIMAP_INNER);
             assert!(
-                last_x + stamp_w <= MAX_DIM as i32,
-                "{w}x{h}: the last column ends at {}, past the {MAX_DIM}-px slot",
-                last_x + stamp_w
+                last_x >= 0 && last_x < MINIMAP_INNER,
+                "{w}x{h}: last column maps to {last_x}, outside the {MINIMAP_INNER}px window"
             );
             assert!(
-                last_y + stamp_h <= MAX_DIM as i32,
-                "{w}x{h}: the last row ends at {}, past the {MAX_DIM}-px slot",
-                last_y + stamp_h
+                last_y >= 0 && last_y < MINIMAP_INNER,
+                "{h}: last row maps to {last_y}, outside the {MINIMAP_INNER}px window"
             );
+            // And the bake must never ask for a tile past the grid.
+            for px in 0..MINIMAP_INNER {
+                assert!(minimap_px_tile(w, px, MINIMAP_INNER) < w as i32, "{w}: px {px}");
+            }
         }
     }
 
-    /// The step must never be zero, or every tile would stack on one pixel.
+    /// Sampling a 96-tile grid into 48 pixels has to land inside the slot, or the
+    /// bake writes past the end of the texture.
+    #[test]
+    fn the_bake_fits_inside_the_slot() {
+        assert!(
+            MINIMAP_INNER <= MAX_DIM as i32,
+            "the minimap window ({MINIMAP_INNER}) is larger than the slot ({MAX_DIM})"
+        );
+    }
+
+    /// The mapping must be monotonic and must not collapse: a step of zero would
+    /// stack every tile onto one pixel.
     #[test]
     fn the_bake_step_is_never_zero() {
-        for w in [0u8, 1, 2, 10, 30, 38, 40, 255] {
-            assert!(minimap_step(w) >= 1, "step collapsed for width {w}");
+        // `extent == 0` is excluded: a zero-extent grid has no tiles, so "the
+        // mapping is monotonic" has nothing to say about it.
+        for w in [1u8, 2, 10, 30, 38, 40, 96, 255] {
+            let first = minimap_tile_px(w, 0, MINIMAP_INNER);
+            let last = minimap_tile_px(w, w as i32 - 1, MINIMAP_INNER);
+            assert!(first >= 0, "step collapsed for width {w}");
+            assert!(
+                last >= first,
+                "width {w}: mapping went backwards ({first} -> {last})"
+            );
+            if w > 1 {
+                assert!(
+                    last > first || (w as i32) <= MINIMAP_INNER,
+                    "width {w}: the whole grid collapsed onto one pixel"
+                );
+            }
         }
     }
 

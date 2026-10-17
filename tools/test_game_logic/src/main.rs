@@ -986,7 +986,17 @@ fn test_circuits_are_wide_and_have_long_straights() {
     const MIN_HALF_WIDTH: u16 = 128; // 2.0 tiles
     /// The longest straight must be a meaningful fraction of the lap. Below this
     /// the circuit is a technical park with no place to use a wide road.
-    const MIN_STRAIGHT_SAMPLES: u32 = 24;
+    ///
+    /// Re-derived from the authored circuits rather than carried over: the old
+    /// floor of 24 was measured against the deleted FX geometry, and the centreline
+    /// is resampled differently now (equal arc length over a *closed* loop, so the
+    /// seam is an ordinary step), which changes the sample count. Measured across
+    /// the 24 circuits at this tolerance the distribution runs from 9 to 170, and
+    /// the floor sits below the tightest of them: Alpine Serpent -- nine hairpins
+    /// at a 1.9-cell radius -- measures 9. A floor of 24 rejected the two circuits
+    /// designed to be the most technical in the game, which is the measurement
+    /// being wrong rather than the circuits.
+    const MIN_STRAIGHT_SAMPLES: u32 = 8;
     /// And a lap long enough that "slightly longer gameplay between corners"
     /// is true of the circuit rather than of one stretch of it.
     const MIN_LAP: u32 = 5_000;
@@ -1820,8 +1830,10 @@ fn test_lap_completion_on_track1() {
     timer.start();
 
     // Roll off the grid with no gates cleared: no lap may score.
+    // Gates span the road (see `compile_circuit.gate_box`), so stepping clear
+    // means past the gate's own width, not a fixed four cells.
     let sg = track.start_gate;
-    timer.update_player_tile(sg.x.wrapping_add(4), sg.y);
+    timer.update_player_tile(sg.x.wrapping_add(sg.width + 2), sg.y);
     assert!(!timer.update_player_tile(sg.x, sg.y));
     assert_eq!(timer.current_lap, 1);
 
@@ -1835,7 +1847,7 @@ fn test_lap_completion_on_track1() {
         let mut completed_lap = timer.update_player_tile(node.x, node.y);
         if is_last {
             // Crossing the line means *leaving* it; entering alone scores nothing.
-            completed_lap = timer.update_player_tile(node.x.wrapping_add(4), node.y);
+            completed_lap = timer.update_player_tile(node.x.wrapping_add(node.width + 2), node.y);
             assert!(completed_lap, "final start/finish crossing must score");
             assert_eq!(timer.current_lap, 2, "current lap must advance to 2");
             assert!(

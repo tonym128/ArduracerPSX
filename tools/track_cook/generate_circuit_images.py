@@ -81,13 +81,6 @@ RGB = {
 
 # --- Geometry ----------------------------------------------------------------
 
-#: Pixels per map cell in the *data* image. Flat palette colours only; the
-#: compiler reads this back out of `<name>.palette.json`.
-DATA_PX = 4
-#: Pixels per map cell in the *visual* image. Painted, so it wants more room.
-VISUAL_PX = 16
-#: Retained for the walker's step size and for callers that assume 16.
-CELL = 16
 ROAD_CELLS = 2.5               # drivable width in cells -- 2 to 3, per spec
 KERB_CELLS = 0.7               # rumble band outside the tarmac
 CURB_KNEE = 0.010
@@ -99,11 +92,38 @@ STRAIGHT_ANCHOR_TILES = 4.0
 CORNER_ANCHOR_DEG = 12.0              # |curvature| above which a corner gets a kerb
 STEP = 0.05                    # walker step, in cells
 
-SIZE = 768                     # master image edge, pixels (48 px/cell)
+SIZE = 768                     # visual image edge, pixels
 CELL = 16
-GRID = SIZE // CELL            # cells per edge (48)
-DATA_PX = 3                     # data image px/cell -> 144x144
-VISUAL_PX = 16                  # visual image px/cell -> 768x768
+GRID = SIZE // CELL            # authoring cells per edge (48)
+
+#: Surface subdivisions per authoring cell.
+#:
+#: The *authoring* grid stays 48x48 because that is the resolution the circuit
+#: polygons, fillet radii and centreline are expressed in, and changing it would
+#: mean re-tuning 24 circuits. The *surface* grid is what the physics and the game
+#: actually read, and it is this much finer: one authoring cell is four surface
+#: cells, so the surface is 192x192 and a cell is 16 world units rather than 64.
+#:
+#: That is the whole point of the change. A road whose edge is quantised to 64
+#: world units is a staircase the driver can see and the car can hit; at 32 the
+#: edge is half as coarse and collision resolves a wall face to half the car's
+#: width instead of all of it.
+#:
+#: `SURF` is deliberately 2 and not 4. The surface map is one byte per cell in
+#: the binary, so the whole 24-circuit set costs `24 * 96 * 96` = 221,184 bytes
+#: against 251,384 bytes of headroom under the PSX RAM gate. At `SURF = 4` it is
+#: 884,736 bytes and the game does not link. Going finer needs the map packed to
+#: 4 bits and loaded per circuit rather than embedded for all 24 -- measured,
+#: run-length encoding the 192x192 map is ~2.2 KB per circuit, which would fit
+#: comfortably. That is the route to the finer resolution, and it is a data
+#: change rather than a code change.
+SURF = 2
+GRID_F = GRID * SURF               # surface cells per edge (192)
+#: The visual image, in surface cells per surface cell: 768 / 192 = 4.
+VISUAL_PX = SIZE // GRID_F
+#: The data image is one pixel per surface cell -- flat palette, no
+#: antialiasing, machine-parseable -- so it is 192x192.
+DATA_PX = 1
 
 
 def poly_walk(vertices, radii, elevated=()):
@@ -304,25 +324,32 @@ def fit_scale(samples, road_cells):
 
 
 def render(samples, road_cells):
-    """Rasterises the centreline into per-level code maps.
+    """Rasterises the centreline into per-level code maps at surface resolution.
 
     Densification happens here, in cell space, *after* the fit. The centreline
     arrives with anchors spaced in authoring units, but how many cells that is
     depends on the fit -- and on fillets, which bulge outside the vertex hull and
     shrink the scale. Sizing the step before the fit let the rasteriser stride
     further than the road was wide and split the ring in two.
+
+    The fit is in *authoring* cells; the raster is in *surface* cells, which are
+    [`SURF`] times finer. Everything the rasteriser touches below is therefore
+    scaled by `SURF`, and the scale/dx/dy it returns stay in authoring cells so
+    the centreline sidecar and the compiler keep working in the resolution the
+    circuits are authored in.
     """
     scale, dx, dy = fit_scale(samples, road_cells)
-    road = road_cells
-    r = int(math.ceil(road + KERB_CELLS)) + 1
+    road = road_cells * SURF
+    kerb = KERB_CELLS * SURF
+    r = int(math.ceil(road + kerb)) + 1
 
-    # `cells` is already in grid coordinates. Everything below works in cells,
-    # so the fit must be applied exactly once -- here.
+    # `cells` is already in grid coordinates. Everything below works in surface
+    # cells, so the fit must be applied exactly once -- here.
     cells = []
     for i in range(len(samples) - 1):
         a, b = samples[i], samples[i + 1]
-        ax, ay = a[0] * scale + dx, a[1] * scale + dy
-        bx, by = b[0] * scale + dx, b[1] * scale + dy
+        ax, ay = (a[0] * scale + dx) * SURF, (a[1] * scale + dy) * SURF
+        bx, by = (b[0] * scale + dx) * SURF, (b[1] * scale + dy) * SURF
         steps = max(1, int(math.ceil(math.hypot(bx - ax, by - ay))))
         for k in range(steps):
             t = k / steps
@@ -332,7 +359,7 @@ def render(samples, road_cells):
         raise RuntimeError("empty centreline")
     cells.append(cells[0])
 
-    grids = [np.zeros((GRID, GRID), dtype=np.int8) for _ in range(2)]
+    grids = [np.zeros((GRID_F, GRID_F), dtype=np.int8) for _ in range(2)]
     marks = [dict() for _ in range(2)]
     for (x, y, lvl, curv) in cells:
         li = int(lvl)
@@ -340,14 +367,14 @@ def render(samples, road_cells):
         kerby = abs(curv) > CURB_KNEE
         for yy in range(int(y) - r, int(y) + r + 1):
             for xx in range(int(x) - r, int(x) + r + 1):
-                if not (0 <= xx < GRID and 0 <= yy < GRID):
+                if not (0 <= xx < GRID_F and 0 <= yy < GRID_F):
                     continue
                 d = math.hypot(xx + 0.5 - x, yy + 0.5 - y)
                 if d <= road:
                     if g[yy, xx] <= li:
                         g[yy, xx] = li
                     buf[(xx, yy)] = TARMAC
-                elif kerby and d <= road + KERB_CELLS and (xx, yy) not in buf:
+                elif kerby and d <= road + kerb and (xx, yy) not in buf:
                     if g[yy, xx] <= li:
                         g[yy, xx] = li
                     buf[(xx, yy)] = -1  # kerb, resolved to an alternating code below
@@ -366,7 +393,7 @@ def compose(grids, marks, runoff):
     elevation: the two sections share a footprint, so a flat map would fuse
     them into one unrecognisable blob.
     """
-    img = np.full((GRID, GRID), runoff, dtype=np.uint8)
+    img = np.full((GRID_F, GRID_F), runoff, dtype=np.uint8)
     roadish = (TARMAC, BOOST, OIL, GATE, START_LINE)
 
     painted = {}
@@ -467,13 +494,17 @@ def apply_features(img, samples, start_idx, boost_fracs=(), oil_fracs=(),
 
     `samples` are fitted cell coordinates.
     """
+    # `samples` are fitted *authoring* cells; the image is in surface cells, so
+    # both the position and the radius scale by `SURF`.
     def paint(idx, code, radius=1.2):
-        x, y, _lvl = samples[idx][0], samples[idx][1], samples[idx][2]
-        r = int(math.ceil(radius))
+        x = samples[idx][0] * SURF
+        y = samples[idx][1] * SURF
+        rad = radius * SURF
+        r = int(math.ceil(rad))
         for yy in range(int(y) - r, int(y) + r + 1):
             for xx in range(int(x) - r, int(x) + r + 1):
-                if 0 <= yy < GRID and 0 <= xx < GRID:
-                    if math.hypot(xx + 0.5 - x, yy + 0.5 - y) <= radius:
+                if 0 <= yy < GRID_F and 0 <= xx < GRID_F:
+                    if math.hypot(xx + 0.5 - x, yy + 0.5 - y) <= rad:
                         img[yy, xx] = code
 
     paint(start_idx, START_LINE, 1.4)
@@ -709,8 +740,8 @@ CIRCUITS = [
     C_("Crossover", _ring(6, 30, 24, 0.4, 3.6), 7.0,
        SAND, (0.28, 0.74), (0.5,), (0.15, 0.45, 0.85),
        "Two crossing sweeps; one lobe elevated.", elevated=(1, 2)),
-    C_("Chicane Park", _ring(9, 22, 20, 0.4, 2.0), 2.6,
-       GRAVEL, (), (0.3, 0.7), (0.25, 0.55, 0.85), "Tight chicanes."),
+    C_("Chicane Park", _ring(9, 22, 20, 0.4, 2.0), 4.4,
+GRAVEL, (), (0.3, 0.7), (0.25, 0.55, 0.85), "Tight chicanes."),
     C_("Foundry Spiral", _ring(6, 26, 26, 0.2, 3.4), 6.0,
        GRASS, (0.15,), (0.5, 0.85), (0.25, 0.5, 0.75), "Many small corners."),
     C_("Vapour Trail", _ring(6, 32, 24, 0.5, 2.8), 7.0,

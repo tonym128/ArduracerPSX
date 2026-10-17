@@ -17,19 +17,29 @@ use crate::timing::{CheckpointGate, ParTimes};
 /// Checkpoint slots per circuit. Longer circuits need proportionally more split
 /// points so a straight is not one long blind gate.
 pub const MAX_TRACK_CHECKPOINTS: usize = 24;
-/// Maximum dimension of a track grid (up to 32x32 tiles).
-/// Largest circuit grid edge, in tiles. A 64x64 grid is 4096 world units per side
-/// at `TILE_SIZE` 64 -- the smallest that reads as a stage atlas rather than a
-/// circuit. Raised from 40 for the authored circuits; `MAX_TILE_INDEX` follows.
-pub const MAX_TRACK_DIM: usize = 64;
+/// Largest circuit grid edge, in tiles.
+///
+/// Raised from 40 for the authored circuits, then to 128 when `TILE_SIZE` halved
+/// from 64 to 32: the circuits were authored against a 48x48 grid at 64 units (a
+/// 3,072-unit world) and the same world on a 96x96 grid at 32 units needs a
+/// ceiling above 64. `MAX_TILE_INDEX` follows, and stays inside the `u8` API.
+pub const MAX_TRACK_DIM: usize = 128;
 /// Largest tile index the `u8` tile API can represent.
 ///
 /// [`TrackDef::tile_x_of`] / [`TrackDef::tile_y_of`] saturate here, so the
-/// largest possible circuit (32 tiles) is still addressable. `tile_at` rejects
-/// anything wider than the grid it belongs to and answers `Barrier`.
+/// largest possible circuit is still addressable. `tile_at` rejects anything
+/// wider than the grid it belongs to and answers `Barrier`.
 pub const MAX_TILE_INDEX: u8 = (MAX_TRACK_DIM - 1) as u8;
 /// World-space size of a single track tile.
-pub const TILE_SIZE: i32 = 64;
+///
+/// 32 world units, down from 64. The circuits were authored against a 48x48
+/// grid at 64 units (a 3,072-unit world); the same world on a 96x96 grid is the
+/// same track with twice the resolution, so the road edge is a staircase half as
+/// coarse and a wall face resolves to half the car's width instead of all of it.
+///
+/// The number that has to move with it is [`MAX_TRACK_DIM`], because a 96-cell
+/// grid does not fit a 64-cell ceiling.
+pub const TILE_SIZE: i32 = 32;
 
 /// Integer square root (floor) of a `u64`. No floats: the core is `no_std`
 /// Q20.12 arithmetic only.
@@ -649,8 +659,10 @@ mod tests {
             assert_eq!(TrackDef::tile_x_of(Fixed::from_int(units)), 0, "{units}");
             assert_eq!(TrackDef::tile_y_of(Fixed::from_int(units)), 0, "{units}");
         }
-        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(63)), 0);
-        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(64)), 1);
+        // The last unit of a cell and the first of the next, at whatever
+        // `TILE_SIZE` currently is.
+        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(TILE_SIZE - 1)), 0);
+        assert_eq!(TrackDef::tile_x_of(Fixed::from_int(TILE_SIZE)), 1);
     }
 
     #[test]

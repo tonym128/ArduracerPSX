@@ -17,6 +17,7 @@ pub mod championship;
 pub mod drift;
 pub mod ghost;
 pub mod levels;
+pub mod line;
 pub mod math;
 pub mod route;
 pub mod save;
