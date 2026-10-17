@@ -889,47 +889,19 @@ impl VehicleState {
         // With hysteresis to prevent rapid gear-hunting jitter on corner exits:
         let current_gear = self.gear.clamp(1, 5);
         let new_gear = match current_gear {
-            1 => {
-                if s >= 819 {
-                    2
-                } else {
-                    1
-                }
-            }
-            2 => {
-                if s >= 1720 {
-                    3
-                } else if s < 655 {
-                    1
-                } else {
-                    2
-                }
-            }
-            3 => {
-                if s >= 2703 {
-                    4
-                } else if s < 1556 {
-                    2
-                } else {
-                    3
-                }
-            }
-            4 => {
-                if s >= 3522 {
-                    5
-                } else if s < 2539 {
-                    3
-                } else {
-                    4
-                }
-            }
-            5 => {
-                if s < 3358 {
-                    4
-                } else {
-                    5
-                }
-            }
+            1 if s >= 819 => 2,
+            1 => 1,
+            2 if s >= 1720 => 3,
+            2 if s < 655 => 1,
+            2 => 2,
+            3 if s >= 2703 => 4,
+            3 if s < 1556 => 2,
+            3 => 3,
+            4 if s >= 3522 => 5,
+            4 if s < 2539 => 3,
+            4 => 4,
+            5 if s < 3358 => 4,
+            5 => 5,
             _ => 1,
         };
         self.gear = new_gear;
@@ -2801,8 +2773,8 @@ mod tests {
         }
 
         // Must work through all 5 gears:
-        for g in 1..=5 {
-            assert!(gears_visited[g], "car must work through gear {g}");
+        for (g, &visited) in gears_visited.iter().enumerate().skip(1) {
+            assert!(visited, "car must work through gear {g}");
         }
 
         // On upshift from 1 to 2, 2's entry RPM must be lower than 1's redline RPM:

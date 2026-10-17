@@ -1418,7 +1418,7 @@ def main() -> int:
             for e in errors:
                 print(f"     {e}", file=sys.stderr)
             continue
-        grid, centre = data
+        grid, centre = data[:2]
         results.append((name, grid, centre, half_cells))
         print(f"  {name:16} {grid.shape[1]}x{grid.shape[0]} cells, "
               f"centreline {len(centre)}, road {int(half_cells * 2)} cells wide")
