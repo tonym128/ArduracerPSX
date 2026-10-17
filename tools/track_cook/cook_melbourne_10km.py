@@ -154,7 +154,9 @@ def compress_1024_jpeg(im: Image.Image, target_bytes: int = TARGET_JPEG_BYTES) -
 def main():
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     out_dir = os.path.join(root, "dist", "melbourne_10km")
-    tracks_dir = os.path.join(root, "tracks", "melbourne_10km")
+    tracks_dir = os.path.join(root, "tracks", "cities", "melbourne_10km")
+    if not os.path.exists(tracks_dir):
+        tracks_dir = os.path.join(root, "tracks", "melbourne_10km")
     assets_dir = os.path.join(root, "assets")
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(tracks_dir, exist_ok=True)
