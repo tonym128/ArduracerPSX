@@ -13,13 +13,14 @@
 //! half -- the racer blips -- stays as primitives drawn on top.
 
 use crate::gpu::texlayout::{
-    minimap_colour, minimap_tile_px, minimap_tile_rect, MINIMAP_INNER, MINIMAP_SIZE,
+    minimap_colour, minimap_tile_rect, minimap_world_pos, MINIMAP_INNER, MINIMAP_SIZE,
 };
 use crate::gpu::texpipe::TextureSlot;
 use crate::ui::font::{draw_char, draw_text};
+use arduracer_core::math::{cos, sin};
 use arduracer_core::{
-    AiRacer, LapTimer, Medal, TrackDef, TrackTile, VehicleState, LAUNCH_SWEET_SPOT_MAX_RPM,
-    LAUNCH_SWEET_SPOT_MIN_RPM, NITRO_MAX_TICKS,
+    AiRacer, LapTimer, Medal, TrackDef, TrackTile, VehicleState, FP_SHIFT,
+    LAUNCH_SWEET_SPOT_MAX_RPM, LAUNCH_SWEET_SPOT_MIN_RPM, NITRO_MAX_TICKS,
 };
 use psx_gpu as gpu;
 use psx_gpu::material::BlendMode;
@@ -169,6 +170,16 @@ pub fn render_hud<const N: usize>(
     minimap_texture: &TextureSlot,
 ) {
     let is_freeroam = track.checkpoint_count == 0;
+
+    // High-speed radial speed lines during Nitro or Super Boost (NO1-036)
+    if player.boost_ticks > 0 || player.super_boost_ticks > 0 || player.speed.raw() > 14_000 {
+        render_speed_lines(
+            player.speed.raw(),
+            player.boost_ticks,
+            player.super_boost_ticks,
+            timer.current_lap_ticks,
+        );
+    }
 
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
     if is_freeroam {
@@ -488,36 +499,34 @@ pub fn render_hud<const N: usize>(
         BlendMode::Opaque,
     );
 
-    // Rival blips (suppressed in free roam)
+    // Rival blips: smooth continuous world positioning (NO1-035)
     if !is_freeroam {
         for rival in rivals {
-            let r_tx = TrackDef::tile_x_of(rival.state.position.x) as i32;
-            let r_ty = TrackDef::tile_y_of(rival.state.position.y) as i32;
+            let r_mx = map_x + 4 + minimap_world_pos(rival.state.position.x, track.width);
+            let r_my = map_y + 4 + minimap_world_pos(rival.state.position.y, track.height);
             let (rc, gc, bc) = rival.profile.color;
-            gpu::draw_rect_flat(
-                map_x + 4 + minimap_tile_px(track.width, r_tx, MINIMAP_INNER) as i16,
-                map_y + 4 + minimap_tile_px(track.height, r_ty, MINIMAP_INNER) as i16,
-                2,
-                2,
-                rc,
-                gc,
-                bc,
-            );
+            gpu::draw_rect_flat(r_mx - 1, r_my - 1, 3, 3, rc, gc, bc);
         }
     }
 
-    // Player position blip (bright golden dot)
-    let p_tx = TrackDef::tile_x_of(player.position.x) as i32;
-    let p_ty = TrackDef::tile_y_of(player.position.y) as i32;
-    gpu::draw_rect_flat(
-        map_x + 3 + minimap_tile_px(track.width, p_tx, MINIMAP_INNER) as i16,
-        map_y + 3 + minimap_tile_px(track.height, p_ty, MINIMAP_INNER) as i16,
-        3,
-        3,
-        255,
-        230,
-        0,
-    );
+    // Player vehicle blip: oriented directional chevron arrow (NO1-035)
+    let p_mx = map_x + 4 + minimap_world_pos(player.position.x, track.width);
+    let p_my = map_y + 4 + minimap_world_pos(player.position.y, track.height);
+
+    let h = player.heading;
+    let tip_dx = (sin(h).raw() * 4) >> FP_SHIFT;
+    let tip_dy = -(cos(h).raw() * 4) >> FP_SHIFT;
+    let wing_l_dx = (sin(h.wrapping_add(1500)).raw() * 3) >> FP_SHIFT;
+    let wing_l_dy = -(cos(h.wrapping_add(1500)).raw() * 3) >> FP_SHIFT;
+    let wing_r_dx = (sin(h.wrapping_sub(1500)).raw() * 3) >> FP_SHIFT;
+    let wing_r_dy = -(cos(h.wrapping_sub(1500)).raw() * 3) >> FP_SHIFT;
+
+    let tip = (p_mx + tip_dx as i16, p_my + tip_dy as i16);
+    let wing_l = (p_mx + wing_l_dx as i16, p_my + wing_l_dy as i16);
+    let wing_r = (p_mx + wing_r_dx as i16, p_my + wing_r_dy as i16);
+
+    gpu::draw_tri_flat([tip, wing_l, wing_r], 255, 230, 30);
+    gpu::draw_line_mono(wing_l.0, wing_l.1, wing_r.0, wing_r.1, 180, 140, 20);
 }
 
 /// Renders a standalone vector minimap for UI screens (track select, championship, stage table).
@@ -633,4 +642,108 @@ pub fn render_replay_hud(track_name: &str, replay_tick: u32, total_ticks: u32, c
     draw_text(10, 226, cam_label, (80, 235, 255), 1);
     draw_text(132, 226, "TRIANGLE: CAM", (255, 220, 40), 1);
     draw_text(224, 226, "CROSS: RESULTS", (220, 225, 235), 1);
+}
+
+/// Renders high-speed radial motion streaks during Nitro, Super Boost, or extreme velocity (`NO1-036`).
+pub fn render_speed_lines(speed_raw: i32, nitro_ticks: u16, super_boost_ticks: u16, ticks: u32) {
+    let intensity = if super_boost_ticks > 0 {
+        3
+    } else if nitro_ticks > 0 {
+        2
+    } else if speed_raw > 14_000 {
+        1
+    } else {
+        0
+    };
+    if intensity == 0 {
+        return;
+    }
+
+    let col = match intensity {
+        3 => (255, 60, 40),   // Reactor Super Boost: fiery crimson
+        2 => (50, 220, 255),  // Nitro Boost: cyan/electric
+        _ => (160, 180, 210), // High Speed: white/blue streaks
+    };
+
+    let cx = 160i16;
+    let cy = 130i16;
+
+    // 12 pseudo-random radial lines shooting to screen edges
+    const ANGLES_Q8: [i32; 12] = [15, 42, 75, 110, 145, 178, 205, 238, 270, 305, 335, 355];
+    for (i, &ang) in ANGLES_Q8.iter().enumerate() {
+        let t_seed = (ticks.wrapping_mul(7) + (i as u32 * 53)) & 31;
+        let r0 = 55 + t_seed as i32;
+        let r1 = r0 + 40 + (intensity * 25);
+
+        let h_bam = ((ang + (ticks as i32 * 3)) & 0x0FFF) as u16;
+        let s = sin(h_bam).raw();
+        let c = cos(h_bam).raw();
+
+        let x0 = cx + ((s * r0) >> FP_SHIFT) as i16;
+        let y0 = cy - ((c * r0) >> FP_SHIFT) as i16;
+        let x1 = cx + ((s * r1) >> FP_SHIFT) as i16;
+        let y1 = cy - ((c * r1) >> FP_SHIFT) as i16;
+
+        if (0..320).contains(&x1) && (0..240).contains(&y1) {
+            gpu::draw_line_mono_blended((x0, y0), (x1, y1), (col.0, col.1, col.2), BlendMode::Add);
+        }
+    }
+}
+
+/// Renders the fullscreen "LOADING CIRCUIT..." overlay with track metadata and progress bar (`NO1-036`).
+pub fn render_loading_screen(track_name: &str, author: &str, progress_pct: u8) {
+    // Backdrop
+    gpu::draw_rect_flat(0, 0, 320, 240, 12, 14, 22);
+
+    // Header banner
+    gpu::draw_rect_flat(0, 70, 320, 4, 0, 210, 255);
+    gpu::draw_rect_flat(0, 74, 320, 48, 20, 24, 38);
+    gpu::draw_rect_flat(0, 122, 320, 2, 0, 150, 200);
+
+    draw_text(
+        (160i32 - ((track_name.len() as i32 * 6 * 2) / 2)).max(8) as u16,
+        82,
+        track_name,
+        (255, 255, 255),
+        2,
+    );
+    if !author.is_empty() {
+        draw_text(
+            (160i32 - ((author.len() as i32 * 6) / 2)).max(8) as u16,
+            106,
+            author,
+            (160, 215, 255),
+            1,
+        );
+    }
+
+    // Subtitle
+    draw_text(
+        160 - (18 * 6 / 2),
+        140,
+        "LOADING CIRCUIT...",
+        (0, 210, 255),
+        1,
+    );
+
+    // Progress bar frame
+    let bar_x = 60i16;
+    let bar_y = 160i16;
+    let bar_w = 200u16;
+    let bar_h = 10u16;
+    gpu::draw_rect_flat(bar_x - 1, bar_y - 1, bar_w + 2, bar_h + 2, 40, 48, 68);
+    gpu::draw_rect_flat(bar_x, bar_y, bar_w, bar_h, 16, 20, 30);
+
+    let fill_w = ((bar_w as u32 * progress_pct.min(100) as u32) / 100) as u16;
+    if fill_w > 0 {
+        gpu::draw_rect_flat(
+            bar_x + 1,
+            bar_y + 1,
+            fill_w.saturating_sub(2),
+            bar_h - 2,
+            0,
+            220,
+            255,
+        );
+    }
 }

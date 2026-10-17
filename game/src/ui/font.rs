@@ -75,6 +75,77 @@ static FONT_5X7: [[u8; 5]; 64] = [
     [0x40, 0x40, 0x40, 0x40, 0x40], // 0x5F _
 ];
 
+static mut VRAM_FONT_INITIALIZED: bool = false;
+
+const FONT_VRAM_X: u16 = 896;
+const FONT_VRAM_Y: u16 = 128;
+const FONT_CLUT_X: u16 = 896;
+const FONT_CLUT_Y: u16 = 66;
+
+/// Uploads the 5x7 ASCII font sheet into VRAM at (896, 128) with a 16-entry 4bpp CLUT (`NO1-035`).
+///
+/// Arranges all 64 characters (0x20..=0x5F) into an 8x8 grid of 8x8 pixel cells.
+/// Once initialized, single-scale HUD strings blit in 1 GPU sprite command per glyph.
+pub fn init_vram_font() {
+    let mut clut = [0u16; 16];
+    clut[0] = 0x0000; // Transparent
+    clut[1] = 0x7FFF; // White foreground
+    clut[2] = 0x1084; // Dark drop shadow
+
+    // 64x64 4bpp texture sheet = 16 halfwords per row * 64 rows = 1,024 halfwords
+    let mut sheet = [0u16; 1024];
+
+    for (idx, &cols) in FONT_5X7.iter().enumerate() {
+        let cell_col = idx % 8; // 0..8
+        let cell_row = idx / 8; // 0..8
+
+        for (col_idx, &col_bits) in cols.iter().enumerate() {
+            let px = cell_col * 8 + col_idx; // 0..64
+            let hw_col = px / 4;
+            let nibble = (px % 4) as u16;
+
+            for row in 0..7 {
+                let py = cell_row * 8 + row; // 0..64
+                if (col_bits & bit_mask(row as u16)) != 0 {
+                    let hw_idx = py * 16 + hw_col;
+                    // Pixel foreground index 1
+                    sheet[hw_idx] |= 1u16 << (nibble * 4);
+
+                    // Add subtle 1px drop shadow at index 2 if pixel below is empty
+                    if row + 1 < 8 {
+                        let s_py = py + 1;
+                        let s_px = (px + 1).min(63);
+                        let s_hw = s_py * 16 + (s_px / 4);
+                        let s_nib = (s_px % 4) as u16;
+                        if (sheet[s_hw] & (0xF << (s_nib * 4))) == 0 {
+                            sheet[s_hw] |= 2u16 << (s_nib * 4);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    psx_vram::upload_16bpp(
+        psx_vram::VramRect::new(FONT_CLUT_X, FONT_CLUT_Y, 16, 1),
+        &clut,
+    );
+    psx_vram::upload_16bpp(
+        psx_vram::VramRect::new(FONT_VRAM_X, FONT_VRAM_Y, 16, 64),
+        &sheet,
+    );
+
+    unsafe {
+        VRAM_FONT_INITIALIZED = true;
+    }
+}
+
+/// Returns whether the VRAM font sheet is resident and active.
+#[inline]
+pub fn is_vram_font_active() -> bool {
+    unsafe { VRAM_FONT_INITIALIZED }
+}
+
 /// Draws a single ASCII character at screen position (x, y) with color (r, g, b) and scale.
 pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
     let ascii = if c.is_ascii_lowercase() {
@@ -89,9 +160,27 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
         0
     };
 
+    // Fast-path: single-scale textured sprite blit from VRAM font sheet (`NO1-035`)
+    if scale == 1 && is_vram_font_active() {
+        let cell_col = (idx % 8) as u8;
+        let cell_row = (idx / 8) as u8;
+        let u = cell_col * 8;
+        let v = (FONT_VRAM_Y as u8).wrapping_add(cell_row * 8);
+
+        let tpage = psx_vram::Tpage::new(FONT_VRAM_X, 0, psx_vram::TexDepth::Bit4);
+        let clut = psx_vram::Clut::new(FONT_CLUT_X, FONT_CLUT_Y);
+        let mat = gpu::material::TextureMaterial::opaque(
+            clut.uv_clut_word(),
+            tpage.uv_tpage_word(0),
+            color,
+        );
+        gpu::draw_sprite_material(x as i16, y as i16, 8, 8, (u, v), mat);
+        return;
+    }
+
     let cols = FONT_5X7[idx];
 
-    // If foreground is not already dark, draw a 1-pixel dark drop shadow for high contrast
+    // Fallback: procedural multi-rectangle blitter for scaled or uninitialized fonts
     let is_bright = color.0 > 40 || color.1 > 40 || color.2 > 40;
     if is_bright {
         let shadow_col = (10, 12, 18);
@@ -143,12 +232,6 @@ pub fn draw_char(x: u16, y: u16, c: u8, color: (u8, u8, u8), scale: u16) {
 }
 
 /// Column bit mask for glyph row `row` (0..7).
-///
-/// The `u8` type must be explicit. With `col_bits & (1 << row)` the literal `1`
-/// is inferred through a `&u8` reference operand and the MIPS target lowers the
-/// comparison to something that is always false, so *every glyph renders as
-/// nothing*. Typing the mask keeps the shift in 8-bit space and is correct on
-/// every target. See REVIEW.md §Video/menu defect log.
 #[inline]
 fn bit_mask(row: u16) -> u8 {
     1u8 << row

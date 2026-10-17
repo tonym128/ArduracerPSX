@@ -47,11 +47,13 @@ use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 
 use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{
-    Camera, M7_HORIZON, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR,
+    Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR,
     M7_Z_FAR_COMPRESSED, M7_Z_NEAR,
 };
 use crate::gpu::texlayout::{
-    self, TILES_PER_BLOCK_AXIS, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT, VRAM_TILE_DIM,
+    self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES,
+    TIM8_TPAGE_COUNT, TIM8_VRAM_PAGES, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
+    VRAM_TILE_DIM,
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
@@ -315,8 +317,12 @@ struct StagingData([u8; STAGING_SECTORS * 2048]);
 /// remains valid and decodable while the next block streams in.
 static mut BLOCK_STAGING: StagingData = StagingData([0u8; STAGING_SECTORS * 2048]);
 
-/// 64-slot VRAM LRU cache holding decompressed 64x64 tiles in 15bpp direct colour.
-static mut VRAM_SLOTS: [VramSlot; VRAM_SLOT_COUNT] = [VramSlot::empty(); VRAM_SLOT_COUNT];
+/// VRAM LRU cache of decompressed 64x64 tiles.
+///
+/// Sized for the largest cache (256 slots at 4bpp, `NO1-034`); 8bpp uses the
+/// first 128 and every direct-colour codec the first 64. See
+/// [`TrackTexture::slot_count`].
+static mut VRAM_SLOTS: [VramSlot; MAX_VRAM_SLOTS] = [VramSlot::empty(); MAX_VRAM_SLOTS];
 
 /// Active incremental decode job stepping 1 MCU row per frame (~20% frame budget).
 static mut ACTIVE_JOB: DecodeJob = DecodeJob::empty();
@@ -672,7 +678,8 @@ const _: () = assert!(
 /// grid -- stay written once instead of gaining a `match codec` each.
 #[derive(Copy, Clone)]
 struct TrackTexture {
-    tpages: [Tpage; TRACK_TPAGE_COUNT],
+    /// Page table for this depth: 4 pages at 15bpp, 8 at 8bpp, 16 at 4bpp.
+    tpages: &'static [Tpage],
     /// CLUT handle for indexed formats, 0 for 15bpp direct colour.
     clut_word: u16,
     /// Texels per U unit. Always 0: the GPU performs the depth-specific
@@ -681,56 +688,91 @@ struct TrackTexture {
     /// constant so a future depth can be added without re-plumbing both
     /// emitters -- it is currently not that.
     u_shift: u8,
+    /// Bits per texel of the resident tiles (4, 8 or 15).
+    bpp: u8,
+}
+
+impl TrackTexture {
+    /// Cache slots usable at this depth (`NO1-034`).
+    #[inline(always)]
+    fn slot_count(&self) -> usize {
+        texlayout::slot_count_for_bpp(self.bpp)
+    }
+
+    /// `(tpage_idx, u, v)` of a slot at this depth.
+    #[inline(always)]
+    fn slot_uv(&self, slot: usize) -> (usize, u8, u8) {
+        let (_, _, tp, u, v) = match self.bpp {
+            4 => texlayout::vram_slot_coords_tim4(slot),
+            8 => texlayout::vram_slot_coords_tim8(slot),
+            _ => texlayout::vram_slot_coords(slot),
+        };
+        (tp, u, v)
+    }
+}
+
+/// Builds a page table from a list of origins at one depth.
+const fn build_tpages<const N: usize>(origins: [(u16, u16); N], depth: TexDepth) -> [Tpage; N] {
+    let mut out = [Tpage::new(origins[0].0, origins[0].1, depth); N];
+    let mut i = 0;
+    while i < N {
+        out[i] = Tpage::new(origins[i].0, origins[i].1, depth);
+        i += 1;
+    }
+    out
 }
 
 /// Tpage set for uncompressed 4bpp tiles.
 ///
-/// Same page *origins* as [`TPAGES`], but the two depths do not share the slot
-/// geometry. A 256x256 page holds 16 64x64 tiles at either depth -- halving the
-/// bytes per texel doubles the tiles per page -- but it fills the page
-/// differently: at 15bpp a tile is 64 halfwords wide, at 4bpp it is 16. So the
-/// 4bpp grid is packed four times as tightly and reads through
-/// [`texlayout::vram_slot_coords_tim4`].
+/// The first four page *origins* match [`TPAGES`], but the two depths do not
+/// share the slot geometry. A 256x256 page holds 16 64x64 tiles at either depth
+/// -- halving the bytes per texel doubles the tiles per page -- but it fills
+/// the page differently: at 15bpp a tile is 64 halfwords wide, at 4bpp it is
+/// 16. So the 4bpp grid is packed four times as tightly and reads through
+/// [`texlayout::vram_slot_coords_tim4`]. Because a 4bpp page is only 64
+/// halfwords wide, the cache band holds 16 of them (`NO1-034`).
 ///
 /// The page regions are never live at the same time -- switching codec drops
 /// every cached tile -- so sharing origins costs nothing.
-const TIM4_TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
-    Tpage::new(TRACK_VRAM_SLOTS[0].0, TRACK_VRAM_SLOTS[0].1, TexDepth::Bit4),
-    Tpage::new(TRACK_VRAM_SLOTS[1].0, TRACK_VRAM_SLOTS[1].1, TexDepth::Bit4),
-    Tpage::new(TRACK_VRAM_SLOTS[2].0, TRACK_VRAM_SLOTS[2].1, TexDepth::Bit4),
-    Tpage::new(TRACK_VRAM_SLOTS[3].0, TRACK_VRAM_SLOTS[3].1, TexDepth::Bit4),
-];
+static TIM4_TPAGES: [Tpage; TIM4_TPAGE_COUNT] = build_tpages(TIM4_VRAM_PAGES, TexDepth::Bit4);
 
-/// Tpage set for uncompressed 8bpp tiles.
-const TIM8_TPAGES: [Tpage; TRACK_TPAGE_COUNT] = [
-    Tpage::new(TRACK_VRAM_SLOTS[0].0, TRACK_VRAM_SLOTS[0].1, TexDepth::Bit8),
-    Tpage::new(TRACK_VRAM_SLOTS[1].0, TRACK_VRAM_SLOTS[1].1, TexDepth::Bit8),
-    Tpage::new(TRACK_VRAM_SLOTS[2].0, TRACK_VRAM_SLOTS[2].1, TexDepth::Bit8),
-    Tpage::new(TRACK_VRAM_SLOTS[3].0, TRACK_VRAM_SLOTS[3].1, TexDepth::Bit8),
-];
+/// Tpage set for uncompressed 8bpp tiles (8 pages of 128 halfwords).
+static TIM8_TPAGES: [Tpage; TIM8_TPAGE_COUNT] = build_tpages(TIM8_VRAM_PAGES, TexDepth::Bit8);
+
+/// Tpage set for direct-colour tiles.
+static TPAGES_15: [Tpage; TRACK_TPAGE_COUNT] = TPAGES;
 
 /// The sampling parameters for the codec currently in force on `circuit`.
 #[inline]
 fn active_texture(circuit: usize) -> TrackTexture {
     if codec_is_tim8(circuit) {
         TrackTexture {
-            tpages: TIM8_TPAGES,
+            tpages: &TIM8_TPAGES,
             clut_word: TIM8_CLUT.uv_clut_word(),
             u_shift: 0,
+            bpp: 8,
         }
     } else if codec_is_tim4(circuit) {
         TrackTexture {
-            tpages: TIM4_TPAGES,
+            tpages: &TIM4_TPAGES,
             clut_word: TIM4_CLUT.uv_clut_word(),
             u_shift: 0,
+            bpp: 4,
         }
     } else {
         TrackTexture {
-            tpages: TPAGES,
+            tpages: &TPAGES_15,
             clut_word: 0,
             u_shift: 0,
+            bpp: 15,
         }
     }
+}
+
+/// Returns whether the currently active circuit is a night/dark stage (`NO1-033`).
+pub fn is_night_circuit() -> bool {
+    let circuit = unsafe { ACTIVE_CIRCUIT };
+    crate::gpu::palette::sky_palette_for_circuit(circuit).is_night
 }
 
 /// Chooses the codec for a circuit, best available first.
@@ -1500,8 +1542,9 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
-    let count = cand_count.min(VRAM_SLOT_COUNT);
-    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); VRAM_SLOT_COUNT];
+    let n_slots = active_texture(active_circuit).slot_count();
+    let count = cand_count.min(n_slots).min(candidates.len());
+    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); 128];
     for (i, c) in candidates[..count].iter().enumerate() {
         tiles[i] = (c.0, c.1, c.2, c.3, c.4);
     }
@@ -2039,7 +2082,7 @@ const PREFETCH_MAX: usize = 32;
 
 /// Whether `tile` currently has its pixels resident in a VRAM slot.
 #[inline]
-fn tile_resident(vram_slots: &[VramSlot; VRAM_SLOT_COUNT], circuit: usize, tile: &TileRef) -> bool {
+fn tile_resident(vram_slots: &[VramSlot], circuit: usize, tile: &TileRef) -> bool {
     let (_, _, bx, by, sub_tx, sub_ty) = *tile;
     let target_key = pack_tile_key(circuit, bx, by, sub_tx, sub_ty);
     vram_slots.iter().any(|slot| slot.key == target_key)
@@ -2123,8 +2166,8 @@ fn step_or_schedule_decode_row(
     active_circuit: usize,
     candidates: &TileCandidates<'_>,
     slot_for_tile: &mut [usize; VISIBLE_TILES_MAX],
-    used_slots: &mut [bool; VRAM_SLOT_COUNT],
-    vram_slots: &mut [VramSlot; VRAM_SLOT_COUNT],
+    used_slots: &mut [bool; MAX_VRAM_SLOTS],
+    vram_slots: &mut [VramSlot; MAX_VRAM_SLOTS],
 ) -> bool {
     let vis_count = candidates.visible_count;
     let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
@@ -2191,7 +2234,8 @@ fn step_or_schedule_decode_row(
             0
         };
 
-        for s_idx in 0..VRAM_SLOT_COUNT {
+        let n_slots = active_texture(active_circuit).slot_count();
+        for s_idx in 0..n_slots {
             if !used_slots[s_idx] {
                 let slot = &vram_slots[s_idx];
                 if slot.resident_circuit != active_circuit {
@@ -2576,17 +2620,18 @@ pub fn render_track_extents(
     }
 
     let mut slot_for_tile = [usize::MAX; VISIBLE_TILES_MAX];
-    let mut used_slots = [false; VRAM_SLOT_COUNT];
+    let mut used_slots = [false; MAX_VRAM_SLOTS];
 
     // Phase 1: Match already-resident 64x64 tiles in VRAM LRU cache
     {
         let _probe = crate::prof::span(crate::prof::TRACK_CACHE_PROBE);
+        let n_slots = tex.slot_count();
         for i in 0..vis_count {
             let (_, _, bx, by, sub_tx, sub_ty) = visible_tiles[i];
             let target_key = pack_tile_key(active_circuit, bx, by, sub_tx, sub_ty);
             let mut found = None;
 
-            for (s_idx, slot) in vram_slots.iter().enumerate() {
+            for (s_idx, slot) in vram_slots.iter().enumerate().take(n_slots) {
                 if slot.key == target_key {
                     found = Some(s_idx);
                     break;
@@ -2725,7 +2770,7 @@ pub fn render_track_extents(
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
     let _quads = crate::prof::span(crate::prof::TRACK_QUADS);
     if camera.mode7 {
-        draw_m7_backdrop();
+        draw_m7_backdrop(camera);
     }
     for i in 0..vis_count {
         if (i & 3) == 0 {
@@ -2787,7 +2832,7 @@ pub fn render_track_extents(
             let (pr, pg, pb) = texlayout::placeholder_tile_colour(true, checker);
             gpu::draw_quad_flat([tl, tr, bl, br], pr, pg, pb);
         } else {
-            let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
+            let (tpage_idx, u_base, v_base) = tex.slot_uv(s_idx);
 
             // Map fractional position inside the tile to 0..64 UV texels
             let local_u0 = (((tx0 - wx0) * (VRAM_TILE_DIM as i32)) / tile_wu_x) as u16;
@@ -2801,8 +2846,12 @@ pub fn render_track_extents(
             let v1 = ((v_base as u32 + local_v1 as u32).min(255)) as u8;
 
             let tpage = tex.tpages[tpage_idx];
-            let material =
-                TextureMaterial::opaque(tex.clut_word, tpage.uv_tpage_word(0), (0x80, 0x80, 0x80));
+            let tint = if is_night_circuit() {
+                (0x58, 0x58, 0x5E)
+            } else {
+                (0x80, 0x80, 0x80)
+            };
+            let material = TextureMaterial::opaque(tex.clut_word, tpage.uv_tpage_word(0), tint);
             gpu::draw_quad_textured_material(
                 [tl, tr, bl, br],
                 [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
@@ -2844,15 +2893,105 @@ fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> Opt
     }
 }
 
-/// Sky bands above the horizon and distant haze down to where the tiles start.
-fn draw_m7_backdrop() {
-    let h = M7_HORIZON as i16;
-    gpu::draw_rect_flat(0, 0, 320, 20, 28, 46, 96);
-    gpu::draw_rect_flat(0, 20, 320, 20, 52, 84, 140);
-    gpu::draw_rect_flat(0, 40, 320, (h - 40) as u16, 110, 140, 175);
-    // Distant ground haze, fading into the fogged far tiles.
-    gpu::draw_rect_flat(0, h, 320, 30, 70, 86, 110);
-    gpu::draw_rect_flat(0, h + 30, 320, 240 - (h + 30) as u16, 52, 60, 74);
+/// Renders multi-stop Gouraud sky gradients, scrolling parallax silhouettes, and ground haze (`NO1-032`).
+fn draw_m7_backdrop(camera: &Camera) {
+    let sky = crate::gpu::palette::sky_palette_for_circuit(unsafe { ACTIVE_CIRCUIT });
+    let horizon = camera.m7_horizon().clamp(28, 100) as i16;
+    let roll = (camera.roll_bam / 8).clamp(-12, 12);
+    let y_l = horizon - roll;
+    let y_r = horizon + roll;
+
+    // Segment 1: Zenith to Mid-sky (0 .. horizon * 3 / 5)
+    let mid_y = (horizon * 3) / 5;
+    gpu::draw_tri_gouraud(
+        [(0, 0), (320, 0), (0, mid_y)],
+        [sky.zenith, sky.zenith, sky.mid_sky],
+    );
+    gpu::draw_tri_gouraud(
+        [(320, 0), (320, mid_y), (0, mid_y)],
+        [sky.zenith, sky.mid_sky, sky.mid_sky],
+    );
+
+    // Segment 2: Mid-sky to Horizon (mid_y .. y_l/y_r)
+    gpu::draw_tri_gouraud(
+        [(0, mid_y), (320, mid_y), (0, y_l)],
+        [sky.mid_sky, sky.mid_sky, sky.horizon],
+    );
+    gpu::draw_tri_gouraud(
+        [(320, mid_y), (320, y_r), (0, y_l)],
+        [sky.mid_sky, sky.horizon, sky.horizon],
+    );
+
+    // Parallax Horizon Silhouette: shifted by camera heading
+    let heading_shift = ((camera.heading as i32 * 320) >> 12) as i16;
+    let col_dark = sky.silhouette_dark;
+    let col_lit = sky.silhouette_lit;
+
+    // Biome-specific silhouette heights
+    let sil_heights: [i16; 8] = match sky.biome_style {
+        1 => [16, 28, 12, 34, 22, 18, 30, 14], // Neon City skyscrapers
+        2 => [18, 14, 24, 20, 16, 22, 12, 26], // Canyon mesas
+        3 => [22, 32, 16, 28, 36, 18, 24, 30], // Alpine jagged mountain peaks
+        4 => [14, 20, 26, 16, 32, 18, 22, 28], // Obsidian cyber structures
+        5 => [12, 18, 14, 22, 16, 20, 14, 24], // Stadium grandstand canopy
+        _ => [10, 16, 12, 20, 14, 18, 12, 16], // Speedway coastal hills
+    };
+
+    let base_y = horizon;
+    for (i, &h) in sil_heights.iter().enumerate() {
+        let x0 = (i as i16 * 44 - heading_shift).rem_euclid(352) - 16;
+        let x1 = x0 + 44;
+        let peak_y = base_y - h;
+        if sky.biome_style == 1 || sky.biome_style == 4 {
+            // City skyscraper / cyber tower block
+            let rx0 = x0 + 6;
+            let rw = 32;
+            gpu::draw_rect_flat(
+                rx0, peak_y, rw, h as u16, col_dark.0, col_dark.1, col_dark.2,
+            );
+            gpu::draw_rect_flat(
+                rx0 + 2,
+                peak_y,
+                2,
+                h as u16,
+                col_lit.0,
+                col_lit.1,
+                col_lit.2,
+            );
+        } else {
+            // Mountain / mesa / stadium triangular ridge
+            let mid_x = x0 + 22;
+            gpu::draw_tri_flat(
+                [(x0, base_y), (mid_x, peak_y), (x1, base_y)],
+                col_dark.0,
+                col_dark.1,
+                col_dark.2,
+            );
+            gpu::draw_line_mono(mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2);
+        }
+    }
+
+    // Ground haze below horizon fading into far road tiles
+    let haze_y = (horizon + 22).min(240);
+    gpu::draw_tri_gouraud(
+        [(0, y_l), (320, y_r), (0, haze_y)],
+        [sky.ground_haze, sky.ground_haze, sky.ground_deep],
+    );
+    gpu::draw_tri_gouraud(
+        [(320, y_r), (320, haze_y), (0, haze_y)],
+        [sky.ground_haze, sky.ground_deep, sky.ground_deep],
+    );
+    if haze_y < 240 {
+        gpu::draw_rect_flat(
+            0,
+            haze_y,
+            320,
+            (240 - haze_y) as u16,
+            sky.ground_deep.0,
+            sky.ground_deep.1,
+            sky.ground_deep.2,
+        );
+    }
 }
 
 /// Draws one world tile through the Mode 7 projection.
@@ -2912,7 +3051,7 @@ fn draw_tile_m7(
         for i in 0..=nx {
             let (r, z) = camera.view_from_offset_q4(wx[i as usize] * 16 - cam_qx, wy_q);
             let k = row_k + i as usize;
-            pts[k] = Camera::project_rz(r, z);
+            pts[k] = camera.project_cam(r, z);
             pz[k] = z;
         }
     }
@@ -2957,7 +3096,7 @@ fn draw_tile_m7(
         return;
     }
 
-    let (_, _, tpage_idx, u_base, v_base) = texlayout::vram_slot_coords(s_idx);
+    let (tpage_idx, u_base, v_base) = active_texture(unsafe { ACTIVE_CIRCUIT }).slot_uv(s_idx);
     let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
     let tpage = tex.tpages[tpage_idx];
     let tpage_word = tpage.uv_tpage_word(0);
@@ -2975,6 +3114,7 @@ fn draw_tile_m7(
         v_coords[j as usize] = ((v_base as u32 + lv).min(255)) as u8;
     }
 
+    let is_night = is_night_circuit();
     for j in 0..ny {
         let v0 = v_coords[j as usize];
         let v1 = v_coords[(j + 1) as usize];
@@ -3015,12 +3155,17 @@ fn draw_tile_m7(
 
             // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
             let z_units = (zmax + zmin) >> 5;
-            let shade = if z_units <= 150 {
+            let base_shade = if z_units <= 150 {
                 128
             } else {
                 let fade_range = (camera.z_far - 150).max(1);
                 (128 - (z_units - 150) * 58 / fade_range).max(70)
-            } as u8;
+            };
+            let shade = if is_night {
+                (base_shade * 86 / 128) as u8
+            } else {
+                base_shade as u8
+            };
             let material = TextureMaterial::opaque(clut_word, tpage_word, (shade, shade, shade));
             gpu::draw_quad_textured_material(
                 [pa, pb, pc, pd],

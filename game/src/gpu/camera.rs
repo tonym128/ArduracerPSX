@@ -90,6 +90,12 @@ const M7_HEADING_EASE_DIV: i32 = 6;
 /// Position ease in chase mode. Stiffer than top-down because there is no
 /// look-ahead to hide the lag: the car must stay near its screen anchor.
 const M7_POSITION_EASE: i32 = 1_600;
+/// Largest focal-length reduction the speed-FOV warp may apply, in pixels.
+///
+/// At the far plane the visible half-width is `160 * Z_FAR / focal`; with
+/// `focal = 112` that is ~343 world units, still inside the 360-unit tile scan
+/// radius, so a boost can never reveal unstreamed ground at the screen edge.
+pub const M7_FOV_BOOST_MAX: i32 = 8;
 
 /// Camera state in world coordinates.
 #[derive(Copy, Clone, Debug)]
@@ -110,6 +116,13 @@ pub struct Camera {
     pub rotating: bool,
     /// Smoothed view heading in BAMS (4096 = 360 degrees), 0 = up the screen.
     pub heading: u16,
+    /// Corner-banking camera roll in BAMs (`±45` BAM ~ `±4°`, `NO1-032`).
+    pub roll_bam: i16,
+    /// Subtle horizon pitch offset in screen pixels (`-8..=8`, `NO1-032`).
+    pub pitch_px: i16,
+    /// Speed & boost FOV warp: pixels subtracted from the Mode 7 focal length
+    /// (`0..=M7_FOV_BOOST_MAX`, `NO1-032`).
+    pub fov_boost: i16,
     /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
     hsin: i32,
     hcos: i32,
@@ -139,6 +152,9 @@ impl Camera {
             mode7: false,
             rotating: false,
             heading: 0,
+            roll_bam: 0,
+            pitch_px: 0,
+            fov_boost: 0,
             hsin: 0,
             hcos: FP_ONE,
             z_far: M7_Z_FAR,
@@ -154,6 +170,43 @@ impl Camera {
         } else {
             M7_Z_FAR
         };
+    }
+
+    /// Updates Mode 7 corner-banking camera roll (`±4°`), jump pitch, and FOV speed warp (`NO1-032`).
+    pub fn update_banking_and_fov(
+        &mut self,
+        angular_vel: i16,
+        speed: Fixed,
+        boost_ticks: u16,
+        super_boost_ticks: u16,
+        vz: Fixed,
+    ) {
+        if !self.mode7 {
+            self.roll_bam = 0;
+            self.pitch_px = 0;
+            self.fov_boost = 0;
+            return;
+        }
+        // Bank into corners proportional to yaw rate and forward speed (max ±45 BAM ≈ ±4.0°).
+        let speed_factor = (speed.raw() >> 8).clamp(0, 64);
+        let target_roll = ((-angular_vel as i32 * speed_factor) / 48).clamp(-45, 45) as i16;
+        self.roll_bam += (target_roll - self.roll_bam) / 4;
+
+        // Subtle horizon pitch shift when launching off jump ramps or cresting bridges.
+        let target_pitch = (vz.raw() >> 10).clamp(-8, 8) as i16;
+        self.pitch_px += (target_pitch - self.pitch_px) / 3;
+
+        // FOV speed warp during high-speed Nitro / Reactor Super Boosts.
+        let base_warp = ((speed.raw() - 10_000).max(0) / 1000).clamp(0, 3) as i16;
+        let boost_warp = if super_boost_ticks > 0 {
+            5
+        } else if boost_ticks > 0 {
+            3
+        } else {
+            0
+        };
+        let target_fov = (base_warp + boost_warp).clamp(0, M7_FOV_BOOST_MAX as i16);
+        self.fov_boost += (target_fov - self.fov_boost).signum();
     }
 
     /// A camera in the Mode 7 chase view, starting aligned to `heading`.
@@ -237,6 +290,37 @@ impl Camera {
         (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
     }
 
+    /// Effective Mode 7 focal length in pixels, after the speed-FOV warp.
+    ///
+    /// `fov_boost` widens the view (shorter focal length), which is what makes
+    /// a boost feel like a lunge forward. Bounded so the frustum never outgrows
+    /// the tile scan radius.
+    #[inline]
+    pub fn m7_focal(&self) -> i32 {
+        M7_FOCAL - (self.fov_boost as i32).clamp(0, M7_FOV_BOOST_MAX)
+    }
+
+    /// Effective horizon row, after the jump/crest pitch offset.
+    #[inline]
+    pub fn m7_horizon(&self) -> i32 {
+        M7_HORIZON + self.pitch_px as i32
+    }
+
+    /// As [`Camera::project_rz`] but honouring this camera's FOV warp and pitch.
+    ///
+    /// Identical to `project_rz` while `fov_boost == 0 && pitch_px == 0`, so the
+    /// at-rest view is unchanged. The camera height is fixed, so `K` scales with
+    /// the focal length exactly as the pinhole model requires.
+    #[inline]
+    pub fn project_cam(&self, right_q4: i32, z_q4: i32) -> (i16, i16) {
+        let z = z_q4.max(M7_Z_NEAR << 4);
+        let f = self.m7_focal();
+        let k16 = (M7_K * 16 / M7_FOCAL) * f;
+        let sy = self.m7_horizon() + k16 / z;
+        let sx = SCREEN_W as i32 / 2 + (right_q4 * f) / z;
+        (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
+    }
+
     /// Perspective scale at a world point as Q12 (4096 = 1 pixel per unit).
     /// Returns 0 for points behind the near plane or beyond the far plane.
     #[inline]
@@ -246,7 +330,7 @@ impl Camera {
             return 0;
         }
         // FOCAL * 16 / z_q4 is pixels per unit; scale to Q12.
-        (M7_FOCAL * 16 * 4096) / z_q4
+        (self.m7_focal() * 16 * 4096) / z_q4
     }
 
     /// Half-extents of the visible world rectangle, in world units, taking the
@@ -289,7 +373,7 @@ impl Camera {
             if !((M7_Z_NEAR << 4)..=(self.z_far << 4)).contains(&z_q4) {
                 return M7_OFFSCREEN;
             }
-            return Self::project_rz(right, z_q4);
+            return self.project_cam(right, z_q4);
         }
         let off = self.world_offset(world_pos);
         // Saturating, not wrapping: `world_offset` clamps each axis to `i16`, so

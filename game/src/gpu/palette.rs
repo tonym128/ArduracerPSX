@@ -128,3 +128,115 @@ pub const PAL_ALPINE: Palette = Palette {
 
 /// Every palette, indexed by cup.
 pub const PALETTES: [Palette; 4] = [PAL_SPEEDWAY, PAL_NEON_CITY, PAL_CANYON, PAL_ALPINE];
+
+/// Returns the ground/environment [`Palette`] for `circuit_id` (`NO1-032`).
+pub const fn biome_palette_for_circuit(circuit_id: usize) -> Palette {
+    let cup = (circuit_id / 6) % 4;
+    PALETTES[cup]
+}
+
+/// Gouraud sky gradient, parallax horizon silhouette, and night-lighting parameters (`NO1-032`, `NO1-033`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct SkyPalette {
+    pub zenith: Rgb,
+    pub mid_sky: Rgb,
+    pub horizon: Rgb,
+    pub silhouette_dark: Rgb,
+    pub silhouette_lit: Rgb,
+    pub ground_haze: Rgb,
+    pub ground_deep: Rgb,
+    pub is_night: bool,
+    /// `0` = Coastal/Speedway, `1` = Neon City Skyline, `2` = Red Canyon Mesas,
+    /// `3` = Alpine Peaks, `4` = Obsidian Cyber, `5` = TrackMania Stadium Roof.
+    pub biome_style: u8,
+}
+
+pub const SKY_SPEEDWAY_SUNSET: SkyPalette = SkyPalette {
+    zenith: (24, 42, 108),
+    mid_sky: (95, 72, 140),
+    horizon: (240, 130, 75),
+    silhouette_dark: (32, 36, 62),
+    silhouette_lit: (88, 64, 96),
+    ground_haze: (72, 78, 92),
+    ground_deep: PAL_SPEEDWAY.road,
+    is_night: false,
+    biome_style: 0,
+};
+
+pub const SKY_NEON_CYBER_NIGHT: SkyPalette = SkyPalette {
+    zenith: (8, 10, 28),
+    mid_sky: (26, 18, 58),
+    horizon: (110, 32, 120),
+    silhouette_dark: (12, 14, 30),
+    silhouette_lit: (40, 180, 220),
+    ground_haze: (28, 30, 52),
+    ground_deep: PAL_NEON_CITY.road,
+    is_night: true,
+    biome_style: 1,
+};
+
+pub const SKY_CANYON_DUSK: SkyPalette = SkyPalette {
+    zenith: (48, 28, 64),
+    mid_sky: (165, 68, 48),
+    horizon: (250, 175, 70),
+    silhouette_dark: (76, 36, 26),
+    silhouette_lit: (156, 78, 42),
+    ground_haze: (125, 78, 52),
+    ground_deep: PAL_CANYON.road,
+    is_night: false,
+    biome_style: 2,
+};
+
+pub const SKY_ALPINE_AURORA: SkyPalette = SkyPalette {
+    zenith: (18, 38, 76),
+    mid_sky: (46, 92, 148),
+    horizon: (165, 215, 245),
+    silhouette_dark: (58, 76, 106),
+    silhouette_lit: (215, 230, 250),
+    ground_haze: (130, 152, 178),
+    ground_deep: PAL_ALPINE.road,
+    is_night: false,
+    biome_style: 3,
+};
+
+pub const SKY_OBSIDIAN_NIGHT: SkyPalette = SkyPalette {
+    zenith: (6, 8, 18),
+    mid_sky: (18, 26, 48),
+    horizon: (45, 95, 135),
+    silhouette_dark: (10, 14, 24),
+    silhouette_lit: (0, 210, 255),
+    ground_haze: (24, 34, 48),
+    ground_deep: (20, 24, 34),
+    is_night: true,
+    biome_style: 4,
+};
+
+pub const SKY_MANIA_STADIUM: SkyPalette = SkyPalette {
+    zenith: (14, 28, 68),
+    mid_sky: (32, 68, 132),
+    horizon: (90, 175, 240),
+    silhouette_dark: (24, 38, 64),
+    silhouette_lit: (60, 230, 140),
+    ground_haze: (44, 62, 86),
+    ground_deep: (36, 48, 64),
+    is_night: false,
+    biome_style: 5,
+};
+
+/// Returns the biome [`SkyPalette`] for `circuit_id` (`NO1-032`, `NO1-033`).
+pub const fn sky_palette_for_circuit(circuit_id: usize) -> SkyPalette {
+    if circuit_id >= 24 && circuit_id < 28 {
+        SKY_MANIA_STADIUM
+    } else if circuit_id >= 28 {
+        // City free-roam maps
+        SKY_SPEEDWAY_SUNSET
+    } else {
+        match circuit_id / 6 {
+            0 => SKY_SPEEDWAY_SUNSET,
+            1 => SKY_NEON_CYBER_NIGHT,
+            2 => SKY_CANYON_DUSK,
+            3 => SKY_ALPINE_AURORA,
+            _ => SKY_OBSIDIAN_NIGHT,
+        }
+    }
+}

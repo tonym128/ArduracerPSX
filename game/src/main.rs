@@ -4,6 +4,7 @@
 
 #![no_std]
 #![no_main]
+#![cfg_attr(target_arch = "mips", feature(asm_experimental_arch))]
 
 extern crate psx_rt;
 
@@ -326,6 +327,8 @@ pub struct ArduracerGame {
     pub replay_tick: u32,
     /// Active camera angle in Action Replay Theater (`0 = Broadcast TV, 1 = Chase, 2 = Helicopter`).
     pub replay_camera_mode: u8,
+    /// 8-frame arcade screen transition overlay (`NO1-036`).
+    pub transition: gpu::ScreenTransition,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -349,6 +352,7 @@ impl ArduracerGame {
             VideoMode::Ntsc
         };
         psx_gpu_mod::init(video_mode, Resolution::R320X240);
+        crate::ui::font::init_vram_font();
         dbg::check_faults();
 
         dbg::log_step(2, 9, "Starting intro audio (SPU ADPCM)...");
@@ -458,6 +462,7 @@ impl ArduracerGame {
             prev_pad_racing: psx_pad::ButtonState::from_bits(0),
             replay_tick: 0,
             replay_camera_mode: 0,
+            transition: gpu::ScreenTransition::new(),
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -531,6 +536,13 @@ impl ArduracerGame {
     /// Loads and resets the active circuit.
     pub fn load_track(&mut self, track_idx: usize) {
         let idx = track_idx % ALL_TRACKS.len();
+        let track_name = ALL_TRACKS[idx].name;
+        crate::gpu::hud_renderer::render_loading_screen(track_name, "TRACKMANIA AUTHOR", 35);
+        let flip = self.fb.begin_deferred_swap();
+        psx_rt::interrupts::queue_gp1_at_vblank(flip);
+        #[cfg(target_arch = "mips")]
+        psx_rt::interrupts::wait_vblank();
+
         self.current_track_idx = idx;
         self.current_track = ALL_TRACKS[idx];
         self.ghost.reset(idx as u8);
@@ -570,10 +582,19 @@ impl ArduracerGame {
         // `!paused`, and `reset_race` below clears the veil, so this cannot arm
         // the engine while the pause menu is up.
         self.audio.enter_race();
+        self.transition
+            .start_wipe_in(crate::gpu::TransitionKind::VenetianBlinds);
     }
 
     /// Loads a 10 km^2 city free roam map seamlessly.
     pub fn load_city_freeroam(&mut self, city: &'static CityInfo) {
+        let track_name = city.track.name;
+        crate::gpu::hud_renderer::render_loading_screen(track_name, "FREE ROAM METROPOLIS", 35);
+        let flip = self.fb.begin_deferred_swap();
+        psx_rt::interrupts::queue_gp1_at_vblank(flip);
+        #[cfg(target_arch = "mips")]
+        psx_rt::interrupts::wait_vblank();
+
         self.current_track_idx = city.track_id;
         self.current_track = city.track;
         self.ghost.reset(city.track_id as u8);
@@ -594,6 +615,8 @@ impl ArduracerGame {
             .play_music(4, crate::gpu::tracktex::disc_reader());
         self.pause.arm_for_race_start();
         self.audio.enter_race();
+        self.transition
+            .start_wipe_in(crate::gpu::TransitionKind::VenetianBlinds);
     }
 
     /// Resets the current race state to the starting grid.
@@ -1255,6 +1278,13 @@ impl ArduracerGame {
                             track.world_width(),
                             track.world_height(),
                         );
+                        self.camera.update_banking_and_fov(
+                            self.player.slide_bam() as i16,
+                            self.player.speed,
+                            self.player.boost_ticks,
+                            self.player.super_boost_ticks,
+                            self.player.vz,
+                        );
                     }
                     {
                         let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
@@ -1292,6 +1322,19 @@ impl ArduracerGame {
                         );
                         render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
                     }
+                    // b2. 3D Roadside props, Checkpoint arches & Start gantry truss (NO1-031)
+                    crate::gpu::render_track_props(
+                        &self.camera,
+                        track,
+                        if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                            ALL_TRACK_VISUALS[self.current_track_idx]
+                        } else {
+                            self.current_track_idx
+                        },
+                        self.timer.checkpoint_mask,
+                        Some(&self.start),
+                        self.timer.current_lap_ticks,
+                    );
                     {
                         let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
                         t_track_ticks = t_now.wrapping_sub(t_checkpoint);
@@ -1331,6 +1374,13 @@ impl ArduracerGame {
                         self.particles.render(&self.camera);
                         render_start_lights(self.start.phase());
                     }
+                    // Speed lines overlay during Nitro / Super Boost / Extreme speed (NO1-036)
+                    crate::gpu::hud_renderer::render_speed_lines(
+                        self.player.speed.raw(),
+                        self.player.boost_ticks,
+                        self.player.super_boost_ticks,
+                        self.timer.current_lap_ticks,
+                    );
 
                     // i. In-Game HUD overlay (Select hides it for clean screenshots)
                     if self.show_hud {
@@ -2145,6 +2195,8 @@ impl ArduracerGame {
     }
 
     fn close_frame(&mut self) {
+        self.transition.render();
+        self.transition.tick();
         crate::gpu::tracktex::pump_cd_streams();
         psx_gpu_mod::signal_draw_done();
         #[cfg(target_arch = "mips")]

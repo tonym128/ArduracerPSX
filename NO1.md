@@ -150,38 +150,38 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 5: PSX GTE/GPU Hardware Engine & 3D/2.5D Visual Overhaul (Items `NO1-028` – `NO1-036`)
 
-- [ ] **`NO1-028` — Hardware GTE (COP2) Acceleration for Mode 7, 3D Meshes & Camera Transforms (`game/src/gpu/camera.rs`, `tracktex.rs`, `car_geometry.rs`)**
+- [x] **`NO1-028` — Hardware GTE (COP2) Acceleration for Mode 7, 3D Meshes & Camera Transforms (`game/src/gpu/camera.rs`, `tracktex.rs`, `car_geometry.rs`)**
   - **Problem**: The PS1's Geometry Transformation Engine (COP2) is **0% used**; all rotations and `1/z` perspective divides run in software on the CPU.
   - **Action**: Load camera rotation/translation matrices into GTE registers and use hardware `RTPS`/`RTPT` (15–23 cycles for 3 vertices with perspective divide!), `NCLIP` backface culling, and `DPCS` depth-cueing fog for Mode 7 tile vertices, 3D cars, and roadside props.
-- [ ] **`NO1-029` — GPU Ordering Table (OT) & DMA Channel 2 Linked-List Rendering (`game/src/gpu/mod.rs`, `main.rs`)**
+- [x] **`NO1-029` — GPU Ordering Table (OT) & DMA Channel 2 Linked-List Rendering (`game/src/gpu/mod.rs`, `main.rs`)**
   - **Problem**: Every polygon is pushed one word at a time by the CPU to the GP0 FIFO, and depth sorting uses CPU insertion sorts (`main.rs:603`, `tracktex.rs:2678`).
   - **Action**: Implement a double-buffered **512-bucket Z-Ordering Table (OT)** in static RAM submitted via **DMA Channel 2 linked-list mode (`D2_CHCR = 0x01000401`)**, sorting ground tiles, skidmarks, shadows, 3D roadside props, bridges, cars, and particles in $O(1)$ per primitive while the CPU runs physics/audio in parallel!
-- [ ] **`NO1-030` — Upgrade Cars to Gouraud-Shaded 3D Low-Poly Meshes (Mode 7) & Rich Multi-Part Top-Down Geometry (`game/src/gpu/car_renderer.rs`)**
+- [x] **`NO1-030` — Upgrade Cars to Gouraud-Shaded 3D Low-Poly Meshes (Mode 7) & Rich Multi-Part Top-Down Geometry (`game/src/gpu/car_renderer.rs`)**
   - **Problem**: Cars are ~10 flat-shaded 2D polygons that look completely flat in Mode 7 chase view (`car_renderer.rs:60-200`), front wheels don't steer (`line 101`), twin stripes only draw one stripe (`line 125`), and brake lights never illuminate (`line 171`).
   - **Action**:
     1. Build compact **GTE-transformed, Gouraud-shaded 3D low-poly car meshes** (~28–36 triangles per car: sculpted wedge nose, raised cockpit canopy, sidepods, elevated rear wing with endplates, 4 wheel arches) for Mode 7 chase view and Replay TV view, plus enhanced top-down geometry for Overhead view.
     2. Animate **front-wheel steering angles** (`rot + steer_visual`), render true **twin racing stripes**, illuminate **bright red brake lights + additive glow** when braking, tilt the car body with **pitch (acceleration/braking/jumps) and roll (cornering G-force)**, and render distinct silhouettes per tuning archetype!
-- [ ] **`NO1-031` — 3D Roadside Props, TrackMania Checkpoint Arches, Start Gantry & Bridges (`game/src/gpu/`, `crates/arduracer-core/src/track.rs`)**
+- [x] **`NO1-031` — 3D Roadside Props, TrackMania Checkpoint Arches, Start Gantry & Bridges (`game/src/gpu/`, `crates/arduracer-core/src/track.rs`)**
   - **Problem**: The world outside the ground plane is completely empty (`0` 3D props, `0` billboards; start lights are 4 flat 2D HUD boxes at `main.rs:1918`).
   - **Action**: Add a lightweight GTE-projected **3D Prop & Structure Renderer** placed along circuit edges and gates:
     - **3D Start/Finish Gantry Truss** with overhead 3-2-1-GO light pods and animated checkered banner.
     - **TrackMania Holographic Checkpoint Arches** spanning every `CheckpointGate` (turning from cyan to glowing emerald green as you blast through them!).
     - **Biome Roadside Props**: Stadium floodlight towers & grandstands (`Mania Cup`), palm trees & coastal barriers (`Bronze/City`), pine trees & rock spires (`Silver/Gold`), snowbanks & neon cyber-pylons (`Platinum/Diamond`), and 3D tunnel portals / bridge guardrails.
-- [ ] **`NO1-032` — Wire Biome Sky Palettes, Horizon Parallax Mountains & Corner-Banking Camera Roll (`game/src/gpu/palette.rs`, `tracktex.rs`, `camera.rs`)**
+- [x] **`NO1-032` — Wire Biome Sky Palettes, Horizon Parallax Mountains & Corner-Banking Camera Roll (`game/src/gpu/palette.rs`, `tracktex.rs`, `camera.rs`)**
   - **Problem**: `PALETTES` in `gpu/palette.rs:81-130` is dead code; `draw_m7_backdrop` (`tracktex.rs:2817`) draws the same 5 grey-blue flat bands on every track; Mode 7 has no horizon mountain/city silhouette and no camera roll when drifting.
   - **Action**:
     1. Wire `gpu/palette.rs` + cup biome themes to render **Gouraud-shaded sky gradients** (Sunset Orange, Neon Cyber Purple, Alpine Dusk, Stadium Floodlight Night) and a **scrolling parallax horizon silhouette** (mountains, city skyline, stadium roof) that shifts horizontally with `camera.follow_heading`.
     2. Add subtle **Corner-Banking Camera Roll (`±4°`)** and **FOV Speed Warp** during high-speed drifts and Super Boosts!
-- [ ] **`NO1-033` — Dynamic Night / Tunnel Lighting & Additive Headlight Cones (`game/src/gpu/car_renderer.rs`, `tracktex.rs`)**
+- [x] **`NO1-033` — Dynamic Night / Tunnel Lighting & Additive Headlight Cones (`game/src/gpu/car_renderer.rs`, `tracktex.rs`)**
   - **Problem**: `GAME.md §5.2` promises translucent headlight cones for night and tunnel stages, but cars only draw 2px yellow lines (`car_renderer.rs:176`).
   - **Action**: On Night/Cyber circuits and inside `TrackTile::Tunnel` cells, dim ambient ground vertex shading and project **Gouraud-faded additive (`BlendMode::Add`) dual headlight cones** ahead of all 6 cars, plus glowing neon curb strips and taillight trails!
-- [ ] **`NO1-034` — Expand `Tim4` (256-Slot) and `Tim8` (128-Slot) VRAM Tile Cache (`game/src/gpu/texlayout.rs`, `tracktex.rs`)**
+- [x] **`NO1-034` — Expand `Tim4` (256-Slot) and `Tim8` (128-Slot) VRAM Tile Cache (`game/src/gpu/texlayout.rs`, `tracktex.rs`)**
   - **Problem**: `VRAM_SLOT_COUNT` (`texlayout.rs:55`) is hardcoded to `64` (sized for 15bpp), leaving **75% of VRAM empty in `Tim4`** and **50% empty in `Tim8`**.
   - **Action**: Dynamically pack `256` tile slots in `Tim4` (4 tiles per 64-word TPage slot) and `128` tile slots in `Tim8` (2 tiles per 64-word TPage slot), holding an entire 1024×1024 circuit (`256` tiles) resident in VRAM with **zero mid-race CD tile misses**!
-- [ ] **`NO1-035` — VRAM Bitmap Font Sheet & Smooth Sub-Tile Minimap Blips (`game/src/ui/font.rs`, `gpu/hud_renderer.rs`, `gpu/texlayout.rs`)**
+- [x] **`NO1-035` — VRAM Bitmap Font Sheet & Smooth Sub-Tile Minimap Blips (`game/src/ui/font.rs`, `gpu/hud_renderer.rs`, `gpu/texlayout.rs`)**
   - **Problem**: `font::draw_char` (`font.rs:79-139`) submits dozens of `draw_rect_flat` GP0 packets per character, and `render_hud` (`hud_renderer.rs:344`) quantizes minimap car dots to coarse integer tiles instead of calling `texlayout::minimap_world_pos`.
   - **Action**: Upload `FONT_5X7` (plus lowercase and arcade icons/medals) once at boot as a tiny 4bpp sprite sheet in VRAM so every glyph renders in a **single `GP0(74h)` 8×8 sprite command** (cutting UI GP0 command volume by ~85%), and wire `texlayout::minimap_world_pos` for smooth sub-pixel minimap dots with directional player arrows.
-- [ ] **`NO1-036` — Arcade Screen Transitions, Speed Lines & Loading Banner (`game/src/main.rs`, `gpu/hud_renderer.rs`)**
+- [x] **`NO1-036` — Arcade Screen Transitions, Speed Lines & Loading Banner (`game/src/main.rs`, `gpu/hud_renderer.rs`)**
   - **Problem**: Screen changes snap instantly (`main.rs:496`) and CD track loads freeze the screen without a loading overlay.
   - **Action**: Add fast 8-frame Gouraud shutter/fade transitions between menus, display a styled `"LOADING CIRCUIT..."` track preview banner before synchronous CD loads, and render radial additive **Speed Lines** at the screen edges during Nitro / Super Boosts.
 
