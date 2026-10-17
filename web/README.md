@@ -10,14 +10,14 @@ An authentic browser-based arcade frontend for **Arduracer PSX**, running on rea
 - **`sw.js`**: Service Worker with HTTP 206 Range request slicing for cached disc streaming and offline PWA support.
 - **`rom-cache.js`**: Cache manager tracking CacheStorage, download progress, and automatic cache flushing when new ROM versions are deployed.
 - **`roms/`**: Bootable PS1 master disc images:
-  - `arduracer.cue` + `arduracer.bin` (Red Book CD with CD-DA tracks & MDEC video, 185 MB)
-  - `arduracer.iso` (Mode 1 data track ISO, 2 MB)
-  - `arduracer.exe` (MIPS bare-metal executable, 304 KB)
+  - `arduracer.cue` + `arduracer.bin` (Red Book CD with CD-DA tracks & MDEC video, 710 MB)
+  - `arduracer.iso` (Mode 1 data track ISO, 278 MB)
+  - `arduracer.exe` (MIPS bare-metal executable, 602 KB)
   - `manifest.json` (SHA256 checksums, byte sizes, and build IDs used for automated cache invalidation)
 
 ## ROM Caching & Invalidation Architecture
 
-To prevent redownloading the 185 MB disc image on every session:
+To prevent redownloading the 710 MB disc image on every session:
 1. **Persistent Caching**: Disc images and emulator assets are cached in the browser's persistent `CacheStorage` API (`arduracer-roms-v1`).
 2. **Byte-Range Slicing**: `sw.js` intercepts `Range: bytes=start-end` requests from PSoXide. When an image is cached, the Service Worker slices the cached Blob and returns HTTP 206 Partial Content, delivering zero-latency disc reads.
 3. **Automated Invalidation & Flush**: On startup, `rom-cache.js` queries `roms/manifest.json`. If the remote `build_id` or checksums do not match the cached version (a new image has been released), the outdated cache is automatically flushed, ensuring users never run stale builds.
@@ -25,7 +25,7 @@ To prevent redownloading the 185 MB disc image on every session:
 
 ## Running Locally
 
-To run the web arcade locally with HTTP 206 Partial Content (Range request) streaming for the 185 MB CD image:
+To run the web arcade locally with HTTP 206 Partial Content (Range request) streaming for the 710 MB CD image:
 
 ```bash
 make web

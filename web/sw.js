@@ -259,14 +259,14 @@ self.addEventListener('fetch', (event) => {
           return handleCachedRangeRequest(event.request, cached);
         }
 
-        // If not cached and request is a Range request (e.g. streaming 185 MB bin):
+        // If not cached and request is a Range request (e.g. streaming 710 MB bin or 278 MB iso):
         // Pass through to network so the game doesn't stall waiting for full download!
         if (event.request.headers.has('range')) {
           return fetch(event.request);
         }
 
-        // For non-range GET requests (e.g. cue, exe, iso):
-        // Fetch from network and auto-cache smaller images (< 10 MB)
+        // For non-range GET requests (e.g. cue, exe):
+        // Fetch from network and auto-cache smaller files (< 10 MB)
         const networkResponse = await fetch(event.request);
         if (networkResponse.ok && event.request.method === 'GET') {
           const contentLength = networkResponse.headers.get('content-length');
