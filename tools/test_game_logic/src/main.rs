@@ -1854,7 +1854,11 @@ fn test_save_block_round_trip() {
 }
 
 fn test_all_24_tracks_integrity() {
-    assert_eq!(ALL_TRACKS.len(), 31, "Must have exactly 31 official tracks (25 GP + 6 Mania)");
+    assert_eq!(
+        ALL_TRACKS.len(),
+        31,
+        "Must have exactly 31 official tracks (25 GP + 6 Mania)"
+    );
 
     for (idx, track) in ALL_TRACKS.iter().enumerate() {
         assert!(!track.name.is_empty(), "Track {} must have a name", idx + 1);

@@ -22,21 +22,21 @@ pub static CITIES: [CityInfo; 3] = [
         country: "SOUTH AFRICA (ATLANTIC COAST)",
         landmarks: "GREEN POINT & V&A WATERFRONT",
         track: &TRACK_CAPETOWN,
-        track_id: 25,
+        track_id: 31,
     },
     CityInfo {
         name: "MELBOURNE",
         country: "AUSTRALIA (VICTORIA)",
         landmarks: "ALBERT PARK GP & ST KILDA",
         track: &TRACK_MELBOURNE,
-        track_id: 26,
+        track_id: 32,
     },
     CityInfo {
         name: "LONDON",
         country: "UNITED KINGDOM (CENTRAL)",
         landmarks: "THE MALL, WESTMINSTER & THAMES",
         track: &TRACK_LONDON,
-        track_id: 27,
+        track_id: 33,
     },
 ];
 
@@ -165,8 +165,9 @@ impl CitySelectScreen {
 
         // 2. City Name Header (2x scale bold neon)
         let name_x = match self.selected_idx {
-            0 => 96, // "CAPE TOWN"
-            _ => 96, // "MELBOURNE"
+            0 => 96,  // "CAPE TOWN"
+            1 => 96,  // "MELBOURNE"
+            _ => 116, // "LONDON"
         };
         draw_text(name_x, 60, city.name, (255, 235, 40), 2);
 

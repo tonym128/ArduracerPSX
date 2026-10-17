@@ -5,7 +5,8 @@
 //! saved to the PlayStation memory card.
 
 use crate::ui::font::draw_text;
-use arduracer_core::championship::{ChampionshipSession, Difficulty, CUP_COUNT, CUP_NAMES};
+use arduracer_core::championship::{ChampionshipSession, Difficulty};
+use arduracer_core::levels::{CupDef, GameMode, GRAND_PRIX_CUPS, MANIA_CUPS};
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
 
@@ -17,6 +18,7 @@ pub enum GrandPrixSetupAction {
 }
 
 pub struct GrandPrixSetupScreen {
+    pub mode: GameMode,
     pub selected_cup: u8,
     pub selected_difficulty: Difficulty,
     pub resume_available: bool,
@@ -33,6 +35,7 @@ pub struct GrandPrixSetupScreen {
 impl GrandPrixSetupScreen {
     pub fn new(resume_available: bool) -> Self {
         GrandPrixSetupScreen {
+            mode: GameMode::GrandPrix,
             selected_cup: 0,
             selected_difficulty: Difficulty::Medium,
             resume_available,
@@ -47,9 +50,11 @@ impl GrandPrixSetupScreen {
         }
     }
 
-    pub fn arm_for_entry(&mut self, resume_available: bool) {
-        self.resume_available = resume_available;
-        self.selected_row = if resume_available { 0 } else { 1 };
+    pub fn arm_for_entry(&mut self, resume_available: bool, mode: GameMode) {
+        self.mode = mode;
+        self.resume_available = resume_available && mode == GameMode::GrandPrix;
+        self.selected_row = if self.resume_available { 0 } else { 1 };
+        self.selected_cup = 0;
         self.anim_timer = 0;
         self.prev_up = true;
         self.prev_down = true;
@@ -57,6 +62,14 @@ impl GrandPrixSetupScreen {
         self.prev_right = false;
         self.prev_confirm = true;
         self.prev_cancel = true;
+    }
+
+    pub fn active_cups(&self) -> &'static [CupDef] {
+        match self.mode {
+            GameMode::GrandPrix => &GRAND_PRIX_CUPS,
+            GameMode::Mania => &MANIA_CUPS,
+            GameMode::FreeRoam => &GRAND_PRIX_CUPS,
+        }
     }
 
     pub fn update(&mut self, pad: &PadState) -> Option<GrandPrixSetupAction> {
@@ -87,6 +100,8 @@ impl GrandPrixSetupScreen {
             }
         }
 
+        let num_cups = self.active_cups().len();
+
         // Horizontal navigation
         if left && !self.prev_left {
             if self.selected_row == 1 {
@@ -94,7 +109,7 @@ impl GrandPrixSetupScreen {
                 if self.selected_cup > 0 {
                     self.selected_cup -= 1;
                 } else {
-                    self.selected_cup = (CUP_COUNT - 1) as u8;
+                    self.selected_cup = (num_cups.saturating_sub(1)) as u8;
                 }
             } else if self.selected_row == 2 {
                 // Difficulty
@@ -107,7 +122,7 @@ impl GrandPrixSetupScreen {
         } else if right && !self.prev_right {
             if self.selected_row == 1 {
                 // Cup
-                if (self.selected_cup as usize) < CUP_COUNT - 1 {
+                if (self.selected_cup as usize) < num_cups.saturating_sub(1) {
                     self.selected_cup += 1;
                 } else {
                     self.selected_cup = 0;
@@ -141,8 +156,13 @@ impl GrandPrixSetupScreen {
             if self.selected_row == 0 && self.resume_available {
                 return Some(GrandPrixSetupAction::Resume);
             } else if self.selected_row == 3 || self.selected_row == 1 || self.selected_row == 2 {
+                let global_cup = match self.mode {
+                    GameMode::GrandPrix => self.selected_cup,
+                    GameMode::Mania => (GRAND_PRIX_CUPS.len() as u8) + self.selected_cup,
+                    GameMode::FreeRoam => self.selected_cup,
+                };
                 return Some(GrandPrixSetupAction::StartNew(
-                    self.selected_cup,
+                    global_cup,
                     self.selected_difficulty,
                 ));
             }
@@ -158,7 +178,11 @@ impl GrandPrixSetupScreen {
         gpu::draw_rect_flat(22, 18, 276, 204, 26, 32, 46);
 
         // Header Title
-        draw_text(66, 24, "GRAND PRIX CHAMPIONSHIP", (255, 220, 0), 1);
+        let header_str = match self.mode {
+            GameMode::Mania => "MANIA PRIX CHAMPIONSHIP",
+            _ => "GRAND PRIX CHAMPIONSHIP",
+        };
+        draw_text(66, 24, header_str, (255, 220, 0), 1);
         gpu::draw_rect_flat(36, 38, 248, 2, 220, 40, 60);
 
         let pulse = (self.anim_timer >> 3) & 1 == 0;
@@ -198,7 +222,11 @@ impl GrandPrixSetupScreen {
                 gpu::draw_rect_flat(36, y - 2, 248, 22, 35, 40, 55);
                 draw_text(44, y as u16 + 4, "  CUP:", (180, 190, 205), 1);
             }
-            let cup_name = CUP_NAMES[(self.selected_cup as usize).min(CUP_COUNT - 1)];
+            let cups = self.active_cups();
+            let cup_name = cups
+                .get(self.selected_cup as usize)
+                .map(|c| c.name)
+                .unwrap_or("CUP");
             let cup_col = match self.selected_cup {
                 0 => (205, 127, 50),
                 1 => (200, 200, 210),
@@ -236,24 +264,16 @@ impl GrandPrixSetupScreen {
         // 3. Start Race Button
         {
             let is_sel = self.selected_row == 3;
+            let (btn_str, btn_unsel) = match self.mode {
+                GameMode::Mania => (">> START MANIA PRIX <<", "   START MANIA PRIX   "),
+                _ => (">> START GRAND PRIX <<", "   START GRAND PRIX   "),
+            };
             if is_sel {
                 gpu::draw_rect_flat(50, y, 220, 24, hl_bg.0, hl_bg.1, hl_bg.2);
-                draw_text(
-                    80,
-                    y as u16 + 7,
-                    ">> START GRAND PRIX <<",
-                    (255, 255, 255),
-                    1,
-                );
+                draw_text(80, y as u16 + 7, btn_str, (255, 255, 255), 1);
             } else {
                 gpu::draw_rect_flat(50, y, 220, 24, 45, 55, 75);
-                draw_text(
-                    80,
-                    y as u16 + 7,
-                    "   START GRAND PRIX   ",
-                    (200, 210, 230),
-                    1,
-                );
+                draw_text(80, y as u16 + 7, btn_unsel, (200, 210, 230), 1);
             }
         }
 

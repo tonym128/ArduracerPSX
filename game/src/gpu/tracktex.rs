@@ -938,10 +938,10 @@ pub fn load_level_grid(circuit: usize, track: &'static arduracer_core::TrackDef)
 
 fn track_def_for(circuit: usize) -> Option<&'static arduracer_core::TrackDef> {
     match circuit {
-        0..=24 => arduracer_core::levels::ALL_TRACKS.get(circuit).copied(),
-        25 => Some(&arduracer_core::TRACK_CAPETOWN),
-        26 => Some(&arduracer_core::TRACK_MELBOURNE),
-        27 => Some(&arduracer_core::TRACK_LONDON),
+        0..=30 => arduracer_core::levels::ALL_TRACKS.get(circuit).copied(),
+        31 => Some(&arduracer_core::TRACK_CAPETOWN),
+        32 => Some(&arduracer_core::TRACK_MELBOURNE),
+        33 => Some(&arduracer_core::TRACK_LONDON),
         _ => None,
     }
 }

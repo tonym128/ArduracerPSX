@@ -1,9 +1,10 @@
 //! Track & Cup Selection Carousel for PlayStation 1.
 //!
-//! Allows browsing all 24 tracks partitioned across 4 cups with par times,
+//! Allows browsing tracks partitioned across cups with par times,
 //! track stats, real track names, and edge-triggered confirmation.
 
 use crate::ui::font::{draw_char, draw_text};
+use arduracer_core::levels::{GameMode, ALL_CUPS};
 use arduracer_core::{TrackDef, ALL_TRACKS};
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
@@ -20,6 +21,7 @@ fn draw_count(mut x: u16, y: u16, value: u8, colour: (u8, u8, u8)) {
 }
 
 pub struct TrackSelectScreen {
+    pub mode: GameMode,
     pub selected_track_idx: usize,
     pub is_records_mode: bool,
     pub prev_left: bool,
@@ -39,6 +41,7 @@ impl Default for TrackSelectScreen {
 impl TrackSelectScreen {
     pub const fn new() -> Self {
         TrackSelectScreen {
+            mode: GameMode::GrandPrix,
             selected_track_idx: 0,
             is_records_mode: false,
             // All armed: every one of these confirms or navigates on the main
@@ -55,18 +58,75 @@ impl TrackSelectScreen {
 
     /// Adopts the buttons held right now as the edge baseline.
     ///
-    /// `Cross`/`Start` confirm a stage here and also confirm on the main menu
-    /// immediately before, so a player who holds one while navigating loads the
-    /// race on the very first frame (TASK-1217). There is no pad to sample in
-    /// `new`, so every button starts armed and must be released first -- the same
-    /// contract `MainMenu` and `TuningMenu` use.
-    pub fn arm_for_entry(&mut self) {
+    /// Sets the mode and records browsing flag, clamping the selected track
+    /// to the mode's track range.
+    pub fn arm_for_entry(&mut self, mode: GameMode, is_records_mode: bool) {
+        self.mode = mode;
+        self.is_records_mode = is_records_mode;
+        let (start, _) = self.track_range();
+        self.selected_track_idx = start;
         self.prev_left = true;
         self.prev_right = true;
         self.prev_up = true;
         self.prev_down = true;
         self.prev_confirm = true;
         self.prev_cancel = true;
+    }
+
+    /// Returns the half-open range `(start, end)` of track indices available.
+    pub fn track_range(&self) -> (usize, usize) {
+        if self.is_records_mode {
+            (0, ALL_TRACKS.len())
+        } else {
+            match self.mode {
+                GameMode::Mania => (25, ALL_TRACKS.len()),
+                GameMode::GrandPrix | GameMode::FreeRoam => (0, 25),
+            }
+        }
+    }
+
+    fn jump_cup(&mut self, forward: bool) {
+        let (start, end) = self.track_range();
+        let mut valid = [0usize; 6];
+        let mut count = 0;
+        for (i, cup) in ALL_CUPS.iter().enumerate() {
+            if let Some(&first) = cup.track_indices.first() {
+                if first >= start && first < end {
+                    valid[count] = i;
+                    count += 1;
+                }
+            }
+        }
+        if count <= 1 {
+            let total = end.saturating_sub(start);
+            if total > 0 {
+                let offset = (self.selected_track_idx - start + (total / 2).max(1)) % total;
+                self.selected_track_idx = start + offset;
+            }
+            return;
+        }
+
+        let cur_cup_idx = ALL_CUPS
+            .iter()
+            .position(|c| c.track_indices.contains(&self.selected_track_idx))
+            .unwrap_or(0);
+
+        let cur_pos = valid[..count]
+            .iter()
+            .position(|&idx| idx == cur_cup_idx)
+            .unwrap_or(0);
+        let next_pos = if forward {
+            (cur_pos + 1) % count
+        } else if cur_pos > 0 {
+            cur_pos - 1
+        } else {
+            count - 1
+        };
+
+        let target_cup = &ALL_CUPS[valid[next_pos]];
+        if let Some(&first) = target_cup.track_indices.first() {
+            self.selected_track_idx = first;
+        }
     }
 
     /// Handles carousel navigation. Returns:
@@ -80,26 +140,31 @@ impl TrackSelectScreen {
         let up = b.is_held(button::UP);
         let down = b.is_held(button::DOWN);
 
+        let (start, end) = self.track_range();
+        let total = end.saturating_sub(start);
+
         // Previous / Next Track
-        if right && !self.prev_right {
-            self.selected_track_idx = (self.selected_track_idx + 1) % ALL_TRACKS.len();
-        } else if left && !self.prev_left {
-            if self.selected_track_idx > 0 {
-                self.selected_track_idx -= 1;
-            } else {
-                self.selected_track_idx = ALL_TRACKS.len() - 1;
+        if total > 0 {
+            if right && !self.prev_right {
+                if self.selected_track_idx + 1 < end {
+                    self.selected_track_idx += 1;
+                } else {
+                    self.selected_track_idx = start;
+                }
+            } else if left && !self.prev_left {
+                if self.selected_track_idx > start {
+                    self.selected_track_idx -= 1;
+                } else {
+                    self.selected_track_idx = end - 1;
+                }
             }
         }
 
-        // Cup Jump (+/- 6 tracks)
+        // Cup Jump
         if down && !self.prev_down {
-            self.selected_track_idx = (self.selected_track_idx + 6) % ALL_TRACKS.len();
+            self.jump_cup(true);
         } else if up && !self.prev_up {
-            if self.selected_track_idx >= 6 {
-                self.selected_track_idx -= 6;
-            } else {
-                self.selected_track_idx = ALL_TRACKS.len() - (6 - self.selected_track_idx);
-            }
+            self.jump_cup(false);
         }
 
         self.prev_left = left;
@@ -127,28 +192,37 @@ impl TrackSelectScreen {
 
     /// Renders the track selection screen with personal records and medals.
     pub fn render(&self, save: Option<&arduracer_core::SaveData>) {
-        let track: &'static TrackDef = ALL_TRACKS[self.selected_track_idx];
+        let track: &'static TrackDef =
+            ALL_TRACKS[self.selected_track_idx.min(ALL_TRACKS.len() - 1)];
 
         // Background panel
         gpu::draw_rect_flat(10, 10, 300, 220, 16, 20, 28);
         gpu::draw_rect_flat(12, 12, 296, 216, 26, 32, 44);
 
-        // Header: "SELECT CIRCUIT" or "RECORDS & MEDALS"
+        // Header: "GRAND PRIX TRIALS", "MANIA TRIALS", or "RECORDS & MEDALS"
         let (header_title, header_x) = if self.is_records_mode {
             ("RECORDS & MEDALS", 80)
+        } else if self.mode == GameMode::Mania {
+            ("MANIA TRIALS", 96)
         } else {
-            ("SELECT CIRCUIT", 90)
+            ("GRAND PRIX TRIALS", 76)
         };
         draw_text(header_x, 20, header_title, (255, 225, 30), 2);
         gpu::draw_rect_flat(30, 38, 260, 2, 220, 40, 60);
 
         // Cup classification
-        let cup_name = match self.selected_track_idx / 6 {
-            0 => "BRONZE CUP (AMATEUR)",
-            1 => "SILVER CUP (PRO)",
-            2 => "GOLD CUP (CHAMPION)",
-            3 => "PLATINUM CUP (SUPER SPEEDWAYS)",
-            _ => "DIAMOND CUP (TITAN CIRCUIT)",
+        let cup = ALL_CUPS
+            .iter()
+            .find(|c| c.track_indices.contains(&self.selected_track_idx));
+        let cup_name = match cup {
+            Some(c) if c.name == "BRONZE CUP" => "BRONZE CUP (AMATEUR)",
+            Some(c) if c.name == "SILVER CUP" => "SILVER CUP (PRO)",
+            Some(c) if c.name == "GOLD CUP" => "GOLD CUP (CHAMPION)",
+            Some(c) if c.name == "PLATINUM CUP" => "PLATINUM CUP (SUPER SPEEDWAYS)",
+            Some(c) if c.name == "DIAMOND CUP" => "DIAMOND CUP (TITAN CIRCUIT)",
+            Some(c) if c.name == "MANIA CUP" => "MANIA CUP (ARCADE RACING)",
+            Some(c) => c.name,
+            None => "CIRCUIT",
         };
         draw_text(50, 46, cup_name, (0, 220, 255), 1);
 
@@ -156,8 +230,10 @@ impl TrackSelectScreen {
         gpu::draw_rect_flat(24, 62, 272, 34, 35, 42, 55);
         gpu::draw_rect_flat(26, 64, 268, 30, 20, 25, 35);
 
-        // Track Index Number: e.g. "TRACK 01 / 25"
-        let track_num = (self.selected_track_idx + 1) as u8;
+        // Track Index Number: e.g. "TRACK 01 / 25", "TRACK 01 / 06"
+        let (start, end) = self.track_range();
+        let cur_in_mode = (self.selected_track_idx.saturating_sub(start) + 1) as u8;
+        let tot_in_mode = (end.saturating_sub(start)) as u8;
         let num_str = [
             b'T',
             b'R',
@@ -165,13 +241,13 @@ impl TrackSelectScreen {
             b'C',
             b'K',
             b' ',
-            b'0' + (track_num / 10),
-            b'0' + (track_num % 10),
+            b'0' + ((cur_in_mode / 10) % 10),
+            b'0' + (cur_in_mode % 10),
             b' ',
             b'/',
             b' ',
-            b'2',
-            b'5',
+            b'0' + ((tot_in_mode / 10) % 10),
+            b'0' + (tot_in_mode % 10),
             0,
         ];
         let mut cur_x = 34u16;
@@ -278,7 +354,21 @@ impl TrackSelectScreen {
                 .unwrap_or(0);
             draw_text(176, (par_y + 56) as u16, "TOTAL: ", (0, 220, 255), 1);
             draw_count(220, (par_y + 56) as u16, total_medals as u8, (255, 240, 50));
-            draw_text(244, (par_y + 56) as u16, "/24", (180, 190, 200), 1);
+            let total_tracks = ALL_TRACKS.len() as u8;
+            let slash_total = [
+                b'/',
+                b'0' + ((total_tracks / 10) % 10),
+                b'0' + (total_tracks % 10),
+                0,
+            ];
+            let mut sx = 244u16;
+            for &ch in slash_total.iter() {
+                if ch == 0 {
+                    break;
+                }
+                draw_char(sx, (par_y + 56) as u16, ch, (180, 190, 200), 1);
+                sx += 7;
+            }
         } else {
             draw_text(176, (par_y + 56) as u16, "SPEED: HIGH", (255, 200, 40), 1);
         }
