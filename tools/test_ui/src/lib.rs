@@ -4530,3 +4530,85 @@ mod graphics_settings {
         );
     }
 }
+
+#[cfg(test)]
+mod pause_menu_and_m7_backdrop_alignment_tests {
+    use super::camera::Camera;
+    use arduracer_core::{Fixed, Vec2};
+
+    #[test]
+    fn pause_menu_text_fits_strictly_within_panel_bounds() {
+        let panel_x = 60i16;
+        let panel_w = 200i16;
+        let panel_y = 28i16;
+        let panel_h = 186i16;
+        let panel_right = panel_x + panel_w; // 260
+        let panel_bottom = panel_y + panel_h; // 214
+
+        // Title: "PAUSED" at x=124, y=38, scale=2
+        let title = "PAUSED";
+        let title_x = 124i16;
+        let title_y = 38i16;
+        let title_w = title.len() as i16 * 12; // 72
+        assert!(title_x >= panel_x);
+        assert!(title_x + title_w <= panel_right);
+        // Verify horizontal centering: equal left and right margins inside panel
+        assert_eq!(title_x - panel_x, panel_right - (title_x + title_w));
+        assert!(title_y >= panel_y);
+
+        // Footer line 1: "L/R: CHANGE   CROSS: SELECT" at x=79, y=189, scale=1
+        let f1 = "L/R: CHANGE   CROSS: SELECT";
+        let f1_x = 79i16;
+        let f1_y = 189i16;
+        let f1_w = f1.len() as i16 * 6; // 162
+        assert!(f1_x >= panel_x);
+        assert!(f1_x + f1_w <= panel_right);
+        assert_eq!(f1_x - panel_x, panel_right - (f1_x + f1_w));
+        assert!(f1_y + 8 <= panel_bottom);
+
+        // Footer line 2: "START: RESUME" at x=121, y=201, scale=1
+        let f2 = "START: RESUME";
+        let f2_x = 121i16;
+        let f2_y = 201i16;
+        let f2_w = f2.len() as i16 * 6; // 78
+        assert!(f2_x >= panel_x);
+        assert!(f2_x + f2_w <= panel_right);
+        assert_eq!(f2_x - panel_x, panel_right - (f2_x + f2_w));
+        assert!(f2_y + 8 <= panel_bottom);
+    }
+
+    #[test]
+    fn camera_m7_track_top_matches_far_track_projection() {
+        let mut cam = Camera::new_chase(Vec2::new(Fixed::ZERO, Fixed::ZERO), 0);
+        let track_top = cam.m7_track_top();
+
+        // Screen is 240 px tall; horizon is at 60. Far track row must be below horizon and within bounds.
+        assert!(track_top > 60);
+        assert!(track_top < 140);
+
+        // Projected point on ground at (x=0, z=z_far) should match m7_track_top
+        let far_zq4 = (cam.z_far << 4) as i32;
+        let (_sx, sy) = cam.project_cam(0, far_zq4);
+        assert_eq!(track_top, sy, "m7_track_top must equal projected y at far clipping plane");
+
+        // Compressed format extended view distance
+        cam.z_far = 560;
+        let comp_track_top = cam.m7_track_top();
+        assert!(comp_track_top > 60);
+        assert!(comp_track_top < track_top);
+        let comp_far_zq4 = (cam.z_far << 4) as i32;
+        let (_sx, comp_sy) = cam.project_cam(0, comp_far_zq4);
+        assert_eq!(comp_track_top, comp_sy);
+
+        // Pitch up shifts horizon and track top upwards
+        cam.pitch_px = -6;
+        let pitched_top = cam.m7_track_top();
+        assert_eq!(pitched_top, comp_track_top - 6);
+
+        // Pitch down shifts horizon and track top downwards
+        cam.pitch_px = 6;
+        let pitched_down = cam.m7_track_top();
+        assert_eq!(pitched_down, comp_track_top + 6);
+    }
+}
+
