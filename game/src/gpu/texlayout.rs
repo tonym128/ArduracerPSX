@@ -213,6 +213,21 @@ pub fn minimap_world_pos(world: arduracer_core::Fixed, extent_tiles: u8) -> i16 
 /// across. Tracks are 96x96 and `inner` is 48, so the direct mapping halves the
 /// step: two tiles share a pixel. The old `minimap_step` floored that to 1, so
 
+/// Pixels per tile along each axis when scaling a `w` x `h` circuit into the
+/// minimap's inner area.
+///
+/// Never zero, even for a degenerate grid, or every tile would stack on one pixel
+/// and the outline would smear.
+pub const fn minimap_step(extent: u8) -> i32 {
+    let divisor = if extent == 0 { 1 } else { extent as i32 };
+    let step = MINIMAP_INNER / divisor;
+    if step < 1 {
+        1
+    } else {
+        step
+    }
+}
+
 /// Whether the texture slot would overlap either framebuffer.
 ///
 /// The buffers occupy X `0..SCREEN_W`, Y `0..2*FB_HEIGHT`. A slot starting at or
