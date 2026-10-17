@@ -6,4 +6,7 @@ build-std = ["core"]
 build-std-features = ["compiler-builtins-mem"]
 
 [target.mipsel-sony-psx]
-rustflags = ["-C", "llvm-args=-disable-mips-df-backward-search"]
+rustflags = [
+    "-C", "llvm-args=-disable-mips-df-backward-search",
+    "-C", "llvm-args=-enable-shrink-wrap=false",
+]
