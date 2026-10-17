@@ -63,6 +63,9 @@ pub mod track_select;
 #[path = "../../../game/src/ui/menu.rs"]
 pub mod menu;
 
+#[path = "../../../game/src/ui/victory.rs"]
+pub mod victory;
+
 pub mod input {
     pub mod mapping {
         pub use arduracer_core::save::InputProfile;
@@ -4042,16 +4045,28 @@ mod graphics_settings {
         };
 
         let input = driver.poll_from(&negcon_pad);
-        assert!(input.steer > arduracer_core::Fixed::ZERO, "twist right gives positive steer");
-        assert!(input.throttle > arduracer_core::Fixed::ZERO, "Button I gives throttle");
-        assert!(input.brake > arduracer_core::Fixed::ZERO, "Button II gives brake");
+        assert!(
+            input.steer > arduracer_core::Fixed::ZERO,
+            "twist right gives positive steer"
+        );
+        assert!(
+            input.throttle > arduracer_core::Fixed::ZERO,
+            "Button I gives throttle"
+        );
+        assert!(
+            input.brake > arduracer_core::Fixed::ZERO,
+            "Button II gives brake"
+        );
 
         // Twist left
         negcon_pad.sticks.right_x = 28; // -100
         negcon_pad.sticks.right_y = 0;
         negcon_pad.sticks.left_x = 0;
         let input_left = driver.poll_from(&negcon_pad);
-        assert!(input_left.steer < arduracer_core::Fixed::ZERO, "twist left gives negative steer");
+        assert!(
+            input_left.steer < arduracer_core::Fixed::ZERO,
+            "twist left gives negative steer"
+        );
 
         // Jogcon pad state: ID 0xE3 (Mode 0xE)
         // right_x = dial steering
@@ -4067,7 +4082,10 @@ mod graphics_settings {
             id_low: 0xE3,
         };
         let jog_input = driver.poll_from(&jogcon_pad);
-        assert!(jog_input.steer > arduracer_core::Fixed::ZERO, "Jogcon dial right gives positive steer");
+        assert!(
+            jog_input.steer > arduracer_core::Fixed::ZERO,
+            "Jogcon dial right gives positive steer"
+        );
     }
 
     #[test]
@@ -4096,22 +4114,114 @@ mod graphics_settings {
         // Deflect stick down past threshold (128 + 70 = 198 > 128 + 64)
         pad.sticks.left_y = 198;
         let res_first = nav.update(&pad);
-        assert!(res_first.buttons.is_held(button::DOWN), "initial deflection pulses DOWN");
+        assert!(
+            res_first.buttons.is_held(button::DOWN),
+            "initial deflection pulses DOWN"
+        );
 
         // Frame 2: repeat delay is 20 frames, so next frame DOWN is suppressed
         let res_frame2 = nav.update(&pad);
-        assert!(!res_frame2.buttons.is_held(button::DOWN), "pulse is edge-triggered during repeat delay");
+        assert!(
+            !res_frame2.buttons.is_held(button::DOWN),
+            "pulse is edge-triggered during repeat delay"
+        );
 
         // Fast-forward 19 more frames (total 21 frames held)
         for _ in 0..19 {
             nav.update(&pad);
         }
         let res_repeat = nav.update(&pad);
-        assert!(res_repeat.buttons.is_held(button::DOWN), "after initial delay, repeat pulse triggers");
+        assert!(
+            res_repeat.buttons.is_held(button::DOWN),
+            "after initial delay, repeat pulse triggers"
+        );
 
         // Hysteresis release: releasing past threshold to 160 (deflection 32 < 48) releases
         pad.sticks.left_y = 160;
         let res_released = nav.update(&pad);
-        assert!(!res_released.buttons.is_held(button::DOWN), "hysteresis releases button");
+        assert!(
+            !res_released.buttons.is_held(button::DOWN),
+            "hysteresis releases button"
+        );
+    }
+
+    #[test]
+    fn victory_screen_lockout_and_input_dismiss() {
+        use super::victory::VictoryScreen;
+        use arduracer_core::championship::ChampionshipSession;
+
+        let session = ChampionshipSession::new(0);
+        let mut screen = VictoryScreen::new(&session);
+
+        assert_eq!(screen.cup_name, session.cup_name());
+        assert_eq!(screen.player_rank, 1);
+        assert_eq!(screen.anim_timer, 0);
+
+        let cross_pad = test_pad(psx_pad::button::CROSS);
+        let start_pad = test_pad(psx_pad::button::START);
+        let circle_pad = test_pad(psx_pad::button::CIRCLE);
+        let idle_pad = test_pad(0);
+
+        // Frames 1..=60: Lockout active! No button can dismiss.
+        for _ in 1..=60 {
+            assert!(
+                !screen.update(&cross_pad),
+                "lockout suppresses cross button"
+            );
+        }
+        assert_eq!(screen.anim_timer, 60);
+
+        // Frame 61+: Input unlocked!
+        // Release cross first so next press is a fresh edge
+        screen.update(&idle_pad);
+        assert_eq!(screen.anim_timer, 61);
+
+        assert!(
+            screen.update(&cross_pad),
+            "cross button dismisses victory screen after lockout"
+        );
+
+        // Next frame idle returns false
+        assert!(!screen.update(&idle_pad));
+
+        // Start button also dismisses
+        assert!(
+            screen.update(&start_pad),
+            "start button dismisses victory screen"
+        );
+
+        // Next frame idle returns false
+        assert!(!screen.update(&idle_pad));
+
+        // Circle button also dismisses
+        assert!(
+            screen.update(&circle_pad),
+            "circle button dismisses victory screen"
+        );
+    }
+
+    #[test]
+    fn victory_screen_session_and_rank_initialization() {
+        use super::victory::VictoryScreen;
+        use arduracer_core::championship::ChampionshipSession;
+
+        for cup_idx in 0..4 {
+            let mut session = ChampionshipSession::new(cup_idx);
+            assert_eq!(session.player_leaderboard_rank(), 1);
+
+            let screen = VictoryScreen::new(&session);
+            assert_eq!(screen.cup_name, session.cup_name());
+            assert_eq!(screen.player_rank, 1);
+            assert_eq!(screen.anim_timer, 0);
+
+            // Award points to AI rivals to simulate 2nd and 3rd rank
+            session.competitors[1].total_points = 100;
+            let screen_2nd = VictoryScreen::new(&session);
+            assert_eq!(screen_2nd.player_rank, 2);
+
+            session.competitors[2].total_points = 100;
+            let screen_3rd = VictoryScreen::new(&session);
+            assert_eq!(screen_3rd.player_rank, 3);
+        }
     }
 }

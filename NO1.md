@@ -246,7 +246,7 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 - [x] **`NO1-049` — Title Screen Attract Mode Loop (FMV + Live AI Autopilot Demo Races) (`game/src/ui/title.rs`, `autopilot.rs`, `main.rs`)**
   - **Problem**: Leaving `TitleScreen` idle never replays `INTRO.STR` or demonstrates gameplay, even though `autopilot::generate_autopilot_input` (`game/src/autopilot.rs:35-111`) is already implemented!
   - **Action**: After 20 seconds of inactivity on `TitleScreen`, enter **Attract Mode**: alternate between replaying `INTRO.STR` and running a 30-second live **AI Autopilot Demo Race** on a showcase circuit with dynamic Broadcast TV cameras and an `"ARDURACER PSX — PRESS START"` arcade overlay!
-- [ ] **`NO1-050` — Championship Podium / Victory Ceremony & Outro `.STR` FMV (`game/src/ui/victory.rs`, `tools/fmv_cook/`)**
+- [x] **`NO1-050` — Championship Podium / Victory Ceremony & Outro `.STR` FMV (`game/src/ui/victory.rs`, `tools/fmv_cook/`)**
   - **Problem**: Winning a Grand Prix or Mania Cup (`VictoryScreen`, `ui/victory.rs`) shows a flat 2D text screen with 16 falling 3×3 rectangles.
   - **Action**: Render a **3D GTE Rotating Trophy & Winning Car Showcase Podium** with gold/silver/bronze podium steps, particle fireworks, cup summary telemetry, and an optional mastered `VICTORY.STR` celebration sequence!
 

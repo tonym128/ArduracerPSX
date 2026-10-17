@@ -487,6 +487,7 @@ assets:
 	@$(MAKE) --no-print-directory levels-bin
 	@mkdir -p $(ROOT)/assets/cdda
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
+	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
 # Encodes the six CD-DA music masters into CD-XA-ADPCM sectors. The XA files
@@ -509,6 +510,7 @@ disc: assets music-xa exe
 		--out $(DIST)/arduracer.bin \
 		--volume ARDURACER \
 		--file $(ROOT)/assets/INTRO.STR \
+		--file $(ROOT)/assets/VICTORY.STR \
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
 		--file $(ROOT)/assets/SVGTRACKS.BIN \

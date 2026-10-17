@@ -2481,6 +2481,8 @@ impl ArduracerGame {
                     self.memcard.save_data.clear_championship();
                     self.memcard.mark_dirty();
                     self.memcard.flush();
+                    #[cfg(not(feature = "profiling"))]
+                    let _ = video::play_video("VICTORY.STR");
                     self.state_mgr.victory = Some(VictoryScreen::new(champ));
                     self.state_mgr.current = GameState::Victory;
                     self.audio

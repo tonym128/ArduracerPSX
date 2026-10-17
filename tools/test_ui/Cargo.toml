@@ -9,3 +9,4 @@ edition = "2021"
 arduracer-core = { path = "../../crates/arduracer-core" }
 psx-pad = { path = "../../psoxide/sdk/crates/psx-pad" }
 psx-gpu = { path = "../../psoxide/sdk/crates/psx-gpu" }
+psx-gte = { path = "../../psoxide/sdk/crates/psx-gte" }

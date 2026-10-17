@@ -365,20 +365,25 @@ def main():
     str_out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo_root, "assets", "INTRO.STR")
     
     mp4_in = None
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 2 and not sys.argv[2].startswith("--"):
         mp4_in = sys.argv[2]
     elif os.environ.get("INTRO_MP4"):
         mp4_in = os.environ["INTRO_MP4"]
     else:
-        default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Intro.mp4")
+        if "VICTORY" in os.path.basename(str_out).upper():
+            default_mp4 = os.path.join(repo_root, "AssetSource", "The_Victory_Lap.mp4")
+        else:
+            default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Intro.mp4")
         if os.path.exists(default_mp4):
             mp4_in = default_mp4
 
-    adpcm_out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(repo_root, "assets", "INTRO.ADPCM")
+    adpcm_out = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("--") else (
+        os.path.join(repo_root, "assets", "VICTORY.ADPCM") if "VICTORY" in os.path.basename(str_out).upper() else os.path.join(repo_root, "assets", "INTRO.ADPCM")
+    )
 
     force = "--force" in sys.argv
     if not force and os.path.exists(str_out) and os.path.getsize(str_out) >= 200000:
-        print(f"INTRO.STR cached -> {str_out} ({os.path.getsize(str_out)} bytes)")
+        print(f"{os.path.basename(str_out)} cached -> {str_out} ({os.path.getsize(str_out)} bytes)")
         ensure_dummy_adpcm(adpcm_out)
         return
 
