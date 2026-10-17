@@ -43,6 +43,14 @@ pub enum SurfaceType {
     SuperBoostPad = 7,
     /// TrackMania Engine/State Reset block: clears free-wheeling and restores normal power.
     EngineReset = 8,
+    /// TrackMania Jump Ramp block: launches the car into the air with vertical velocity `vz`.
+    JumpRamp = 9,
+    /// Rally dirt / gravel road: drivable racing surface with loose lateral hold that rewards smooth slides.
+    Dirt = 10,
+    /// Frozen alpine ice road: ultra-low lateral grip requiring counter-steering without forced spin-outs.
+    Ice = 11,
+    /// Deep desert sand / gravel trap runoff: severe speed and traction penalty.
+    Sand = 12,
 }
 
 impl SurfaceType {
@@ -60,9 +68,13 @@ impl SurfaceType {
             | SurfaceType::BoostPad
             | SurfaceType::SuperBoostPad
             | SurfaceType::EngineOff
-            | SurfaceType::EngineReset => Fixed::ONE,
+            | SurfaceType::EngineReset
+            | SurfaceType::JumpRamp => Fixed::ONE,
             SurfaceType::Curb => Fixed::from_raw(3641), // ~0.89
+            SurfaceType::Dirt => Fixed::from_raw(3560), // ~0.87 - rally gravel road
             SurfaceType::OffRoad => Fixed::from_raw(3482), // ~0.85
+            SurfaceType::Sand => Fixed::from_raw(3277), // ~0.80 - deep sand trap
+            SurfaceType::Ice => Fixed::from_raw(2458),  // ~0.60 - alpine ice road
             SurfaceType::OilSlick => Fixed::from_raw(2048), // 0.50 - instant slide
             SurfaceType::Barrier => Fixed::ZERO,
         }
@@ -77,9 +89,13 @@ impl SurfaceType {
             | SurfaceType::BoostPad
             | SurfaceType::SuperBoostPad
             | SurfaceType::EngineOff
-            | SurfaceType::EngineReset => Fixed::ONE,
+            | SurfaceType::EngineReset
+            | SurfaceType::JumpRamp => Fixed::ONE,
             SurfaceType::Curb => Fixed::from_raw(3969), // ~0.97
+            SurfaceType::Ice => Fixed::from_raw(3891),  // ~0.95
+            SurfaceType::Dirt => Fixed::from_raw(3604), // ~0.88
             SurfaceType::OffRoad => Fixed::from_raw(1433), // ~0.35
+            SurfaceType::Sand => Fixed::from_raw(1146), // ~0.28
             SurfaceType::OilSlick => Fixed::ONE,
             SurfaceType::Barrier => Fixed::ZERO,
         }
@@ -91,11 +107,15 @@ impl SurfaceType {
             SurfaceType::Tarmac
             | SurfaceType::BoostPad
             | SurfaceType::SuperBoostPad
-            | SurfaceType::EngineReset => Fixed::ONE,
+            | SurfaceType::EngineReset
+            | SurfaceType::JumpRamp => Fixed::ONE,
             SurfaceType::EngineOff => Fixed::ZERO,
             SurfaceType::Curb => Fixed::from_raw(3539), // ~0.86
-            SurfaceType::OffRoad => Fixed::from_raw(2253), // ~0.55
             SurfaceType::OilSlick => Fixed::from_raw(3277), // ~0.80
+            SurfaceType::Dirt => Fixed::from_raw(3195), // ~0.78
+            SurfaceType::Ice => Fixed::from_raw(2458),  // ~0.60
+            SurfaceType::OffRoad => Fixed::from_raw(2253), // ~0.55
+            SurfaceType::Sand => Fixed::from_raw(1843), // ~0.45
             SurfaceType::Barrier => Fixed::ZERO,
         }
     }
@@ -118,24 +138,45 @@ impl SurfaceType {
     pub fn lateral_hold(self) -> Fixed {
         match self {
             SurfaceType::OilSlick => Fixed::from_raw(2048), // 0.50 - instant slide
+            SurfaceType::Ice => Fixed::from_raw(2662),      // 0.65 - low-grip ice slide
             SurfaceType::Barrier => Fixed::ZERO,
+            SurfaceType::Dirt => Fixed::from_raw(3522), // 0.86 - loose rally gravel
             // Off-road is loose but not frictionless: it scrubs sideways speed
             // faster than tarmac does, which is what makes running wide there feel
             // like running on a different surface rather than a different handling
             // model.
             SurfaceType::OffRoad => Fixed::from_raw(3482), // 0.85
+            SurfaceType::Sand => Fixed::from_raw(3400),    // 0.83
             _ => Fixed::from_raw(3604),                    // 0.88 - on line
         }
     }
 
     /// Whether this surface triggers DualShock small-motor curb vibration.
     pub fn triggers_curb_rumble(self) -> bool {
-        matches!(self, SurfaceType::Curb)
+        matches!(self, SurfaceType::Curb | SurfaceType::Dirt)
     }
 
     /// Whether this surface triggers off-road heavy vibration and slowdown.
     pub fn is_offroad(self) -> bool {
-        matches!(self, SurfaceType::OffRoad)
+        matches!(self, SurfaceType::OffRoad | SurfaceType::Sand)
+    }
+
+    /// Whether this surface is a loose rally surface (dirt, grass, or sand).
+    pub fn is_loose_surface(self) -> bool {
+        matches!(
+            self,
+            SurfaceType::Dirt | SurfaceType::OffRoad | SurfaceType::Sand
+        )
+    }
+
+    /// Whether this surface is low-friction alpine ice.
+    pub fn is_ice(self) -> bool {
+        matches!(self, SurfaceType::Ice)
+    }
+
+    /// Whether driving onto this surface launches the vehicle into the air.
+    pub fn is_jump_ramp(self) -> bool {
+        matches!(self, SurfaceType::JumpRamp)
     }
 
     /// Whether this surface is impassable solid barrier.
@@ -186,6 +227,10 @@ mod tests {
             SurfaceType::EngineOff,
             SurfaceType::SuperBoostPad,
             SurfaceType::EngineReset,
+            SurfaceType::JumpRamp,
+            SurfaceType::Dirt,
+            SurfaceType::Ice,
+            SurfaceType::Sand,
         ] {
             assert!(surface.lateral_hold() >= Fixed::ZERO, "{surface:?}");
             assert!(surface.lateral_hold() <= Fixed::ONE, "{surface:?}");
@@ -229,8 +274,11 @@ mod tests {
     #[test]
     fn the_documented_grip_ordering_holds() {
         assert!(SurfaceType::Tarmac.grip_factor() > SurfaceType::Curb.grip_factor());
-        assert!(SurfaceType::Curb.grip_factor() > SurfaceType::OffRoad.grip_factor());
-        assert!(SurfaceType::OffRoad.grip_factor() > SurfaceType::OilSlick.grip_factor());
+        assert!(SurfaceType::Curb.grip_factor() > SurfaceType::Dirt.grip_factor());
+        assert!(SurfaceType::Dirt.grip_factor() > SurfaceType::OffRoad.grip_factor());
+        assert!(SurfaceType::OffRoad.grip_factor() > SurfaceType::Sand.grip_factor());
+        assert!(SurfaceType::Sand.grip_factor() > SurfaceType::Ice.grip_factor());
+        assert!(SurfaceType::Ice.grip_factor() > SurfaceType::OilSlick.grip_factor());
         assert!(SurfaceType::OilSlick.grip_factor() > SurfaceType::Barrier.grip_factor());
 
         assert!(SurfaceType::OilSlick.lateral_hold() < SurfaceType::Tarmac.lateral_hold());
@@ -248,6 +296,10 @@ mod tests {
         assert!(SurfaceType::OffRoad.max_speed_factor() < Fixed::HALF);
         assert!(SurfaceType::OffRoad.traction() > Fixed::HALF);
         assert!(SurfaceType::OffRoad.is_offroad());
+        assert!(SurfaceType::Sand.is_offroad());
+        assert!(SurfaceType::Dirt.is_loose_surface());
+        assert!(SurfaceType::Ice.is_ice());
+        assert!(SurfaceType::JumpRamp.is_jump_ramp());
         assert!(SurfaceType::Curb.triggers_curb_rumble());
         assert!(!SurfaceType::Tarmac.triggers_curb_rumble());
         assert!(SurfaceType::BoostPad.is_boost_pad());

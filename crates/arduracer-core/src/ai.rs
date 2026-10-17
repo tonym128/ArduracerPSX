@@ -380,12 +380,15 @@ impl AiRacer {
                     NEIGHBOUR_HEADINGS[neighbour_idx]
                 };
                 let align = angle_error(heading, leg).abs() as i64;
-                // Racing surface first; boost pads give a speed advantage; oil slicks cause spinouts.
-                // Off-road is drivable but a line that uses it is a line that cuts.
                 let tile = track.tile_at(nx, ny);
                 let surface = match tile {
-                    crate::track::TrackTile::BoostPad => -100_000,
+                    crate::track::TrackTile::SuperBoostPad => -160_000,
+                    crate::track::TrackTile::EngineReset if self.state.free_wheeling => -140_000,
+                    crate::track::TrackTile::BoostPad | crate::track::TrackTile::JumpRamp => {
+                        -100_000
+                    }
                     crate::track::TrackTile::OilSlick => 200_000,
+                    crate::track::TrackTile::Sand => OFF_LINE_PENALTY,
                     t if t.is_road() => 0,
                     _ => OFF_LINE_PENALTY,
                 };
@@ -664,9 +667,23 @@ impl AiRacer {
         limit = limit * Aggression::brake_bias(self.profile.aggression);
         limit = limit * self.speed_scale;
 
+        let tx = TrackDef::tile_x_of(self.state.position.x).min(track.width.saturating_sub(1));
+        let ty = TrackDef::tile_y_of(self.state.position.y).min(track.height.saturating_sub(1));
+        let current_surface = track.surface_at(tx, ty);
+        if current_surface.is_ice() {
+            limit = limit * Fixed::from_raw(3686); // ~0.90x cornering cap on ice
+        }
+
         let apex_hunter =
             DriftTendency::clamped(self.profile.drift_tendency) >= DriftTendency::BLAZE;
-        let (throttle, brake, handbrake) = if self.state.speed < CREEP_SPEED {
+        let can_drift = apex_hunter
+            && !self.state.is_airborne()
+            && !self.state.free_wheeling
+            && !current_surface.is_ice();
+        let (throttle, brake, handbrake) = if self.state.is_airborne() {
+            // Airborne: hold throttle and keep wheels unbraked for a flat 4-wheel bounce landing.
+            (Fixed::ONE, Fixed::ZERO, false)
+        } else if self.state.speed < CREEP_SPEED {
             // Standing start: always get moving.
             (Fixed::ONE, Fixed::ZERO, false)
         } else if self.state.speed > limit + Fixed::from_raw(400) {
@@ -675,7 +692,7 @@ impl AiRacer {
         } else if self.state.speed > limit {
             // Slightly over: lift and coast into the apex.
             (Fixed::from_raw(600), Fixed::from_raw(1100), false)
-        } else if abs_err > 700 && dist.to_int() < 220 && apex_hunter {
+        } else if abs_err > 700 && dist.to_int() < 220 && can_drift {
             // Only true apex hunters (BLAZE) hang the tail out; a brief stab.
             (Fixed::from_raw(2600), Fixed::ZERO, true)
         } else {
@@ -689,8 +706,12 @@ impl AiRacer {
             steer,
             handbrake,
             // Rivals cash their nitro on the straights: never mid-corner, and
-            // never while actively swerving around traffic.
-            nitro: self.state.nitro_charge > NITRO_MAX_TICKS / 3 && abs_err < 200 && dodge == 0,
+            // never while actively swerving around traffic or airborne.
+            nitro: !self.state.is_airborne()
+                && !self.state.free_wheeling
+                && self.state.nitro_charge > NITRO_MAX_TICKS / 3
+                && abs_err < 200
+                && dodge == 0,
         }
     }
 

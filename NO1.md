@@ -104,28 +104,28 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 3: 3D Elevation, Jumps, Bridges & Multi-Surface Physics (Items `NO1-018` – `NO1-023`)
 
-- [ ] **`NO1-018` — Vertical `Z` Axis, Jump Ramps & Airtime Physics (`crates/arduracer-core/src/vehicle.rs`, `surface.rs`, `track.rs`)**
+- [x] **`NO1-018` — Vertical `Z` Axis, Jump Ramps & Airtime Physics (`crates/arduracer-core/src/vehicle.rs`, `surface.rs`, `track.rs`)**
   - **Problem**: `VehicleState` (`vehicle.rs:153`) is strictly 2D `(x, y)` with zero elevation or jumping.
   - **Action**: Add `z: Fixed`, `vz: Fixed`, and `airborne_ticks: u16` to `VehicleState`. Driving over a `JumpRamp` tile imparts `vz = speed * RAMP_LAUNCH_SLOPE`. While `z > 0` (`is_airborne()`):
     - Gravity pulls `vz -= GRAVITY_PER_TICK`.
     - Steering authority is reduced to subtle mid-air yaw control (`AIR_STEER_AUTHORITY = 512`), surface drag/hazards (`OffRoad`, `OilSlick`, ground cars) beneath the car are bypassed, and the car casts an offset drop-shadow that separates proportionally to `z`.
     - Clean flat landings (`|slip_angle| < 128`) grant a TrackMania **Landing Suspension Bounce Boost** (`+500` speed impulse + spark/smoke puff); crooked landings scrub speed.
-- [ ] **`NO1-019` — Two-Layer Bridge / Overpass & Tunnel Crossover Physics (`crates/arduracer-core/src/track.rs`, `vehicle.rs`, `compile_circuit.py`)**
+- [x] **`NO1-019` — Two-Layer Bridge / Overpass & Tunnel Crossover Physics (`crates/arduracer-core/src/track.rs`, `vehicle.rs`, `compile_circuit.py`)**
   - **Problem**: `TUNNEL` (code 13) and `BRIDGE` (code 14) collapse to flat `TrackTile::Tarmac` (`compile_circuit.py:338-339`), preventing real figure-8 crossovers (`Metro 8` had to be uncrossed).
   - **Action**: Preserve `TrackTile::Tunnel` and `TrackTile::Bridge` in `compile_circuit.py`. Track `elevation_layer: u8` (`0` = ground/tunnel, `1` = bridge deck) on `VehicleState` based on entry ramp/approach direction so cars on the bridge deck (`layer == 1`) pass cleanly over cars and barriers in the tunnel underpass (`layer == 0`), and re-author `Metro 8` + 2 new Mania tracks with real over-under figure-8 crossovers!
-- [ ] **`NO1-020` — True Multi-Surface Physics: Dirt, Gravel, Sand & Ice (`crates/arduracer-core/src/surface.rs`, `track.rs`, `compile_circuit.py`)**
+- [x] **`NO1-020` — True Multi-Surface Physics: Dirt, Gravel, Sand & Ice (`crates/arduracer-core/src/surface.rs`, `track.rs`, `compile_circuit.py`)**
   - **Problem**: `GRASS` (5), `GRAVEL` (6), and `SAND` (7) all compile into a single `TrackTile::OffRoad` with `0.35×` max speed (`surface.rs:69`), making dirt/gravel racing impossible, and there is no `Ice` surface even on `Frostpeak Summit` and `Frost Cascade`.
   - **Action**: Split `OffRoad` into distinct physics surfaces:
     - **`Dirt` / `Gravel` (TrackMania Dirt)**: `max_speed_factor = 0.88`, `grip_factor = 0.68`, `lateral_hold = 0.80` — fast, slidey rally surface where smooth counter-steer drifting is faster than tarmac grip!
     - **`Grass` / `Sand` (Runoff)**: Keeps off-road penalty (`0.55×` for Grass, `0.40×` for deep Sand) with coloured rooster-tail particles (green grass blades, tan sand spray).
     - **`Ice` (TrackMania Ice / Bobsleigh)**: `max_speed_factor = 1.02`, `grip_factor = 0.30`, `lateral_hold = 0.96` — near-zero tire scrub when sliding sideways, requiring early rotation and throttle commitment on `Frostpeak Summit` and `Frost Cascade`.
-- [ ] **`NO1-021` — Wall-Ride & Barrier Grazing Physics (`crates/arduracer-core/src/vehicle.rs`)**
+- [x] **`NO1-021` — Wall-Ride & Barrier Grazing Physics (`crates/arduracer-core/src/vehicle.rs`)**
   - **Problem**: Any barrier contact above `HARD_IMPACT_THRESHOLD = 900` (`vehicle.rs:28, 1003`) triggers a punishing 60-tick `SpinOut`, even on shallow glancing touches.
   - **Action**: Scale impact severity by `sin(incidence_angle)` (`into_wall / speed`). Shallow glancing contacts (`< 25°` incidence) scrape along the wall with metallic sparks, audio grind, and mild speed friction (enabling TrackMania high-speed wall-riding!) while only head-on/steep impacts (`> 35°`) trigger a spin-out.
-- [ ] **`NO1-022` — Mass-Weighted Car-to-Car Contact & Rival Bump Personalities (`crates/arduracer-core/src/contact.rs`, `tuning.rs`)**
+- [x] **`NO1-022` — Mass-Weighted Car-to-Car Contact & Rival Bump Personalities (`crates/arduracer-core/src/contact.rs`, `tuning.rs`)**
   - **Problem**: `contact::collide_cars` (`contact.rs:21, 152`) assumes equal mass (`50/50` separation and impulse) for every vehicle.
   - **Action**: Derive vehicle mass from `CarTuning` (`top_speed + drift_stability - handling`), so heavy brawlers like `TITAN` displace lighter agile cars more strongly in door-to-door contact.
-- [ ] **`NO1-023` — AI Spline Racing-Line Upgrade, Surface Awareness & Jump/Bridge Navigation (`crates/arduracer-core/src/ai.rs`)**
+- [x] **`NO1-023` — AI Spline Racing-Line Upgrade, Surface Awareness & Jump/Bridge Navigation (`crates/arduracer-core/src/ai.rs`)**
   - **Problem**: `AiRacer::racing_line_point` (`ai.rs:342-442`) uses a greedy 10-tile Manhattan walk that can cut across hairpins when a gate index wraps or on complex crossovers.
   - **Action**: Hybridize `AiRacer` lookahead with `Route` spline arc progression (`route.rs`), teach AI personalities to seek `Dirt`/`SuperBoostPad`/`JumpRamp` shortcuts, and respect `EngineOff` momentum lines.
 

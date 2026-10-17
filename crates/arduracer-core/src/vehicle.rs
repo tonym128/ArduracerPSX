@@ -140,6 +140,17 @@ const HANDBRAKE_MIN_SPEED: Fixed = Fixed::from_raw(3000);
 const SPINOUT_CANCEL_SPEED: Fixed = Fixed::from_int(1);
 /// Speed above which driving onto an oil slick breaks the back end.
 const OIL_SLICK_MIN_SPEED: Fixed = Fixed::from_int(2);
+/// Downward vertical acceleration per 60 Hz tick while airborne (~0.094 u/tick^2).
+pub const GRAVITY_PER_TICK: Fixed = Fixed::from_raw(384);
+/// Mid-air yaw steering authority while airborne (25% of normal turn rate).
+const AIR_STEER_AUTHORITY: Fixed = Fixed::from_raw(1024);
+/// Vertical launch velocity as a fraction of horizontal speed when hitting a `JumpRamp` (0.50x).
+const JUMP_LAUNCH_RATIO: Fixed = Fixed::from_raw(2048);
+/// TrackMania suspension rebound impulse awarded on a flat 4-wheel jump landing.
+pub const LANDING_BOUNCE_BOOST: Fixed = Fixed::from_raw(900);
+/// Incidence sine threshold (`sin(25 deg) ≈ 0.4226 = 1730 / 4096`) below which a wall
+/// contact is treated as a TrackMania wall-ride / barrier graze rather than a crash.
+pub const WALL_GRAZE_MAX_SIN_RAW: i32 = 1730;
 
 /// Vehicle input commands for a single simulation frame.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -164,6 +175,14 @@ pub struct VehicleState {
     pub position: Vec2,
     /// Velocity vector in world units per tick.
     pub velocity: Vec2,
+    /// Vertical height above the track surface in world units (`Fixed::ZERO` when grounded).
+    pub z: Fixed,
+    /// Vertical velocity in world units per tick.
+    pub vz: Fixed,
+    /// Consecutive ticks spent airborne (`z > Fixed::ZERO`).
+    pub airborne_ticks: u16,
+    /// Vertical crossover layer (`0` = ground/tunnel, `1` = bridge/overpass).
+    pub elevation_layer: u8,
     /// Orientation angle (0..4096 = 0..360 deg).
     pub heading: u16,
     /// Visual rendering angle (differs from heading during drift).
@@ -237,6 +256,10 @@ impl Default for VehicleState {
         VehicleState {
             position: Vec2::ZERO,
             velocity: Vec2::ZERO,
+            z: Fixed::ZERO,
+            vz: Fixed::ZERO,
+            airborne_ticks: 0,
+            elevation_layer: 0,
             heading: 0,
             visual_angle: 0,
             speed: Fixed::ZERO,
@@ -388,6 +411,10 @@ impl VehicleState {
     /// nearest route node facing down the racing line.
     pub fn respawn_at(&mut self, pos: Vec2, heading: u16) {
         self.position = pos;
+        self.z = Fixed::ZERO;
+        self.vz = Fixed::ZERO;
+        self.airborne_ticks = 0;
+        self.elevation_layer = 0;
         self.heading = heading & 0x0FFF;
         self.visual_angle = self.heading;
         self.velocity = Vec2::ZERO;
@@ -410,6 +437,12 @@ impl VehicleState {
         self.spinout_cooldown = 0;
         self.oil_slick_latch = false;
         self.tire_scrub = Fixed::ZERO;
+    }
+
+    /// True while the car is airborne above the track surface (`z > 0`).
+    #[inline]
+    pub const fn is_airborne(&self) -> bool {
+        self.z.raw() > 0
     }
 
     /// TrackMania-style Flying Respawn: places the car at `pos` facing `heading`
@@ -502,6 +535,7 @@ impl VehicleState {
     /// the opening tick keep full grip authority.
     fn opens_drift_this_tick(&self, input: VehicleInput) -> bool {
         input.handbrake
+            && !self.is_airborne()
             && !self.drift_latched
             && !self.drift.is_drifting()
             && !self.drift.is_spinning()
@@ -576,26 +610,36 @@ impl VehicleState {
         }
 
         let impact = -v_dot_n;
-        // Restitution coefficient 0.35 (35% bounce) cancels the penetration.
-        let restitution = Fixed::from_raw(1433);
-        let impulse_mag = (Fixed::ONE + restitution) * impact;
-        self.velocity = self.velocity + unit.scale(impulse_mag);
+        let speed_before = self.velocity.length();
+        let sin_incidence_raw = if speed_before.raw() > 0 {
+            ((impact.raw() as i64 * FP_ONE as i64) / speed_before.raw() as i64) as i32
+        } else {
+            FP_ONE
+        };
 
-        // Hard head-on hits scrub momentum and spin the car; brushing a wall
-        // while scraping along it does not, or the car would be glued in place.
-        if impact > HARD_IMPACT_THRESHOLD {
-            self.velocity = self.velocity.scale(HARD_IMPACT_SCRUB); // 30% scrub
-                                                                    // The cooldown is deliberately longer than the spin itself. A
-                                                                    // one-for-one rearm is not enough now that the circuits carry a
-                                                                    // solid wall band: a car wedged into a corner is touching two walls,
-                                                                    // so the tick after one 60-tick spin expired it struck the other and
-                                                                    // started a fresh one -- 120 ticks of helpless spinning with the
-                                                                    // throttle held. Counting down *during* the spin, a cooldown of two
-                                                                    // spins leaves a full spin's grace afterwards, so the driver always
-                                                                    // gets a window in which steering works.
-            if self.spinout_cooldown == 0 && !self.drift.is_spinning() {
-                self.spinout_cooldown = 2 * crate::drift::SPINOUT_TICKS;
-                self.drift.trigger_spinout();
+        // TrackMania Wall-Ride / Barrier Grazing (NO1-021):
+        // Shallow grazing angles (< 25 deg, sin(theta) < 0.4226 = 1730/4096) hug the wall
+        // with low bounce and light tangential friction instead of triggering a crash spin-out.
+        if sin_incidence_raw < WALL_GRAZE_MAX_SIN_RAW {
+            let graze_restitution = Fixed::from_raw(410); // 10% bounce hugs the barrier
+            let impulse_mag = (Fixed::ONE + graze_restitution) * impact;
+            self.velocity = self.velocity + unit.scale(impulse_mag);
+            let graze_scrub = Fixed::ONE - Fixed::from_raw((sin_incidence_raw / 16).clamp(0, 108));
+            self.velocity = self.velocity.scale(graze_scrub);
+        } else {
+            // Restitution coefficient 0.35 (35% bounce) cancels the penetration.
+            let restitution = Fixed::from_raw(1433);
+            let impulse_mag = (Fixed::ONE + restitution) * impact;
+            self.velocity = self.velocity + unit.scale(impulse_mag);
+
+            // Hard head-on hits scrub momentum and spin the car; brushing a wall
+            // while scraping along it does not, or the car would be glued in place.
+            if impact > HARD_IMPACT_THRESHOLD {
+                self.velocity = self.velocity.scale(HARD_IMPACT_SCRUB); // 30% scrub
+                if self.spinout_cooldown == 0 && !self.drift.is_spinning() {
+                    self.spinout_cooldown = 2 * crate::drift::SPINOUT_TICKS;
+                    self.drift.trigger_spinout();
+                }
             }
         }
 
@@ -610,10 +654,31 @@ impl VehicleState {
         if self.spinout_cooldown > 0 {
             self.spinout_cooldown -= 1;
         }
-        if surface.is_engine_off() {
-            self.free_wheeling = true;
-        } else if surface.restores_engine() {
-            self.free_wheeling = false;
+
+        // Launch off a TrackMania Jump Ramp when grounded and moving forward (NO1-018)
+        if !self.is_airborne()
+            && surface.is_jump_ramp()
+            && !self.is_reversing
+            && self.speed > Fixed::from_int(1)
+        {
+            self.vz =
+                (self.speed * JUMP_LAUNCH_RATIO).clamp(Fixed::from_raw(2048), Fixed::from_int(3));
+            self.boost_ticks = self.boost_ticks.max(15);
+        }
+
+        let airborne = self.is_airborne() || self.vz > Fixed::ZERO;
+        let surface = if airborne {
+            SurfaceType::Tarmac
+        } else {
+            surface
+        };
+
+        if !airborne {
+            if surface.is_engine_off() {
+                self.free_wheeling = true;
+            } else if surface.restores_engine() {
+                self.free_wheeling = false;
+            }
         }
 
         // Steering authority falls off with speed (understeer), and is reduced
@@ -634,21 +699,14 @@ impl VehicleState {
             Fixed::from_raw(4300) // ~1.05x: lift-off turn-in
         };
         let grip_authority = (base_grip_authority * weight_factor) / Fixed::ONE;
-        // Whether the car will be sideways when this tick is integrated, which is
-        // not quite the same question as `drift.is_drifting()`: the handbrake
-        // press that *opens* a slide happens later in this same tick, so testing
-        // the state alone gave the opening tick full grip authority and charged the
-        // driver for the handbrake one tick late. Asking the same question the
-        // drift state machine asks keeps the two answers identical, which is what
-        // lets `DRIFT_STEER_AUTHORITY` be a fixed fraction of the grip.
         let sliding = self.drift.is_drifting()
             || self.slide_catch != 0
             || (input.handbrake && self.opens_drift_this_tick(input));
-        let authority = if self.drift.is_spinning() {
+        let authority = if airborne {
+            AIR_STEER_AUTHORITY
+        } else if self.drift.is_spinning() {
             SPINOUT_STEER_AUTHORITY
         } else if sliding {
-            // A quarter of the same authority the car has on the surface, not a
-            // flat number: see `DRIFT_STEER_AUTHORITY`.
             grip_authority * DRIFT_STEER_AUTHORITY
         } else {
             grip_authority
@@ -668,7 +726,11 @@ impl VehicleState {
         // 2. Engine thrust -------------------------------------------------------
         let forward_dir = self.forward_dir();
         let right_dir = self.right_dir();
-        let mut traction = surface.traction();
+        let mut traction = if airborne {
+            Fixed::ZERO
+        } else {
+            surface.traction()
+        };
         if self.wheelspin_ticks > 0 {
             self.wheelspin_ticks -= 1;
             traction = traction * Fixed::from_raw(1843); // 45% traction during launch burnout
@@ -987,22 +1049,42 @@ impl VehicleState {
         self.speed = self.velocity.length();
 
         // 7. Boost pads & TrackMania Red Super Boost pads ------------------------
-        if surface.is_super_boost_pad() && self.boost_pad_cooldown == 0 && !self.is_reversing {
-            self.boost_ticks = 60;
-            self.super_boost_ticks = 60;
-            self.boost_pad_cooldown = BOOST_PAD_COOLDOWN_TICKS;
-        } else if surface.is_boost_pad()
-            && self.boost_pad_cooldown == 0
-            && self.boost_ticks == 0
-            && !self.is_reversing
-            && !nitro_active
-        {
-            self.boost_ticks = 45;
-            self.boost_pad_cooldown = BOOST_PAD_COOLDOWN_TICKS;
+        if !airborne {
+            if surface.is_super_boost_pad() && self.boost_pad_cooldown == 0 && !self.is_reversing {
+                self.boost_ticks = 60;
+                self.super_boost_ticks = 60;
+                self.boost_pad_cooldown = BOOST_PAD_COOLDOWN_TICKS;
+            } else if surface.is_boost_pad()
+                && self.boost_pad_cooldown == 0
+                && self.boost_ticks == 0
+                && !self.is_reversing
+                && !nitro_active
+            {
+                self.boost_ticks = 45;
+                self.boost_pad_cooldown = BOOST_PAD_COOLDOWN_TICKS;
+            }
         }
 
-        // 8. Integrate position --------------------------------------------------
+        // 8. Integrate position & vertical airtime physics (NO1-018) -------------
         self.position = self.position + self.velocity;
+        if self.z > Fixed::ZERO || self.vz > Fixed::ZERO {
+            self.z = self.z + self.vz;
+            self.vz = self.vz - GRAVITY_PER_TICK;
+            if self.z > Fixed::ZERO {
+                self.airborne_ticks = self.airborne_ticks.saturating_add(1);
+            } else {
+                let landed_from_jump = self.airborne_ticks >= 5;
+                self.z = Fixed::ZERO;
+                self.vz = Fixed::ZERO;
+                self.airborne_ticks = 0;
+                // TrackMania Landing Suspension Bounce Boost on flat 4-wheel touchdown
+                if landed_from_jump && !self.drift.is_spinning() && self.slide_bam().abs() < 192 {
+                    self.boost_ticks = self.boost_ticks.max(20);
+                    self.velocity = self.velocity + forward_dir.scale(LANDING_BOUNCE_BOOST);
+                    self.speed = self.velocity.length();
+                }
+            }
+        }
 
         // 9. Visual angle smoothing (drift slip angle representation) ------------
         // Driven by the *same* tail-out the physics is driven by, so what the
@@ -1180,12 +1262,21 @@ impl VehicleState {
         let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
         let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
         let tile = track.tile_at(tx, ty);
-        if matches!(
-            tile,
-            crate::track::TrackTile::Checkpoint
-                | crate::track::TrackTile::StartFinish
-                | crate::track::TrackTile::EngineReset
-        ) {
+        match tile {
+            crate::track::TrackTile::Bridge => self.elevation_layer = 1,
+            crate::track::TrackTile::Tunnel | crate::track::TrackTile::StartFinish => {
+                self.elevation_layer = 0;
+            }
+            _ => {}
+        }
+        if !self.is_airborne()
+            && matches!(
+                tile,
+                crate::track::TrackTile::Checkpoint
+                    | crate::track::TrackTile::StartFinish
+                    | crate::track::TrackTile::EngineReset
+            )
+        {
             self.free_wheeling = false;
         }
         let surface = tile.surface();
@@ -1194,12 +1285,21 @@ impl VehicleState {
         let tx = TrackDef::tile_x_of(self.position.x).min(track.width.saturating_sub(1));
         let ty = TrackDef::tile_y_of(self.position.y).min(track.height.saturating_sub(1));
         let end_tile = track.tile_at(tx, ty);
-        if matches!(
-            end_tile,
-            crate::track::TrackTile::Checkpoint
-                | crate::track::TrackTile::StartFinish
-                | crate::track::TrackTile::EngineReset
-        ) {
+        match end_tile {
+            crate::track::TrackTile::Bridge => self.elevation_layer = 1,
+            crate::track::TrackTile::Tunnel | crate::track::TrackTile::StartFinish => {
+                self.elevation_layer = 0;
+            }
+            _ => {}
+        }
+        if !self.is_airborne()
+            && matches!(
+                end_tile,
+                crate::track::TrackTile::Checkpoint
+                    | crate::track::TrackTile::StartFinish
+                    | crate::track::TrackTile::EngineReset
+            )
+        {
             self.free_wheeling = false;
         }
         end_tile.surface()
@@ -3088,5 +3188,50 @@ mod tests {
         grid_car.apply_launch_outcome(outcome);
         assert_eq!(grid_car.boost_ticks, 35);
         assert!(grid_car.speed > Fixed::ZERO);
+    }
+
+    #[test]
+    fn jump_ramp_launches_car_airborne_and_flat_landing_awards_bounce_boost() {
+        let mut car = rolling(3.0);
+        car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::JumpRamp);
+        assert!(
+            car.is_airborne(),
+            "JumpRamp must launch the car into the air"
+        );
+        assert!(car.z > Fixed::ZERO);
+
+        // While airborne over OffRoad, the car is not slowed by ground off-road cap
+        for _ in 0..36 {
+            if !car.is_airborne() {
+                break;
+            }
+            car.tick(flat(Fixed::ONE, Fixed::ZERO), SurfaceType::OffRoad);
+        }
+        assert!(
+            !car.is_airborne(),
+            "gravity must return the car to the ground within 36 ticks"
+        );
+        assert!(
+            car.boost_ticks >= 19,
+            "flat 4-wheel touchdown must award TrackMania Landing Suspension Bounce Boost"
+        );
+    }
+
+    #[test]
+    fn wall_grazing_at_shallow_incidence_preserves_momentum_without_spinout() {
+        // High-speed car grazing a wall at ~14 degrees incidence (vx = 3.2, vy = -0.8 against normal (0, 1))
+        let mut car = VehicleState::default();
+        car.velocity = Vec2::new(Fixed::from_raw(13107), Fixed::from_raw(-3276));
+        car.speed = car.velocity.length();
+        // Into-wall impact is 3276 (> HARD_IMPACT_THRESHOLD = 900), but sin(theta) ~ 0.24 < 0.4226 (25 deg)
+        car.handle_barrier_collision(Vec2::new(Fixed::ZERO, Fixed::ONE));
+        assert!(
+            !car.drift.is_spinning(),
+            "shallow < 25 deg wall graze must not spin the car out"
+        );
+        assert!(
+            car.velocity.x > Fixed::from_raw(12500),
+            "wall graze must preserve >95% of forward speed along the barrier"
+        );
     }
 }

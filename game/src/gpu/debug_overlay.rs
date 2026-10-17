@@ -416,6 +416,10 @@ impl DebugOverlay {
             SurfaceType::EngineOff => "ENGOFF",
             SurfaceType::SuperBoostPad => "SBOOST",
             SurfaceType::EngineReset => "ENGRST",
+            SurfaceType::JumpRamp => "RAMP",
+            SurfaceType::Dirt => "DIRT",
+            SurfaceType::Ice => "ICE",
+            SurfaceType::Sand => "SAND",
         };
         draw_text((x + 60) as u16, (y + 86) as u16, "SRF:", (150, 160, 185), 1);
         draw_text(

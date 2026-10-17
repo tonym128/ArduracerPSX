@@ -113,6 +113,19 @@ impl CarTuning {
         let factor = Fixed::ONE + ratio_excess * bias;
         factor.clamp(Fixed::from_raw(FP_ONE / 2), Fixed::from_int(2))
     }
+
+    /// Relative vehicle mass factor (Q20.12, `Fixed::ONE` = 1.0x for `CarTuning::default()`).
+    ///
+    /// Heavy top-speed and drift-stability setups carry greater inertia (`> 1.0x`),
+    /// while lightweight high-handling setups carry less mass (`< 1.0x`).
+    /// Used by `contact::collide_cars` to weight car-to-car collision impulse and separation.
+    pub fn mass_factor(&self) -> Fixed {
+        let heavy_bias = (self.top_speed as i32 - DEFAULT_SLIDER as i32)
+            + (self.drift_stability as i32 - DEFAULT_SLIDER as i32)
+            - (self.handling as i32 - DEFAULT_SLIDER as i32);
+        // Each net point shifts mass by ~7.5% (307 raw units in Q12), clamped to [0.65x, 1.45x].
+        Fixed::from_raw((FP_ONE + heavy_bias * 307).clamp(2662, 5939))
+    }
 }
 
 #[cfg(test)]
@@ -258,5 +271,26 @@ mod tests {
             short.gear_thrust_factor(Fixed::ONE),
             "an absurd speed fraction changed the curve"
         );
+    }
+
+    #[test]
+    fn mass_factor_is_neutral_for_default_and_heavier_for_stability_setups() {
+        assert_eq!(CarTuning::default().mass_factor(), Fixed::ONE);
+        let heavy = CarTuning {
+            top_speed: MAX_SLIDER,
+            drift_stability: 6,
+            handling: MIN_SLIDER,
+            acceleration: 3,
+            gearing: 3,
+        };
+        let agile = CarTuning {
+            top_speed: 2,
+            drift_stability: 2,
+            handling: MAX_SLIDER,
+            acceleration: 5,
+            gearing: 4,
+        };
+        assert!(heavy.mass_factor() > Fixed::ONE);
+        assert!(agile.mass_factor() < Fixed::ONE);
     }
 }

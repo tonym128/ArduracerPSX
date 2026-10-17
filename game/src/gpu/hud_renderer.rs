@@ -407,9 +407,11 @@ pub fn render_hud<const N: usize>(
     draw_text(278, 30, "G", (150, 150, 165), 1);
     blit(&gear_buf, 288, 26, gear_col, 2);
 
-    // Status badge below gauges (Super Boost, Free-Wheeling, Slipstream, Wheelspin)
+    // Status badge below gauges (Super Boost, Airtime, Free-Wheeling, Slipstream, Wheelspin)
     let status_badge: Option<(&str, (u8, u8, u8))> = if player.super_boost_ticks > 0 {
         Some(("SUPER BOOST!", (255, 70, 40)))
+    } else if player.is_airborne() {
+        Some(("AIRTIME!", (255, 225, 45)))
     } else if player.free_wheeling {
         Some(("ENGINE OFF", (255, 80, 150)))
     } else if player.is_drafting() {

@@ -111,17 +111,32 @@ fn unit_from(v: Vec2, len_raw: i32) -> Vec2 {
     )
 }
 
+/// Minimum vertical (`z`) separation in world units at which an airborne car
+/// clears a grounded car underneath without making contact.
+pub const VERTICAL_CLEARANCE_UNITS: i32 = 12;
+
 /// Detects and resolves contact between two cars, mutating both.
 ///
 /// Returns `None` (and leaves both cars untouched) if the bodies do not
-/// overlap. On contact both cars are pushed apart so they no longer overlap,
+/// overlap, or if they are on different vertical elevation layers (bridge vs
+/// tunnel) or separated vertically by [`VERTICAL_CLEARANCE_UNITS`].
+/// On contact both cars are pushed apart so they no longer overlap,
 /// the closing velocity along the contact normal is replaced by a
-/// [`CAR_RESTITUTION`] bounce shared equally between them, and both cars'
-/// `speed` fields are resynchronised with their velocities.
+/// [`CAR_RESTITUTION`] bounce weighted by their [`crate::tuning::CarTuning::mass_factor`],
+/// and both cars' `speed` fields are resynchronised with their velocities.
 ///
 /// The caller is responsible for re-running track collision afterwards: the
 /// separation push can move a car into a barrier. [`resolve_field`] does this.
 pub fn collide_cars(a: &mut VehicleState, b: &mut VehicleState) -> Option<CarContact> {
+    // --- Vertical layer & Z-height gate (NO1-018, NO1-019) ----------------------
+    if a.elevation_layer != b.elevation_layer {
+        return None;
+    }
+    let z_clearance_raw = (VERTICAL_CLEARANCE_UNITS << FP_SHIFT) as u32;
+    if (a.z - b.z).raw().unsigned_abs() >= z_clearance_raw {
+        return None;
+    }
+
     // --- Broad phase ------------------------------------------------------------
     let centre_delta = b.position - a.position;
     let reach = BROADPHASE_REACH << FP_SHIFT;
@@ -137,21 +152,25 @@ pub fn collide_cars(a: &mut VehicleState, b: &mut VehicleState) -> Option<CarCon
     // a *second* pair overlapping -- a nose driven into the middle of a flank
     // touches both of the other car's circles -- so the push is repeated on
     // whatever pair is deepest afterwards, a bounded number of times.
-    let (normal, circle_a, half_push) = separate_deepest(a, b)?;
+    let (normal, circle_a, push_a) = separate_deepest(a, b)?;
     for _ in 1..SEPARATION_PASSES {
         if separate_deepest(a, b).is_none() {
             break;
         }
     }
 
-    // --- Velocity: equal-mass impulse along the primary normal -------------------
+    // --- Velocity: mass-weighted impulse along the primary normal (NO1-022) ------
     let approach = (b.velocity - a.velocity).dot(normal);
     let closing_speed = if approach < Fixed::ZERO {
         let closing = -approach;
-        // Each car takes half of (1 + e) * closing.
-        let share = (Fixed::ONE + CAR_RESTITUTION) * closing * Fixed::HALF;
-        a.velocity = a.velocity - normal.scale(share);
-        b.velocity = b.velocity + normal.scale(share);
+        let mass_a = a.tuning.mass_factor().raw().max(1) as i64;
+        let mass_b = b.tuning.mass_factor().raw().max(1) as i64;
+        let total_mass = (mass_a + mass_b).max(2);
+        let total_dv = (Fixed::ONE + CAR_RESTITUTION) * closing;
+        let dv_a = Fixed::from_raw(((total_dv.raw() as i64 * mass_b) / total_mass) as i32);
+        let dv_b = Fixed::from_raw(((total_dv.raw() as i64 * mass_a) / total_mass) as i32);
+        a.velocity = a.velocity - normal.scale(dv_a);
+        b.velocity = b.velocity + normal.scale(dv_b);
         closing
     } else {
         Fixed::ZERO
@@ -161,7 +180,7 @@ pub fn collide_cars(a: &mut VehicleState, b: &mut VehicleState) -> Option<CarCon
     b.speed = b.velocity.length();
 
     // The touch point sits on `a`'s body circle surface, moved with it.
-    let point = circle_a - normal.scale(half_push) + normal.scale(Fixed::from_int(CAR_BODY_RADIUS));
+    let point = circle_a - normal.scale(push_a) + normal.scale(Fixed::from_int(CAR_BODY_RADIUS));
 
     Some(CarContact {
         normal,
@@ -176,10 +195,10 @@ pub fn collide_cars(a: &mut VehicleState, b: &mut VehicleState) -> Option<CarCon
 const SEPARATION_PASSES: usize = 3;
 
 /// Finds the deepest-overlapping body circle pair and pushes the two cars
-/// apart along it, splitting the overlap evenly.
+/// apart along it, weighting the separation by inverse vehicle mass.
 ///
 /// Returns `(unit normal from a to b, a's circle centre before the push, the
-/// push each car received)`, or `None` if no pair overlaps.
+/// push `a` received)`, or `None` if no pair overlaps.
 fn separate_deepest(a: &mut VehicleState, b: &mut VehicleState) -> Option<(Vec2, Vec2, Fixed)> {
     let contact_raw = (2 * CAR_BODY_RADIUS) << FP_SHIFT;
     let contact_sq = (contact_raw as i64) * (contact_raw as i64);
@@ -215,10 +234,17 @@ fn separate_deepest(a: &mut VehicleState, b: &mut VehicleState) -> Option<(Vec2,
     };
 
     let penetration = (contact_raw - dist_raw).max(0);
-    let half_push = Fixed::from_raw(penetration / 2 + SEPARATION_SLOP_RAW);
-    a.position = a.position - normal.scale(half_push);
-    b.position = b.position + normal.scale(half_push);
-    Some((normal, circle_a, half_push))
+    let total_sep_raw = penetration + 2 * SEPARATION_SLOP_RAW;
+    let mass_a = a.tuning.mass_factor().raw().max(1) as i64;
+    let mass_b = b.tuning.mass_factor().raw().max(1) as i64;
+    let total_mass = (mass_a + mass_b).max(2);
+    let push_a_raw = ((total_sep_raw as i64 * mass_b) / total_mass) as i32;
+    let push_b_raw = (total_sep_raw - push_a_raw).max(0);
+    let push_a = Fixed::from_raw(push_a_raw);
+    let push_b = Fixed::from_raw(push_b_raw);
+    a.position = a.position - normal.scale(push_a);
+    b.position = b.position + normal.scale(push_b);
+    Some((normal, circle_a, push_a))
 }
 
 /// What the field's contacts did to the player this tick, for the game's
@@ -625,5 +651,51 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn bridge_and_tunnel_or_airborne_cars_do_not_collide() {
+        let mut ground_car = car_at(100, 100, 0);
+        let mut bridge_car = car_at(100, 100, 0);
+        bridge_car.elevation_layer = 1;
+        assert!(
+            collide_cars(&mut ground_car, &mut bridge_car).is_none(),
+            "cars on different elevation layers (bridge vs tunnel) must not collide"
+        );
+
+        let mut flying_car = car_at(100, 100, 0);
+        flying_car.z = Fixed::from_int(14);
+        assert!(
+            collide_cars(&mut ground_car, &mut flying_car).is_none(),
+            "airborne car above VERTICAL_CLEARANCE_UNITS must fly cleanly over grounded car"
+        );
+    }
+
+    #[test]
+    fn heavy_car_transfers_more_impulse_to_light_car() {
+        let mut heavy = with_velocity(car_at(100, 100, 0), Fixed::ZERO, Fixed::from_int(-3));
+        heavy.tuning = CarTuning {
+            top_speed: 7,
+            drift_stability: 6,
+            handling: 1,
+            acceleration: 3,
+            gearing: 3,
+        };
+        let mut light = car_at(100, 78, 0);
+        light.tuning = CarTuning {
+            top_speed: 2,
+            drift_stability: 2,
+            handling: 7,
+            acceleration: 5,
+            gearing: 4,
+        };
+        assert!(heavy.tuning.mass_factor() > light.tuning.mass_factor());
+        collide_cars(&mut heavy, &mut light).expect("heavy rear-ends light");
+        let heavy_dv = (heavy.velocity.y - Fixed::from_int(-3)).abs();
+        let light_dv = light.velocity.y.abs();
+        assert!(
+            light_dv > heavy_dv,
+            "lightweight car must receive a larger velocity change than the heavy car: {light_dv:?} vs {heavy_dv:?}"
+        );
     }
 }

@@ -112,6 +112,18 @@ pub enum TrackTile {
     SuperBoostPad = 9,
     /// TrackMania Engine/State Reset block: clears free-wheeling and restores normal power.
     EngineReset = 10,
+    /// TrackMania Jump Ramp block: launches the car into the air with vertical velocity `vz`.
+    JumpRamp = 11,
+    /// Tunnel underpass tile (sets vehicle `elevation_layer = 0`).
+    Tunnel = 12,
+    /// Bridge overpass tile (sets vehicle `elevation_layer = 1`).
+    Bridge = 13,
+    /// Rally dirt / gravel road tile.
+    Dirt = 14,
+    /// Frozen alpine ice road tile.
+    Ice = 15,
+    /// Deep desert sand / gravel trap runoff tile.
+    Sand = 16,
 }
 
 impl TrackTile {
@@ -138,6 +150,12 @@ impl TrackTile {
             8 => Self::EngineOff,
             9 => Self::SuperBoostPad,
             10 => Self::EngineReset,
+            11 => Self::JumpRamp,
+            12 => Self::Tunnel,
+            13 => Self::Bridge,
+            14 => Self::Dirt,
+            15 => Self::Ice,
+            16 => Self::Sand,
             _ => Self::Barrier,
         }
     }
@@ -145,9 +163,11 @@ impl TrackTile {
     /// Physical surface type used by the vehicle dynamics and haptics.
     pub const fn surface(self) -> SurfaceType {
         match self {
-            TrackTile::Tarmac | TrackTile::StartFinish | TrackTile::Checkpoint => {
-                SurfaceType::Tarmac
-            }
+            TrackTile::Tarmac
+            | TrackTile::StartFinish
+            | TrackTile::Checkpoint
+            | TrackTile::Tunnel
+            | TrackTile::Bridge => SurfaceType::Tarmac,
             TrackTile::Curb => SurfaceType::Curb,
             TrackTile::OffRoad => SurfaceType::OffRoad,
             TrackTile::OilSlick => SurfaceType::OilSlick,
@@ -156,6 +176,10 @@ impl TrackTile {
             TrackTile::EngineOff => SurfaceType::EngineOff,
             TrackTile::SuperBoostPad => SurfaceType::SuperBoostPad,
             TrackTile::EngineReset => SurfaceType::EngineReset,
+            TrackTile::JumpRamp => SurfaceType::JumpRamp,
+            TrackTile::Dirt => SurfaceType::Dirt,
+            TrackTile::Ice => SurfaceType::Ice,
+            TrackTile::Sand => SurfaceType::Sand,
         }
     }
 
@@ -170,6 +194,11 @@ impl TrackTile {
                 | TrackTile::EngineOff
                 | TrackTile::SuperBoostPad
                 | TrackTile::EngineReset
+                | TrackTile::JumpRamp
+                | TrackTile::Tunnel
+                | TrackTile::Bridge
+                | TrackTile::Dirt
+                | TrackTile::Ice
         )
     }
 
@@ -1162,13 +1191,19 @@ mod tests {
             TrackTile::EngineOff,
             TrackTile::SuperBoostPad,
             TrackTile::EngineReset,
+            TrackTile::JumpRamp,
+            TrackTile::Tunnel,
+            TrackTile::Bridge,
+            TrackTile::Dirt,
+            TrackTile::Ice,
+            TrackTile::Sand,
         ];
         for tile in all {
             assert_eq!(TrackTile::from_disc_byte(tile as u8), tile, "{tile:?}");
         }
         // Discriminants are consecutive from 0, which is what makes the decode
         // a bounds check rather than a lookup.
-        assert_eq!(all.len(), 11);
+        assert_eq!(all.len(), 17);
     }
 
     #[test]
@@ -1176,7 +1211,7 @@ mod tests {
         // A corrupt or truncated asset must fail as solid wall. Reading it as a
         // raw discriminant instead would be undefined behaviour in every
         // `match` downstream.
-        for byte in [11u8, 12, 200, 255] {
+        for byte in [17u8, 18, 200, 255] {
             assert_eq!(TrackTile::from_disc_byte(byte), TrackTile::Barrier);
         }
     }

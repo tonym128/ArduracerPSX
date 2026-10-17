@@ -90,23 +90,27 @@ pub fn render_car(
         Rot::from_bams(car.visual_angle)
     };
 
-    // 1. Dynamic Rotated Drop Shadow (projected +3, +3)
+    let z_px = car.z.to_int().clamp(0, 32) as i16;
+    let body_cy = cy.saturating_sub(z_px);
+
+    // 1. Dynamic Rotated Drop Shadow (projected on the ground at +3 + z_px/2)
     if !is_ghost {
-        let shadow = make_quad(cx + 3, cy + 3, 7, 8, 12, 12, rot);
+        let shadow_off = 3 + (z_px / 2);
+        let shadow = make_quad(cx + shadow_off, cy + shadow_off, 7, 8, 12, 12, rot);
         draw_quad(shadow, 12, 14, 18, layer);
     }
 
     // 2. Tires / Wheel Pods (4 Black rubber rectangles at the 4 corners)
     if !is_ghost {
         // Rear wheels
-        let r_left = make_rect_at(cx, cy, -7, -6, 2, 4, rot);
-        let r_right = make_rect_at(cx, cy, 7, -6, 2, 4, rot);
+        let r_left = make_rect_at(cx, body_cy, -7, -6, 2, 4, rot);
+        let r_right = make_rect_at(cx, body_cy, 7, -6, 2, 4, rot);
         draw_quad(r_left, 18, 18, 22, layer);
         draw_quad(r_right, 18, 18, 22, layer);
 
         // Front wheels
-        let f_left = make_rect_at(cx, cy, -7, 7, 2, 4, rot);
-        let f_right = make_rect_at(cx, cy, 7, 7, 2, 4, rot);
+        let f_left = make_rect_at(cx, body_cy, -7, 7, 2, 4, rot);
+        let f_right = make_rect_at(cx, body_cy, 7, 7, 2, 4, rot);
         draw_quad(f_left, 18, 18, 22, layer);
         draw_quad(f_right, 18, 18, 22, layer);
     }
@@ -119,7 +123,7 @@ pub fn render_car(
     };
 
     // Body: Tapered front hood (w=6) widening to muscular rear haunches (w=7), length ±12
-    let body = make_quad(cx, cy, 6, 7, 12, 12, rot);
+    let body = make_quad(cx, body_cy, 6, 7, 12, 12, rot);
     draw_quad(body, r, g, b, layer);
 
     // 4. Dual Center Racing Stripes (Contrasting White or Golden highlight)
@@ -129,7 +133,7 @@ pub fn render_car(
         } else {
             (255, 220, 40) // Neon gold stripes on blue/green/dark cars
         };
-        let stripe_l = make_quad(cx, cy, 1, 1, 12, 12, rot);
+        let stripe_l = make_quad(cx, body_cy, 1, 1, 12, 12, rot);
         draw_quad(
             stripe_l,
             stripe_color.0,
@@ -148,19 +152,19 @@ pub fn render_car(
     // `make_quad` negates `l_rear` itself, so this must be positive. Passing a
     // negative length cancelled the negation and put all four vertices on the
     // same row, giving the canopy zero area at every heading (TASK-1203).
-    let glass = make_quad(cx, cy, 4, 5, 4, 7, rot);
+    let glass = make_quad(cx, body_cy, 4, 5, 4, 7, rot);
     draw_quad(glass, glass_color.0, glass_color.1, glass_color.2, layer);
 
     // Windshield front glare reflection line
     if !is_ghost {
-        let p_glare_l = transform_pt(cx, cy, -3, 3, rot.cos_raw, rot.sin_raw);
-        let p_glare_r = transform_pt(cx, cy, 3, 3, rot.cos_raw, rot.sin_raw);
+        let p_glare_l = transform_pt(cx, body_cy, -3, 3, rot.cos_raw, rot.sin_raw);
+        let p_glare_r = transform_pt(cx, body_cy, 3, 3, rot.cos_raw, rot.sin_raw);
         draw_line(p_glare_l, p_glare_r, (120, 160, 200), layer);
     }
 
     // 6. Rear Aero Wing / Downforce Spoiler
     if !is_ghost {
-        let wing = make_rect_at(cx, cy, 0, -11, 8, 2, rot);
+        let wing = make_rect_at(cx, body_cy, 0, -11, 8, 2, rot);
         let wing_r = (r as u16 * 180 / 255) as u8;
         let wing_g = (g as u16 * 180 / 255) as u8;
         let wing_b = (b as u16 * 180 / 255) as u8;
@@ -168,18 +172,18 @@ pub fn render_car(
     }
 
     // 7. Headlights (Front nose corners: bright halogen amber-white)
-    let hl_l = transform_pt(cx, cy, -4, 11, rot.cos_raw, rot.sin_raw);
-    let hl_r = transform_pt(cx, cy, 4, 11, rot.cos_raw, rot.sin_raw);
-    let hl_l2 = transform_pt(cx, cy, -5, 10, rot.cos_raw, rot.sin_raw);
-    let hl_r2 = transform_pt(cx, cy, 5, 10, rot.cos_raw, rot.sin_raw);
+    let hl_l = transform_pt(cx, body_cy, -4, 11, rot.cos_raw, rot.sin_raw);
+    let hl_r = transform_pt(cx, body_cy, 4, 11, rot.cos_raw, rot.sin_raw);
+    let hl_l2 = transform_pt(cx, body_cy, -5, 10, rot.cos_raw, rot.sin_raw);
+    let hl_r2 = transform_pt(cx, body_cy, 5, 10, rot.cos_raw, rot.sin_raw);
     draw_line(hl_l, hl_l2, (255, 250, 190), layer);
     draw_line(hl_r, hl_r2, (255, 250, 190), layer);
 
     // 8. Taillights (Rear corners: bright crimson red)
-    let tl_l = transform_pt(cx, cy, -5, -12, rot.cos_raw, rot.sin_raw);
-    let tl_r = transform_pt(cx, cy, 5, -12, rot.cos_raw, rot.sin_raw);
-    let tl_l2 = transform_pt(cx, cy, -6, -11, rot.cos_raw, rot.sin_raw);
-    let tl_r2 = transform_pt(cx, cy, 6, -11, rot.cos_raw, rot.sin_raw);
+    let tl_l = transform_pt(cx, body_cy, -5, -12, rot.cos_raw, rot.sin_raw);
+    let tl_r = transform_pt(cx, body_cy, 5, -12, rot.cos_raw, rot.sin_raw);
+    let tl_l2 = transform_pt(cx, body_cy, -6, -11, rot.cos_raw, rot.sin_raw);
+    let tl_r2 = transform_pt(cx, body_cy, 6, -11, rot.cos_raw, rot.sin_raw);
     draw_line(tl_l, tl_l2, (255, 30, 30), layer);
     draw_line(tl_r, tl_r2, (255, 30, 30), layer);
 
@@ -187,14 +191,14 @@ pub fn render_car(
     if car.boost_ticks > 0 {
         // Twin animated flame cones behind exhausts (-3, -12) and (3, -12)
         let flame_len = 8 + ((car.boost_ticks % 4) as i32 * 2);
-        let flame_tip_l = transform_pt(cx, cy, -3, -12 - flame_len, rot.cos_raw, rot.sin_raw);
-        let flame_base_l1 = transform_pt(cx, cy, -4, -12, rot.cos_raw, rot.sin_raw);
-        let flame_base_l2 = transform_pt(cx, cy, -2, -12, rot.cos_raw, rot.sin_raw);
+        let flame_tip_l = transform_pt(cx, body_cy, -3, -12 - flame_len, rot.cos_raw, rot.sin_raw);
+        let flame_base_l1 = transform_pt(cx, body_cy, -4, -12, rot.cos_raw, rot.sin_raw);
+        let flame_base_l2 = transform_pt(cx, body_cy, -2, -12, rot.cos_raw, rot.sin_raw);
         gpu::draw_tri_flat([flame_tip_l, flame_base_l1, flame_base_l2], 0, 220, 255);
 
-        let flame_tip_r = transform_pt(cx, cy, 3, -12 - flame_len, rot.cos_raw, rot.sin_raw);
-        let flame_base_r1 = transform_pt(cx, cy, 2, -12, rot.cos_raw, rot.sin_raw);
-        let flame_base_r2 = transform_pt(cx, cy, 4, -12, rot.cos_raw, rot.sin_raw);
+        let flame_tip_r = transform_pt(cx, body_cy, 3, -12 - flame_len, rot.cos_raw, rot.sin_raw);
+        let flame_base_r1 = transform_pt(cx, body_cy, 2, -12, rot.cos_raw, rot.sin_raw);
+        let flame_base_r2 = transform_pt(cx, body_cy, 4, -12, rot.cos_raw, rot.sin_raw);
         gpu::draw_tri_flat([flame_tip_r, flame_base_r1, flame_base_r2], 255, 140, 20);
     }
 }
