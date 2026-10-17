@@ -2656,14 +2656,7 @@ mod minimap_load_order_tests {
 mod city_level_grid_tests {
     const LEVEL_GRID_SRC: &str = include_str!("../../../game/src/level_grid.rs");
 
-    const LEVEL_DIMS: [(u8, u8); 28] = [
-        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
-        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
-        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
-        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
-        (160, 160),
-        (240, 240), (240, 240), (240, 240),
-    ];
+    use arduracer_core::levels::LEVEL_DIMS;
 
     const MAX_LEVEL_TILES: usize = 57_600;
     const STAGE_SLACK: usize = 4096;

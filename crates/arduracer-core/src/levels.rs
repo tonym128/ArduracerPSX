@@ -972,10 +972,10 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 3456,
-        silver_ticks: 3024,
-        gold_ticks: 2700,
-        dev_platinum_ticks: 1825,
+        bronze_ticks: 3581,
+        silver_ticks: 3134,
+        gold_ticks: 2798,
+        dev_platinum_ticks: 1885,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -998,7 +998,7 @@ pub static TRACK_LONGBOW: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 47,
+            x: 46,
             y: 57,
             width: 1,
             height: 1,
@@ -1442,10 +1442,10 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2131,
-        silver_ticks: 1865,
-        gold_ticks: 1665,
-        dev_platinum_ticks: 1408,
+        bronze_ticks: 2143,
+        silver_ticks: 1875,
+        gold_ticks: 1674,
+        dev_platinum_ticks: 1416,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -1474,13 +1474,13 @@ pub static TRACK_AMBER_MESA: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 37,
+            x: 36,
             y: 64,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 19,
+            x: 18,
             y: 46,
             width: 1,
             height: 1,
@@ -1912,15 +1912,15 @@ pub static TRACK_EMERALD_GLEN: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2071,
-        silver_ticks: 1812,
-        gold_ticks: 1618,
-        dev_platinum_ticks: 1379,
+        bronze_ticks: 2079,
+        silver_ticks: 1819,
+        gold_ticks: 1624,
+        dev_platinum_ticks: 1352,
     },
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 39,
+            x: 40,
             y: 18,
             width: 1,
             height: 1,
@@ -1938,13 +1938,13 @@ pub static TRACK_EMERALD_GLEN: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 51,
-            y: 56,
+            x: 52,
+            y: 57,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 33,
+            x: 32,
             y: 62,
             width: 1,
             height: 1,
@@ -2382,10 +2382,10 @@ pub static TRACK_SUNBURST_VALLEY: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2254,
-        silver_ticks: 1972,
-        gold_ticks: 1761,
-        dev_platinum_ticks: 1450,
+        bronze_ticks: 2196,
+        silver_ticks: 1922,
+        gold_ticks: 1716,
+        dev_platinum_ticks: 1396,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -2403,7 +2403,7 @@ pub static TRACK_SUNBURST_VALLEY: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 51,
-            y: 39,
+            y: 40,
             width: 1,
             height: 1,
         },
@@ -2414,7 +2414,7 @@ pub static TRACK_SUNBURST_VALLEY: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 29,
+            x: 28,
             y: 62,
             width: 1,
             height: 1,
@@ -2852,15 +2852,15 @@ pub static TRACK_WHISPERING_PINES: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2628,
-        silver_ticks: 2299,
-        gold_ticks: 2053,
-        dev_platinum_ticks: 1614,
+        bronze_ticks: 2638,
+        silver_ticks: 2308,
+        gold_ticks: 2061,
+        dev_platinum_ticks: 1620,
     },
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 38,
+            x: 39,
             y: 18,
             width: 1,
             height: 1,
@@ -3322,10 +3322,10 @@ pub static TRACK_IRONSTONE_QUARRY: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 4096,
-        silver_ticks: 3584,
-        gold_ticks: 3200,
-        dev_platinum_ticks: 2665,
+        bronze_ticks: 4305,
+        silver_ticks: 3767,
+        gold_ticks: 3363,
+        dev_platinum_ticks: 2787,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -3361,7 +3361,7 @@ pub static TRACK_IRONSTONE_QUARRY: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 18,
-            y: 50,
+            y: 49,
             width: 1,
             height: 1,
         },
@@ -4262,27 +4262,27 @@ pub static TRACK_FALCON_CREST: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2337,
-        silver_ticks: 2045,
-        gold_ticks: 1826,
-        dev_platinum_ticks: 1501,
+        bronze_ticks: 2085,
+        silver_ticks: 1824,
+        gold_ticks: 1629,
+        dev_platinum_ticks: 1316,
     },
     checkpoint_count: 6,
     checkpoints: [
         CheckpointGate {
-            x: 38,
+            x: 39,
             y: 18,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 61,
-            y: 20,
+            y: 21,
             width: 1,
             height: 1,
         },
         CheckpointGate {
-            x: 59,
+            x: 58,
             y: 42,
             width: 1,
             height: 1,
@@ -4732,10 +4732,10 @@ pub static TRACK_WILLOW_CREEK: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 3931,
-        silver_ticks: 3440,
-        gold_ticks: 3071,
-        dev_platinum_ticks: 2699,
+        bronze_ticks: 4800,
+        silver_ticks: 4200,
+        gold_ticks: 3750,
+        dev_platinum_ticks: 3296,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -4758,7 +4758,7 @@ pub static TRACK_WILLOW_CREEK: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 56,
+            x: 55,
             y: 62,
             width: 1,
             height: 1,
@@ -5672,10 +5672,10 @@ pub static TRACK_DRAGON_S_SPINE: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2515,
-        silver_ticks: 2201,
-        gold_ticks: 1965,
-        dev_platinum_ticks: 1751,
+        bronze_ticks: 2678,
+        silver_ticks: 2343,
+        gold_ticks: 2092,
+        dev_platinum_ticks: 1867,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -5699,13 +5699,13 @@ pub static TRACK_DRAGON_S_SPINE: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 61,
-            y: 59,
+            y: 60,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 38,
-            y: 62,
+            y: 61,
             width: 1,
             height: 1,
         },
@@ -6142,10 +6142,10 @@ pub static TRACK_REDWOOD_PASS: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2237,
-        silver_ticks: 1958,
-        gold_ticks: 1748,
-        dev_platinum_ticks: 1335,
+        bronze_ticks: 2355,
+        silver_ticks: 2061,
+        gold_ticks: 1840,
+        dev_platinum_ticks: 1361,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -6168,7 +6168,7 @@ pub static TRACK_REDWOOD_PASS: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 54,
+            x: 53,
             y: 60,
             width: 1,
             height: 1,
@@ -6181,7 +6181,7 @@ pub static TRACK_REDWOOD_PASS: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 16,
-            y: 49,
+            y: 48,
             width: 1,
             height: 1,
         },
@@ -7082,10 +7082,10 @@ pub static TRACK_CANYON_MIRAGE: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 3884,
-        silver_ticks: 3398,
-        gold_ticks: 3034,
-        dev_platinum_ticks: 2378,
+        bronze_ticks: 5674,
+        silver_ticks: 4965,
+        gold_ticks: 4433,
+        dev_platinum_ticks: 3412,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -7108,7 +7108,7 @@ pub static TRACK_CANYON_MIRAGE: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 50,
+            x: 51,
             y: 57,
             width: 1,
             height: 1,
@@ -7552,10 +7552,10 @@ pub static TRACK_APEX_PREDATOR: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2737,
-        silver_ticks: 2395,
-        gold_ticks: 2138,
-        dev_platinum_ticks: 1883,
+        bronze_ticks: 2804,
+        silver_ticks: 2454,
+        gold_ticks: 2191,
+        dev_platinum_ticks: 1931,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -7567,13 +7567,13 @@ pub static TRACK_APEX_PREDATOR: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 64,
-            y: 20,
+            y: 21,
             width: 1,
             height: 1,
         },
         CheckpointGate {
             x: 54,
-            y: 41,
+            y: 42,
             width: 1,
             height: 1,
         },
@@ -8492,10 +8492,10 @@ pub static TRACK_FROSTPEAK_SUMMIT: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2135,
-        silver_ticks: 1868,
-        gold_ticks: 1668,
-        dev_platinum_ticks: 1352,
+        bronze_ticks: 2143,
+        silver_ticks: 1875,
+        gold_ticks: 1674,
+        dev_platinum_ticks: 1370,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -8512,7 +8512,7 @@ pub static TRACK_FROSTPEAK_SUMMIT: TrackDef = TrackDef {
             height: 1,
         },
         CheckpointGate {
-            x: 54,
+            x: 53,
             y: 43,
             width: 1,
             height: 1,
@@ -8962,10 +8962,10 @@ pub static TRACK_GOLDEN_HORIZON: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 2019,
-        silver_ticks: 1766,
-        gold_ticks: 1577,
-        dev_platinum_ticks: 1293,
+        bronze_ticks: 2003,
+        silver_ticks: 1753,
+        gold_ticks: 1565,
+        dev_platinum_ticks: 1280,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -8989,7 +8989,7 @@ pub static TRACK_GOLDEN_HORIZON: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 49,
-            y: 44,
+            y: 45,
             width: 1,
             height: 1,
         },
@@ -11272,10 +11272,10 @@ pub static TRACK_TITAN_CIRCUIT: TrackDef = TrackDef {
         height: 1,
     },
     par_times: ParTimes {
-        bronze_ticks: 12846,
-        silver_ticks: 11240,
-        gold_ticks: 10036,
-        dev_platinum_ticks: 7933,
+        bronze_ticks: 12954,
+        silver_ticks: 11334,
+        gold_ticks: 10120,
+        dev_platinum_ticks: 7978,
     },
     checkpoint_count: 6,
     checkpoints: [
@@ -11311,7 +11311,7 @@ pub static TRACK_TITAN_CIRCUIT: TrackDef = TrackDef {
         },
         CheckpointGate {
             x: 22,
-            y: 77,
+            y: 76,
             width: 1,
             height: 1,
         },

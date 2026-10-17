@@ -37,7 +37,11 @@ fn test_unloaded_track_traps_car_in_barrier() {
     assert_eq!(unloaded.tile_at(tx, ty), TrackTile::Barrier);
     assert!(unloaded.tile_at(tx, ty).is_solid());
 
-    let mut car = VehicleState::new(unloaded.start_pos, unloaded.start_heading, CarTuning::default());
+    let mut car = VehicleState::new(
+        unloaded.start_pos,
+        unloaded.start_heading,
+        CarTuning::default(),
+    );
     let input = VehicleInput {
         throttle: Fixed::ONE,
         steer: Fixed::ZERO,
@@ -51,8 +55,16 @@ fn test_unloaded_track_traps_car_in_barrier() {
 
     // If all tiles are solid (unloaded track), max_drivable_x/y collapse to 0,
     // clamping the car into the corner wall at (0, 0) with zero speed.
-    assert_eq!(car.speed, Fixed::ZERO, "Car in an unloaded map must have 0 speed");
-    assert_eq!(car.position, Vec2::ZERO, "Car in an unloaded map is clamped to corner (0, 0)");
+    assert_eq!(
+        car.speed,
+        Fixed::ZERO,
+        "Car in an unloaded map must have 0 speed"
+    );
+    assert_eq!(
+        car.position,
+        Vec2::ZERO,
+        "Car in an unloaded map is clamped to corner (0, 0)"
+    );
 }
 
 #[test]
@@ -62,7 +74,12 @@ fn test_loaded_city_maps_start_on_road_and_can_move() {
 
     for city in cities {
         assert!(city.tiles.is_some(), "{}: tiles must be loaded", city.name);
-        assert_eq!(city.tile_grid().len(), 240 * 240, "{}: grid must be 240x240", city.name);
+        assert_eq!(
+            city.tile_grid().len(),
+            240 * 240,
+            "{}: grid must be 240x240",
+            city.name
+        );
 
         let tx = TrackDef::tile_x_of(city.start_pos.x);
         let ty = TrackDef::tile_y_of(city.start_pos.y);
@@ -83,8 +100,16 @@ fn test_loaded_city_maps_start_on_road_and_can_move() {
         );
 
         let surface = city.surface_at(tx, ty);
-        assert!(surface.traction() > Fixed::ZERO, "{}: start surface must have traction", city.name);
-        assert!(surface.max_speed_factor() > Fixed::ZERO, "{}: start surface must allow speed", city.name);
+        assert!(
+            surface.traction() > Fixed::ZERO,
+            "{}: start surface must have traction",
+            city.name
+        );
+        assert!(
+            surface.max_speed_factor() > Fixed::ZERO,
+            "{}: start surface must allow speed",
+            city.name
+        );
 
         let mut car = VehicleState::new(city.start_pos, city.start_heading, CarTuning::default());
         let input = VehicleInput {
@@ -105,8 +130,7 @@ fn test_loaded_city_maps_start_on_road_and_can_move() {
             car.speed
         );
         assert_ne!(
-            car.position,
-            city.start_pos,
+            car.position, city.start_pos,
             "{}: car position must advance after accelerating",
             city.name
         );
