@@ -42,10 +42,10 @@ pub const VBLANKS_PER_VIDEO_FRAME: u32 = 4;
 pub const MAX_CHUNKS: u16 = 8;
 /// Reassembly buffer per slot, in u32 words.
 pub const SLOT_WORDS: usize = MAX_CHUNKS as usize * strfmt::CHUNK_PAYLOAD_BYTES / 4;
-/// Frame slots: one decoding, one ready, two filling.
-pub const SLOTS: usize = 4;
-/// MDEC run-length buffer in u32 words.
-pub const RLE_WORDS: usize = 16 * 1024;
+/// Frame slots: double buffering (one decoding, one filling).
+pub const SLOTS: usize = 2;
+/// MDEC run-length buffer in u32 words (32 KB headroom).
+pub const RLE_WORDS: usize = 8 * 1024;
 /// Decoded pixels in one 16x240 column: 8 words per row.
 pub const COLUMN_WORDS: usize = 8 * VIDEO_H as usize;
 

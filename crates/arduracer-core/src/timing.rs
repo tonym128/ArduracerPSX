@@ -554,6 +554,12 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         self
     }
 
+    /// Whether the timer is currently on the final lap of the race.
+    #[inline]
+    pub fn is_final_lap(&self) -> bool {
+        self.target_laps > 1 && self.current_lap >= self.target_laps
+    }
+
     /// Advances the timer by one 60Hz tick.
     pub fn tick(&mut self) {
         if self.is_running && !self.is_finished {

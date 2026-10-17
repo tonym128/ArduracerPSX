@@ -1,7 +1,9 @@
 //! PlayStation 1 Audio Engine for Arduracer PSX.
 //!
-//! Controls hardware SPU voices (engine synthesizer, tire screech, crash
-//! impacts, turbo whoosh, checkpoint chimes) and Redbook CD-DA streaming music.
+//! Controls hardware SPU voices (multi-layer engine synthesizer, tire screech,
+//! multi-surface texturing, crash impacts, turbo whoosh, checkpoint chimes,
+//! jump landings, countdown beeps, start horn, vocoder announcer clips) and
+//! Redbook CD-DA / XA streaming music with dynamic hardware reverb (`NO1-037`..`NO1-041`).
 
 pub mod audio_policy;
 pub mod cdda;
@@ -14,10 +16,24 @@ pub mod xa;
 pub use audio_policy::{AudioPolicy, UiSound};
 pub use cdda::{CddaController, CddaState};
 pub use engine_audio::EngineAudio;
-pub use sfx::SfxPlayer;
-pub use spu::{init_spu_soundbank, play_intro_audio, stop_intro_audio};
+pub use sfx::{pan_stereo, AnnouncerClip, SfxPlayer};
+pub use spu::{init_spu_soundbank, play_intro_audio, stop_intro_audio, SpuSoundbankAddrs};
 
-use arduracer_core::{Fixed, SurfaceType, VehicleState};
+use arduracer_core::timing::StartSequence;
+use arduracer_core::{AiRacer, Fixed, SurfaceType, VehicleState};
+
+/// Returns the on-screen track title for Redbook CD-DA / XA music tracks (`NO1-041`).
+pub fn music_track_title(track: u8) -> &'static str {
+    match track {
+        2 => "RETRO ARCADE DRIFT",
+        3 => "ASPHALT OVERDRIVE",
+        4 => "NEON VELOCITY",
+        5 => "CYBERNETIC HIGHWAY",
+        6 => "APEX PREDATOR",
+        7 => "VICTORY LAP",
+        _ => "MANIA CIRCUIT BEAT",
+    }
+}
 
 /// Central audio subsystem managing hardware voices and disc audio streaming.
 pub struct AudioSystem {
@@ -27,9 +43,19 @@ pub struct AudioSystem {
     pub xa: crate::audio::xa::XaPlayer,
     /// The player's chosen disc-audio mode, as a raw saved byte.
     pub cd_audio: u8,
+    /// Master sound effects volume (0..=8, default 8).
+    pub sound_volume: u8,
+    /// Master music volume (0..=8, default 8).
+    pub music_volume: u8,
+    /// Whether music is smoothly ducked (-6 dB) during pause/results.
+    pub is_ducked: bool,
+    /// Display timer (60 Hz frames) for the on-screen track title toast banner.
+    pub toast_ticks: u16,
     /// The track `play_music` was last asked to play, so a mode change can
     /// restart the same track on the new source.
-    last_music_track: u8,
+    pub last_music_track: u8,
+    /// Whether the car is currently inside a tunnel/canyon (for SPU reverb).
+    pub is_tunnel: bool,
     pub policy: AudioPolicy,
 }
 
@@ -53,13 +79,42 @@ impl AudioSystem {
         self.cd_audio = mode;
     }
 
+    /// Sets the master sound effects volume (0..=8) and updates SPU main registers (`NO1-040`).
+    pub fn set_sound_volume(&mut self, vol: u8) {
+        self.sound_volume = vol.min(8);
+        let v = ((0x3FFF_u32 * self.sound_volume as u32) / 8) as i16;
+        psx_spu::set_main_volume(psx_spu::Volume(v), psx_spu::Volume(v));
+    }
+
+    /// Sets the master music volume (0..=8) and updates CD/XA mixer gain (`NO1-040`).
+    pub fn set_music_volume(&mut self, vol: u8) {
+        self.music_volume = vol.min(8);
+        self.apply_music_volume();
+    }
+
+    /// Smoothly ducks or restores music volume by -6 dB during pause/results (`NO1-040`).
+    pub fn duck_music(&mut self, duck: bool) {
+        if self.is_ducked != duck {
+            self.is_ducked = duck;
+            self.apply_music_volume();
+        }
+    }
+
+    /// Applies the effective CD/XA mixer volume to hardware (`NO1-040`).
+    pub fn apply_music_volume(&mut self) {
+        let eff = if self.is_ducked {
+            (self.music_volume >> 1).max(1)
+        } else {
+            self.music_volume
+        };
+        let v = ((0x7FFF_u32 * eff as u32) / 8) as i16;
+        self.cdda.set_volume(psx_spu::CdVolume(v));
+    }
+
     /// Starts the music for `track`, on whichever source the player chose.
-    ///
-    /// XA looks the file up by name; a disc mastered without one simply has no
-    /// music on that track, which is the honest outcome rather than a fallback
-    /// to CD-DA the player switched off.
     pub fn play_music(&mut self, track: u8, reader: &mut crate::cd_fs::DiscReader) {
         self.last_music_track = track;
+        self.toast_ticks = 150; // 2.5 seconds at 60 Hz
         if arduracer_core::save::CdAudioMode::from_saved(self.cd_audio)
             == arduracer_core::save::CdAudioMode::Xa
         {
@@ -79,22 +134,39 @@ impl AudioSystem {
                     crate::dbg::println(" not on disc");
                 }
             }
+            self.apply_music_volume();
             return;
         }
         self.cdda.play_track(track);
+        self.apply_music_volume();
+    }
+
+    /// Cycles to the next race music track (3..=6) and restarts playback (`NO1-041`).
+    pub fn next_music_track(&mut self, reader: &mut crate::cd_fs::DiscReader) {
+        let next = if self.last_music_track < 3 || self.last_music_track >= 6 {
+            3
+        } else {
+            self.last_music_track + 1
+        };
+        self.play_music(next, reader);
+    }
+
+    /// Returns the active track title.
+    pub fn current_music_title(&self) -> &'static str {
+        music_track_title(self.last_music_track)
+    }
+
+    /// Decrements the track title toast display timer.
+    pub fn tick_toast(&mut self) {
+        if self.toast_ticks > 0 {
+            self.toast_ticks -= 1;
+        }
     }
 
     /// Switches the music source without changing track, if music is on.
-    ///
-    /// Called when the player changes the setting mid-screen. Without it the
-    /// choice would only take effect on the next screen, which reads as the
-    /// setting being ignored.
     pub fn apply_music_mode(&mut self, reader: &mut crate::cd_fs::DiscReader) {
         use arduracer_core::save::CdAudioMode as Mode;
         let mode = Mode::from_saved(self.cd_audio);
-        // Stop whatever is playing before starting the other source, or the
-        // two would share the drive. Stopping here also silences playback
-        // immediately if the player switched the music off entirely.
         self.cdda.stop();
         crate::audio::xa::player().stop(reader);
         self.xa.stop(reader);
@@ -121,43 +193,49 @@ impl AudioSystem {
             }
             arduracer_core::save::CdAudioMode::Off => {}
         }
+        self.apply_music_volume();
     }
 
     /// Keeps the XA stream alive across a frame, resuming after a preemption.
-    ///
-    /// Cheap when nothing is wrong: one ownership check and nothing else. Called
-    /// once per frame from the render path, because the drive arbiter only acts
-    /// when something asks.
     pub fn service_music(&mut self, reader: &mut crate::cd_fs::DiscReader) {
         crate::audio::xa::player().service(reader);
     }
 
+    /// Configures hardware SPU reverb for tunnels, canyons, and stadiums (`NO1-038`).
+    pub fn update_environment(&mut self, is_tunnel: bool) {
+        if self.is_tunnel != is_tunnel {
+            self.is_tunnel = is_tunnel;
+            spu::configure_reverb(is_tunnel, if is_tunnel { 0x2C00 } else { 0 });
+        }
+    }
+
     pub fn new() -> Self {
-        init_spu_soundbank();
+        let addrs = init_spu_soundbank();
 
         let mut cdda = CddaController::new();
         cdda.init();
 
+        let mut sfx = SfxPlayer::new();
+        sfx.set_addrs(addrs);
+
         AudioSystem {
             engine: EngineAudio::new(),
-            sfx: SfxPlayer::new(),
+            sfx,
             cdda,
             xa: crate::audio::xa::XaPlayer::new(),
-            // CD-DA by default; the boot path sets this from the saved card.
             cd_audio: arduracer_core::save::CdAudioMode::default().as_u8(),
+            sound_volume: 8,
+            music_volume: 8,
+            is_ducked: false,
+            toast_ticks: 0,
             last_music_track: 0,
-            // Nothing is audible until a stage loads: the title screen and the
-            // intro play CD-DA only.
+            is_tunnel: false,
             policy: AudioPolicy::new(),
         }
     }
 
-    /// Ticks the audio subsystem once per 60Hz frame.
-    ///
-    /// Gated on the policy: when the race voices are disarmed (a menu, the
-    /// results screen, the pause veil) this silences them and returns without
-    /// touching the vehicle state, so no racing sound can leak out of a frame
-    /// that never should have been audible.
+    /// Ticks the audio subsystem once per 60Hz frame (`NO1-037`..`NO1-041`).
+    #[allow(clippy::too_many_arguments)]
     pub fn tick(
         &mut self,
         player: &VehicleState,
@@ -165,37 +243,54 @@ impl AudioSystem {
         surface: SurfaceType,
         hit_wall: bool,
         checkpoints_cleared: u8,
+        rivals: &[AiRacer],
+        start_seq: Option<&StartSequence>,
+        is_final_lap: bool,
+        screen_x: i16,
+        is_tunnel: bool,
     ) {
+        self.tick_toast();
+
         if !self.policy.racing_voices() {
             self.silence_race_voices();
             return;
         }
 
-        // 1. Dynamic engine synthesis
-        self.engine.update(player.engine_rpm, throttle);
+        // 1. Dynamic SPU Reverb (NO1-038)
+        self.update_environment(is_tunnel);
 
-        // 2. Sound effect state machine (tire squeal, curb, impacts, boost, chime)
-        self.sfx
-            .update(player, surface, hit_wall, checkpoints_cleared);
+        // 2. Multi-layer engine synthesis & rival spatial 3D audio (NO1-037, NO1-039)
+        self.engine.update(player, throttle, rivals);
+
+        // 3. Sound effect state machine (tire squeal, curb, multi-surface, impacts, boost, chime, jump, countdown, announcer)
+        self.sfx.update(
+            player,
+            surface,
+            hit_wall,
+            checkpoints_cleared,
+            start_seq,
+            is_final_lap,
+            screen_x,
+        );
     }
 
     /// Arms the engine synth and race SFX for a running stage.
     pub fn enter_race(&mut self) {
         self.policy.enter_race();
+        self.duck_music(false);
     }
 
     /// Applies the pause veil to the audio policy: pausing cuts the engine
-    /// immediately, unpausing re-arms it.
+    /// immediately and ducks music.
     pub fn set_paused(&mut self, paused: bool) {
         self.policy.set_paused(paused);
+        self.duck_music(paused);
         if paused {
             self.silence_race_voices();
         }
     }
 
     /// Cuts the engine synth and every race SFX voice.
-    ///
-    /// Idempotent, and safe to call on a state that was never audible.
     pub fn silence_race_voices(&mut self) {
         self.engine.silence();
         self.sfx.silence();
@@ -206,13 +301,13 @@ impl AudioSystem {
     pub fn leave_race(&mut self) {
         self.policy.silence_race_voices();
         self.silence_race_voices();
+        self.update_environment(false);
+        self.duck_music(true);
     }
 
     /// Feeds one frame of button state and plays the resulting UI cue, if any.
-    ///
-    /// Only ever plays the navigation blip -- never the engine or a race SFX.
-    /// Returns the cue so a test can assert on it.
     pub fn tick_ui(&mut self, buttons: u16) -> Option<UiSound> {
+        self.tick_toast();
         let cue = self.policy.ui_sound(buttons);
         if let Some(sound) = cue {
             self.sfx.play_ui(sound);

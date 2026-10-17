@@ -747,3 +747,21 @@ pub fn render_loading_screen(track_name: &str, author: &str, progress_pct: u8) {
         );
     }
 }
+
+/// Renders the on-screen music track title toast notification banner (`NO1-041`).
+pub fn render_music_toast(title: &str, toast_ticks: u16) {
+    if toast_ticks == 0 {
+        return;
+    }
+    let w = ((title.len() as u16 * 6) + 70).min(300);
+    let x = (160u16).saturating_sub(w / 2);
+    let y = 6u16;
+
+    // Translucent card with cyan bottom accent
+    gpu::draw_rect_flat(x as i16 - 1, y as i16 - 1, w + 2, 18, 12, 16, 24);
+    gpu::draw_rect_flat(x as i16, y as i16, w, 16, 20, 26, 38);
+    gpu::draw_rect_flat(x as i16, y as i16 + 15, w, 1, 0, 220, 255);
+
+    draw_text(x + 6, y + 4, "MUSIC:", (255, 220, 40), 1);
+    draw_text(x + 48, y + 4, title, (220, 235, 255), 1);
+}

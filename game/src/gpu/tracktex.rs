@@ -304,14 +304,13 @@ impl AsyncBlockJob {
 /// 1-slot unified RAM block holding the 1024x1024 compressed map (<= 500 KB).
 static mut RAM_BLOCKS: [RamBlock; RAM_CACHE_BLOCKS] = [RamBlock::new()];
 
-/// Maximum background staging sectors for compressed blocks during driving (58 sectors = 116 KB).
-pub const STAGING_SECTORS: usize = 58;
+/// Background staging sectors for compressed blocks (0 = direct streaming into resident RAM block).
+pub const STAGING_SECTORS: usize = 0;
 
 #[repr(align(4))]
 struct StagingData([u8; STAGING_SECTORS * 2048]);
 
-/// Background staging buffer for compressed blocks so the current resident block
-/// remains valid and decodable while the next block streams in.
+/// Background staging buffer for compressed blocks.
 static mut BLOCK_STAGING: StagingData = StagingData([0u8; STAGING_SECTORS * 2048]);
 
 /// VRAM LRU cache of decompressed 64x64 tiles.
@@ -1709,7 +1708,7 @@ fn start_async_block_load(
     }
 
     let sectors_to_read = (entry.byte_len as usize).div_ceil(2048);
-    let staging_available = sectors_to_read <= STAGING_SECTORS;
+    let staging_available = false;
 
     if !staging_available {
         // Fallback for massive blocks: invalidate RAM_BLOCKS[0] and active job directly
@@ -1769,7 +1768,7 @@ fn step_async_block_load(current_frame: u32) {
 
     let ram_slot = unsafe { &mut (*core::ptr::addr_of_mut!(RAM_BLOCKS))[job.slot_idx] };
     let reader = unsafe { &mut *core::ptr::addr_of_mut!(DISC_READER) };
-    let staging_available = job.sectors_total <= STAGING_SECTORS;
+    let staging_available = false;
 
     while job.sectors_read < job.sectors_total {
         let offset = job.sectors_read * 2048;

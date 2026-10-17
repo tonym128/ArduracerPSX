@@ -189,23 +189,23 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 6: SPU Audio, Multi-Layer Engine Synthesis, Spatial Mixing & Announcer (Items `NO1-037` – `NO1-041`)
 
-- [ ] **`NO1-037` — Rich Soundbank Upgrade & Multi-Voice SPU Allocation (`tools/audio_cook/wav2vag.py`, `game/src/audio/spu.rs`, `soundbank.rs`)**
+- [x] **`NO1-037` — Rich Soundbank Upgrade & Multi-Voice SPU Allocation (`tools/audio_cook/wav2vag.py`, `game/src/audio/spu.rs`, `soundbank.rs`)**
   - **Problem**: Only 8 of 24 SPU voices and 15.5 KB of 512 KB SPU RAM are used; all 6 SFX are basic sine/LFSR buzzes (`wav2vag.py:143-240`).
   - **Action**: Expand the SPU soundbank (up to ~180 KB of the 512 KB SPU RAM, still well within the 250 KB budget) and allocate all **24 SPU hardware voices**:
     - **Voices 0–2 (Player Multi-Layer Engine)**: Crossfade **Idle Thrum (`V0`)**, **Mid-Range Induction Growl (`V1`)**, and **High-RPM Redline Wail (`V2`)** with a **Turbo Blow-Off / Gear-Shift Pop (`V3`)** on automatic upshifts!
     - **Voices 4–8 (5 AI Rival Engines)**: Give each of the 5 AI rivals their own SPU voice playing distance-attenuated, **Doppler pitch-shifted, stereo-panned** engine loops as they pass the player!
     - **Voices 9–15 (Surface & Physics Loops)**: Dedicated samples for **Tire Screech (`V9`)**, **Sawtooth Kerb Brap (`V10`)**, **Gravel/Dirt Crunch (`V11`)**, **Sand/Grass Brush (`V12`)**, **Ice Scrape (`V13`)**, **Wall Scrape Sparks (`V14`)**, and **Slipstream Wind Whoosh (`V15`)**.
     - **Voices 16–23 (One-Shot Race Events, UI & Announcer)**: **3-2-1 Countdown Beeps + GO Horn (`V16`)**, **Checkpoint Split Chime (`V17`)**, **Reactor Boost Ignition (`V18`)**, **Jump Launch / Landing Thud (`V19`)**, **Heavy Crash Crunch (`V20`)**, **UI Move / Confirm / Back (`V21`)**, **Medal Fanfare (`V22`)**, and **Arcade Announcer Voice Clips (`V23`: *"THREE! TWO! ONE! GO!"*, *"CHECKPOINT!"*, *"FINAL LAP!"*, *"NEW RECORD!"*, *"PLATINUM MEDAL!"*)**.
-- [ ] **`NO1-038` — Hardware SPU Reverb for Tunnels, Canyons & Stadiums (`game/src/audio/spu.rs`, `main.rs`)**
+- [x] **`NO1-038` — Hardware SPU Reverb for Tunnels, Canyons & Stadiums (`game/src/audio/spu.rs`, `main.rs`)**
   - **Problem**: Hardware SPU Reverb is completely unconfigured (`spu.rs`).
   - **Action**: Configure the SPU Reverb work area at top of SPU RAM (`0x7C000..0x7FFFF`, Studio/Hall/Space Echo preset), enable `EON` reverb bits on engine, tire, and crash voices, and dynamically boost reverb wet depth (`vLOUT`/`vROUT`) when the player drives inside a `Tunnel` or canyon stage!
-- [ ] **`NO1-039` — Real-Time Stereo Panning & Doppler Pitch Shift (`game/src/audio/sfx.rs`, `engine_audio.rs`)**
+- [x] **`NO1-039` — Real-Time Stereo Panning & Doppler Pitch Shift (`game/src/audio/sfx.rs`, `engine_audio.rs`)**
   - **Problem**: Every `set_volume(vol, vol)` call in `game/src/audio/` is hardcoded mono center.
   - **Action**: Pan collisions, rival engines, off-center kerb rumbles, and checkpoint chimes across Left/Right channels based on screen-space X offset from the camera center (`pan = (screen_x - 160) / 160`).
-- [ ] **`NO1-040` — Master / SFX / Music Volume Sliders & Pause/Results Audio Ducking (`game/src/ui/settings.rs`, `audio/mod.rs`)**
+- [x] **`NO1-040` — Master / SFX / Music Volume Sliders & Pause/Results Audio Ducking (`game/src/ui/settings.rs`, `audio/mod.rs`)**
   - **Problem**: `SaveData` already stores `sound_volume: u8` and `music_volume: u8` (`0..=8`, `save.rs:163-164`), **but `SettingsScreen` (`ui/settings.rs`) doesn't expose them** and `spu::init` hardcodes `Volume::MAX`!
   - **Action**: Add `SFX VOLUME` and `MUSIC VOLUME` sliders in `SettingsScreen` & `PauseMenu`, scale SPU main volume and CD/XA mixer registers (`SPU_VOL_CD`), and smoothly duck music volume by `-6 dB` when paused or on the results screen.
-- [ ] **`NO1-041` — In-Race Music Track Selector & Dynamic Final-Lap Tempo/Intensity (`game/src/audio/cdda.rs`, `xa.rs`, `ui/pause.rs`)**
+- [x] **`NO1-041` — In-Race Music Track Selector & Dynamic Final-Lap Tempo/Intensity (`game/src/audio/cdda.rs`, `xa.rs`, `ui/pause.rs`)**
   - **Problem**: Music track is fixed per cup with no way to skip/select tracks in-game.
   - **Action**: Add a `BGP MUSIC TRACK` selector in `PauseMenu` / `SettingsScreen` (with on-screen Track Title toast banner `"♪ NOW PLAYING: ASPHALT OVERDRIVE"` at race start).
 

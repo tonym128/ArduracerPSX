@@ -240,15 +240,189 @@ def generate_ui_move_tone(sample_rate=22050, duration_sec=0.08):
         samples.append(int(max(-1.0, min(1.0, blip + overtone)) * env * 16000))
     return samples
 
+def generate_engine_high_tone(sample_rate=22050, duration_sec=0.1, base_hz=220.0):
+    """Generates high-RPM screamer harmonics with turbo whine."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    for i in range(num_samples):
+        t = i / sample_rate
+        val = 0.45 * math.sin(2 * math.pi * base_hz * t)
+        val += 0.35 * math.sin(2 * math.pi * base_hz * 2 * t)
+        val += 0.20 * math.sin(2 * math.pi * base_hz * 3 * t)
+        val += 0.15 * math.sin(2 * math.pi * base_hz * 4 * t)
+        whistle = math.sin(2 * math.pi * 2400.0 * t) * 0.12
+        val = max(-1.0, min(1.0, (val + whistle) * 1.5))
+        samples.append(int(val * 24000))
+    return samples
+
+def generate_blowoff_pop(sample_rate=22050, duration_sec=0.25):
+    """Turbo blow-off valve pneumatic sneeze followed by exhaust crackle."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    lfsr = 0x9876
+    for i in range(num_samples):
+        t = i / sample_rate
+        lfsr = ((lfsr >> 1) ^ (-(lfsr & 1) & 0xB400)) & 0xFFFF
+        noise = (lfsr / 32768.0) - 1.0
+        hiss = noise * math.exp(-18.0 * t) * 0.7
+        p1 = math.exp(-((t - 0.08) ** 2) / 0.0001) * math.sin(2 * math.pi * 180.0 * t)
+        p2 = math.exp(-((t - 0.15) ** 2) / 0.0001) * math.sin(2 * math.pi * 140.0 * t) * 0.8
+        val = max(-1.0, min(1.0, hiss + p1 + p2))
+        samples.append(int(val * 28000))
+    return samples
+
+def generate_surface_gravel(sample_rate=22050, duration_sec=0.25):
+    """Granular gravel / dirt / off-road tire churn loop."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    lfsr = 0x3344
+    for i in range(num_samples):
+        t = i / sample_rate
+        lfsr = ((lfsr >> 1) ^ (-(lfsr & 1) & 0xB400)) & 0xFFFF
+        noise = (lfsr / 32768.0) - 1.0
+        grit = math.sin(2 * math.pi * 450.0 * t) * 0.3
+        pop = 0.5 if (lfsr & 0x01FF) == 0 else 0.0
+        val = max(-1.0, min(1.0, (noise * 0.6 + grit + pop) * 0.9))
+        samples.append(int(val * 20000))
+    return samples
+
+def generate_surface_grass(sample_rate=22050, duration_sec=0.25):
+    """Soft grass / sand brushing sound loop."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    lfsr = 0x5566
+    smooth = 0.0
+    for i in range(num_samples):
+        t = i / sample_rate
+        lfsr = ((lfsr >> 1) ^ (-(lfsr & 1) & 0xB400)) & 0xFFFF
+        noise = (lfsr / 32768.0) - 1.0
+        smooth += (noise - smooth) * 0.2
+        mod = 0.7 + 0.3 * math.sin(2 * math.pi * 12.0 * t)
+        val = max(-1.0, min(1.0, smooth * mod))
+        samples.append(int(val * 18000))
+    return samples
+
+def generate_jump_landing(sample_rate=22050, duration_sec=0.20):
+    """Heavy low-frequency suspension bottom-out landing thump."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    for i in range(num_samples):
+        t = i / sample_rate
+        decay = math.exp(-15.0 * t)
+        freq = 110.0 - 65.0 * (t / duration_sec)
+        thump = math.sin(2 * math.pi * freq * t) * decay
+        sub = math.sin(2 * math.pi * (freq * 0.5) * t) * decay * 0.5
+        val = max(-1.0, min(1.0, thump + sub))
+        samples.append(int(val * 30000))
+    return samples
+
+def generate_countdown_beep(sample_rate=22050, duration_sec=0.12):
+    """Crisp high arcade 3-2-1 countdown beep."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    for i in range(num_samples):
+        t = i / sample_rate
+        env = math.sin(math.pi * (t / duration_sec)) ** 0.5
+        tone = math.sin(2 * math.pi * 980.0 * t)
+        val = tone * env
+        samples.append(int(val * 25000))
+    return samples
+
+def generate_go_horn(sample_rate=22050, duration_sec=0.35):
+    """Triumphant dual-tone brass GO! horn."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    for i in range(num_samples):
+        t = i / sample_rate
+        env = math.exp(-4.0 * t)
+        h1 = math.sin(2 * math.pi * 1470.0 * t)
+        h2 = math.sin(2 * math.pi * 1960.0 * t) * 0.7
+        val = max(-1.0, min(1.0, (h1 + h2) * env))
+        samples.append(int(val * 28000))
+    return samples
+
+def generate_medal_fanfare(sample_rate=22050, duration_sec=0.45):
+    """Rising 4-note arcade victory arpeggio fanfare."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    notes = [1046.5, 1318.5, 1568.0, 2093.0]
+    note_dur = duration_sec / 4.0
+    for i in range(num_samples):
+        t = i / sample_rate
+        n_idx = min(3, int(t / note_dur))
+        t_note = t - (n_idx * note_dur)
+        freq = notes[n_idx]
+        env = math.exp(-7.0 * t_note)
+        tone = math.sin(2 * math.pi * freq * t) + 0.3 * math.sin(2 * math.pi * freq * 2.0 * t)
+        val = max(-1.0, min(1.0, tone * env))
+        samples.append(int(val * 26000))
+    return samples
+
+def generate_announcer_clip(phrase, sample_rate=22050, duration_sec=0.35):
+    """Arcade vocoder synthesizer announcer voice clips."""
+    num_samples = int(sample_rate * duration_sec)
+    samples = []
+    if phrase == "CHECKPOINT":
+        for i in range(num_samples):
+            t = i / sample_rate
+            env = math.sin(math.pi * (t / duration_sec)) ** 0.5
+            part = 0 if t < (duration_sec * 0.5) else 1
+            f_pitch = 160.0 if part == 0 else 220.0
+            carrier = math.sin(2 * math.pi * f_pitch * t)
+            f1 = math.sin(2 * math.pi * (450.0 if part == 0 else 350.0) * t) * 0.6
+            f2 = math.sin(2 * math.pi * (1800.0 if part == 0 else 900.0) * t) * 0.4
+            val = max(-1.0, min(1.0, carrier * (f1 + f2) * env * 2.2))
+            samples.append(int(val * 26000))
+    elif phrase == "FINAL_LAP":
+        for i in range(num_samples):
+            t = i / sample_rate
+            env = math.exp(-3.5 * t)
+            carrier = math.sin(2 * math.pi * 185.0 * t)
+            f1 = math.sin(2 * math.pi * 500.0 * t) * 0.6
+            f2 = math.sin(2 * math.pi * 1400.0 * t) * 0.4
+            val = max(-1.0, min(1.0, carrier * (f1 + f2) * env * 2.4))
+            samples.append(int(val * 26000))
+    elif phrase == "RECORD":
+        for i in range(num_samples):
+            t = i / sample_rate
+            env = math.exp(-4.0 * t)
+            carrier = math.sin(2 * math.pi * (200.0 + 100.0 * t) * t)
+            f1 = math.sin(2 * math.pi * 600.0 * t) * 0.6
+            f2 = math.sin(2 * math.pi * 2100.0 * t) * 0.4
+            val = max(-1.0, min(1.0, carrier * (f1 + f2) * env * 2.4))
+            samples.append(int(val * 26000))
+    else:
+        for i in range(num_samples):
+            t = i / sample_rate
+            env = math.sin(math.pi * (t / duration_sec)) ** 0.3
+            carrier = math.sin(2 * math.pi * 175.0 * t)
+            f1 = math.sin(2 * math.pi * 500.0 * t) * 0.7
+            f2 = math.sin(2 * math.pi * 1100.0 * t) * 0.4
+            val = max(-1.0, min(1.0, carrier * (f1 + f2) * env * 2.5))
+            samples.append(int(val * 27000))
+    return samples
+
 def export_rust_soundbank(out_rs_path):
     """Encodes all standard sound effects and writes a Rust module."""
     sfx_defs = [
         ("ENGINE_LOOP", generate_engine_tone(22050, 0.1, 110.0), 22050, True),
+        ("ENGINE_HIGH", generate_engine_high_tone(22050, 0.1, 220.0), 22050, True),
+        ("BLOWOFF_POP", generate_blowoff_pop(22050, 0.25), 22050, False),
         ("TIRE_SCREECH", generate_skid_tone(22050, 0.25), 22050, True),
+        ("SURFACE_GRAVEL", generate_surface_gravel(22050, 0.25), 22050, True),
+        ("SURFACE_GRASS", generate_surface_grass(22050, 0.25), 22050, True),
         ("CRASH_IMPACT", generate_crash_tone(22050, 0.25), 22050, False),
         ("BOOST_WHOOSH", generate_boost_whoosh(22050, 0.35), 22050, False),
         ("CHECKPOINT_CHIME", generate_checkpoint_chime(22050, 0.2), 22050, False),
+        ("JUMP_LANDING", generate_jump_landing(22050, 0.20), 22050, False),
+        ("COUNTDOWN_BEEP", generate_countdown_beep(22050, 0.12), 22050, False),
+        ("GO_HORN", generate_go_horn(22050, 0.35), 22050, False),
+        ("MEDAL_FANFARE", generate_medal_fanfare(22050, 0.45), 22050, False),
         ("UI_MOVE", generate_ui_move_tone(22050, 0.08), 22050, False),
+        ("VOICE_CHECKPOINT", generate_announcer_clip("CHECKPOINT", 22050, 0.35), 22050, False),
+        ("VOICE_GO", generate_announcer_clip("GO", 22050, 0.35), 22050, False),
+        ("VOICE_FINAL_LAP", generate_announcer_clip("FINAL_LAP", 22050, 0.40), 22050, False),
+        ("VOICE_NEW_RECORD", generate_announcer_clip("RECORD", 22050, 0.40), 22050, False),
     ]
 
     with open(out_rs_path, "w") as f:

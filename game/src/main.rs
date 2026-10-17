@@ -412,6 +412,8 @@ impl ArduracerGame {
         // screen plays CD-DA regardless of what the player chose.
         let cd_audio = memcard.save_data.cd_audio;
         audio.set_cd_audio(cd_audio);
+        audio.set_sound_volume(memcard.save_data.sound_volume);
+        audio.set_music_volume(memcard.save_data.music_volume);
         audio.play_music(2, crate::gpu::tracktex::disc_reader());
         dbg::check_faults();
 
@@ -1367,6 +1369,12 @@ impl ArduracerGame {
                             &self.rivals,
                             &self.minimap_texture,
                         );
+                        if self.audio.toast_ticks > 0 {
+                            crate::gpu::hud_renderer::render_music_toast(
+                                self.audio.current_music_title(),
+                                self.audio.toast_ticks,
+                            );
+                        }
                     }
 
                     // j. In-game debug metrics and performance telemetry overlay
@@ -1571,6 +1579,10 @@ impl ArduracerGame {
             self.ghost.finish_lap(lap_ticks, is_record);
             if is_record {
                 self.ghost.save_to_card_block(&mut self.memcard.block);
+                self.audio
+                    .sfx
+                    .play_announcer(crate::audio::AnnouncerClip::NewRecord);
+                self.audio.sfx.play_medal();
             }
             self.ghost.start_lap();
 
@@ -1703,11 +1715,29 @@ impl ArduracerGame {
 
         let cleared = self.timer.checkpoints_cleared() as u8;
         let any_impact = hit_wall || contacts.player_hard_hit();
-        // Audio engine tick (engine RPM synth, tire screech, SFX)
+        let is_tunnel = matches!(
+            track.tile_at(
+                TrackDef::tile_x_of(self.player.position.x),
+                TrackDef::tile_y_of(self.player.position.y),
+            ),
+            arduracer_core::TrackTile::Tunnel
+        );
+        let screen_x = 160i16;
+        // Audio engine tick (engine RPM synth, rival 3D audio, tire screech, multi-surface, announcer)
         {
             let _s = prof::span(prof::AUDIO);
-            self.audio
-                .tick(&self.player, input.throttle, surface, any_impact, cleared);
+            self.audio.tick(
+                &self.player,
+                input.throttle,
+                surface,
+                any_impact,
+                cleared,
+                &self.rivals,
+                Some(&self.start),
+                self.timer.is_final_lap(),
+                screen_x,
+                is_tunnel,
+            );
             // Keep the XA music stream alive: resume it if a texture run
             // preempted it. Cheap when nothing is wrong.
             self.audio
