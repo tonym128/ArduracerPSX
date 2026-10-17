@@ -27,7 +27,7 @@ pub static TRACK_LONDON: TrackDef = TrackDef {
         x: Fixed::from_raw(11730944),
         y: Fixed::from_raw(19333120),
     },
-    start_heading: 3758, // Facing North-East down The Mall towards Admiralty Arch & Trafalgar
+    start_heading: 680, // Facing North-East down The Mall towards Admiralty Arch & Trafalgar
     start_gate: CheckpointGate {
         x: 89,
         y: 147,

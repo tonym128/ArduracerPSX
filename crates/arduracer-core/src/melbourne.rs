@@ -27,7 +27,7 @@ pub static TRACK_MELBOURNE: TrackDef = TrackDef {
         x: Fixed::from_raw(4011 * 4096),
         y: Fixed::from_raw(5679 * 4096),
     },
-    start_heading: 3072, // North along Lakeside Drive
+    start_heading: 3580, // North-West along Lakeside Drive
     start_gate: CheckpointGate {
         x: 125,
         y: 177,

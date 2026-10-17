@@ -2652,6 +2652,64 @@ mod minimap_load_order_tests {
     }
 }
 
+#[cfg(test)]
+mod city_level_grid_tests {
+    const LEVEL_GRID_SRC: &str = include_str!("../../../game/src/level_grid.rs");
+
+    const LEVEL_DIMS: [(u8, u8); 28] = [
+        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
+        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
+        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
+        (80, 80), (80, 80), (80, 80), (80, 80), (80, 80), (80, 80),
+        (160, 160),
+        (240, 240), (240, 240), (240, 240),
+    ];
+
+    const MAX_LEVEL_TILES: usize = 57_600;
+    const STAGE_SLACK: usize = 4096;
+    const GRID_BYTES: usize = MAX_LEVEL_TILES + STAGE_SLACK;
+
+    #[test]
+    fn level_grid_does_not_reject_unaligned_full_size_cities() {
+        // The check in level_grid::load must not compare (first + len) against
+        // MAX_LEVEL_TILES, because any non-zero sector offset (first > 0) causes
+        // a 240x240 city (len == 57600) to exceed 57600 before compaction,
+        // causing all 3 city maps to fail loading and trap the car in a wall.
+        assert!(
+            !LEVEL_GRID_SRC.contains("first + len > MAX_LEVEL_TILES"),
+            "level_grid.rs must not test `first + len > MAX_LEVEL_TILES`"
+        );
+        assert!(
+            LEVEL_GRID_SRC.contains("len > MAX_LEVEL_TILES"),
+            "level_grid.rs must test `len > MAX_LEVEL_TILES`"
+        );
+    }
+
+    #[test]
+    fn all_levels_including_cities_fit_disc_read_buffer() {
+        let mut offset = 0usize;
+        for (i, &(w, h)) in LEVEL_DIMS.iter().enumerate() {
+            let len = w as usize * h as usize;
+            assert!(len <= MAX_LEVEL_TILES, "Level {i} exceeds MAX_LEVEL_TILES");
+
+            let first = offset % 2048;
+            let count = (first + len).div_ceil(2048);
+            let bytes_to_read = count * 2048;
+
+            assert!(
+                bytes_to_read <= GRID_BYTES,
+                "Level {i} read ({bytes_to_read} bytes) overflows GRID_BYTES ({GRID_BYTES})"
+            );
+            assert!(
+                first + len <= bytes_to_read,
+                "Level {i} uncompacted slice extends past read count"
+            );
+
+            offset += len;
+        }
+    }
+}
+
 /// TASK-1215: the pause menu never appeared.
 ///
 /// The paused arm of the race loop `continue`d before reaching step 5 of the
