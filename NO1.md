@@ -213,18 +213,18 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 
 ### Phase 7: Controls, DualShock Haptics, neGcon & 2-Player Split-Screen (Items `NO1-042` – `NO1-045`)
 
-- [ ] **`NO1-042` — Expose `InputProfile` (`ClassicArcade`, `ModernTriggers`, `DualAnalog`) & Fix `R2` Conflict (`game/src/ui/settings.rs`, `pause.rs`, `main.rs`, `crates/arduracer-core/src/save.rs`)**
+- [x] **`NO1-042` — Expose `InputProfile` (`ClassicArcade`, `ModernTriggers`, `DualAnalog`) & Fix `R2` Conflict (`game/src/ui/settings.rs`, `pause.rs`, `main.rs`, `crates/arduracer-core/src/save.rs`)**
   - **Problem**: `ModernTriggers` and `DualAnalog` in `input/mapping.rs:11-39` are completely unreachable because `main.rs:404` hardcodes `ClassicArcade`, and `R2` is hardcoded to cycle debug metrics (`main.rs:1179`).
   - **Action**:
     1. Move the debug profiler toggle from `R2` to **`Select + R2`** (or `L3`) so `R2` is free for `ModernTriggers` throttle.
     2. Add `CONTROLS: CLASSIC / TRIGGERS / DUAL STICK` to `SettingsScreen` and `PauseMenu`, and persist the chosen `InputProfile` in `SaveData`.
-- [ ] **`NO1-043` — Left Analog Stick Menu Navigation & Hot-Plug Analog Re-Arm (`game/src/input/mod.rs`, `ui/*`)**
+- [x] **`NO1-043` — Left Analog Stick Menu Navigation & Hot-Plug Analog Re-Arm (`game/src/input/mod.rs`, `ui/*`)**
   - **Problem**: Menus only check digital D-Pad buttons (`PadButtons::UP/DOWN/LEFT/RIGHT`), ignoring the DualShock left stick, and `enable_analog_port1()` is only called once at boot.
   - **Action**: Synthesize edge-triggered menu navigation events when the left stick crosses `±64` with auto-repeat hysteresis, and re-enable DualShock analog mode if a controller hot-plugs.
-- [ ] **`NO1-044` — Namco neGcon (`0x23`) & Jogcon (`0xE3`) Controller Support (`psoxide/sdk/crates/psx-pad`, `game/src/input/pad.rs`)**
+- [x] **`NO1-044` — Namco neGcon (`0x23`) & Jogcon (`0xE3`) Controller Support (`psoxide/sdk/crates/psx-pad`, `game/src/input/pad.rs`)**
   - **Problem**: Only standard Digital (`0x41`) and DualShock (`0x73`/`0x53`) pads are decoded.
   - **Action**: Decode controller ID `0x23` (**Namco neGcon**: 8-bit twist axis for 1:1 precision steering + analog `I` throttle and analog `II`/`L` progressive braking) and `0xE3` (**Jogcon** steering dial)—the gold standard of PS1 arcade racers (*Ridge Racer Type 4*, *WipEout 3*)!
-- [ ] **`NO1-045` — 2-Player Head-to-Head Split-Screen Mode (`game/src/main.rs`, `gpu/camera.rs`, `input/mod.rs`, `ui/menu.rs`)**
+- [x] **`NO1-045` — 2-Player Head-to-Head Split-Screen Mode (`game/src/main.rs`, `gpu/camera.rs`, `input/mod.rs`, `ui/menu.rs`)**
   - **Problem**: Documented in `GAME.md §4.3` (`lines 135-139`), but completely unimplemented in `game/src/`.
   - **Action**: Poll Controller Port 2 (`psx_pad::poll_port2()`), add `"2P SPLIT SCREEN"` to `MainMenu`, and render dual horizontal viewports (`320×118` Top P1 + `320×118` Bottom P2 via hardware `GP0(E3h)`/`GP0(E4h)` drawing area clipping and `GP0(E5h)` drawing offset) so two players can battle head-to-head on one PlayStation!
 

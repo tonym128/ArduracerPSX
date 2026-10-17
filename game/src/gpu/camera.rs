@@ -114,6 +114,12 @@ pub struct Camera {
     /// Speed & boost FOV warp: pixels subtracted from the Mode 7 focal length
     /// (`0..=M7_FOV_BOOST_MAX`, `NO1-032`).
     pub fov_boost: i16,
+    /// Horizontal screen center in pixels (default 160).
+    pub center_x: i16,
+    /// Vertical screen center in pixels (default 120, 59 in split-screen).
+    pub center_y: i16,
+    /// Active viewport height in pixels (default 240, 118 in split-screen).
+    pub viewport_h: i16,
     /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
     hsin: i32,
     hcos: i32,
@@ -144,8 +150,25 @@ impl Camera {
             roll_bam: 0,
             pitch_px: 0,
             fov_boost: 0,
+            center_x: SCREEN_W / 2,
+            center_y: SCREEN_H / 2,
+            viewport_h: SCREEN_H,
             hsin: 0,
             hcos: FP_ONE,
+        }
+    }
+
+    /// Configures the camera for 2-Player Split-Screen horizontal viewports (`NO1-045`).
+    /// Viewport is 320×118 with center Y at 59.
+    pub fn set_split_viewport(&mut self, is_split: bool) {
+        if is_split {
+            self.center_x = 160;
+            self.center_y = 59;
+            self.viewport_h = 118;
+        } else {
+            self.center_x = 160;
+            self.center_y = 120;
+            self.viewport_h = 240;
         }
     }
 
@@ -292,9 +315,10 @@ impl Camera {
     pub fn project_cam(&self, right_q4: i32, z_q4: i32) -> (i16, i16) {
         let z = z_q4.max(M7_Z_NEAR << 4);
         let f = self.m7_focal();
-        let k16 = (M7_K * 16 / M7_FOCAL) * f;
-        let sy = self.m7_horizon() + k16 / z;
-        let sx = SCREEN_W as i32 / 2 + (right_q4 * f) / z;
+        let k16 = ((M7_K * 16 / M7_FOCAL) * f * self.viewport_h as i32) / (SCREEN_H as i32);
+        let horizon = (self.m7_horizon() * self.viewport_h as i32) / (SCREEN_H as i32);
+        let sy = horizon + k16 / z;
+        let sx = self.center_x as i32 + (right_q4 * f) / z;
         (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
     }
 
@@ -327,8 +351,8 @@ impl Camera {
         // Rounded *up*: the tile renderer uses this to choose which tiles to
         // draw, so under-covering would leave a gap of background at the screen
         // edge. One pixel of overdraw is the cheaper error.
-        let half_w = div_ceil((SCREEN_W as i32 / 2) * FP_ONE, z);
-        let half_h = div_ceil((SCREEN_H as i32 / 2) * FP_ONE, z);
+        let half_w = div_ceil((self.center_x as i32) * FP_ONE, z);
+        let half_h = div_ceil((self.center_y as i32) * FP_ONE, z);
         (half_w, half_h)
     }
 
@@ -337,13 +361,6 @@ impl Camera {
     /// This is the single projection for the whole game: cars, particles,
     /// skidmarks and the tile renderer all go through here (or through
     /// [`Camera::world_offset`]), so zoom cannot drift between layers.
-    ///
-    /// The `draw_y` offset this used to take has been removed. It was threaded
-    /// through fifteen call sites and discarded at every one of them:
-    /// double-buffering is handled by the deferred `FrameBuffer` swap, so there is
-    /// no vertical offset for a renderer to apply. Leaving the parameter in place
-    /// invited a future renderer to honour it and silently double-offset
-    /// everything (TASK-1216).
     pub fn world_to_screen(&self, world_pos: Vec2) -> (i16, i16) {
         if self.mode7 {
             let (right, z_q4) = self.view_rq4_zq4(world_pos);
@@ -356,8 +373,8 @@ impl Camera {
         // Saturating, not wrapping: `world_offset` clamps each axis to `i16`, so
         // a point far off-screen would overflow on the addition to screen centre.
         (
-            add_i16_saturating(SCREEN_W / 2, off.0),
-            add_i16_saturating(SCREEN_H / 2, off.1),
+            add_i16_saturating(self.center_x, off.0),
+            add_i16_saturating(self.center_y, off.1),
         )
     }
 

@@ -765,3 +765,59 @@ pub fn render_music_toast(title: &str, toast_ticks: u16) {
     draw_text(x + 6, y + 4, "MUSIC:", (255, 220, 40), 1);
     draw_text(x + 48, y + 4, title, (220, 235, 255), 1);
 }
+
+/// Renders a streamlined top-bar HUD overlay for 2-Player Split-Screen mode (`NO1-045`).
+pub fn render_split_hud(
+    player: &VehicleState,
+    timer: &LapTimer<16>,
+    player_num: u8,
+    badge_color: (u8, u8, u8),
+) {
+    // Top bar card
+    gpu::draw_rect_flat(6, 4, 308, 22, 14, 16, 24);
+    gpu::draw_rect_flat(7, 5, 306, 20, 22, 26, 36);
+
+    // Player Badge (e.g. "1P" or "2P")
+    gpu::draw_rect_flat(9, 7, 24, 16, badge_color.0, badge_color.1, badge_color.2);
+    let p_str = if player_num == 1 { "1P" } else { "2P" };
+    draw_text(13, 11, p_str, (255, 255, 255), 1);
+
+    // Lap counter: "LAP X/Y"
+    draw_text(38, 11, "LAP", (150, 165, 190), 1);
+    let cur_lap_char = b'0' + timer.current_lap.min(9);
+    let tot_lap_char = b'0' + timer.target_laps.min(9);
+    let lap_buf = [cur_lap_char, b'/', tot_lap_char];
+    blit(&lap_buf, 62, 11, (255, 220, 40), 1);
+
+    // Current Lap Time: "MM:SS.CC"
+    let mut time_buf = [b' '; 8];
+    format_time(&mut time_buf, timer.current_lap_ticks);
+    blit(&time_buf, 92, 11, (245, 245, 250), 1);
+
+    // Speedometer (MPH)
+    let speed_mph = ((player.speed.raw() * 145) / 14000).clamp(0, 199) as u16;
+    let mut speed_buf = [b' '; 7];
+    format_speed(&mut speed_buf, speed_mph);
+    blit(&speed_buf, 154, 11, (240, 240, 250), 1);
+
+    // Mini Tachometer & Nitro Bar
+    gpu::draw_rect_flat(218, 8, 90, 6, 14, 16, 24);
+    let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 88) / 7000;
+    let fill_w = rpm_ratio.clamp(0, 88) as u16;
+    let bar_col = if player.boost_ticks > 0 {
+        (0, 220, 255)
+    } else if player.engine_rpm > 5500 {
+        (255, 40, 40)
+    } else {
+        (40, 220, 70)
+    };
+    if fill_w > 0 {
+        gpu::draw_rect_flat(219, 9, fill_w, 4, bar_col.0, bar_col.1, bar_col.2);
+    }
+    gpu::draw_rect_flat(218, 16, 90, 4, 14, 16, 24);
+    let nitro_w = ((player.nitro_charge as i32 * 88) / NITRO_MAX_TICKS as i32).clamp(0, 88) as u16;
+    if nitro_w > 0 {
+        gpu::draw_rect_flat(219, 17, nitro_w, 2, 255, 150, 40);
+    }
+}
+

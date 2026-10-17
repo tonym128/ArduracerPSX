@@ -62,6 +62,7 @@ impl StateManager {
                 camera_view: 0,
                 cd_audio: 1,
                 debug_metrics: 0,
+                input_profile: 0,
             }),
             gp_setup: GrandPrixSetupScreen::new(false),
             track_select: TrackSelectScreen::new(),

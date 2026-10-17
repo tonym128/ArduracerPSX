@@ -104,54 +104,84 @@ impl ControllerDriver {
         // nitro on L1, which recovery now owns.
         let nitro = b.is_held(button::R1);
 
-        match self.profile {
-            InputProfile::ClassicArcade => {
-                if b.is_held(button::CROSS) {
-                    throttle = Fixed::ONE;
-                }
-                if b.is_held(button::SQUARE) {
-                    brake = Fixed::ONE;
-                }
-                if b.is_held(button::CIRCLE) {
-                    handbrake = true;
-                }
+        if pad.is_negcon() {
+            // Button I (Throttle, linear analog 0x00..0xFF)
+            let raw_throttle = pad.sticks.right_y as i32;
+            if raw_throttle > 10 {
+                throttle = Fixed::from_raw((raw_throttle * 4096 / 255).clamp(0, 4096));
+            } else if b.is_held(button::CROSS) {
+                throttle = Fixed::ONE;
             }
-            InputProfile::ModernTriggers => {
-                if b.is_held(button::R2) {
-                    throttle = Fixed::ONE;
-                }
-                if b.is_held(button::L2) {
-                    brake = Fixed::ONE;
-                }
-                if b.is_held(button::SQUARE) {
-                    handbrake = true;
-                }
+            // Button II (Brake, linear analog 0x00..0xFF) and Button L (Brake lever 0x00..0xFF)
+            let raw_brake = (pad.sticks.left_x as i32).max(pad.sticks.left_y as i32);
+            if raw_brake > 10 {
+                brake = Fixed::from_raw((raw_brake * 4096 / 255).clamp(0, 4096));
+            } else if b.is_held(button::SQUARE) {
+                brake = Fixed::ONE;
             }
-            InputProfile::DualAnalog => {
-                if self.is_analog_mode {
-                    // Right stick Y axis (0 = full up / throttle, 255 = full down / brake)
-                    let ry = pad.sticks.right_y as i16 - STICK_CENTER as i16;
-                    if ry < -STEERING_DEADZONE {
-                        let mag = ((-ry - STEERING_DEADZONE) as i32 * 4096)
-                            / (127 - STEERING_DEADZONE as i32);
-                        throttle = Fixed::from_raw(mag.clamp(0, 4096));
-                    } else if ry > STEERING_DEADZONE {
-                        let mag = ((ry - STEERING_DEADZONE) as i32 * 4096)
-                            / (127 - STEERING_DEADZONE as i32);
-                        brake = Fixed::from_raw(mag.clamp(0, 4096));
-                    }
-                } else {
+            if b.is_held(button::CIRCLE) {
+                handbrake = true;
+            }
+        } else if pad.is_jogcon() {
+            if b.is_held(button::CROSS) {
+                throttle = Fixed::ONE;
+            }
+            if b.is_held(button::SQUARE) {
+                brake = Fixed::ONE;
+            }
+            if b.is_held(button::CIRCLE) {
+                handbrake = true;
+            }
+        } else {
+            match self.profile {
+                InputProfile::ClassicArcade => {
                     if b.is_held(button::CROSS) {
                         throttle = Fixed::ONE;
                     }
                     if b.is_held(button::SQUARE) {
                         brake = Fixed::ONE;
                     }
+                    if b.is_held(button::CIRCLE) {
+                        handbrake = true;
+                    }
                 }
-                // R1 is nitro everywhere, so the dual-analog handbrake moves to
-                // L2 -- which that layout no longer uses for recovery.
-                if b.is_held(button::L2) {
-                    handbrake = true;
+                InputProfile::ModernTriggers => {
+                    if b.is_held(button::R2) {
+                        throttle = Fixed::ONE;
+                    }
+                    if b.is_held(button::L2) {
+                        brake = Fixed::ONE;
+                    }
+                    if b.is_held(button::SQUARE) {
+                        handbrake = true;
+                    }
+                }
+                InputProfile::DualAnalog => {
+                    if self.is_analog_mode {
+                        // Right stick Y axis (0 = full up / throttle, 255 = full down / brake)
+                        let ry = pad.sticks.right_y as i16 - STICK_CENTER as i16;
+                        if ry < -STEERING_DEADZONE {
+                            let mag = ((-ry - STEERING_DEADZONE) as i32 * 4096)
+                                / (127 - STEERING_DEADZONE as i32);
+                            throttle = Fixed::from_raw(mag.clamp(0, 4096));
+                        } else if ry > STEERING_DEADZONE {
+                            let mag = ((ry - STEERING_DEADZONE) as i32 * 4096)
+                                / (127 - STEERING_DEADZONE as i32);
+                            brake = Fixed::from_raw(mag.clamp(0, 4096));
+                        }
+                    } else {
+                        if b.is_held(button::CROSS) {
+                            throttle = Fixed::ONE;
+                        }
+                        if b.is_held(button::SQUARE) {
+                            brake = Fixed::ONE;
+                        }
+                    }
+                    // R1 is nitro everywhere, so the dual-analog handbrake moves to
+                    // L2 -- which that layout no longer uses for recovery.
+                    if b.is_held(button::L2) {
+                        handbrake = true;
+                    }
                 }
             }
         }
@@ -169,6 +199,35 @@ impl ControllerDriver {
 
     /// Computes steering with analog priority and progressive digital smoothing fallback.
     fn compute_steering(&mut self, pad: &psx_pad::PadState) -> Fixed {
+        if pad.is_negcon() {
+            // neGcon twist axis: 0x00 = full left lock, 0x80 = center, 0xFF = full right lock.
+            let twist = pad.sticks.right_x as i16 - STICK_CENTER as i16;
+            const NEGCON_DEADZONE: i16 = 4;
+            if twist.abs() > NEGCON_DEADZONE {
+                let sign = if twist > 0 { 1 } else { -1 };
+                let mag = (twist.abs() - NEGCON_DEADZONE) as i32;
+                let max_range = (127 - NEGCON_DEADZONE) as i32;
+                // Direct 1:1 analogue steering with linear razor precision
+                let raw_steer = ((mag * 4096) / max_range) * sign;
+                return Fixed::from_raw(raw_steer.clamp(-4096, 4096));
+            }
+            return Fixed::ZERO;
+        }
+
+        if pad.is_jogcon() {
+            // Jogcon dial position
+            let dial = pad.sticks.right_x as i16 - STICK_CENTER as i16;
+            const JOGCON_DEADZONE: i16 = 6;
+            if dial.abs() > JOGCON_DEADZONE {
+                let sign = if dial > 0 { 1 } else { -1 };
+                let mag = (dial.abs() - JOGCON_DEADZONE) as i32;
+                let max_range = (127 - JOGCON_DEADZONE) as i32;
+                let raw_steer = ((mag * 4096) / max_range) * sign;
+                return Fixed::from_raw(raw_steer.clamp(-4096, 4096));
+            }
+            return Fixed::ZERO;
+        }
+
         if self.is_analog_mode {
             let lx = pad.sticks.left_x as i16 - STICK_CENTER as i16;
             if lx.abs() > STEERING_DEADZONE {
@@ -221,5 +280,111 @@ impl ControllerDriver {
         }
 
         Fixed::from_raw(self.dpad_steer_acc)
+    }
+}
+
+/// Synthesizes D-pad menu navigation buttons from the left analog stick
+/// with auto-repeat hysteresis (`NO1-043`).
+#[derive(Copy, Clone, Debug, Default)]
+pub struct MenuNavSynthesizer {
+    pub repeat_timer: u8,
+    pub active_dir: u8, // 0 = none, 1 = up, 2 = down, 3 = left, 4 = right
+}
+
+impl MenuNavSynthesizer {
+    pub const fn new() -> Self {
+        Self {
+            repeat_timer: 0,
+            active_dir: 0,
+        }
+    }
+
+    /// Augments `pad.buttons` with synthesized directional pulses from the left analog stick.
+    pub fn update(&mut self, pad: &psx_pad::PadState) -> psx_pad::PadState {
+        let mut out = *pad;
+        if !pad.mode.has_sticks() {
+            self.active_dir = 0;
+            self.repeat_timer = 0;
+            return out;
+        }
+
+        let lx = pad.sticks.left_x as i16 - STICK_CENTER as i16;
+        let ly = pad.sticks.left_y as i16 - STICK_CENTER as i16;
+
+        const TRIGGER_THRESH: i16 = 64;
+        const RELEASE_THRESH: i16 = 48;
+        const INITIAL_REPEAT_DELAY: u8 = 20;
+        const REPEAT_CADENCE: u8 = 8;
+
+        // Determine candidate direction based on dominant deflection axis
+        let candidate = if lx.abs() > ly.abs() {
+            if lx > TRIGGER_THRESH {
+                4 // Right
+            } else if lx < -TRIGGER_THRESH {
+                3 // Left
+            } else {
+                0
+            }
+        } else {
+            if ly > TRIGGER_THRESH {
+                2 // Down
+            } else if ly < -TRIGGER_THRESH {
+                1 // Up
+            } else {
+                0
+            }
+        };
+
+        // Hysteresis release check
+        if self.active_dir != 0 {
+            let released = match self.active_dir {
+                1 => ly > -RELEASE_THRESH,
+                2 => ly < RELEASE_THRESH,
+                3 => lx > -RELEASE_THRESH,
+                4 => lx < RELEASE_THRESH,
+                _ => true,
+            };
+            if released && candidate == 0 {
+                self.active_dir = 0;
+                self.repeat_timer = 0;
+            }
+        }
+
+        let mut pulse = 0u16;
+
+        if candidate != 0 {
+            if self.active_dir != candidate {
+                // Fresh deflection in a new direction
+                self.active_dir = candidate;
+                self.repeat_timer = INITIAL_REPEAT_DELAY;
+                pulse = match candidate {
+                    1 => psx_pad::button::UP,
+                    2 => psx_pad::button::DOWN,
+                    3 => psx_pad::button::LEFT,
+                    4 => psx_pad::button::RIGHT,
+                    _ => 0,
+                };
+            } else {
+                // Held in the same direction
+                if self.repeat_timer == 0 {
+                    self.repeat_timer = REPEAT_CADENCE;
+                    pulse = match candidate {
+                        1 => psx_pad::button::UP,
+                        2 => psx_pad::button::DOWN,
+                        3 => psx_pad::button::LEFT,
+                        4 => psx_pad::button::RIGHT,
+                        _ => 0,
+                    };
+                } else {
+                    self.repeat_timer -= 1;
+                }
+            }
+        }
+
+        if pulse != 0 {
+            out.buttons = psx_pad::ButtonState::from_bits(out.buttons.bits() | pulse);
+        }
+
+        out
     }
 }

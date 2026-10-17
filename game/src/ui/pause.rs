@@ -50,13 +50,13 @@ impl PauseMenu {
 
     /// Renders the dimmed pause panel.
     pub fn render(&self) {
-        // Panel grown to hold eight rows plus the footer hint.
-        gpu::draw_rect_flat(60, 32, 200, 178, 8, 10, 14);
-        gpu::draw_rect_flat(62, 34, 196, 174, 16, 20, 30);
-        gpu::draw_rect_flat(64, 36, 192, 170, 26, 30, 42);
-        gpu::draw_rect_flat(64, 36, 192, 2, 220, 40, 60);
+        // Panel grown to hold nine rows plus the footer hint.
+        gpu::draw_rect_flat(60, 28, 200, 186, 8, 10, 14);
+        gpu::draw_rect_flat(62, 30, 196, 182, 16, 20, 30);
+        gpu::draw_rect_flat(64, 32, 192, 178, 26, 30, 42);
+        gpu::draw_rect_flat(64, 32, 192, 2, 220, 40, 60);
 
-        draw_text(102, 44, "PAUSED", (255, 220, 0), 2);
+        draw_text(102, 38, "PAUSED", (255, 220, 0), 2);
 
         // The settings rows carry their value inline between < and >; the
         // action rows are plain labels. Values come from the menu's
@@ -67,7 +67,7 @@ impl PauseMenu {
             1 => "OVERHEAD",
             _ => "ROTATING",
         };
-        let rows: [(&str, Option<&str>); 8] = [
+        let rows: [(&str, Option<&str>); 9] = [
             ("RESUME", None),
             ("RESTART RACE", None),
             ("TEXTURE", Some(fmt.label())),
@@ -83,11 +83,17 @@ impl PauseMenu {
                     self.values().debug_metrics,
                 )),
             ),
+            (
+                "CONTROLS",
+                Some(crate::ui::settings::controls_label(
+                    self.values().input_profile,
+                )),
+            ),
             ("QUIT TO MENU", None),
         ];
         for (idx, (label, value)) in rows.iter().enumerate() {
-            // 15 px vertical spacing so eight rows sit cleanly inside the frame.
-            let y = 68 + (idx as u16) * 15;
+            // 14 px vertical spacing so nine rows sit cleanly inside the frame.
+            let y = 60 + (idx as u16) * 14;
             let selected = (idx as u8) == self.selected_idx;
             let color = if selected {
                 (255, 255, 255)
@@ -110,7 +116,7 @@ impl PauseMenu {
 
         draw_text(
             70,
-            194,
+            192,
             "L/R CHANGE   CROSS SELECT   START RESUME",
             (110, 130, 155),
             1,

@@ -148,6 +148,41 @@ impl CdAudioMode {
     }
 }
 
+/// Controller button layout profile.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum InputProfile {
+    /// Layout A (Classic Arcade): Cross throttle, Square brake, Circle handbrake.
+    #[default]
+    ClassicArcade = 0,
+    /// Layout B (Modern GT / Triggers): R2 throttle, L2 brake, Square handbrake.
+    ModernTriggers = 1,
+    /// Layout C (Dual Analog Pro): Right stick Y throttle/brake, Left stick steering.
+    DualAnalog = 2,
+}
+
+impl InputProfile {
+    pub const fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::ModernTriggers,
+            2 => Self::DualAnalog,
+            _ => Self::ClassicArcade,
+        }
+    }
+
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::ClassicArcade => "CLASSIC",
+            Self::ModernTriggers => "TRIGGERS",
+            Self::DualAnalog => "DUAL STICK",
+        }
+    }
+}
+
 /// 1-block PSX Save Data struct.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SaveData {
@@ -162,7 +197,8 @@ pub struct SaveData {
     pub champ_cup: u8,
     pub champ_stage: u8,
     pub champ_difficulty: u8,
-    pub _reserved: [u8; 3],
+    pub input_profile: u8,
+    pub _reserved: [u8; 2],
     pub best_lap_ticks: [u32; TOTAL_TRACKS],
     pub medals_earned: [u8; TOTAL_TRACKS],
     pub tuning_slots: [CarTuning; TOTAL_TUNING_SLOTS],
@@ -194,7 +230,8 @@ impl Default for SaveData {
             champ_cup: 0,
             champ_stage: 0,
             champ_difficulty: 0,
-            _reserved: [0; 3],
+            input_profile: 0,
+            _reserved: [0; 2],
             best_lap_ticks: [NO_BEST_LAP; TOTAL_TRACKS],
             medals_earned: [0; TOTAL_TRACKS],
             tuning_slots: [CarTuning::default(); TOTAL_TUNING_SLOTS],
@@ -216,6 +253,16 @@ impl SaveData {
         CdAudioMode::from_saved(self.cd_audio)
     }
 
+    /// Decoded controller input profile.
+    pub const fn input_profile(&self) -> InputProfile {
+        InputProfile::from_u8(self.input_profile)
+    }
+
+    /// Sets the controller input profile.
+    pub fn set_input_profile(&mut self, profile: InputProfile) {
+        self.input_profile = profile.as_u8();
+    }
+
     /// Serialises every field into `out` in the documented byte order.
     pub fn write_payload(&self, out: &mut [u8]) {
         let mut o = 0;
@@ -232,7 +279,8 @@ impl SaveData {
         out[o + 6] = self.champ_cup;
         out[o + 7] = self.champ_stage;
         out[o + 8] = self.champ_difficulty;
-        out[o + 9..o + 12].copy_from_slice(&self._reserved);
+        out[o + 9] = self.input_profile;
+        out[o + 10..o + 12].copy_from_slice(&self._reserved);
         o += 12;
         for ticks in self.best_lap_ticks.iter() {
             out[o..o + 4].copy_from_slice(&ticks.to_le_bytes());
@@ -286,8 +334,9 @@ impl SaveData {
         let champ_cup = bytes[o + 6];
         let champ_stage = bytes[o + 7];
         let champ_difficulty = bytes[o + 8];
-        let mut reserved = [0u8; 3];
-        reserved.copy_from_slice(&bytes[o + 9..o + 12]);
+        let input_profile = bytes[o + 9];
+        let mut reserved = [0u8; 2];
+        reserved.copy_from_slice(&bytes[o + 10..o + 12]);
         o += 12;
 
         debug_assert_eq!(o, OFF_BEST_LAPS);
@@ -344,6 +393,7 @@ impl SaveData {
             champ_cup,
             champ_stage,
             champ_difficulty,
+            input_profile,
             _reserved: reserved,
             champ_points,
             champ_grid,
@@ -380,6 +430,9 @@ impl SaveData {
         }
         if self.texture_format > 6 {
             self.texture_format = 0;
+        }
+        if self.input_profile > 2 {
+            self.input_profile = 0;
         }
         self.framerate = u8::from(self.framerate != 0);
         self.cd_audio = CdAudioMode::from_saved(self.cd_audio).as_u8();
@@ -430,6 +483,7 @@ impl SaveData {
             && self.sound_volume <= MAX_VOLUME
             && self.music_volume <= MAX_VOLUME
             && self.rumble_enabled <= 1
+            && self.input_profile <= 2
             && self.framerate <= 1
             && self.cd_audio <= CdAudioMode::MAX.as_u8()
             && self.texture_format <= 6

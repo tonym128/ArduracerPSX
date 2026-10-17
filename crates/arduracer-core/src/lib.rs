@@ -68,7 +68,7 @@ pub use math::{cos, sin, Fixed, Vec2, ANGLE_180, ANGLE_360, ANGLE_45, ANGLE_90, 
 pub use melbourne::TRACK_MELBOURNE;
 
 pub use route::{Route, DEFAULT_SAMPLES_PER_SPAN, MAX_ROUTE_SAMPLES};
-pub use save::{SaveData, SAVE_HEADER_MAGIC, SAVE_VERSION, TOTAL_TRACKS};
+pub use save::{InputProfile, SaveData, SAVE_HEADER_MAGIC, SAVE_VERSION, TOTAL_TRACKS};
 pub use surface::SurfaceType;
 pub use timing::{
     CheckpointGate, LapTimer, LaunchOutcome, Medal, ParTimes, StartPhase, StartSequence,

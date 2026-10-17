@@ -42,6 +42,8 @@ pub struct SettingsValues {
     pub cd_audio: u8,
     /// 0 = Off, 1 = Simple FPS, 2 = Simple Graphing FPS, 3 = All Metrics.
     pub debug_metrics: u8,
+    /// 0 = Classic Arcade, 1 = Modern Triggers, 2 = Dual Stick.
+    pub input_profile: u8,
 }
 
 /// What the player chose from the pause menu.
@@ -103,8 +105,9 @@ const ITEM_FRAMERATE: u8 = 3;
 const ITEM_VIEW: u8 = 4;
 const ITEM_CD_AUDIO: u8 = 5;
 const ITEM_METRICS: u8 = 6;
-const ITEM_QUIT: u8 = 7;
-const ITEM_COUNT: u8 = 8;
+const ITEM_CONTROLS: u8 = 7;
+const ITEM_QUIT: u8 = 8;
+const ITEM_COUNT: u8 = 9;
 
 /// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
 pub const MAX_TEXTURE_FORMAT: u8 = 6;
@@ -136,6 +139,7 @@ impl PauseMenu {
                 camera_view: 0,
                 cd_audio: 1,
                 debug_metrics: 0,
+                input_profile: 0,
             },
             prev: PauseInput {
                 start: false,
@@ -172,6 +176,7 @@ impl PauseMenu {
             ITEM_VIEW => (self.values.camera_view as i32, 3),
             ITEM_CD_AUDIO => (self.values.cd_audio as i32, 3),
             ITEM_METRICS => (self.values.debug_metrics as i32, 4),
+            ITEM_CONTROLS => (self.values.input_profile as i32, 3),
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
@@ -181,6 +186,7 @@ impl PauseMenu {
             ITEM_VIEW => self.values.camera_view = next,
             ITEM_CD_AUDIO => self.values.cd_audio = next,
             ITEM_METRICS => self.values.debug_metrics = next,
+            ITEM_CONTROLS => self.values.input_profile = next,
             _ => return false,
         }
         next as i32 != cur

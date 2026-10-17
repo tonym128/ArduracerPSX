@@ -14,9 +14,10 @@ pub enum MenuItem {
     ManiaPrix = 2,
     ManiaTrials = 3,
     CityFreeDrive = 4,
-    TuningGarage = 5,
-    Records = 6,
-    Settings = 7,
+    SplitScreen2P = 5,
+    TuningGarage = 6,
+    Records = 7,
+    Settings = 8,
 }
 
 pub struct MainMenu {
@@ -64,10 +65,10 @@ impl MainMenu {
             if self.selected_idx > 0 {
                 self.selected_idx -= 1;
             } else {
-                self.selected_idx = 7;
+                self.selected_idx = 8;
             }
         } else if down && !self.prev_down {
-            if self.selected_idx < 7 {
+            if self.selected_idx < 8 {
                 self.selected_idx += 1;
             } else {
                 self.selected_idx = 0;
@@ -88,9 +89,10 @@ impl MainMenu {
                 2 => Some(MenuItem::ManiaPrix),
                 3 => Some(MenuItem::ManiaTrials),
                 4 => Some(MenuItem::CityFreeDrive),
-                5 => Some(MenuItem::TuningGarage),
-                6 => Some(MenuItem::Records),
-                7 => Some(MenuItem::Settings),
+                5 => Some(MenuItem::SplitScreen2P),
+                6 => Some(MenuItem::TuningGarage),
+                7 => Some(MenuItem::Records),
+                8 => Some(MenuItem::Settings),
                 _ => None,
             }
         } else {
@@ -101,13 +103,13 @@ impl MainMenu {
     /// Renders the main menu screen.
     pub fn render(&self) {
         // Outer border & shadow
-        gpu::draw_rect_flat(18, 12, 284, 216, 12, 14, 20);
-        gpu::draw_rect_flat(20, 14, 280, 212, 24, 28, 38);
-        gpu::draw_rect_flat(22, 16, 276, 208, 32, 36, 48);
+        gpu::draw_rect_flat(18, 10, 284, 220, 12, 14, 20);
+        gpu::draw_rect_flat(20, 12, 280, 216, 24, 28, 38);
+        gpu::draw_rect_flat(22, 14, 276, 212, 32, 36, 48);
 
         // Header Title
-        draw_text(110, 20, "MAIN MENU", (255, 225, 30), 2);
-        gpu::draw_rect_flat(40, 36, 240, 2, 220, 40, 60);
+        draw_text(110, 18, "MAIN MENU", (255, 225, 30), 2);
+        gpu::draw_rect_flat(40, 34, 240, 2, 220, 40, 60);
 
         let items = [
             "1. GRAND PRIX",
@@ -115,13 +117,14 @@ impl MainMenu {
             "3. MANIA PRIX",
             "4. MANIA TRIALS",
             "5. FREE ROAM",
-            "6. TUNING GARAGE",
-            "7. STAGE CHALLENGES",
-            "8. SETTINGS",
+            "6. 2P SPLIT SCREEN",
+            "7. TUNING GARAGE",
+            "8. STAGE CHALLENGES",
+            "9. SETTINGS",
         ];
 
         for (idx, label) in items.iter().enumerate() {
-            let y = 42 + (idx as i16) * 20;
+            let y = 39 + (idx as i16) * 18;
             let is_sel = (idx as u8) == self.selected_idx;
 
             if is_sel {
@@ -132,12 +135,12 @@ impl MainMenu {
                 } else {
                     (180, 25, 45) // Deep crimson
                 };
-                gpu::draw_rect_flat(44, y - 2, 232, 18, bg_color.0, bg_color.1, bg_color.2);
+                gpu::draw_rect_flat(44, y - 2, 232, 16, bg_color.0, bg_color.1, bg_color.2);
                 draw_text(52, y as u16, label, (255, 255, 255), 1);
                 // Pulsing cursor arrows
                 draw_text(252, y as u16, "<<", (255, 235, 40), 1);
             } else {
-                gpu::draw_rect_flat(44, y - 2, 232, 18, 40, 45, 58);
+                gpu::draw_rect_flat(44, y - 2, 232, 16, 40, 45, 58);
                 draw_text(52, y as u16, label, (180, 190, 205), 1);
             }
         }
@@ -145,7 +148,7 @@ impl MainMenu {
         // Footer instructions
         draw_text(
             52,
-            205,
+            206,
             "D-PAD: SELECT   CROSS: CONFIRM",
             (140, 155, 175),
             1,

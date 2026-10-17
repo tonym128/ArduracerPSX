@@ -20,6 +20,14 @@ pub fn values_to_state(v: SettingsValues) -> (TextureFormat, Framerate) {
     )
 }
 
+pub fn controls_label(profile: u8) -> &'static str {
+    match profile {
+        1 => "TRIGGERS",
+        2 => "DUAL STICK",
+        _ => "CLASSIC",
+    }
+}
+
 /// Maps the enums back into the persisted integers.
 pub fn state_to_values(
     f: TextureFormat,
@@ -27,6 +35,7 @@ pub fn state_to_values(
     camera_view: u8,
     cd_audio: u8,
     debug_metrics: u8,
+    input_profile: u8,
 ) -> SettingsValues {
     SettingsValues {
         texture_format: f.to_saved(),
@@ -34,6 +43,7 @@ pub fn state_to_values(
         camera_view,
         cd_audio,
         debug_metrics,
+        input_profile,
     }
 }
 
@@ -78,10 +88,10 @@ impl SettingsScreen {
         let (fmt, fps) = values_to_state(self.values());
         let sel = self.selected_row();
 
-        gpu::draw_rect_flat(60, 38, 200, 160, 8, 10, 14);
-        gpu::draw_rect_flat(62, 40, 196, 156, 16, 20, 30);
-        gpu::draw_rect_flat(64, 42, 192, 2, 220, 40, 60);
-        draw_text(112, 46, "GRAPHICS", (200, 210, 235), 1);
+        gpu::draw_rect_flat(60, 36, 200, 164, 8, 10, 14);
+        gpu::draw_rect_flat(62, 38, 196, 160, 16, 20, 30);
+        gpu::draw_rect_flat(64, 40, 192, 2, 220, 40, 60);
+        draw_text(112, 44, "SETTINGS", (200, 210, 235), 1);
 
         let view_label = match self.values().camera_view {
             0 => "BEHIND",
@@ -89,17 +99,22 @@ impl SettingsScreen {
             _ => "ROTATING",
         };
 
-        // Five rows, value between `<` and `>`. Spacing is 18 px so all rows
+        // Six rows, value between `<` and `>`. Spacing is 16 px so all rows
         // and hint text sit comfortably inside the panel.
         let rows: [(&str, &str, u16); ROW_COUNT as usize] = [
-            ("TEXTURE", fmt.label(), 66),
-            ("FRAMERATE", fps.label(), 84),
-            ("VIEW", view_label, 102),
-            ("CD AUDIO", cd_audio_label(self.values().cd_audio), 120),
+            ("TEXTURE", fmt.label(), 60),
+            ("FRAMERATE", fps.label(), 76),
+            ("VIEW", view_label, 92),
+            ("CD AUDIO", cd_audio_label(self.values().cd_audio), 108),
             (
                 "METRICS",
                 debug_metrics_label(self.values().debug_metrics),
-                138,
+                124,
+            ),
+            (
+                "CONTROLS",
+                controls_label(self.values().input_profile),
+                140,
             ),
         ];
         for (i, (label, value, y)) in rows.iter().enumerate() {
@@ -119,12 +134,12 @@ impl SettingsScreen {
 
         draw_text(
             72,
-            164,
+            160,
             "UP/DOWN ROW   LEFT/RIGHT CHANGE",
             (120, 135, 160),
             1,
         );
-        draw_text(72, 178, "CROSS: BACK", (120, 135, 160), 1);
+        draw_text(72, 174, "CROSS: BACK", (120, 135, 160), 1);
     }
 }
 

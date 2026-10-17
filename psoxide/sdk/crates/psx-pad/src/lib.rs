@@ -131,10 +131,14 @@ pub enum PadMode {
     Disconnected,
     /// SCPH-1080 digital-pad shape: ID `0x41`, buttons only.
     Digital,
-    /// DualShock analog shape: ID `0x73`, buttons plus stick bytes.
+    /// DualShock analog shape: ID `0x73` (or `0x53`), buttons plus stick bytes.
     Analog,
     /// DualShock config/escape shape: ID `0xF3`.
     Config,
+    /// Namco neGcon racing controller: ID `0x23` (twist axis + analog I, II, L).
+    NeGcon,
+    /// Namco Jogcon racing controller: ID `0xE3` (steering dial).
+    Jogcon,
     /// A controller answered with an ID this SDK does not classify yet.
     Unknown,
 }
@@ -149,7 +153,7 @@ impl PadMode {
     /// `true` when the controller is currently reporting stick bytes.
     #[inline]
     pub const fn has_sticks(self) -> bool {
-        matches!(self, Self::Analog | Self::Config)
+        matches!(self, Self::Analog | Self::Config | Self::NeGcon | Self::Jogcon)
     }
 }
 
@@ -403,6 +407,18 @@ impl PadState {
     #[inline]
     pub const fn is_analog(self) -> bool {
         matches!(self.mode, PadMode::Analog)
+    }
+
+    /// `true` when the controller is a Namco neGcon.
+    #[inline]
+    pub const fn is_negcon(self) -> bool {
+        matches!(self.mode, PadMode::NeGcon)
+    }
+
+    /// `true` when the controller is a Namco Jogcon.
+    #[inline]
+    pub const fn is_jogcon(self) -> bool {
+        matches!(self.mode, PadMode::Jogcon)
     }
 }
 
@@ -685,6 +701,8 @@ pub fn enable_analog_port2() -> bool {
 
 /// Motor actuator state for Port 1: (small_on, large_speed 0..255).
 static mut PORT1_MOTORS: (bool, u8) = (false, 0);
+/// Motor actuator state for Port 2: (small_on, large_speed 0..255).
+static mut PORT2_MOTORS: (bool, u8) = (false, 0);
 
 /// Sets the DualShock vibration actuator values to transmit during Port 1 polling.
 /// - `small`: high-frequency on/off weight
@@ -696,6 +714,18 @@ pub fn set_rumble_port1(small: bool, large: u8) {
 /// Returns the current DualShock vibration actuator values for Port 1.
 pub fn rumble_port1() -> (bool, u8) {
     unsafe { PORT1_MOTORS }
+}
+
+/// Sets the DualShock vibration actuator values to transmit during Port 2 polling.
+/// - `small`: high-frequency on/off weight
+/// - `large`: variable-speed weighted rotor (0..255)
+pub fn set_rumble_port2(small: bool, large: u8) {
+    unsafe { PORT2_MOTORS = (small, large) };
+}
+
+/// Returns the current DualShock vibration actuator values for Port 2.
+pub fn rumble_port2() -> (bool, u8) {
+    unsafe { PORT2_MOTORS }
 }
 
 /// Poll a port, retrying a garbled response.
@@ -890,7 +920,11 @@ unsafe fn poll_once_timed(port2: bool, setup_spins: u32, interbyte_spins: u32) -
             mode = PadMode::Unknown;
         }
         let read_sticks = analog && mode != PadMode::Unknown;
-        let (small_motor, large_motor) = if !port2 { PORT1_MOTORS } else { (false, 0) };
+        let (small_motor, large_motor) = if !port2 {
+            PORT1_MOTORS
+        } else {
+            PORT2_MOTORS
+        };
         let b0 = exchange_delayed(if small_motor { 0x01 } else { 0x00 }, interbyte_spins);
         i += 1;
         let b1 = exchange_delayed(large_motor, interbyte_spins);
@@ -968,8 +1002,10 @@ fn enable_analog(port2: bool) -> bool {
 #[inline]
 fn mode_from_id_low(id_low: u8) -> PadMode {
     match id_low {
+        0x23 => PadMode::NeGcon,
         0x41 => PadMode::Digital,
-        0x73 => PadMode::Analog,
+        0x53 | 0x73 => PadMode::Analog,
+        0xE3 => PadMode::Jogcon,
         0xF3 => PadMode::Config,
         0xFF => PadMode::Disconnected,
         _ => PadMode::Unknown,
@@ -1265,8 +1301,11 @@ mod tests {
 
     #[test]
     fn mode_ids_match_dualshock_wire_values() {
+        assert_eq!(mode_from_id_low(0x23), PadMode::NeGcon);
         assert_eq!(mode_from_id_low(0x41), PadMode::Digital);
         assert_eq!(mode_from_id_low(0x73), PadMode::Analog);
+        assert_eq!(mode_from_id_low(0x53), PadMode::Analog);
+        assert_eq!(mode_from_id_low(0xE3), PadMode::Jogcon);
         assert_eq!(mode_from_id_low(0xF3), PadMode::Config);
         assert_eq!(mode_from_id_low(0xFF), PadMode::Disconnected);
         assert_eq!(mode_from_id_low(0x12), PadMode::Unknown);

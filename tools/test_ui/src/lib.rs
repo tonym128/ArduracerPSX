@@ -60,6 +60,18 @@ pub mod stage_table;
 #[path = "../../../game/src/ui/track_select.rs"]
 pub mod track_select;
 
+#[path = "../../../game/src/ui/menu.rs"]
+pub mod menu;
+
+pub mod input {
+    pub mod mapping {
+        pub use arduracer_core::save::InputProfile;
+    }
+}
+
+#[path = "../../../game/src/input/pad.rs"]
+pub mod pad;
+
 #[cfg(test)]
 mod tests {
     use super::pause_input::{PauseChoice, PauseFrame, PauseInput, PauseMenu};
@@ -475,7 +487,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 8);
+        assert_eq!(PauseMenu::item_count(), 9);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -3210,6 +3222,7 @@ mod graphics_settings {
             camera_view: 0,
             cd_audio: 1,
             debug_metrics: 0,
+            input_profile: 0,
         }
     }
 
@@ -3274,6 +3287,25 @@ mod graphics_settings {
         assert_eq!(m.values().camera_view, 0, "and wraps back to Behind");
     }
 
+    #[test]
+    fn controls_input_profile_cycles_through_options_and_wraps() {
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..5 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        assert_eq!(m.selected_row, 5, "row 5 is CONTROLS");
+        assert_eq!(m.values().input_profile, 0, "default is Classic");
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().input_profile, 1, "right selects Triggers");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().input_profile, 2, "right selects Dual Stick");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().input_profile, 0, "and wraps back to Classic");
+    }
+
     /// A held button is one change, not one per frame. Without this the value
     /// would race through every option while the player holds the stick.
     #[test]
@@ -3300,8 +3332,8 @@ mod graphics_settings {
         assert_eq!(m.selected_row, 0);
         m.update(press(|i| i.up = true));
         assert_eq!(
-            m.selected_row, 4,
-            "up from the first row wraps to the last (METRICS)"
+            m.selected_row, 5,
+            "up from the first row wraps to the last (CONTROLS)"
         );
         m.update(SettingsInput::default());
         m.update(press(|i| i.down = true));
@@ -3669,15 +3701,15 @@ mod graphics_settings {
     #[test]
     fn quit_is_still_the_last_row_and_still_quits() {
         let mut p = PauseMenu::default();
-        for _ in 0..7 {
+        for _ in 0..8 {
             p.update(PauseInput {
                 down: true,
                 ..Default::default()
             });
             p.update(PauseInput::default());
         }
-        assert_eq!(p.selected_idx, 7, "row 7 is QUIT TO MENU");
-        assert_eq!(PauseMenu::item_count(), 8);
+        assert_eq!(p.selected_idx, 8, "row 8 is QUIT TO MENU");
+        assert_eq!(PauseMenu::item_count(), 9);
 
         let out = p.update(PauseInput {
             cross: true,
@@ -3842,5 +3874,164 @@ mod graphics_settings {
         // Records mode track range (all tracks)
         screen.arm_for_entry(GameMode::GrandPrix, true);
         assert_eq!(screen.track_range(), (0, 31));
+    }
+
+    #[test]
+    fn main_menu_split_screen_nav_and_select() {
+        use super::menu::{MainMenu, MenuItem};
+        use psx_pad::button;
+
+        let mut menu = MainMenu::new();
+        menu.arm_for_entry();
+        menu.update(&test_pad(0));
+
+        assert_eq!(menu.selected_idx, 0);
+
+        // Move down 5 times to reach SplitScreen2P (index 5)
+        for _ in 0..5 {
+            menu.update(&test_pad(button::DOWN));
+            menu.update(&test_pad(0));
+        }
+        assert_eq!(menu.selected_idx, 5);
+
+        // Confirm with CROSS
+        let action = menu.update(&test_pad(button::CROSS));
+        assert_eq!(action, Some(MenuItem::SplitScreen2P));
+
+        // Release buttons
+        menu.update(&test_pad(0));
+
+        // Test wrapping: DOWN 4 more times reaches row 0
+        for _ in 0..4 {
+            menu.update(&test_pad(button::DOWN));
+            menu.update(&test_pad(0));
+        }
+        assert_eq!(menu.selected_idx, 0);
+
+        // UP from 0 wraps to 8 (Settings)
+        menu.update(&test_pad(button::UP));
+        menu.update(&test_pad(0));
+        assert_eq!(menu.selected_idx, 8);
+    }
+
+    #[test]
+    fn camera_split_viewport_scaling() {
+        use super::camera::Camera;
+        use arduracer_core::Vec2;
+
+        let mut cam = Camera::new(Vec2::ZERO);
+        assert_eq!(cam.viewport_h, 240);
+        assert_eq!(cam.center_y, 120);
+
+        cam.set_split_viewport(true);
+        assert_eq!(cam.viewport_h, 118);
+        assert_eq!(cam.center_y, 59);
+
+        // Clamping and projection use the 118px height in split screen
+        let (half_w, half_h) = cam.visible_half_extents();
+        assert!(half_h < half_w);
+
+        cam.set_split_viewport(false);
+        assert_eq!(cam.viewport_h, 240);
+        assert_eq!(cam.center_y, 120);
+    }
+
+    #[test]
+    fn negcon_and_jogcon_driver_mappings() {
+        use super::pad::ControllerDriver;
+        use arduracer_core::save::InputProfile;
+        use psx_pad::{AnalogSticks, ButtonState, PadMode, PadState};
+
+        let mut driver = ControllerDriver::new(InputProfile::ClassicArcade);
+
+        // Construct a raw neGcon pad state: ID 0x23 (Mode 0x2)
+        // right_x = twist steering (0..255, 128 = center)
+        // right_y = Button I analog throttle (0..255)
+        // left_x = Button II analog brake (0..255)
+        // left_y = Button L analog brake (0..255)
+        let mut negcon_pad = PadState {
+            buttons: ButtonState::from_bits(0),
+            mode: PadMode::NeGcon,
+            sticks: AnalogSticks {
+                right_x: 228, // Steer right (+100)
+                right_y: 200, // Button I throttle
+                left_x: 180,  // Button II brake
+                left_y: 0,
+            },
+            id_low: 0x23,
+        };
+
+        let input = driver.poll_from(&negcon_pad);
+        assert!(input.steer > arduracer_core::Fixed::ZERO, "twist right gives positive steer");
+        assert!(input.throttle > arduracer_core::Fixed::ZERO, "Button I gives throttle");
+        assert!(input.brake > arduracer_core::Fixed::ZERO, "Button II gives brake");
+
+        // Twist left
+        negcon_pad.sticks.right_x = 28; // -100
+        negcon_pad.sticks.right_y = 0;
+        negcon_pad.sticks.left_x = 0;
+        let input_left = driver.poll_from(&negcon_pad);
+        assert!(input_left.steer < arduracer_core::Fixed::ZERO, "twist left gives negative steer");
+
+        // Jogcon pad state: ID 0xE3 (Mode 0xE)
+        // right_x = dial steering
+        let jogcon_pad = PadState {
+            buttons: ButtonState::from_bits(0),
+            mode: PadMode::Jogcon,
+            sticks: AnalogSticks {
+                right_x: 208, // Dial steer right (+80)
+                right_y: 128,
+                left_x: 128,
+                left_y: 128,
+            },
+            id_low: 0xE3,
+        };
+        let jog_input = driver.poll_from(&jogcon_pad);
+        assert!(jog_input.steer > arduracer_core::Fixed::ZERO, "Jogcon dial right gives positive steer");
+    }
+
+    #[test]
+    fn menu_nav_synthesizer_stick_deflection_and_repeat() {
+        use super::pad::MenuNavSynthesizer;
+        use psx_pad::{button, AnalogSticks, ButtonState, PadMode, PadState};
+
+        let mut nav = MenuNavSynthesizer::new();
+
+        let mut pad = PadState {
+            buttons: ButtonState::from_bits(0),
+            mode: PadMode::Analog,
+            sticks: AnalogSticks {
+                left_x: 128,
+                left_y: 128, // Center
+                right_x: 128,
+                right_y: 128,
+            },
+            id_low: 0x73,
+        };
+
+        // Center produces no buttons
+        let res = nav.update(&pad);
+        assert_eq!(res.buttons.bits(), 0);
+
+        // Deflect stick down past threshold (128 + 70 = 198 > 128 + 64)
+        pad.sticks.left_y = 198;
+        let res_first = nav.update(&pad);
+        assert!(res_first.buttons.is_held(button::DOWN), "initial deflection pulses DOWN");
+
+        // Frame 2: repeat delay is 20 frames, so next frame DOWN is suppressed
+        let res_frame2 = nav.update(&pad);
+        assert!(!res_frame2.buttons.is_held(button::DOWN), "pulse is edge-triggered during repeat delay");
+
+        // Fast-forward 19 more frames (total 21 frames held)
+        for _ in 0..19 {
+            nav.update(&pad);
+        }
+        let res_repeat = nav.update(&pad);
+        assert!(res_repeat.buttons.is_held(button::DOWN), "after initial delay, repeat pulse triggers");
+
+        // Hysteresis release: releasing past threshold to 160 (deflection 32 < 48) releases
+        pad.sticks.left_y = 160;
+        let res_released = nav.update(&pad);
+        assert!(!res_released.buttons.is_held(button::DOWN), "hysteresis releases button");
     }
 }

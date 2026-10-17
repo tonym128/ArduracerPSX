@@ -25,6 +25,8 @@ pub struct ResultsScreen {
     pub rank: u8,
     pub points: u8,
     pub is_grand_prix: bool,
+    pub is_2p_duel: bool,
+    pub p1_won: bool,
     pub anim_timer: u32,
     pub prev_buttons: u16,
 }
@@ -47,6 +49,29 @@ impl ResultsScreen {
             rank: safe_rank,
             points,
             is_grand_prix,
+            is_2p_duel: false,
+            p1_won: true,
+            anim_timer: 0,
+            prev_buttons: 0,
+        }
+    }
+
+    pub fn new_2p(
+        best_lap_ticks: u32,
+        total_race_ticks: u32,
+        track: &TrackDef,
+        p1_won: bool,
+    ) -> Self {
+        let medal = track.par_times.evaluate_medal(best_lap_ticks);
+        ResultsScreen {
+            best_lap_ticks,
+            total_race_ticks,
+            medal,
+            rank: if p1_won { 1 } else { 2 },
+            points: if p1_won { 10 } else { 6 },
+            is_grand_prix: false,
+            is_2p_duel: true,
+            p1_won,
             anim_timer: 0,
             prev_buttons: 0,
         }
@@ -97,7 +122,15 @@ impl ResultsScreen {
         gpu::draw_rect_flat(22, 18, 276, 204, 26, 32, 46);
 
         // Header banner
-        draw_text(84, 24, "RACE FINISHED!", (255, 220, 0), 2);
+        if self.is_2p_duel {
+            if self.p1_won {
+                draw_text(84, 24, "PLAYER 1 WINS!", (255, 215, 0), 2);
+            } else {
+                draw_text(84, 24, "PLAYER 2 WINS!", (0, 220, 255), 2);
+            }
+        } else {
+            draw_text(84, 24, "RACE FINISHED!", (255, 220, 0), 2);
+        }
         gpu::draw_rect_flat(36, 44, 248, 2, 220, 40, 60);
 
         // Medal Banner

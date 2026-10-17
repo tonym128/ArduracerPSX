@@ -329,6 +329,18 @@ pub struct ArduracerGame {
     pub replay_camera_mode: u8,
     /// 8-frame arcade screen transition overlay (`NO1-036`).
     pub transition: gpu::ScreenTransition,
+    /// 2-Player Head-to-Head Split-Screen Mode (`NO1-045`).
+    pub is_2p_mode: bool,
+    /// Player 2 vehicle dynamics and telemetry state.
+    pub player2: VehicleState,
+    /// Player 2 lap timing and split tracking.
+    pub player2_timer: LapTimer<16>,
+    /// Player 2 chase camera.
+    pub camera2: Camera,
+    /// Player 2 controller and force feedback manager (Controller Port 2).
+    pub input_mgr2: InputManager,
+    /// True if Player 1 won the 2P duel; False if Player 2 won.
+    pub p1_won_2p: bool,
     /// Synthetic driver used only by `profiling` builds to get the car on
     /// circuit without a pad. Absent from shipping builds, so the struct keeps
     /// no room for it.
@@ -420,6 +432,11 @@ impl ArduracerGame {
         dbg::log_step(8, 9, "Initializing DualShock analog controller manager...");
         let mut input_mgr = InputManager::new(InputProfile::ClassicArcade);
         input_mgr.init();
+        let mut input_mgr2 = InputManager::new_port2(InputProfile::ClassicArcade);
+        input_mgr2.init();
+        let player2 = VehicleState::new(track.start_pos, track.start_heading, Default::default());
+        let player2_timer = LapTimer::new(track.checkpoint_slice(), track.start_gate);
+        let camera2 = Camera::new_chase(track.start_pos, track.start_heading);
         dbg::check_faults();
 
         let mut state_mgr = StateManager::new();
@@ -464,6 +481,12 @@ impl ArduracerGame {
             replay_tick: 0,
             replay_camera_mode: 0,
             transition: gpu::ScreenTransition::new(),
+            is_2p_mode: false,
+            player2,
+            player2_timer,
+            camera2,
+            input_mgr2,
+            p1_won_2p: false,
             memcard,
             #[cfg(feature = "profiling")]
             autopilot: autopilot::Autopilot::new(track),
@@ -478,7 +501,14 @@ impl ArduracerGame {
                 camera_view: game.camera_view,
                 cd_audio: game.memcard.save_data.cd_audio,
                 debug_metrics: game.debug_metrics,
+                input_profile: game.memcard.save_data.input_profile,
             };
+            game.input_mgr.controller.profile = match saved.input_profile {
+                1 => InputProfile::ModernTriggers,
+                2 => InputProfile::DualAnalog,
+                _ => InputProfile::ClassicArcade,
+            };
+            game.input_mgr2.controller.profile = game.input_mgr.controller.profile;
             set_texture_format(headless_texture_format(saved.texture_format));
             game.framerate = Framerate::from_saved(saved.framerate);
             set_frame_period(game.framerate.vblanks_per_frame());
@@ -624,11 +654,51 @@ impl ArduracerGame {
             self.state_mgr.garage.tuning(),
         );
         self.rivals = spawn_rivals(track, self.state_mgr.championship.as_ref());
-        self.camera = match self.camera_view {
-            0 => Camera::new_chase(player_pos, track.start_heading),
-            2 => Camera::new_rotating(player_pos, track.start_heading),
-            _ => Camera::new(player_pos),
-        };
+        if self.is_2p_mode {
+            let p1_pos = grid_slot_position_on(track, 0);
+            let p2_pos = grid_slot_position_on(track, 1);
+            self.player = VehicleState::new(
+                p1_pos,
+                track.start_heading,
+                self.state_mgr.garage.tuning(),
+            );
+            self.player2 = VehicleState::new(
+                p2_pos,
+                track.start_heading,
+                self.state_mgr.garage.tuning(),
+            );
+            self.player2_timer = LapTimer::with_par_times(
+                track.checkpoint_slice(),
+                track.start_gate,
+                track.par_times,
+            )
+            .with_target_laps(if is_mania_sprint {
+                1
+            } else {
+                arduracer_core::TOTAL_LAPS
+            });
+            self.p1_won_2p = false;
+            self.camera = match self.camera_view {
+                0 => Camera::new_chase(p1_pos, track.start_heading),
+                2 => Camera::new_rotating(p1_pos, track.start_heading),
+                _ => Camera::new(p1_pos),
+            };
+            self.camera.set_split_viewport(true);
+            self.camera2 = match self.camera_view {
+                0 => Camera::new_chase(p2_pos, track.start_heading),
+                2 => Camera::new_rotating(p2_pos, track.start_heading),
+                _ => Camera::new(p2_pos),
+            };
+            self.camera2.set_split_viewport(true);
+        } else {
+            self.camera = match self.camera_view {
+                0 => Camera::new_chase(player_pos, track.start_heading),
+                2 => Camera::new_rotating(player_pos, track.start_heading),
+                _ => Camera::new(player_pos),
+            };
+            self.camera.set_split_viewport(false);
+            self.camera2.set_split_viewport(false);
+        }
         self.particles = ParticleSystem::new();
         self.skidmarks = SkidmarkBuffer::new();
         self.ghost.start_lap();
@@ -682,11 +752,43 @@ impl ArduracerGame {
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self) {
         self.fb.clear(18, 20, 26);
-        render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
-        self.skidmarks.render(&self.camera);
-        // Smoke belongs on top of the cars it came from (TASK-1206).
-        self.particles.render(&self.camera);
-        self.render_cars_sorted((220, 25, 45));
+        if !self.is_2p_mode {
+            render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
+            self.skidmarks.render(&self.camera);
+            // Smoke belongs on top of the cars it came from (TASK-1206).
+            self.particles.render(&self.camera);
+            self.render_cars_sorted((220, 25, 45));
+        } else {
+            let target_y = self.fb.buffer_y(self.fb.drawing);
+            // P1 Top Viewport
+            psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
+            psx_gpu_mod::set_draw_offset(0, target_y as i16);
+            render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
+            self.skidmarks.render(&self.camera);
+            self.particles.render(&self.camera);
+            render_car(&self.player, &self.camera, false, (220, 25, 45));
+            render_car(&self.player2, &self.camera, false, (30, 144, 255));
+
+            // Divider Bar
+            psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+            psx_gpu_mod::set_draw_offset(0, target_y as i16);
+            psx_gpu_mod::draw_rect_flat(0, 118, 320, 4, 15, 18, 25);
+            psx_gpu_mod::draw_line_mono(0, 118, 319, 118, 255, 215, 0);
+            psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
+
+            // P2 Bottom Viewport
+            psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
+            psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
+            render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
+            self.skidmarks.render(&self.camera2);
+            self.particles.render(&self.camera2);
+            render_car(&self.player, &self.camera2, false, (220, 25, 45));
+            render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+
+            // Restore full viewport
+            psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+            psx_gpu_mod::set_draw_offset(0, target_y as i16);
+        }
     }
 
     pub fn run(&mut self) -> ! {
@@ -815,10 +917,18 @@ impl ArduracerGame {
                 }
             }
 
-            let pad = {
+            let mut pad = {
                 let _s = prof::span(prof::PAD_POLL);
                 psx_pad::poll_port1()
             };
+            self.input_mgr.check_hotplug(&pad);
+            if self.is_2p_mode {
+                let pad2 = psx_pad::poll_port2();
+                self.input_mgr2.check_hotplug(&pad2);
+            }
+            if self.state_mgr.current != GameState::Racing || self.paused {
+                pad = self.input_mgr.synthesize_nav(&pad);
+            }
 
             match self.state_mgr.current {
                 GameState::Title => {
@@ -835,6 +945,7 @@ impl ArduracerGame {
                     if let Some(item) = self.state_mgr.menu.update(&pad) {
                         match item {
                             MenuItem::GrandPrix => {
+                                self.is_2p_mode = false;
                                 let has_saved = self.memcard.save_data.has_saved_championship();
                                 self.state_mgr
                                     .gp_setup
@@ -842,6 +953,7 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::GrandPrixSetup;
                             }
                             MenuItem::TimeTrial => {
+                                self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
                                 self.state_mgr
                                     .track_select
@@ -849,12 +961,14 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::ManiaPrix => {
+                                self.is_2p_mode = false;
                                 self.state_mgr
                                     .gp_setup
                                     .arm_for_entry(false, GameMode::Mania);
                                 self.state_mgr.current = GameState::GrandPrixSetup;
                             }
                             MenuItem::ManiaTrials => {
+                                self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
                                 self.state_mgr
                                     .track_select
@@ -862,9 +976,18 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::CityFreeDrive => {
+                                self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
                                 self.state_mgr.city_select.arm_for_entry();
                                 self.state_mgr.current = GameState::CitySelect;
+                            }
+                            MenuItem::SplitScreen2P => {
+                                self.state_mgr.championship = None;
+                                self.is_2p_mode = true;
+                                self.state_mgr
+                                    .track_select
+                                    .arm_for_entry(GameMode::GrandPrix, false);
+                                self.state_mgr.current = GameState::TrackSelect;
                             }
                             MenuItem::TuningGarage => {
                                 // Load all three presets and the active slot from the memory card.
@@ -1164,6 +1287,7 @@ impl ArduracerGame {
                                         }
                                     }
                                     self.input_mgr.silence();
+                                    self.input_mgr2.silence();
                                     self.state_mgr.championship = None;
                                     self.state_mgr.champ_stage_backup = None;
                                     self.state_mgr.current = GameState::MainMenu;
@@ -1217,14 +1341,18 @@ impl ArduracerGame {
                         self.camera_view = (self.camera_view + 1) % 3;
                         self.camera.mode7 = self.camera_view == 0;
                         self.camera.rotating = self.camera_view == 2;
+                        self.camera2.mode7 = self.camera.mode7;
+                        self.camera2.rotating = self.camera.rotating;
                         if self.camera.mode7 || self.camera.rotating {
                             self.camera.set_heading(self.player.visual_angle);
+                            self.camera2.set_heading(self.player2.visual_angle);
                         }
                     }
-                    // In-game debug metrics overlay toggle on R2 press (Off -> FPS -> Graph -> All):
-                    if pad
-                        .buttons
-                        .pressed_since(self.prev_pad_racing, psx_pad::button::R2)
+                    // In-game debug metrics overlay toggle on Select + R2 press (Off -> FPS -> Graph -> All):
+                    if pad.buttons.is_held(psx_pad::button::SELECT)
+                        && pad
+                            .buttons
+                            .pressed_since(self.prev_pad_racing, psx_pad::button::R2)
                     {
                         self.debug_metrics = (self.debug_metrics + 1) % 4;
                     }
@@ -1262,6 +1390,26 @@ impl ArduracerGame {
                             self.player.super_boost_ticks,
                             self.player.vz,
                         );
+
+                        if self.is_2p_mode {
+                            if self.camera2.mode7 || self.camera2.rotating {
+                                self.camera2.follow_heading(self.player2.visual_angle);
+                            }
+                            self.camera2.update(
+                                self.player2.position,
+                                self.player2.velocity,
+                                self.player2.speed,
+                                track.world_width(),
+                                track.world_height(),
+                            );
+                            self.camera2.update_banking_and_fov(
+                                self.player2.slide_bam() as i16,
+                                self.player2.speed,
+                                self.player2.boost_ticks,
+                                self.player2.super_boost_ticks,
+                                self.player2.vz,
+                            );
+                        }
                     }
                     {
                         let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
@@ -1277,114 +1425,187 @@ impl ArduracerGame {
                         let _s = prof::span(prof::CLEAR);
                         self.fb.clear(18, 20, 26);
                     }
-                    // b. Track visual map
-                    {
-                        set_frame_period(self.framerate.vblanks_per_frame());
-                        prof::set_budget_cycles(self.framerate.budget_cycles());
-                        prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
-                        let _s = prof::span(prof::RENDER_TRACK);
+                    if !self.is_2p_mode {
+                        // b. Track visual map
+                        {
+                            set_frame_period(self.framerate.vblanks_per_frame());
+                            prof::set_budget_cycles(self.framerate.budget_cycles());
+                            prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
+                            let _s = prof::span(prof::RENDER_TRACK);
+                            let elapsed =
+                                psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
+                            let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
+                                ticks_to_run,
+                                elapsed,
+                                self.framerate.vblanks_per_frame(),
+                            );
+                            render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                        }
+                        // b2. 3D Roadside props, Checkpoint arches & Start gantry truss (NO1-031)
+                        crate::gpu::render_track_props(
+                            &self.camera,
+                            track,
+                            if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                ALL_TRACK_VISUALS[self.current_track_idx]
+                            } else {
+                                self.current_track_idx
+                            },
+                            self.timer.checkpoint_mask,
+                            Some(&self.start),
+                            self.timer.current_lap_ticks,
+                        );
+                        {
+                            let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+                            t_track_ticks = t_now.wrapping_sub(t_checkpoint);
+                            t_checkpoint = t_now;
+                        }
+                        crate::gpu::tracktex::pump_cd_streams();
+                        // c. Skidmarks on track
+                        {
+                            let _s = prof::span(prof::SKIDMARKS);
+                            self.skidmarks.render(&self.camera);
+                        }
+                        // d. Active ghost car playback (Dev Platinum Author Ghost + Personal Best Ghost)
+                        {
+                            let _s = prof::span(prof::GHOST_CAR);
+                            render_active_ghost(
+                                &self.ghost,
+                                track,
+                                &self.camera,
+                                self.timer.current_lap_ticks,
+                            );
+                        }
+                        // e. All race cars (player + rivals) sorted back-to-front
+                        {
+                            let _s = prof::span(prof::CARS);
+                            self.render_cars_sorted((220, 25, 45));
+                        }
+                        {
+                            let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
+                            t_cars_ticks = t_now.wrapping_sub(t_checkpoint);
+                            t_checkpoint = t_now;
+                        }
+                        crate::gpu::tracktex::pump_cd_streams();
+                        // g. Particle effects
+                        // h. Start lights
+                        {
+                            let _s = prof::span(prof::PARTICLES);
+                            self.particles.render(&self.camera);
+                            render_start_lights(self.start.phase());
+                        }
+                        // Speed lines overlay during Nitro / Super Boost / Extreme speed (NO1-036)
+                        crate::gpu::hud_renderer::render_speed_lines(
+                            self.player.speed.raw(),
+                            self.player.boost_ticks,
+                            self.player.super_boost_ticks,
+                            self.timer.current_lap_ticks,
+                        );
+
+                        // i. In-Game HUD overlay (Select hides it for clean screenshots)
+                        if self.show_hud {
+                            let _s = prof::span(prof::HUD);
+                            render_hud(
+                                &self.player,
+                                &self.timer,
+                                track,
+                                player_rank,
+                                &self.rivals,
+                                &self.minimap_texture,
+                            );
+                            if self.audio.toast_ticks > 0 {
+                                crate::gpu::hud_renderer::render_music_toast(
+                                    self.audio.current_music_title(),
+                                    self.audio.toast_ticks,
+                                );
+                            }
+                        }
+
+                        // j. In-game debug metrics and performance telemetry overlay
+                        if self.show_hud && self.debug_metrics > 0 {
+                            self.debug_overlay.mode = self.debug_metrics;
+                            self.debug_overlay.render(
+                                &self.player,
+                                track,
+                                self.framerate.vblanks_per_frame(),
+                            );
+                        }
+                    } else {
+                        // 2-Player Split-Screen Mode (NO1-045):
+                        let target_y = self.fb.buffer_y(self.fb.drawing);
                         let elapsed =
                             psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
-                        // Rows of tile decode admitted this frame. The tiering
-                        // lives in `core` because it shipped wrong once and
-                        // cannot be tested where it used to live: `elapsed + 1
-                        // >= period` is true on the first iteration at 60 FPS,
-                        // which admitted nothing and left 68,616 placeholder
-                        // tiles. See `texture_format::decode_row_budget`.
                         let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
                             ticks_to_run,
                             elapsed,
                             self.framerate.vblanks_per_frame(),
                         );
+
+                        // 1. Top Viewport (Player 1)
+                        psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
+                        psx_gpu_mod::set_draw_offset(0, target_y as i16);
                         render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
-                    }
-                    // b2. 3D Roadside props, Checkpoint arches & Start gantry truss (NO1-031)
-                    crate::gpu::render_track_props(
-                        &self.camera,
-                        track,
-                        if self.current_track_idx < ALL_TRACK_VISUALS.len() {
-                            ALL_TRACK_VISUALS[self.current_track_idx]
-                        } else {
-                            self.current_track_idx
-                        },
-                        self.timer.checkpoint_mask,
-                        Some(&self.start),
-                        self.timer.current_lap_ticks,
-                    );
-                    {
-                        let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
-                        t_track_ticks = t_now.wrapping_sub(t_checkpoint);
-                        t_checkpoint = t_now;
-                    }
-                    crate::gpu::tracktex::pump_cd_streams();
-                    // c. Skidmarks on track
-                    {
-                        let _s = prof::span(prof::SKIDMARKS);
-                        self.skidmarks.render(&self.camera);
-                    }
-                    // d. Active ghost car playback (Dev Platinum Author Ghost + Personal Best Ghost)
-                    {
-                        let _s = prof::span(prof::GHOST_CAR);
-                        render_active_ghost(
-                            &self.ghost,
-                            track,
+                        crate::gpu::render_track_props(
                             &self.camera,
+                            track,
+                            if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                ALL_TRACK_VISUALS[self.current_track_idx]
+                            } else {
+                                self.current_track_idx
+                            },
+                            self.timer.checkpoint_mask,
+                            Some(&self.start),
                             self.timer.current_lap_ticks,
                         );
-                    }
-                    // e. All race cars (player + rivals) sorted back-to-front
-                    {
-                        let _s = prof::span(prof::CARS);
-                        self.render_cars_sorted((220, 25, 45));
-                    }
-                    {
-                        let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
-                        t_cars_ticks = t_now.wrapping_sub(t_checkpoint);
-                        t_checkpoint = t_now;
-                    }
-                    crate::gpu::tracktex::pump_cd_streams();
-                    // g. Particle effects
-                    // h. Start lights
-                    {
-                        let _s = prof::span(prof::PARTICLES);
+                        self.skidmarks.render(&self.camera);
+                        render_car(&self.player, &self.camera, false, (220, 25, 45));
+                        render_car(&self.player2, &self.camera, false, (30, 144, 255));
                         self.particles.render(&self.camera);
-                        render_start_lights(self.start.phase());
-                    }
-                    // Speed lines overlay during Nitro / Super Boost / Extreme speed (NO1-036)
-                    crate::gpu::hud_renderer::render_speed_lines(
-                        self.player.speed.raw(),
-                        self.player.boost_ticks,
-                        self.player.super_boost_ticks,
-                        self.timer.current_lap_ticks,
-                    );
-
-                    // i. In-Game HUD overlay (Select hides it for clean screenshots)
-                    if self.show_hud {
-                        let _s = prof::span(prof::HUD);
-                        render_hud(
-                            &self.player,
-                            &self.timer,
-                            track,
-                            player_rank,
-                            &self.rivals,
-                            &self.minimap_texture,
-                        );
-                        if self.audio.toast_ticks > 0 {
-                            crate::gpu::hud_renderer::render_music_toast(
-                                self.audio.current_music_title(),
-                                self.audio.toast_ticks,
-                            );
+                        if self.show_hud {
+                            crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45));
                         }
-                    }
 
-                    // j. In-game debug metrics and performance telemetry overlay
-                    if self.show_hud && self.debug_metrics > 0 {
-                        self.debug_overlay.mode = self.debug_metrics;
-                        self.debug_overlay.render(
-                            &self.player,
+                        // 2. Center Checkered Divider Bar (Y=118..121)
+                        psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                        psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                        psx_gpu_mod::draw_rect_flat(0, 118, 320, 4, 15, 18, 25);
+                        psx_gpu_mod::draw_line_mono(0, 118, 319, 118, 255, 215, 0);
+                        psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
+                        for i in 0..16 {
+                            let x = (i * 20) as i16;
+                            let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                            psx_gpu_mod::draw_rect_flat(x, 119, 10, 2, r, g, b);
+                        }
+
+                        // 3. Bottom Viewport (Player 2)
+                        psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
+                        psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
+                        render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                        crate::gpu::render_track_props(
+                            &self.camera2,
                             track,
-                            self.framerate.vblanks_per_frame(),
+                            if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                ALL_TRACK_VISUALS[self.current_track_idx]
+                            } else {
+                                self.current_track_idx
+                            },
+                            self.player2_timer.checkpoint_mask,
+                            Some(&self.start),
+                            self.player2_timer.current_lap_ticks,
                         );
+                        self.skidmarks.render(&self.camera2);
+                        render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                        render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                        self.particles.render(&self.camera2);
+                        if self.show_hud {
+                            crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255));
+                        }
+
+                        // 4. Restore Full Viewport
+                        psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                        psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                        if !self.start.accepts_input() {
+                            render_start_lights(self.start.phase());
+                        }
                     }
                     {
                         let t_now = psx_io::timers::counter(psx_io::timers::Timer::Timer2);
@@ -1566,6 +1787,111 @@ impl ArduracerGame {
             (hit_wall, end_tile.surface())
         };
 
+        if self.is_2p_mode {
+            let pad2 = psx_pad::poll_port2();
+            let p2_tx = TrackDef::tile_x_of(self.player2.position.x);
+            let p2_ty = TrackDef::tile_y_of(self.player2.position.y);
+            let p2_tile = track.tile_at(p2_tx, p2_ty);
+            if matches!(
+                p2_tile,
+                arduracer_core::TrackTile::Checkpoint
+                    | arduracer_core::TrackTile::StartFinish
+                    | arduracer_core::TrackTile::EngineReset
+            ) {
+                self.player2.free_wheeling = false;
+            }
+            let p2_surface = p2_tile.surface();
+            let mut input2 = self.input_mgr2.update(&pad2, &self.player2, p2_surface);
+
+            let raw_throttle2 = input2.throttle;
+            if self.start.just_started() {
+                self.player2_timer.start();
+                let outcome2 = StartSequence::evaluate_launch(self.player2.engine_rpm);
+                self.player2.apply_launch_outcome(outcome2);
+                if outcome2 == arduracer_core::LaunchOutcome::TurboBoost {
+                    self.input_mgr2.rumble.trigger_boost();
+                }
+            }
+            if !self.start.accepts_input() {
+                self.player2.rev_engine_at_grid(raw_throttle2);
+                input2.throttle = Fixed::ZERO;
+                input2.brake = Fixed::ZERO;
+                input2.steer = Fixed::ZERO;
+                input2.handbrake = false;
+                input2.nitro = false;
+            }
+
+            // P2 Respawn
+            if self.input_mgr2.controller.instant_restart_triggered {
+                let p2_pos = grid_slot_position_on(track, 1);
+                self.player2.respawn_at(p2_pos, track.start_heading);
+            } else if self.input_mgr2.controller.standing_respawn_pressed {
+                let (last_cp, _) = self.player2_timer.record_respawn();
+                let (pos, heading) = if last_cp.is_some() {
+                    track.checkpoint_respawn_point(last_cp)
+                } else {
+                    track.respawn_point(self.player2.position)
+                };
+                self.player2.respawn_at(pos, heading);
+            } else if self.input_mgr2.controller.respawn_pressed {
+                let (last_cp, entry_speed) = self.player2_timer.record_respawn();
+                let (pos, heading) = if last_cp.is_some() {
+                    track.checkpoint_respawn_point(last_cp)
+                } else {
+                    track.respawn_point(self.player2.position)
+                };
+                if entry_speed > Fixed::ZERO {
+                    self.player2.flying_respawn_at(pos, heading, entry_speed);
+                } else {
+                    self.player2.respawn_at(pos, heading);
+                }
+            }
+
+            // P2 Physics tick & track collision
+            self.player2.tick(input2, p2_surface);
+            self.player2.collide_with_track(track);
+
+            // P2 Lap timer
+            self.player2_timer.tick();
+            self.player2_timer.update_player_on_track(&self.player2, track);
+
+            // Car-to-car collision between Player 1 and Player 2!
+            if let Some(contact) = arduracer_core::contact::collide_cars(&mut self.player, &mut self.player2) {
+                if contact.closing_speed >= arduracer_core::contact::HARD_BUMP_THRESHOLD {
+                    self.input_mgr.rumble.trigger_impact(180);
+                    self.input_mgr2.rumble.trigger_impact(180);
+                }
+                self.player.collide_with_track(track);
+                self.player2.collide_with_track(track);
+            }
+
+            // Check 2P duel completion
+            if self.timer.is_finished || self.player2_timer.is_finished {
+                let p1_won = self.timer.is_finished
+                    && (!self.player2_timer.is_finished
+                        || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
+                self.p1_won_2p = p1_won;
+                let best_ticks = if p1_won {
+                    self.timer.best_lap_ticks
+                } else {
+                    self.player2_timer.best_lap_ticks
+                };
+                let total_ticks = if p1_won {
+                    self.timer.current_lap_ticks
+                } else {
+                    self.player2_timer.current_lap_ticks
+                };
+                self.state_mgr.results = Some(ResultsScreen::new_2p(best_ticks, total_ticks, track, p1_won));
+                self.state_mgr.current = GameState::Results;
+                self.input_mgr.silence();
+                self.input_mgr2.silence();
+                self.audio.leave_race();
+                self.audio.sync_ui_edges(pad.buttons.bits());
+                self.audio.play_music(7, crate::gpu::tracktex::disc_reader());
+                return (if p1_won { 1 } else { 2 }, self.last_standings);
+            }
+        }
+
         let player_rank;
         let prev_cp_mask = self.timer.checkpoint_mask;
         self.timer.tick();
@@ -1606,7 +1932,7 @@ impl ArduracerGame {
             let is_racing = self.start.phase() == StartPhase::Racing || self.start.just_started();
 
             // AI rivals tick with dynamic obstacle avoidance + aerodynamic slipstream drafting (NO1-015)
-            if RIVALS_ENABLED && is_racing {
+            if !self.is_2p_mode && RIVALS_ENABLED && is_racing {
                 let mut other_positions = [Vec2::ZERO; 6];
                 let mut rival_positions = [Vec2::ZERO; 5];
                 other_positions[0] = self.player.position;
@@ -1626,7 +1952,7 @@ impl ArduracerGame {
             }
 
             // Resolve vehicle-to-vehicle contacts (player <-> rival, rival <-> rival).
-            let contacts = if RIVALS_ENABLED && is_racing {
+            let contacts = if !self.is_2p_mode && RIVALS_ENABLED && is_racing {
                 resolve_field(&mut self.player, &mut self.rivals, track)
             } else {
                 arduracer_core::contact::FieldContacts::default()
@@ -1668,8 +1994,8 @@ impl ArduracerGame {
             self.ghost.record_tick(&self.player);
         }
 
-        // Check race completion
-        if self.timer.is_finished {
+        // Check race completion (single player)
+        if !self.is_2p_mode && self.timer.is_finished {
             let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
             let medal = if self.timer.target_laps == 1 {
                 time_medal.max(self.timer.evaluate_platform_medal())
@@ -2064,6 +2390,7 @@ impl ArduracerGame {
             camera_view: self.camera_view,
             cd_audio: self.audio.cd_audio,
             debug_metrics: self.debug_metrics,
+            input_profile: self.input_mgr.controller.profile as u8,
         }
     }
 
@@ -2191,11 +2518,19 @@ impl ArduracerGame {
             _ => "off",
         });
 
-        // Persist unconditionally: both values are cheap and a card write is
+        self.input_mgr.controller.profile = match values.input_profile {
+            1 => InputProfile::ModernTriggers,
+            2 => InputProfile::DualAnalog,
+            _ => InputProfile::ClassicArcade,
+        };
+        self.input_mgr2.controller.profile = self.input_mgr.controller.profile;
+
+        // Persist unconditionally: values are cheap and a card write is
         // already the established pattern for settings changes.
         self.memcard.save_data.texture_format = values.texture_format;
         self.memcard.save_data.framerate = values.framerate;
         self.memcard.save_data.cd_audio = values.cd_audio;
+        self.memcard.save_data.input_profile = values.input_profile;
         self.memcard.mark_dirty();
         self.memcard.flush();
     }
