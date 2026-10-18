@@ -681,6 +681,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             self.current_splits = [0; MAX_CHECKPOINTS];
             self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];
             self.last_cleared_checkpoint = None;
+            self.last_split_delta = None;
         }
 
         // Register checkpoint touches (order independent, anti-cheat by coverage).
@@ -795,6 +796,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             self.current_splits = [0; MAX_CHECKPOINTS];
             self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];
             self.last_cleared_checkpoint = None;
+            self.last_split_delta = None;
         }
 
         // Register checkpoint touches
@@ -867,32 +869,13 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         true
     }
 
-    /// Live delta against the player's best lap, in ticks.
-    ///
-    /// Positive means the current lap is slower than the reference pace (red),
-    /// negative means it is ahead (green). The reference pace is prorated by how
-    /// far along the *driving order* the car is
-    /// ([`LapTimer::next_checkpoint_index`] / gate count), which is what an
-    /// arcade split indicator shows and, unlike a raw gate count, only ever
-    /// moves forward as the car advances around the circuit. Returns 0 when no
-    /// reference lap exists yet.
+    /// Most recent exact checkpoint delta against the player's best lap, in ticks.
+    /// Positive means the current split is slower (red); negative means it is
+    /// ahead (green). The value holds between gate crossings rather than
+    /// estimating time from route progress. Returns 0 until a comparable split
+    /// has been recorded.
     pub fn delta_ticks(&self) -> i32 {
-        let best = match self.best_lap_ticks() {
-            Some(t) => t,
-            None => return 0,
-        };
-        let total = self.active_checkpoint_count() as u64;
-        if total == 0 {
-            return 0;
-        }
-        // Ticks at which the reference run is expected to have reached the
-        // gate the car is currently heading for.
-        let progress = self.next_checkpoint_index() as u64;
-        let expected = best as u64 * progress / total;
-        // i64 throughout: `current_lap_ticks` is a saturating u32 counter, so it
-        // can legitimately exceed `i32::MAX` on a race left running.
-        let delta = self.current_lap_ticks as i64 - expected as i64;
-        delta.clamp(i32::MIN as i64, i32::MAX as i64) as i32
+        self.last_split_delta.unwrap_or(0)
     }
 
     /// Route index of the gate the car must reach next: the checkpoints in
@@ -1377,46 +1360,48 @@ mod tests {
         }
     }
 
-    // ---- Bug 6: the delta prorated by gate count ----
+    // ---- Exact split comparison: no route-progress interpolation ----
 
     #[test]
-    fn delta_follows_route_position_not_raw_gate_count() {
+    fn delta_holds_the_last_exact_gate_comparison_until_the_next_gate() {
         let mut t = four_gate_timer::<4>();
         full_lap(&mut t, 150);
         assert_eq!(t.best_lap_ticks(), Some(600));
 
-        // One gate banked, but it is the *last* gate: the car has made no route
-        // progress at all, so the whole lap is still ahead of it and the split
-        // must read as the elapsed time, not as half a lap's worth of credit.
+        // A gate crossing compares its actual timestamp to that gate's PB split,
+        // even if legacy order-independent checkpoint coverage allows a gate
+        // outside the contiguous route prefix to be cleared first.
         for _ in 0..100 {
             t.tick();
         }
         t.update_player_tile(RING[3].x, RING[3].y);
         assert_eq!(t.next_checkpoint_index(), 0);
-        assert_eq!(
-            t.delta_ticks(),
-            100,
-            "an out-of-order gate must not pre-credit route progress"
-        );
+        assert_eq!(t.current_splits[3], 100);
+        assert_eq!(t.delta_ticks(), -500);
 
-        // In order, the split behaves like a real sector split.
+        // Elapsed time between gates does not invent a comparison value.
         for _ in 0..50 {
             t.tick();
         }
+        assert_eq!(t.delta_ticks(), -500);
+
+        // The next actual gate crossing replaces it with that exact split delta.
         t.update_player_tile(RING[0].x, RING[0].y);
         assert_eq!(t.next_checkpoint_index(), 1);
         assert_eq!(t.delta_ticks(), 150 - 150);
     }
 
     #[test]
-    fn delta_survives_a_saturated_lap_counter() {
+    fn delta_remains_the_exact_split_when_the_lap_counter_saturates() {
         let mut t = four_gate_timer::<4>();
         full_lap(&mut t, 150);
-        // A race left running for years: the counter saturates instead of
-        // wrapping into a negative (or panicking) delta.
+        t.current_lap_ticks = 150;
+        t.update_player_tile(RING[0].x, RING[0].y);
+        assert_eq!(t.delta_ticks(), 0);
+
+        // A race left running for years cannot change a checkpoint comparison.
         t.current_lap_ticks = u32::MAX;
-        let d = t.delta_ticks();
-        assert_eq!(d, i32::MAX, "clamped, not wrapped");
+        assert_eq!(t.delta_ticks(), 0);
     }
 
     #[test]
