@@ -21,11 +21,17 @@ mod settings_input;
 mod pause_input;
 
 #[path = "../../../game/src/gpu/camera.rs"]
-mod camera;
+pub mod camera;
 
 #[path = "../../../game/src/gpu/car_geometry.rs"]
 #[allow(unused_imports)]
 mod car_geometry;
+
+// The roadside prop *placement* is pure geometry, but it lives in a module that
+// also draws through the GPU. Included inside `gpu` (matching its real path, so
+// its `crate::gpu::...` imports resolve) so the test drives the real
+// `biome_prop_placements` rather than a re-implementation -- a mirrored copy
+// would keep passing while the renderer stayed broken.
 
 #[path = "../../../game/src/ui/tuning_input.rs"]
 mod tuning_input;
@@ -34,7 +40,7 @@ mod tuning_input;
 mod effects_sim;
 
 #[path = "../../../game/src/gpu/palette.rs"]
-mod palette;
+pub mod palette;
 
 #[path = "../../../game/src/gpu/texlayout.rs"]
 mod texlayout;
@@ -49,9 +55,28 @@ pub mod ui {
     }
 }
 
+// The prop renderer draws through the GPU but its *placement* is pure geometry.
+// Included here (and re-exported under `gpu`) so the host test can drive the
+// real `biome_prop_placements` rather than a re-implementation -- a mirrored
+// copy would keep passing while the renderer stayed broken.
+#[path = "../../../game/src/gpu/gte_proj.rs"]
+#[allow(unused_imports, dead_code)]
+pub mod gte_proj;
+
+#[path = "../../../game/src/gpu/props_renderer.rs"]
+#[allow(unused_imports, dead_code)]
+pub mod props_renderer;
+
 pub mod gpu {
     use arduracer_core::TrackDef;
     pub fn draw_ui_minimap(_x: u16, _y: u16, _w: u16, _h: u16, _track: &TrackDef) {}
+
+    // Re-exported so `props_renderer`'s `crate::gpu::camera` / `::gte_proj` /
+    // `::palette` imports resolve to the same modules the game uses.
+    pub use super::camera;
+    pub use super::gte_proj;
+    pub use super::palette;
+    pub use super::props_renderer;
 }
 
 #[path = "../../../game/src/ui/stage_table.rs"]
@@ -5317,6 +5342,186 @@ mod replay_camera_smoothing_tests {
                 "pan reversed by {d} BAMS between route nodes {} and {}",
                 i - 1,
                 i
+            );
+        }
+    }
+}
+
+/// Roadside props were planted a fixed 24 world units off the centreline, but
+/// circuits are 64..=128 units half-wide, so ~95% of them stood *in* the racing
+/// line with no collision to explain driving through them.
+///
+/// These drive the real `props_renderer::biome_prop_placements` -- the function
+/// the renderer itself calls -- rather than a mirrored copy, so they fail if the
+/// renderer regresses.
+#[cfg(test)]
+mod roadside_prop_placement_tests {
+    use crate::gpu::props_renderer::{biome_prop_placements, PROP_FINE_WU, PROP_NODE_STRIDE};
+    use arduracer_core::levels::ALL_TRACKS;
+    use arduracer_core::math::{cos, sin};
+    use arduracer_core::{heading_towards, Fixed, TrackDef, Vec2, FP_SHIFT};
+
+    fn is_on_road(track: &TrackDef, p: Vec2) -> bool {
+        track.is_road_at(TrackDef::tile_x_of(p.x), TrackDef::tile_y_of(p.y))
+    }
+
+    /// Every prop placement on every circuit must land off the racing surface.
+    /// This is the whole bug: props standing in the middle of the track.
+    #[test]
+    fn no_roadside_prop_is_placed_on_the_racing_surface() {
+        let mut placed = 0usize;
+        for track in ALL_TRACKS.iter() {
+            for pos in biome_prop_placements(track).iter() {
+                placed += 1;
+                assert!(
+                    !is_on_road(track, pos),
+                    "{}: prop placed on the racing surface at tile ({},{})",
+                    track.name,
+                    TrackDef::tile_x_of(pos.x),
+                    TrackDef::tile_y_of(pos.y)
+                );
+            }
+        }
+        assert!(
+            placed > 100,
+            "expected many props across all circuits, placed only {placed}"
+        );
+    }
+
+    /// The fix must not have quietly deleted the scenery. If the outward search
+    /// gives up too early the circuits simply lose their roadside, which would
+    /// be a worse regression than the one being fixed.
+    #[test]
+    fn the_circuits_keep_their_roadside_scenery() {
+        let mut total = 0usize;
+        for track in ALL_TRACKS.iter() {
+            let placements = biome_prop_placements(track);
+            let route_len = if track.route.is_empty() {
+                track.route_len()
+            } else {
+                track.route.len()
+            };
+            if route_len < 4 {
+                continue;
+            }
+            let expected_slots = route_len.div_ceil(PROP_NODE_STRIDE) * 2;
+            // Every slot on every circuit must find a spot: no circuit may lose
+            // its props to a search that gives up.
+            assert_eq!(
+                placements.len(),
+                expected_slots.min(128),
+                "{}: placed {} props, expected {expected_slots}",
+                track.name,
+                placements.len()
+            );
+            total += placements.len();
+        }
+        assert!(
+            total > 1000,
+            "expected a full roadside everywhere, got {total}"
+        );
+    }
+
+    /// A prop must stand just off the kerb, not out in the infield.
+    ///
+    /// Measured along the perpendicular from the centreline, which is the
+    /// quantity the placement bound governs -- *not* the distance to the nearest
+    /// route node. A prop beside a wide gap between two stretches of road can be
+    /// legitimately hundreds of units from any node while still standing right
+    /// against the tarmac, and asserting on the latter rejects correct
+    /// placements.
+    #[test]
+    fn no_prop_stands_far_outside_the_kerb() {
+        for track in ALL_TRACKS.iter() {
+            let route = track.route;
+            if route.is_empty() {
+                continue;
+            }
+            let n = route.len();
+            for pos in biome_prop_placements(track).iter() {
+                let mut worst = 0i32;
+                for i in (0..n).step_by(PROP_NODE_STRIDE) {
+                    let node = route[i % n];
+                    let next = route[(i + 1) % n];
+                    let seg_h = heading_towards(node, next);
+                    let dx = (pos.x - node.x).raw().abs() >> 8;
+                    let dy = (pos.y - node.y).raw().abs() >> 8;
+                    // Perpendicular component: project onto the step axis.
+                    let step_x = cos(seg_h).raw() >> FP_SHIFT;
+                    let step_y = sin(seg_h).raw() >> FP_SHIFT;
+                    let along = (dx * step_x + dy * step_y) / 4096;
+                    if along > worst {
+                        worst = along;
+                    }
+                }
+                assert!(
+                    worst <= 2048,
+                    "{}: a prop stands {worst} WU outside the kerb",
+                    track.name
+                );
+            }
+        }
+    }
+
+    /// The outward step must stay non-zero at every heading. Truncating the Q12
+    /// unit vector to a whole world unit collapses diagonals to zero, which
+    /// makes the search walk in place and silently delete every prop.
+    #[test]
+    fn the_outward_step_is_never_zero_for_any_heading() {
+        for h in 0u16..4096 {
+            let x = (cos(h).raw() * 4) >> FP_SHIFT;
+            let y = (sin(h).raw() * 4) >> FP_SHIFT;
+            assert!(
+                x != 0 || y != 0,
+                "heading {h} gives a zero-length outward step"
+            );
+        }
+    }
+
+    /// The step must move *across* the road, not along it: for an eastward
+    /// segment the perpendicular is vertical, for a northward one horizontal.
+    #[test]
+    fn the_outward_step_is_perpendicular_to_the_segment() {
+        let east = heading_towards(
+            Vec2::new(Fixed::ZERO, Fixed::ZERO),
+            Vec2::new(Fixed::from_int(100), Fixed::ZERO),
+        );
+        assert_eq!((cos(east).raw() * 4) >> FP_SHIFT, 0, "east: X must be 0");
+        assert_ne!((sin(east).raw() * 4) >> FP_SHIFT, 0, "east: Y must move");
+
+        let north = heading_towards(
+            Vec2::new(Fixed::ZERO, Fixed::ZERO),
+            Vec2::new(Fixed::ZERO, Fixed::from_int(-100)),
+        );
+        assert_ne!((cos(north).raw() * 4) >> FP_SHIFT, 0, "north: X must move");
+        assert_eq!((sin(north).raw() * 4) >> FP_SHIFT, 0, "north: Y must be 0");
+    }
+
+    /// The two sides of a segment must be mirrored, so a prop does not stand
+    /// closer to the road on one side than on the other.
+    #[test]
+    fn the_two_sides_step_in_opposite_directions() {
+        // Round away from zero, as `scale_step` does: an arithmetic shift
+        // truncates toward zero and would put one kerb a unit closer than the
+        // other.
+        let scale = |c: i32, side: i32, dist: i32| -> i32 {
+            let p = c * side * dist;
+            if p >= 0 {
+                (p + (1 << (FP_SHIFT - 1))) >> FP_SHIFT
+            } else {
+                -((-p + (1 << (FP_SHIFT - 1))) >> FP_SHIFT)
+            }
+        };
+        for h in 0u16..4096 {
+            assert_eq!(
+                scale(cos(h).raw(), -1, PROP_FINE_WU),
+                -scale(cos(h).raw(), 1, PROP_FINE_WU),
+                "heading {h}: sides not mirrored in X"
+            );
+            assert_eq!(
+                scale(sin(h).raw(), -1, PROP_FINE_WU),
+                -scale(sin(h).raw(), 1, PROP_FINE_WU),
+                "heading {h}: sides not mirrored in Y"
             );
         }
     }

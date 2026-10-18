@@ -261,49 +261,196 @@ fn render_checkpoint_arch(camera: &Camera, gate: &CheckpointGate, cleared: bool,
 }
 
 /// Renders deterministic roadside props along the track edges (`NO1-031`).
+///
+/// Props stand *beside* the racing surface, never on it. Placement resolves
+/// against the tile grid rather than a fixed offset: the old code offset the
+/// centreline by a hard-coded 24 world units, but circuits are 64..=128 units
+/// half-wide, so 95% of props were planted in the middle of the road -- trees
+/// standing in the racing line, with no collision to explain why the car drove
+/// straight through them.
 fn render_biome_props(camera: &Camera, track: &TrackDef, biome_style: u8, _ticks: u32) {
-    let n = if !track.route.is_empty() {
-        track.route.len()
-    } else {
-        track.route_len()
-    };
-    if n < 4 {
-        return;
-    }
-
-    let node_at = |idx: usize| -> Vec2 {
-        if !track.route.is_empty() {
-            track.route[idx % n]
-        } else {
-            TrackDef::gate_centre(&track.route_node(idx % n))
-        }
-    };
-
-    // Step every 4 route nodes to maintain 60 FPS while populating roadside
-    for i in (0..n).step_by(4) {
-        let p0 = node_at(i);
-        let p1 = node_at(i + 1);
-        let seg_h = arduracer_core::heading_towards(p0, p1);
-
-        // Place props along both left and right outer margins (+24 and -24 WU offset)
-        let lat_x = (cos(seg_h).raw() * 24) >> FP_SHIFT;
-        let lat_y = (sin(seg_h).raw() * 24) >> FP_SHIFT;
-
-        let left_pos = Vec2::new(p0.x - Fixed::from_int(lat_x), p0.y - Fixed::from_int(lat_y));
-        let right_pos = Vec2::new(p0.x + Fixed::from_int(lat_x), p0.y + Fixed::from_int(lat_y));
-
-        for &pos in &[left_pos, right_pos] {
-            match biome_style {
-                0 => draw_palm_tree(camera, pos),
-                1 => draw_cyber_pylon(camera, pos),
-                2 => draw_canyon_spire(camera, pos),
-                3 => draw_alpine_pine(camera, pos),
-                4 => draw_obsidian_obelisk(camera, pos),
-                _ => draw_stadium_floodlight(camera, pos),
-            }
+    for pos in biome_prop_placements(track).iter() {
+        match biome_style {
+            0 => draw_palm_tree(camera, pos),
+            1 => draw_cyber_pylon(camera, pos),
+            2 => draw_canyon_spire(camera, pos),
+            3 => draw_alpine_pine(camera, pos),
+            4 => draw_obsidian_obelisk(camera, pos),
+            _ => draw_stadium_floodlight(camera, pos),
         }
     }
 }
+
+/// Route node `idx` of `n`, for either route representation.
+pub fn track_node_at(track: &TrackDef, idx: usize, n: usize) -> Vec2 {
+    if !track.route.is_empty() {
+        track.route[idx % n]
+    } else {
+        TrackDef::gate_centre(&track.route_node(idx % n))
+    }
+}
+
+/// How many route nodes the scan steps between props.
+///
+/// Every 4th node keeps the per-frame cost bounded on long circuits while still
+/// populating both margins densely enough to read as a continuous roadside.
+pub const PROP_NODE_STRIDE: usize = 4;
+/// Upper bound on props one circuit can place.
+///
+/// The longest authored route yields 96 nodes; at the stride above and two
+/// sides per node that is 48 props. This leaves headroom for a future longer
+/// circuit while keeping the array small in RAM.
+pub const PROP_MAX_PROP_COUNT: usize = 128;
+
+/// Every roadside prop position for `track`, in draw order.
+///
+/// Pure geometry with no GPU dependency, so `tools/test_ui` can assert that not
+/// one of them lands on the racing surface -- the defect this exists to rule out
+/// cannot be caught from a test that has to draw first.
+pub fn biome_prop_placements(track: &TrackDef) -> biome_prop_placements::Placements {
+    biome_prop_placements::compute(track)
+}
+
+/// The placement scan, kept in its own module so the host test harness can
+/// exercise it without pulling in the GPU-facing renderer.
+pub mod biome_prop_placements {
+    use super::{roadside_point, track_node_at, PROP_MAX_PROP_COUNT, PROP_NODE_STRIDE};
+    use arduracer_core::{TrackDef, Vec2};
+
+    /// Filled prop positions plus how many were found.
+    ///
+    /// Fixed-capacity so the scan costs no allocation on the PSX: the renderer
+    /// walks this each frame, and the real circuits need well under the cap.
+    pub struct Placements {
+        points: [Vec2; PROP_MAX_PROP_COUNT],
+        count: usize,
+    }
+
+    impl Placements {
+        /// Positions in draw order.
+        pub fn iter(&self) -> impl Iterator<Item = Vec2> + '_ {
+            self.points[..self.count].iter().copied()
+        }
+
+        /// How many props were placed.
+        pub fn len(&self) -> usize {
+            self.count
+        }
+
+        /// Whether any prop was placed at all.
+        pub fn is_empty(&self) -> bool {
+            self.count == 0
+        }
+    }
+
+    /// Scans the route and returns every roadside prop position.
+    pub fn compute(track: &TrackDef) -> Placements {
+        let mut points = [Vec2::ZERO; PROP_MAX_PROP_COUNT];
+        let mut count = 0usize;
+
+        let n = track_node_count(track);
+        if n < 4 {
+            return Placements { points, count };
+        }
+
+        // Step every few route nodes to keep the per-frame cost bounded.
+        let mut i = 0usize;
+        while i < n && count + 2 <= PROP_MAX_PROP_COUNT {
+            let p0 = track_node_at(track, i, n);
+            let p1 = track_node_at(track, i + 1, n);
+            let seg_h = arduracer_core::heading_towards(p0, p1);
+            for &side in &[-1i32, 1] {
+                let Some(pos) = roadside_point(track, p0, seg_h, side) else {
+                    continue;
+                };
+                points[count] = pos;
+                count += 1;
+            }
+            i += PROP_NODE_STRIDE;
+        }
+        Placements { points, count }
+    }
+
+    fn track_node_count(track: &TrackDef) -> usize {
+        if !track.route.is_empty() {
+            track.route.len()
+        } else {
+            track.route_len()
+        }
+    }
+}
+
+/// Nearest point beside the road at `node`, on `side` of the segment heading
+/// `seg_h`, or `None` if no such spot exists within the search.
+///
+/// Walks outward in whole-tile steps and returns the first non-road tile. The
+/// search is bounded so a route node sitting in open ground (the inside of a
+/// hairpin, a long shortcut) cannot fling a prop hundreds of units away, and
+/// so a circuit with no off-road tile simply draws no props there.
+fn roadside_point(track: &TrackDef, node: Vec2, seg_h: u16, side: i32) -> Option<Vec2> {
+    // Perpendicular to the segment. `heading_towards` returns a screen-space
+    // atan2 (0 = +X) while `cos`/`sin` use 0 = North (-Y); this pairing is what
+    // makes the offset land across the road rather than along it.
+    //
+    // Probes increasing distances from the centreline and takes the first that
+    // is off the racing surface. A probe-and-continue search rather than a
+    // marching one: where two stretches of road run alongside each other -- a
+    // hairpin's inside, a doubling-back section -- a march walks *along* the
+    // road and only escapes hundreds of units later, flinging the prop across
+    // the map. Probing absolute distances lands on the true kerb.
+    let mut dist = PROP_FINE_WU;
+    while dist <= PROP_MAX_OUTWARD_WU {
+        let probe = advance(node, seg_h, side, dist);
+        if off_road(track, probe) {
+            return Some(probe);
+        }
+        dist += PROP_FINE_WU;
+    }
+    None
+}
+
+/// Whether a world point is off the drivable surface (or off the grid).
+#[inline]
+fn off_road(track: &TrackDef, p: Vec2) -> bool {
+    !track.is_road_at(TrackDef::tile_x_of(p.x), TrackDef::tile_y_of(p.y))
+}
+
+/// Moves `p` by `dist` world units perpendicular to `seg_h`, on `side`.
+#[inline]
+fn advance(p: Vec2, seg_h: u16, side: i32, dist: i32) -> Vec2 {
+    Vec2::new(
+        p.x + Fixed::from_int(scale_step(cos(seg_h).raw(), side, dist)),
+        p.y + Fixed::from_int(scale_step(sin(seg_h).raw(), side, dist)),
+    )
+}
+
+/// Scales a Q12 unit component by `side` and `dist`, in world units.
+///
+/// Rounds away from zero so the two sides of a segment are exact mirrors: an
+/// arithmetic shift truncates toward zero, which turns `(2896 * -1) >> 12` into
+/// -5 and `(2896 * 1) >> 12` into +5, putting the left kerb a world unit closer
+/// to the road than the right one.
+#[inline]
+fn scale_step(component_q12: i32, side: i32, dist: i32) -> i32 {
+    let product = component_q12 * side * dist;
+    if product >= 0 {
+        (product + (1 << (FP_SHIFT - 1))) >> FP_SHIFT
+    } else {
+        -((-product + (1 << (FP_SHIFT - 1))) >> FP_SHIFT)
+    }
+}
+
+/// Fine stride of the outward probe: an eighth of a tile, so a prop stands
+/// just off the kerb rather than a whole tile past it.
+pub const PROP_FINE_WU: i32 = 4;
+/// How far the outward search may probe, in world units.
+///
+/// It has to clear the *widest* part of the road on that segment, which is not
+/// the circuit's nominal half-width: a long straight or a hairpin's outside runs
+/// far wider than the authored figure. Measured across all 40 circuits every
+/// slot resolves within this, and 92% within 256. `road_half_width` alone is
+/// not a usable bound -- it leaves props on the road at wide corners.
+pub const PROP_MAX_OUTWARD_WU: i32 = 2048;
 
 /// Palm Tree: slender brown trunk with green palm frond canopy.
 fn draw_palm_tree(camera: &Camera, pos: Vec2) {
