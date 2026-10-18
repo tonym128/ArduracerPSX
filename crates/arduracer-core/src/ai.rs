@@ -1204,7 +1204,7 @@ mod tests {
     #[test]
     fn every_rival_finishes_every_circuit_within_the_playtest_budget() {
         // The playability oracle's AI half, as a unit test: 24 circuits x 5
-        // personalities, 5 laps each.
+        // personalities, 3 laps each.
         for track in ALL_TRACKS.iter() {
             for profile in AI_PROFILES.iter() {
                 let mut racer = AiRacer::new(track.start_pos, track.start_heading, *profile);
@@ -1753,7 +1753,7 @@ mod tests {
     fn the_rival_lap_count_comes_from_the_lap_timer_constant() {
         // `if self.current_lap > 5` could never be reconciled with
         // `LapTimer`, which uses `timing::TOTAL_LAPS`.
-        assert_eq!(TOTAL_LAPS, 5);
+        assert_eq!(TOTAL_LAPS, 3);
         let track = ALL_TRACKS[0];
         let mut racer = AiRacer::new(track.start_pos, track.start_heading, AI_PROFILES[0]);
         racer.left_start_gate = true;

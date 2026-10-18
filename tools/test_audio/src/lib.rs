@@ -477,7 +477,8 @@ mod fmv_xa_streaming {
     fn cooker_and_disc_use_xa_str_sectors() {
         assert!(COOK.contains("\"str\""));
         assert!(COOK.contains("def is_xa_fmv(path):"));
-        assert!(COOK.contains("if not force and is_xa_fmv(str_out):"));
+        assert!(COOK.contains("def is_current_xa_fmv(path):"));
+        assert!(COOK.contains("if not force and is_current_xa_fmv(str_out):"));
         for name in [
             "INTRO.STR",
             "VICTORY1.STR",

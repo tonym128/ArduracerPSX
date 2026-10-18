@@ -181,8 +181,8 @@ pub fn render_hud<const N: usize>(
         gpu::draw_rect_flat(8, 6, 74, 38, 14, 16, 24);
         gpu::draw_rect_flat(9, 7, 72, 36, 22, 26, 36);
 
-        // Laps boxes (top-left, scaled to target_laps up to 5)
-        let lap_boxes = (timer.target_laps.clamp(1, 5)) as u16;
+        // Laps boxes (top-left, scaled to target_laps up to 3)
+        let lap_boxes = (timer.target_laps.clamp(1, 3)) as u16;
         for lap_idx in 0..lap_boxes {
             let x = 13 + lap_idx * 12;
             let is_current = lap_idx + 1 == timer.current_lap as u16;

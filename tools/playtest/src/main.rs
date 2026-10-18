@@ -42,7 +42,7 @@ use arduracer_core::*;
 mod tests;
 
 /// Laps the reference driver attempts per track.
-const LAPS_PER_TRACK: u8 = 5;
+const LAPS_PER_TRACK: u8 = arduracer_core::TOTAL_LAPS;
 /// Safety bound on simulated ticks before a lap is declared "not completed".
 const TICK_BUDGET: u32 = 60_000;
 /// Medal spread. Dev Platinum is the fastest tuned reference lap (verified
@@ -521,7 +521,10 @@ fn main() {
 
     println!("-----------------------------------------------------------------------");
     if all_errors.is_empty() {
-        println!("  RESULT: all 24 circuits are playable (5 laps player + 5 AI rivals).");
+        println!(
+            "  RESULT: all 24 circuits are playable ({} laps player + {} AI rivals).",
+            LAPS_PER_TRACK, LAPS_PER_TRACK
+        );
     } else {
         println!("  RESULT: {} failure(s) found.", all_errors.len());
     }

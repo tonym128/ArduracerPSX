@@ -757,7 +757,7 @@ mod tests {
     fn a_finisher_ahead_of_a_merely_running_car_wins() {
         let track = ALL_TRACKS[0];
         let rivals = rivals_on(track, 5, |i, racer| {
-            racer.current_lap = if i == 0 { 6 } else { 5 };
+            racer.current_lap = if i == 0 { 4 } else { 3 };
             racer.target_gate_idx = 0;
             racer.is_finished = i == 0;
             racer.state.position = track.start_pos;
@@ -770,12 +770,12 @@ mod tests {
             &rivals,
             track,
         );
-        // Player is still running the last lap (lap 5, not finished), the rival
-        // has taken the flag (lap 6 -> normalised to 5, finished).
+        // Player is still running the last lap (lap 3, not finished), the rival
+        // has taken the flag (lap 4 -> normalised to 3, finished).
         assert_eq!(standings[0], 1, "the rival that finished must lead");
-        assert_eq!(finishing_lap(6, true), crate::timing::TOTAL_LAPS);
-        assert_eq!(finishing_lap(5, true), 5);
-        assert_eq!(finishing_lap(6, false), 6);
+        assert_eq!(finishing_lap(4, true), crate::timing::TOTAL_LAPS);
+        assert_eq!(finishing_lap(3, true), 3);
+        assert_eq!(finishing_lap(4, false), 4);
     }
 
     #[test]

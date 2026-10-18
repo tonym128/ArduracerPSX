@@ -26,8 +26,8 @@ use crate::vehicle::VehicleState;
 
 /// Ticks per second (60 Hz NTSC).
 pub const TICKS_PER_SECOND: u32 = 60;
-/// Default timed laps in an arcade time trial.
-pub const TOTAL_LAPS: u8 = 5;
+/// Default timed laps in an arcade time trial and tournament race.
+pub const TOTAL_LAPS: u8 = 3;
 
 /// Most gates a single [`LapTimer`] can track, set by the width of its bitmask.
 ///
