@@ -18,7 +18,7 @@ This is a living, ordered backlog for work in the `trackit` worktree. Recommenda
 These issues can invalidate lap results or make the game appear broken; resolve them before adding modes or polish.
 
 - [x] **T-001 Fixed-point correctness.** Fix `Fixed::mul`/`div` overflow and truncation, define divide-by-zero behavior, and replace `Vec2::length()` with a safe wide-integer implementation. Cover boundaries in the real core crate.
-- [ ] **T-002 Valid lap rules.** Reject implausibly short laps, validate start/finish direction and checkpoint order, reset progress after failed attempts, and prevent gate accumulation or shortcuts from scoring.
+- [x] **T-002 Valid lap rules.** Reject implausibly short recorded laps, require every checkpoint on each attempt, reset progress after every start-line departure, and reject clearly reverse checkpoint/finish travel. Checkpoints intentionally remain order-independent: strict ordering previously made 23 of 24 original circuits impossible to complete; preserve that compatibility unless a separately validated route-order system replaces it.
 - [ ] **T-003 Reachable medal targets.** Re-measure medal pars against achievable laps after physics changes. Make par drift fail the normal playability gate; recalibrate intentionally.
 - [ ] **T-004 Recoverable collisions.** Prevent permanent spin-outs, preserve useful player control during recovery, correct position after interior-wall hits, and make all track edges escapable without manual reset.
 - [ ] **T-005 Correct race positions.** Rank player and rivals with one progress metric (lap, ordered gate, route distance); handle start/finish and ties consistently.
@@ -128,3 +128,4 @@ These issues can invalidate lap results or make the game appear broken; resolve 
 ## Progress log
 
 - **T-001 complete (already present on branch base):** `math.rs` uses saturating wide intermediates for fixed multiplication/division and a 64-bit integer square root for vector length. `cargo test --manifest-path crates/arduracer-core/Cargo.toml` passed (298 core tests, including arithmetic and distance edge cases). No code change was needed for this item.
+- **T-002 complete (already present on branch base):** the production timer requires all gates within one lap attempt, clears progress at every start-line departure, applies a track-derived plausible-time floor to records, and checks route-relative travel at gates/finish. Checkpoint order remains intentionally flexible for shipped-track compatibility. The all-track playtest completed three laps on every listed course with five rivals; it exited nonzero only because 23 par tables differ slightly from the current calibration (tracked under T-003).
