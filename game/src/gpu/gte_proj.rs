@@ -15,17 +15,23 @@
 //! With `H = 120`, `OFX = 160 << 16`, `OFY = 60 << 16`, a ground point (`height_q4 = 0`)
 //! projects to `sx = 160 + right_q4 * 120 / z_q4`, `sy = 60 + 2080 * 120 / z_q4`, matching
 //! [`Camera::project_rz`] pixel-for-pixel while accelerating 3D elevated meshes in hardware.
+//!
+//! **Split-screen scales all of it.** In 2P each viewport is a fraction of the screen, so
+//! `OFX`/`OFY`, the `H` focal length and every vertex height are all derived from
+//! [`Camera::m7_view_scale_q12`]. Hard-coding any one of them to its full-screen value is
+//! what made a player's own car render outside their viewport, and a rival's render at the
+//! wrong size. On a full-screen viewport the scale is exactly 1, so this is inert for
+//! single-player.
 
-use crate::gpu::camera::{Camera, M7_VEHICLE_Z_FAR, M7_Z0, M7_Z_NEAR, SCREEN_W};
+// The camera height constant is imported from `camera`, which owns it: the
+// split viewport scale has to be applied to it, and the second copy that used
+// to live here is what let the hardware projection drift from the software one.
+use crate::gpu::camera::{Camera, M7_CAM_HEIGHT_Q4, M7_VEHICLE_Z_FAR, M7_Z0, M7_Z_NEAR};
 use arduracer_core::Vec2;
 use psx_gte::{
     math::{Mat3I16, Vec3I16, Vec3I32},
     mfc2, mtc2, ops, scene,
 };
-
-/// Camera height above the ground plane in Q4 world units (`130 * 16 = 2080`).
-/// Chosen so `M7_CAM_HEIGHT_Q4 * H = 2080 * 120 = 249,600 = M7_K * 16`.
-pub const M7_CAM_HEIGHT_Q4: i32 = 2_080;
 
 /// Focal distance `H` in pixels.
 pub const M7_GTE_H: u16 = 120;
@@ -33,9 +39,10 @@ pub const M7_GTE_H: u16 = 120;
 /// Loads the Mode 7 camera transform (heading yaw, jump pitch and speed-FOV
 /// warp) into the hardware GTE control registers.
 ///
-/// Deliberately mirrors [`Camera::project_cam`] exactly: the ground tiles,
-/// sprites and particles go through the software path, so any extra term here
-/// (such as the corner-banking roll) would slide 3D meshes off their shadows.
+/// Deliberately mirrors [`Camera::project_cam`] exactly, including the
+/// split-screen viewport scale: the ground tiles, sprites and particles go
+/// through the software path, so any extra term here (such as the corner-banking
+/// roll, or an unscaled focal length) would slide 3D meshes off their shadows.
 /// Banking roll is therefore applied to the sky backdrop only.
 pub fn load_m7_camera_gte(camera: &Camera) {
     let h_sin = camera.hsin().clamp(-4096, 4096) as i16;
@@ -55,10 +62,27 @@ pub fn load_m7_camera_gte(camera: &Camera) {
     scene::load_rotation(&rot);
     scene::load_translation(Vec3I32::new(0, M7_CAM_HEIGHT_Q4, M7_Z0 << 4));
 
-    let horizon_y = camera.m7_horizon().clamp(24, 110);
-    scene::set_screen_offset((SCREEN_W as i32 / 2) << 16, horizon_y << 16);
+    // Split-screen needs both of these, or a 3D car is projected onto the
+    // full-screen road and lands outside its own viewport:
+    //
+    //  - `OFX`/`OFY` place the projection origin at *this* viewport's centre
+    //    and horizon, not the middle of the whole screen.
+    //  - `H` carries the viewport scale. The GTE emits a row as
+    //    `OFY + H * P_y / P_z`, and `P_y` already contains the camera height
+    //    from `TR.y`, so scaling `H` scales the camera height and the road
+    //    together -- one uniform factor for both axes, exactly as
+    //    `Camera::project_cam_elevated` does in software. Scaling the offsets
+    //    alone leaves the car far below a short viewport; scaling the axes
+    //    separately is impossible here because `H` is the only scale the
+    //    hardware has.
+    //
+    // On a full-screen viewport the scale is exactly 1 and every value reduces
+    // to the 1P one, so this is inert for single-player.
+    let view_scale = camera.m7_view_scale_q12();
+    let horizon_y = camera.m7_horizon_row().clamp(0, 240);
+    scene::set_screen_offset((camera.center_x as i32) << 16, horizon_y << 16);
 
-    let h_plane = camera.m7_focal().clamp(96, 140) as u16;
+    let h_plane = (camera.m7_focal() * view_scale / 4096).clamp(24, 1020) as u16;
     scene::set_projection_plane(h_plane);
     scene::set_avsz_weights(0x555, 0x400);
 }
@@ -75,7 +99,11 @@ pub fn project_world_3d_gte(
 ) -> Option<((i16, i16), i32)> {
     let dx_q4 = ((world_pos.x.raw() - camera.pos.x.raw()) >> 8).clamp(-32_000, 32_000) as i16;
     let dy_q4 = ((world_pos.y.raw() - camera.pos.y.raw()) >> 8).clamp(-32_000, 32_000) as i16;
-    let neg_h_q4 = (-(height_wu.clamp(-256, 512) * 16)) as i16;
+    // The elevation is scaled by the viewport along with `TR.y` and `H`, so a
+    // car's body sits on its own shadow in split-screen instead of towering
+    // over a road that was compressed without it.
+    let height_q4 = (height_wu.clamp(-256, 512) * 16 * camera.m7_view_scale_q12()) / 4096;
+    let neg_h_q4 = (-height_q4) as i16;
 
     let p = scene::project_vertex_scheduled(Vec3I16::new(dx_q4, neg_h_q4, dy_q4));
     let z_q4 = p.sz as i32;
@@ -108,10 +136,11 @@ pub fn project_tri_3d_gte(
     camera: &Camera,
     verts: [(Vec2, i32); 3],
 ) -> Option<([(i16, i16); 3], i32)> {
+    let view_scale = camera.m7_view_scale_q12();
     let to_gte = |(pos, h_wu): (Vec2, i32)| -> Vec3I16 {
         let dx = ((pos.x.raw() - camera.pos.x.raw()) >> 8).clamp(-32_000, 32_000) as i16;
         let dy = ((pos.y.raw() - camera.pos.y.raw()) >> 8).clamp(-32_000, 32_000) as i16;
-        let ny = (-(h_wu.clamp(-256, 512) * 16)) as i16;
+        let ny = -((h_wu.clamp(-256, 512) * 16 * view_scale) / 4096) as i16;
         Vec3I16::new(dx, ny, dy)
     };
 

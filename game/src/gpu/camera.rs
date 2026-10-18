@@ -72,6 +72,12 @@ pub const M7_Z0: i32 = 120;
 const M7_FOCAL: i32 = 120;
 /// Camera height times focal length: the ground row at depth z is `HORIZON + K / z`.
 const M7_K: i32 = 15_600;
+/// Camera height above the road plane in Q4 world units (130 * 16 = 2080).
+///
+/// Chosen so `M7_CAM_HEIGHT_Q4 * M7_FOCAL == M7_K * 16`, which is what makes the
+/// software and hardware projections agree pixel-for-pixel. Lives here rather
+/// than in `gte_proj` so the split-screen scale has one owner.
+pub const M7_CAM_HEIGHT_Q4: i32 = 2_080;
 /// Nearest depth projected. Clamping here keeps the divide bounded.
 pub const M7_Z_NEAR: i32 = 70;
 /// Farthest depth that is drawn for uncompressed codecs (TIM, TIM4, TIM8).
@@ -128,10 +134,12 @@ pub struct Camera {
     /// Speed & boost FOV warp: pixels subtracted from the Mode 7 focal length
     /// (`0..=M7_FOV_BOOST_MAX`, `NO1-032`).
     pub fov_boost: i16,
-    /// Horizontal screen center in pixels (default 160).
+    /// Horizontal screen center in pixels (default 160, 79 in vertical split).
     pub center_x: i16,
     /// Vertical screen center in pixels (default 120, 59 in split-screen).
     pub center_y: i16,
+    /// Active viewport width in pixels (default 320, 158 in vertical split).
+    pub viewport_w: i16,
     /// Active viewport height in pixels (default 240, 118 in split-screen).
     pub viewport_h: i16,
     /// Cached `sin(heading)` / `cos(heading)` as raw Q20.12.
@@ -168,6 +176,7 @@ impl Camera {
             fov_boost: 0,
             center_x: SCREEN_W / 2,
             center_y: SCREEN_H / 2,
+            viewport_w: SCREEN_W,
             viewport_h: SCREEN_H,
             hsin: 0,
             hcos: FP_ONE,
@@ -184,6 +193,7 @@ impl Camera {
         if player_idx == 0 {
             self.center_x = 160;
             self.center_y = 120;
+            self.viewport_w = 320;
             self.viewport_h = 240;
             return;
         }
@@ -192,6 +202,7 @@ impl Camera {
                 // Vertical split: 158×240 viewport
                 self.center_x = 79;
                 self.center_y = 120;
+                self.viewport_w = 158;
                 self.viewport_h = 240;
             }
             2 => {
@@ -203,12 +214,16 @@ impl Camera {
                     self.center_x = 200;
                     self.center_y = 150;
                 }
+                // The mask covers the whole screen, so the projection keeps the
+                // full 320×240 extent and is only recentred.
+                self.viewport_w = 320;
                 self.viewport_h = 240;
             }
             _ => {
                 // Horizontal split (default): 320×118 viewport
                 self.center_x = 160;
                 self.center_y = 59;
+                self.viewport_w = 320;
                 self.viewport_h = 118;
             }
         }
@@ -364,30 +379,68 @@ impl Camera {
         M7_HORIZON + self.pitch_px as i32
     }
 
+    /// Uniform scale of this viewport as Q12 (4096 = a full 320x240 screen).
+    ///
+    /// The *smaller* of the two axis ratios, so the projection always fits the
+    /// viewport and fills it without letterboxing. It has to be uniform: the
+    /// GTE applies one focal length to both axes, so scaling rows but not
+    /// columns would make a 3D car drift off its own shadow as it moved away
+    /// from the centre line. Scaling both keeps the world undistorted and lets
+    /// each half of a split show more of the road rather than a squashed slice.
+    #[inline]
+    pub fn m7_view_scale_q12(&self) -> i32 {
+        let w = (self.viewport_w as i32 * 4096) / SCREEN_W as i32;
+        let h = (self.viewport_h as i32 * 4096) / SCREEN_H as i32;
+        w.min(h)
+    }
+
+    /// Screen row the horizon projects to, in this camera's own viewport.
+    ///
+    /// Anchored on the viewport centre so a split viewport whose centre is
+    /// offset (the diagonal split shifts each player into their own triangle)
+    /// moves its horizon with it, while a viewport centred on the screen keeps
+    /// the full-screen value of `m7_horizon`.
+    #[inline]
+    pub fn m7_horizon_row(&self) -> i32 {
+        let scale = self.m7_view_scale_q12();
+        self.center_y as i32 + (((self.m7_horizon() - SCREEN_H as i32 / 2) * scale) / 4096)
+    }
+
+    /// Projects a camera-space `(right, depth)` point raised `height_wu` above
+    /// the road, through this viewport's scale.
+    ///
+    /// The single software projection for elevated geometry: the roadside props
+    /// used to carry their own copy of this arithmetic keyed on the full-screen
+    /// constants, so arches and gantries landed off-centre in split-screen.
+    ///
+    /// Reduces to [`Camera::project_cam`] at `height_wu == 0`.
+    #[inline]
+    pub fn project_cam_elevated(&self, right_q4: i32, z_q4: i32, height_wu: i32) -> (i16, i16) {
+        let z = z_q4.max(M7_Z_NEAR << 4);
+        // One focal length for both axes, so the software and hardware paths
+        // cannot disagree about where a car sits relative to the road.
+        let f = (self.m7_focal() * self.m7_view_scale_q12()) / 4096;
+        let sy = self.m7_horizon_row() + ((M7_CAM_HEIGHT_Q4 - height_wu * 16) * f) / z;
+        let sx = self.center_x as i32 + (right_q4 * f) / z;
+        (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
+    }
+
     /// Returns the projected screen row of the track's far clipping edge (where the track ground starts).
     #[inline]
     pub fn m7_track_top(&self) -> i16 {
-        let f = self.m7_focal();
-        let k16 = ((M7_K * 16 / M7_FOCAL) * f * self.viewport_h as i32) / (SCREEN_H as i32);
-        let horizon = (self.m7_horizon() * self.viewport_h as i32) / (SCREEN_H as i32);
-        let far_z = self.z_far.max(100) << 4;
-        clamp_i16(horizon + k16 / far_z)
+        self.project_cam(0, self.z_far.max(100) << 4).1
     }
 
-    /// As [`Camera::project_rz`] but honouring this camera's FOV warp and pitch.
+    /// As [`Camera::project_rz`] but honouring this camera's FOV warp, pitch
+    /// and split-screen viewport.
     ///
-    /// Identical to `project_rz` while `fov_boost == 0 && pitch_px == 0`, so the
-    /// at-rest view is unchanged. The camera height is fixed, so `K` scales with
-    /// the focal length exactly as the pinhole model requires.
+    /// Identical to `project_rz` while `fov_boost == 0 && pitch_px == 0` on a
+    /// full-screen viewport, so the 1P view is unchanged. The camera height is
+    /// fixed, so `K` scales with the focal length exactly as the pinhole model
+    /// requires.
     #[inline]
     pub fn project_cam(&self, right_q4: i32, z_q4: i32) -> (i16, i16) {
-        let z = z_q4.max(M7_Z_NEAR << 4);
-        let f = self.m7_focal();
-        let k16 = ((M7_K * 16 / M7_FOCAL) * f * self.viewport_h as i32) / (SCREEN_H as i32);
-        let horizon = (self.m7_horizon() * self.viewport_h as i32) / (SCREEN_H as i32);
-        let sy = horizon + k16 / z;
-        let sx = self.center_x as i32 + (right_q4 * f) / z;
-        (clamp_i16(sx.clamp(-4000, 4000)), clamp_i16(sy.min(4000)))
+        self.project_cam_elevated(right_q4, z_q4, 0)
     }
 
     /// Perspective scale at a world point as Q12 (4096 = 1 pixel per unit).
