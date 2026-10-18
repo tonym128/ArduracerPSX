@@ -582,8 +582,12 @@ impl VideoPlayer {
             self.audio_started = false;
         }
 
-        // Restore GPU to standard 15bpp RGB555 display mode for gameplay
-        write_gp1(gp1::display_mode(0, 0, false, false, false));
+        // Restore GPU to standard 15bpp RGB555 display mode for gameplay (320x240)
+        let pal = crate::is_pal_mode();
+        write_gp1(gp1::display_mode(1, 0, pal, false, false));
+        write_gp1(gp1::h_display_range(0x260, 0x260 + 320 * 8));
+        let v_start = if pal { 0x23 } else { 0x10 };
+        write_gp1(gp1::v_display_range(v_start, v_start + 240));
 
         if self.irq_mask_saved {
             unsafe {
@@ -606,8 +610,12 @@ impl VideoPlayer {
 pub fn play_video(filename: &str) -> VideoResult {
     psx_rt::interrupts::install_vblank_counter();
 
-    // Switch GPU display hardware to 24-bit direct color mode
-    write_gp1(gp1::display_mode(0, 0, false, true, false));
+    // Switch GPU display hardware to 24-bit direct color mode at 320x240
+    let pal = crate::is_pal_mode();
+    write_gp1(gp1::display_mode(1, 0, pal, true, false));
+    write_gp1(gp1::h_display_range(0x260, 0x260 + 320 * 8));
+    let v_start = if pal { 0x23 } else { 0x10 };
+    write_gp1(gp1::v_display_range(v_start, v_start + 240));
 
     let mut fb = FrameBuffer::new(VIDEO_W, VIDEO_H);
     fb.clear(0, 0, 0);

@@ -416,7 +416,9 @@ pub fn render_hud<const N: usize>(
     gpu::draw_rect_flat(220, 20, 88, 4, 14, 16, 24);
     let nitro_w = ((player.nitro_charge as i32 * 86) / NITRO_MAX_TICKS as i32).clamp(0, 86) as u16;
     if nitro_w > 0 {
-        let (nr, ng, nb) = if player.nitro_charge > NITRO_MAX_TICKS / 3 {
+        let (nr, ng, nb) = if player.is_boost_disabled() {
+            (180, 40, 30) // Red while depleted lockout is active
+        } else if player.nitro_charge > NITRO_MAX_TICKS / 3 {
             (255, 150, 40) // Full / active charge
         } else {
             (80, 110, 140) // Low charge
@@ -817,7 +819,12 @@ pub fn render_split_hud(
     gpu::draw_rect_flat(218, 16, 90, 4, 14, 16, 24);
     let nitro_w = ((player.nitro_charge as i32 * 88) / NITRO_MAX_TICKS as i32).clamp(0, 88) as u16;
     if nitro_w > 0 {
-        gpu::draw_rect_flat(219, 17, nitro_w, 2, 255, 150, 40);
+        let (nr, ng, nb) = if player.is_boost_disabled() {
+            (180, 40, 30)
+        } else {
+            (255, 150, 40)
+        };
+        gpu::draw_rect_flat(219, 17, nitro_w, 2, nr, ng, nb);
     }
 }
 

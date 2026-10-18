@@ -130,6 +130,7 @@ const HARD_IMPACT_SCRUB: Fixed = Fixed::from_raw(2867);
 /// Full nitro meter: 1.5 s of continuous boost (90 ticks), recharging passively
 /// in 6.0 s (360 ticks = 4 ticks per unit, or 2x faster while drifting).
 pub const NITRO_MAX_TICKS: u16 = 90;
+pub const NITRO_HALF_TICKS: u16 = NITRO_MAX_TICKS / 2;
 pub const NITRO_RECHARGE_TICKS: u16 = 4;
 /// Per-tick nitro thrust (well above the engine's own push).
 const NITRO_THRUST: Fixed = Fixed::from_raw(150);
@@ -208,6 +209,9 @@ pub struct VehicleState {
     pub nitro_charge: u16,
     /// Sub-tick accumulator for passive and drift-assisted nitro recharge.
     pub nitro_recharge_sub: u8,
+    /// Latched true when the boost meter is fully drained; disables using boost
+    /// while it recharges until reaching at least half capacity (`NITRO_HALF_TICKS`).
+    pub nitro_depleted: bool,
     /// Cooldown before a boost pad can fire again.
     pub boost_pad_cooldown: u16,
     /// Current engine RPM (1000..8000 scale).
@@ -272,6 +276,7 @@ impl Default for VehicleState {
             wheelspin_ticks: 0,
             nitro_charge: NITRO_MAX_TICKS,
             nitro_recharge_sub: 0,
+            nitro_depleted: false,
             boost_pad_cooldown: 0,
             engine_rpm: 1000,
             gear: 1,
@@ -428,6 +433,7 @@ impl VehicleState {
         self.wheelspin_ticks = 0;
         self.nitro_charge = NITRO_MAX_TICKS;
         self.nitro_recharge_sub = 0;
+        self.nitro_depleted = false;
         self.boost_pad_cooldown = 0;
         self.is_reversing = false;
         self.gear = 1;
@@ -443,6 +449,13 @@ impl VehicleState {
     #[inline]
     pub const fn is_airborne(&self) -> bool {
         self.z.raw() > 0
+    }
+
+    /// True if boost usage is disabled while recharging after full exhaustion
+    /// until the meter is at least half full again (`NITRO_HALF_TICKS`).
+    #[inline]
+    pub const fn is_boost_disabled(&self) -> bool {
+        self.nitro_depleted && self.nitro_charge < NITRO_HALF_TICKS
     }
 
     /// TrackMania-style Flying Respawn: places the car at `pos` facing `heading`
@@ -777,10 +790,24 @@ impl VehicleState {
         // accumulates 1 sub-tick per frame (reaching 1 charge every
         // `NITRO_RECHARGE_TICKS` = 4 ticks -> 6.0 s full refill), and active
         // drifting doubles the recharge rate (2 sub-ticks/frame -> 3.0 s refill).
-        let nitro_active =
-            input.nitro && !self.free_wheeling && self.nitro_charge > 0 && traction > Fixed::ZERO;
+        // If the meter is completely exhausted (0 charge), boost usage is disabled
+        // while it recharges until reaching at least half capacity (`NITRO_HALF_TICKS`).
+        if self.nitro_charge == 0 {
+            self.nitro_depleted = true;
+        } else if self.nitro_charge >= NITRO_HALF_TICKS {
+            self.nitro_depleted = false;
+        }
+
+        let nitro_active = input.nitro
+            && !self.free_wheeling
+            && !self.is_boost_disabled()
+            && self.nitro_charge > 0
+            && traction > Fixed::ZERO;
         if nitro_active {
             self.nitro_charge -= 1;
+            if self.nitro_charge == 0 {
+                self.nitro_depleted = true;
+            }
             self.nitro_recharge_sub = 0;
             self.boost_ticks = self.boost_ticks.max(2);
             self.velocity = self.velocity + forward_dir.scale(NITRO_THRUST);
@@ -790,6 +817,9 @@ impl VehicleState {
             if self.nitro_recharge_sub as u16 >= NITRO_RECHARGE_TICKS {
                 self.nitro_recharge_sub -= NITRO_RECHARGE_TICKS as u8;
                 self.nitro_charge = (self.nitro_charge + 1).min(NITRO_MAX_TICKS);
+                if self.nitro_charge >= NITRO_HALF_TICKS {
+                    self.nitro_depleted = false;
+                }
             }
         } else {
             self.nitro_recharge_sub = 0;
@@ -3116,6 +3146,90 @@ mod tests {
             "drifting must recharge nitro faster than straight grip: {} vs {}",
             drift_car.nitro_charge,
             grip_car.nitro_charge
+        );
+    }
+
+    #[test]
+    fn boost_depletion_locks_out_usage_until_half_full_recharge() {
+        let mut car = rolling(2.5);
+        assert_eq!(car.nitro_charge, NITRO_MAX_TICKS);
+        assert!(!car.is_boost_disabled());
+        assert!(!car.nitro_depleted);
+
+        // 1. Partial boost usage does NOT lock out:
+        // Drain 30 ticks of boost (charge goes 90 -> 60)
+        let boost_input = VehicleInput {
+            throttle: Fixed::ONE,
+            nitro: true,
+            ..VehicleInput::default()
+        };
+        for _ in 0..30 {
+            car.tick(boost_input, SurfaceType::Tarmac);
+        }
+        assert_eq!(car.nitro_charge, 60);
+        assert!(!car.is_boost_disabled());
+        assert!(!car.nitro_depleted);
+
+        // Release boost for 10 ticks (coasting/grip throttle)
+        let drive_input = VehicleInput {
+            throttle: Fixed::ONE,
+            nitro: false,
+            ..VehicleInput::default()
+        };
+        for _ in 0..10 {
+            car.tick(drive_input, SurfaceType::Tarmac);
+        }
+        assert!(!car.is_boost_disabled(), "partial usage does not lock out");
+
+        // Can immediately use boost again while not empty
+        car.tick(boost_input, SurfaceType::Tarmac);
+        assert!(car.nitro_charge < 63);
+
+        // 2. Completely drain the boost to 0
+        while car.nitro_charge > 0 {
+            car.tick(boost_input, SurfaceType::Tarmac);
+        }
+        assert_eq!(car.nitro_charge, 0);
+        assert!(car.is_boost_disabled(), "fully exhausted boost must be disabled");
+        assert!(car.nitro_depleted);
+
+        // 3. Keep holding boost input while it recharges.
+        // It must NOT fire or consume charge while below NITRO_HALF_TICKS (45 ticks).
+        // Passive recharge is 4 ticks per unit.
+        let mut prev_charge = 0;
+        for _ in 0..179 {
+            car.tick(boost_input, SurfaceType::Tarmac);
+            assert!(
+                car.nitro_charge >= prev_charge,
+                "boost must recharge even if nitro button is held"
+            );
+            prev_charge = car.nitro_charge;
+            assert!(
+                car.nitro_charge < NITRO_HALF_TICKS,
+                "charge must still be below half"
+            );
+            assert!(
+                car.is_boost_disabled(),
+                "boost must remain disabled while below half full (charge: {})",
+                car.nitro_charge
+            );
+        }
+
+        // Tick 180 reaches charge 45 (NITRO_HALF_TICKS).
+        car.tick(boost_input, SurfaceType::Tarmac);
+        assert_eq!(car.nitro_charge, NITRO_HALF_TICKS);
+        assert!(
+            !car.is_boost_disabled(),
+            "lockout clears once half full is reached"
+        );
+        assert!(!car.nitro_depleted);
+
+        // 4. Now that it's half full, holding boost on the next tick activates it!
+        car.tick(boost_input, SurfaceType::Tarmac);
+        assert_eq!(
+            car.nitro_charge,
+            NITRO_HALF_TICKS - 1,
+            "boost fires and spends charge once half full"
         );
     }
 

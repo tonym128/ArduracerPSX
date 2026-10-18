@@ -56,7 +56,7 @@ impl PauseMenu {
         gpu::draw_rect_flat(64, 32, 192, 178, 26, 30, 42);
         gpu::draw_rect_flat(64, 32, 192, 2, 220, 40, 60);
 
-        draw_text(102, 38, "PAUSED", (255, 220, 0), 2);
+        draw_text(124, 38, "PAUSED", (255, 220, 0), 2);
 
         // The settings rows carry their value inline between < and >; the
         // action rows are plain labels. Values come from the menu's
@@ -114,12 +114,7 @@ impl PauseMenu {
             }
         }
 
-        draw_text(
-            70,
-            192,
-            "L/R CHANGE   CROSS SELECT   START RESUME",
-            (110, 130, 155),
-            1,
-        );
+        draw_text(79, 189, "L/R: CHANGE   CROSS: SELECT", (110, 130, 155), 1);
+        draw_text(121, 201, "START: RESUME", (110, 130, 155), 1);
     }
 }

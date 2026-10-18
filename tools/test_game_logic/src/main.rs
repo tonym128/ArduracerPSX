@@ -722,7 +722,7 @@ fn test_nitro_meter_and_surge() {
     };
 
     assert_eq!(base.nitro_charge, NITRO_MAX_TICKS, "meter starts full");
-    for _ in 0..400 {
+    for _ in 0..60 {
         base.tick(plain, SurfaceType::Tarmac);
         boosted.tick(nitro, SurfaceType::Tarmac);
     }
@@ -732,6 +732,10 @@ fn test_nitro_meter_and_surge() {
         boosted.speed,
         base.speed
     );
+    for _ in 60..400 {
+        base.tick(plain, SurfaceType::Tarmac);
+        boosted.tick(nitro, SurfaceType::Tarmac);
+    }
     assert!(
         boosted.nitro_charge < NITRO_MAX_TICKS,
         "sustained nitro must drain the meter"
@@ -748,6 +752,27 @@ fn test_nitro_meter_and_surge() {
         "nitro must recharge when released"
     );
     assert!(boosted.nitro_charge <= NITRO_MAX_TICKS);
+
+    // Verify lockout after complete depletion:
+    let mut empty_car = VehicleState::default();
+    while empty_car.nitro_charge > 0 {
+        empty_car.tick(nitro, SurfaceType::Tarmac);
+    }
+    assert_eq!(empty_car.nitro_charge, 0);
+    assert!(empty_car.is_boost_disabled(), "depleted boost must be locked out");
+    assert!(empty_car.nitro_depleted);
+
+    // While recharging below half full (179 ticks), holding nitro does not spend charge
+    for _ in 0..179 {
+        empty_car.tick(nitro, SurfaceType::Tarmac);
+        assert!(empty_car.nitro_charge < NITRO_HALF_TICKS);
+        assert!(empty_car.is_boost_disabled());
+    }
+    // Reaching half full (tick 180) clears the lockout
+    empty_car.tick(nitro, SurfaceType::Tarmac);
+    assert_eq!(empty_car.nitro_charge, NITRO_HALF_TICKS);
+    assert!(!empty_car.is_boost_disabled());
+    assert!(!empty_car.nitro_depleted);
 }
 
 fn test_boost_pad_impulse() {

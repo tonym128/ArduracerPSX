@@ -2892,16 +2892,16 @@ fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> Opt
     }
 }
 
-/// Renders multi-stop Gouraud sky gradients, scrolling parallax silhouettes, and ground haze (`NO1-032`).
+/// Renders multi-stop Gouraud sky gradients, scrolling parallax silhouettes, and ground backdrop (`NO1-032`).
 fn draw_m7_backdrop(camera: &Camera) {
     let sky = crate::gpu::palette::sky_palette_for_circuit(unsafe { ACTIVE_CIRCUIT });
-    let horizon = camera.m7_horizon().clamp(28, 100) as i16;
+    let track_top = camera.m7_track_top().clamp(28, 140);
     let roll = (camera.roll_bam / 8).clamp(-12, 12);
-    let y_l = horizon - roll;
-    let y_r = horizon + roll;
+    let y_l = track_top - roll;
+    let y_r = track_top + roll;
 
-    // Segment 1: Zenith to Mid-sky (0 .. horizon * 3 / 5)
-    let mid_y = (horizon * 3) / 5;
+    // Segment 1: Zenith to Mid-sky (0 .. track_top * 3 / 5)
+    let mid_y = (track_top * 3) / 5;
     gpu::draw_tri_gouraud(
         [(0, 0), (320, 0), (0, mid_y)],
         [sky.zenith, sky.zenith, sky.mid_sky],
@@ -2911,7 +2911,7 @@ fn draw_m7_backdrop(camera: &Camera) {
         [sky.zenith, sky.mid_sky, sky.mid_sky],
     );
 
-    // Segment 2: Mid-sky to Horizon (mid_y .. y_l/y_r)
+    // Segment 2: Mid-sky to Track Top (mid_y .. y_l/y_r)
     gpu::draw_tri_gouraud(
         [(0, mid_y), (320, mid_y), (0, y_l)],
         [sky.mid_sky, sky.mid_sky, sky.horizon],
@@ -2921,7 +2921,17 @@ fn draw_m7_backdrop(camera: &Camera) {
         [sky.mid_sky, sky.horizon, sky.horizon],
     );
 
-    // Parallax Horizon Silhouette: shifted by camera heading
+    // Ground backdrop below track top (painted over by Mode 7 track tiles)
+    gpu::draw_tri_gouraud(
+        [(0, y_l), (320, y_r), (0, 240)],
+        [sky.ground_haze, sky.ground_haze, sky.ground_deep],
+    );
+    gpu::draw_tri_gouraud(
+        [(320, y_r), (320, 240), (0, 240)],
+        [sky.ground_haze, sky.ground_deep, sky.ground_deep],
+    );
+
+    // Parallax Horizon Silhouette: shifted by camera heading, anchored directly at track top (zero gap)
     let heading_shift = ((camera.heading as i32 * 320) >> 12) as i16;
     let col_dark = sky.silhouette_dark;
     let col_lit = sky.silhouette_lit;
@@ -2936,60 +2946,49 @@ fn draw_m7_backdrop(camera: &Camera) {
         _ => [10, 16, 12, 20, 14, 18, 12, 16], // Speedway coastal hills
     };
 
-    let base_y = horizon;
     for (i, &h) in sil_heights.iter().enumerate() {
         let x0 = (i as i16 * 44 - heading_shift).rem_euclid(352) - 16;
         let x1 = x0 + 44;
+        let mid_x = x0 + 22;
+        let base_y = track_top + (roll as i32 * (mid_x as i32 - 160) / 160) as i16;
         let peak_y = base_y - h;
         if sky.biome_style == 1 || sky.biome_style == 4 {
             // City skyscraper / cyber tower block
             let rx0 = x0 + 6;
             let rw = 32;
+            let tower_h = (h + 16) as u16;
             gpu::draw_rect_flat(
-                rx0, peak_y, rw, h as u16, col_dark.0, col_dark.1, col_dark.2,
+                rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2,
             );
             gpu::draw_rect_flat(
                 rx0 + 2,
                 peak_y,
                 2,
-                h as u16,
+                tower_h,
                 col_lit.0,
                 col_lit.1,
                 col_lit.2,
             );
         } else {
             // Mountain / mesa / stadium triangular ridge
-            let mid_x = x0 + 22;
             gpu::draw_tri_flat(
                 [(x0, base_y), (mid_x, peak_y), (x1, base_y)],
                 col_dark.0,
                 col_dark.1,
                 col_dark.2,
             );
+            // Solid base skirt down into ground so track tiles seamlessly overlap the mountains
+            gpu::draw_rect_flat(
+                x0,
+                base_y,
+                44,
+                16,
+                col_dark.0,
+                col_dark.1,
+                col_dark.2,
+            );
             gpu::draw_line_mono(mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2);
         }
-    }
-
-    // Ground haze below horizon fading into far road tiles
-    let haze_y = (horizon + 22).min(240);
-    gpu::draw_tri_gouraud(
-        [(0, y_l), (320, y_r), (0, haze_y)],
-        [sky.ground_haze, sky.ground_haze, sky.ground_deep],
-    );
-    gpu::draw_tri_gouraud(
-        [(320, y_r), (320, haze_y), (0, haze_y)],
-        [sky.ground_haze, sky.ground_deep, sky.ground_deep],
-    );
-    if haze_y < 240 {
-        gpu::draw_rect_flat(
-            0,
-            haze_y,
-            320,
-            (240 - haze_y) as u16,
-            sky.ground_deep.0,
-            sky.ground_deep.1,
-            sky.ground_deep.2,
-        );
     }
 }
 

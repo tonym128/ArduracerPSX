@@ -87,7 +87,9 @@ pub use track_builder::{
     TOTAL_CUSTOM_TRACK_SLOTS,
 };
 pub use tuning::{CarTuning, DEFAULT_SLIDER, MAX_SLIDER, MIN_SLIDER, TOTAL_POINTS};
-pub use vehicle::{VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_MAX_TICKS};
+pub use vehicle::{
+    VehicleInput, VehicleState, BASE_TOP_SPEED, BASE_TURN_RATE, NITRO_HALF_TICKS, NITRO_MAX_TICKS,
+};
 
 #[cfg(test)]
 pub use visual_converter::{convert_to_8bit_colour, ConvertedVisual8};
