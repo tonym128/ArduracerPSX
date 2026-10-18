@@ -43,7 +43,7 @@ use gpu::{
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
 use psx_gpu::{self as psx_gpu_mod, framebuf::FrameBuffer, Resolution, VideoMode};
-use state::{GameState, StateManager};
+use state::{GameState, StageSelectorSource, StateManager};
 use ui::font::draw_text;
 use ui::{
     CityInfo, GrandPrixSetupAction, MenuItem, PauseChoice, PauseMenu, ResultsAction, ResultsScreen,
@@ -803,6 +803,70 @@ impl ArduracerGame {
         self.last_player_rank = 1;
     }
 
+    /// Returns to the originating menu or trial stage selector after leaving a race.
+    pub fn return_from_race(&mut self, pad_buttons: u16) {
+        self.paused = false;
+        self.audio.set_paused(false);
+        self.audio.leave_race();
+        self.audio.sync_ui_edges(pad_buttons);
+        self.audio
+            .play_music(2, crate::gpu::tracktex::disc_reader());
+
+        if self.current_track_idx == 999 {
+            self.state_mgr.stage_selector_source = StageSelectorSource::None;
+            self.state_mgr.track_editor.arm_for_entry();
+            self.state_mgr.current = GameState::TrackEditor;
+        } else if self.current_track_idx >= ALL_TRACKS.len() {
+            self.state_mgr.stage_selector_source = StageSelectorSource::None;
+            self.state_mgr.city_select.arm_for_entry();
+            self.state_mgr.current = GameState::CitySelect;
+        } else if self.state_mgr.championship.is_some() {
+            self.state_mgr.championship = None;
+            self.state_mgr.champ_stage_backup = None;
+            self.state_mgr.stage_selector_source = StageSelectorSource::None;
+            self.state_mgr.current = GameState::MainMenu;
+            self.state_mgr.menu.arm_for_entry();
+        } else if self.is_2p_mode {
+            self.state_mgr.track_select.arm_for_entry_with_track(
+                GameMode::GrandPrix,
+                false,
+                self.current_track_idx,
+            );
+            self.state_mgr.current = GameState::TrackSelect;
+        } else {
+            // Single-player trial stage: return to the trial stage selector (Carousel or Table)
+            // preserving the current stage index.
+            match self.state_mgr.stage_selector_source {
+                StageSelectorSource::StageTable => {
+                    let tab = if self.state_mgr.stage_table.tab == StageFilterTab::All {
+                        StageFilterTab::All
+                    } else if self.current_track_idx >= 25 {
+                        StageFilterTab::Mania
+                    } else {
+                        StageFilterTab::GrandPrix
+                    };
+                    self.state_mgr
+                        .stage_table
+                        .arm_for_entry_with_track(tab, self.current_track_idx);
+                    self.state_mgr.current = GameState::StageTable;
+                }
+                _ => {
+                    let mode = if self.current_track_idx >= 25 {
+                        GameMode::Mania
+                    } else {
+                        GameMode::GrandPrix
+                    };
+                    self.state_mgr.track_select.arm_for_entry_with_track(
+                        mode,
+                        false,
+                        self.current_track_idx,
+                    );
+                    self.state_mgr.current = GameState::TrackSelect;
+                }
+            }
+        }
+    }
+
     /// Draws all active vehicles (player + 5 rivals) back-to-front by screen row.
     ///
     /// Sorting all 6 cars by projected screen `y` gives a true painter's order
@@ -816,9 +880,9 @@ impl ArduracerGame {
         // Insertion sort by depth across all 6 cars. 0 = player, 1..=5 = rivals.
         let mut order = [0usize, 1, 2, 3, 4, 5];
         let mut depth = [0i16; 6];
-        depth[0] = self.camera.world_to_screen(self.player.position).1;
+        depth[0] = self.camera.vehicle_screen_y(self.player.position);
         for (i, rival) in self.rivals.iter().enumerate() {
-            depth[i + 1] = self.camera.world_to_screen(rival.state.position).1;
+            depth[i + 1] = self.camera.vehicle_screen_y(rival.state.position);
         }
         for i in 1..order.len() {
             let mut j = i;
@@ -1170,6 +1234,8 @@ impl ArduracerGame {
                             MenuItem::TimeTrial => {
                                 self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
+                                self.state_mgr.stage_selector_source =
+                                    StageSelectorSource::TrackSelect;
                                 self.state_mgr
                                     .track_select
                                     .arm_for_entry(GameMode::GrandPrix, false);
@@ -1177,6 +1243,7 @@ impl ArduracerGame {
                             }
                             MenuItem::ManiaPrix => {
                                 self.is_2p_mode = false;
+                                self.state_mgr.stage_selector_source = StageSelectorSource::None;
                                 self.state_mgr
                                     .gp_setup
                                     .arm_for_entry(false, GameMode::Mania);
@@ -1185,6 +1252,8 @@ impl ArduracerGame {
                             MenuItem::ManiaTrials => {
                                 self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
+                                self.state_mgr.stage_selector_source =
+                                    StageSelectorSource::TrackSelect;
                                 self.state_mgr
                                     .track_select
                                     .arm_for_entry(GameMode::Mania, false);
@@ -1193,12 +1262,15 @@ impl ArduracerGame {
                             MenuItem::CityFreeDrive => {
                                 self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
+                                self.state_mgr.stage_selector_source = StageSelectorSource::None;
                                 self.state_mgr.city_select.arm_for_entry();
                                 self.state_mgr.current = GameState::CitySelect;
                             }
                             MenuItem::SplitScreen2P => {
                                 self.state_mgr.championship = None;
                                 self.is_2p_mode = true;
+                                self.state_mgr.stage_selector_source =
+                                    StageSelectorSource::TrackSelect;
                                 self.state_mgr
                                     .track_select
                                     .arm_for_entry(GameMode::GrandPrix, false);
@@ -1207,6 +1279,7 @@ impl ArduracerGame {
                             MenuItem::TrackBuilder => {
                                 self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
+                                self.state_mgr.stage_selector_source = StageSelectorSource::None;
                                 if let Some(saved_track) = self
                                     .memcard
                                     .save_data
@@ -1218,6 +1291,7 @@ impl ArduracerGame {
                                 self.state_mgr.current = GameState::TrackEditor;
                             }
                             MenuItem::TuningGarage => {
+                                self.state_mgr.stage_selector_source = StageSelectorSource::None;
                                 // Load all three presets and the active slot from the memory card.
                                 let slot = self.memcard.save_data.active_tuning_slot as usize;
                                 self.state_mgr
@@ -1230,6 +1304,8 @@ impl ArduracerGame {
                             }
                             MenuItem::Records => {
                                 self.state_mgr.championship = None;
+                                self.state_mgr.stage_selector_source =
+                                    StageSelectorSource::StageTable;
                                 self.state_mgr
                                     .stage_table
                                     .arm_for_entry(StageFilterTab::All);
@@ -1384,10 +1460,15 @@ impl ArduracerGame {
                             arduracer_core::levels::GameMode::Mania => StageFilterTab::Mania,
                             _ => StageFilterTab::GrandPrix,
                         };
-                        self.state_mgr.stage_table.arm_for_entry(initial_tab);
+                        self.state_mgr.stage_table.arm_for_entry_with_track(
+                            initial_tab,
+                            self.state_mgr.track_select.selected_track_idx,
+                        );
+                        self.state_mgr.stage_selector_source = StageSelectorSource::StageTable;
                         self.state_mgr.current = GameState::StageTable;
                     } else if let Some(track_idx) = confirmed {
                         if self.state_mgr.track_select.is_records_mode {
+                            self.state_mgr.stage_selector_source = StageSelectorSource::None;
                             self.state_mgr.current = GameState::MainMenu;
                             self.state_mgr.menu.arm_for_entry();
                         } else {
@@ -1404,10 +1485,13 @@ impl ArduracerGame {
                                 } else {
                                     track_idx
                                 };
+                            self.state_mgr.stage_selector_source = StageSelectorSource::TrackSelect;
                             self.load_track(target_idx);
                             self.state_mgr.current = GameState::Racing;
                         }
                     } else if cancelled {
+                        self.is_2p_mode = false;
+                        self.state_mgr.stage_selector_source = StageSelectorSource::None;
                         self.state_mgr.current = GameState::MainMenu;
                         self.state_mgr.menu.arm_for_entry();
                     }
@@ -1420,18 +1504,34 @@ impl ArduracerGame {
                     self.audio.ui_frame(pad.buttons.bits());
                     match self.state_mgr.stage_table.update(&pad) {
                         StageTableAction::SelectStage(track_idx) => {
+                            self.state_mgr.stage_selector_source = StageSelectorSource::StageTable;
                             self.load_track(track_idx);
                             self.state_mgr.current = GameState::Racing;
                         }
                         StageTableAction::Back => {
+                            self.state_mgr.stage_selector_source = StageSelectorSource::None;
                             self.state_mgr.current = GameState::MainMenu;
                             self.state_mgr.menu.arm_for_entry();
                         }
                         StageTableAction::SwitchToCarousel => {
-                            self.state_mgr.track_select.arm_for_entry(
-                                GameMode::GrandPrix,
+                            let sel_track = self
+                                .state_mgr
+                                .stage_table
+                                .active_tracks()
+                                .get(self.state_mgr.stage_table.selected_row)
+                                .copied()
+                                .unwrap_or(0);
+                            let final_mode = if sel_track >= 25 {
+                                GameMode::Mania
+                            } else {
+                                GameMode::GrandPrix
+                            };
+                            self.state_mgr.track_select.arm_for_entry_with_track(
+                                final_mode,
                                 self.state_mgr.track_select.is_records_mode,
+                                sel_track,
                             );
+                            self.state_mgr.stage_selector_source = StageSelectorSource::TrackSelect;
                             self.state_mgr.current = GameState::TrackSelect;
                         }
                         StageTableAction::None => {}
@@ -1617,22 +1717,8 @@ impl ArduracerGame {
                                     }
                                     self.input_mgr.silence();
                                     self.input_mgr2.silence();
-                                    self.state_mgr.championship = None;
-                                    self.state_mgr.champ_stage_backup = None;
-                                    if self.current_track_idx == 999 {
-                                        self.state_mgr.track_editor.arm_for_entry();
-                                        self.state_mgr.current = GameState::TrackEditor;
-                                    } else {
-                                        self.state_mgr.current = GameState::MainMenu;
-                                        self.state_mgr.menu.arm_for_entry();
-                                    }
-                                    // `self.paused` stays true across this
-                                    // transition, so arming here would leak the
-                                    // engine into the menu.
-                                    self.audio.leave_race();
-                                    self.audio.sync_ui_edges(pad.buttons.bits());
-                                    self.audio
-                                        .play_music(2, crate::gpu::tracktex::disc_reader());
+                                    self.return_from_race(pad.buttons.bits());
+                                    continue;
                                 }
                                 PauseChoice::None => {}
                             }
@@ -2527,9 +2613,21 @@ impl ArduracerGame {
                         || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
                 self.p1_won_2p = p1_won;
                 let best_ticks = if p1_won {
-                    self.timer.best_lap_ticks
+                    if self.timer.has_best_lap() {
+                        self.timer.best_lap_ticks
+                    } else if self.timer.last_completed_lap_ticks > 0 {
+                        self.timer.last_completed_lap_ticks
+                    } else {
+                        self.timer.current_lap_ticks
+                    }
                 } else {
-                    self.player2_timer.best_lap_ticks
+                    if self.player2_timer.has_best_lap() {
+                        self.player2_timer.best_lap_ticks
+                    } else if self.player2_timer.last_completed_lap_ticks > 0 {
+                        self.player2_timer.last_completed_lap_ticks
+                    } else {
+                        self.player2_timer.current_lap_ticks
+                    }
                 };
                 let total_ticks = if p1_won {
                     self.timer.current_lap_ticks
@@ -2675,20 +2773,24 @@ impl ArduracerGame {
                     .track_editor
                     .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
             } else {
-                let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                let effective_best = if self.timer.has_best_lap() {
+                    self.timer.best_lap_ticks
+                } else if self.timer.last_completed_lap_ticks > 0 {
+                    self.timer.last_completed_lap_ticks
+                } else {
+                    self.timer.current_lap_ticks
+                };
+                let time_medal = track.par_times.evaluate_medal(effective_best);
                 let medal = if self.timer.target_laps == 1 {
                     time_medal.max(self.timer.evaluate_platform_medal())
                 } else {
                     time_medal
                 };
-                self.memcard.record_lap(
-                    self.current_track_idx,
-                    self.timer.best_lap_ticks,
-                    medal as u8,
-                );
+                self.memcard
+                    .record_lap(self.current_track_idx, effective_best, medal as u8);
                 // Every scored lap already promoted itself; this only
                 // closes out the in-progress final lap.
-                self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+                self.ghost.finish_lap(effective_best, false);
                 self.ghost.save_to_card_block(&mut self.memcard.block);
             }
             // Persist the record before leaving the race screen.
@@ -2701,8 +2803,15 @@ impl ArduracerGame {
                 champ.award_stage_points(standings);
             }
 
+            let display_best = if self.timer.has_best_lap() {
+                self.timer.best_lap_ticks
+            } else if self.timer.last_completed_lap_ticks > 0 {
+                self.timer.last_completed_lap_ticks
+            } else {
+                self.timer.current_lap_ticks
+            };
             self.state_mgr.results = Some(ResultsScreen::new(
-                self.timer.best_lap_ticks,
+                display_best,
                 self.timer.current_lap_ticks,
                 track,
                 player_rank,
@@ -2965,27 +3074,7 @@ impl ArduracerGame {
                     self.audio
                         .play_music(7, crate::gpu::tracktex::disc_reader());
                 } else {
-                    self.audio.leave_race();
-                    self.audio.sync_ui_edges(pad.buttons.bits());
-                    self.audio
-                        .play_music(2, crate::gpu::tracktex::disc_reader());
-                    if self.current_track_idx == 999 {
-                        self.state_mgr.track_editor.arm_for_entry();
-                        self.state_mgr.current = GameState::TrackEditor;
-                    } else if self.current_track_idx >= ALL_TRACKS.len() {
-                        self.state_mgr.city_select.arm_for_entry();
-                        self.state_mgr.current = GameState::CitySelect;
-                    } else if self.current_track_idx >= 25 {
-                        self.state_mgr
-                            .track_select
-                            .arm_for_entry(GameMode::Mania, false);
-                        self.state_mgr.current = GameState::TrackSelect;
-                    } else {
-                        self.state_mgr
-                            .track_select
-                            .arm_for_entry(GameMode::GrandPrix, false);
-                        self.state_mgr.current = GameState::TrackSelect;
-                    }
+                    self.return_from_race(pad.buttons.bits());
                 }
             }
             Some(ResultsAction::RestartRace) => {
@@ -3019,14 +3108,7 @@ impl ArduracerGame {
                     self.memcard.mark_dirty();
                     self.memcard.flush();
                 }
-                self.state_mgr.championship = None;
-                self.state_mgr.champ_stage_backup = None;
-                self.state_mgr.current = GameState::MainMenu;
-                self.state_mgr.menu.arm_for_entry();
-                self.audio.leave_race();
-                self.audio.sync_ui_edges(pad.buttons.bits());
-                self.audio
-                    .play_music(2, crate::gpu::tracktex::disc_reader());
+                self.return_from_race(pad.buttons.bits());
             }
             None => {}
         }

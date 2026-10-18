@@ -89,9 +89,12 @@ impl StageTableScreen {
     }
 
     pub fn arm_for_entry(&mut self, initial_tab: StageFilterTab) {
+        self.arm_for_entry_with_track(initial_tab, usize::MAX);
+    }
+
+    /// Arms the stage table for entry, focusing on `track_idx`.
+    pub fn arm_for_entry_with_track(&mut self, initial_tab: StageFilterTab, track_idx: usize) {
         self.tab = initial_tab;
-        self.selected_row = 0;
-        self.scroll_top = 0;
         self.anim_timer = 0;
         self.prev_up = true;
         self.prev_down = true;
@@ -100,6 +103,19 @@ impl StageTableScreen {
         self.prev_confirm = true;
         self.prev_cancel = true;
         self.prev_select = true;
+
+        let tracks = self.active_tracks();
+        if let Some(pos) = tracks.iter().position(|&t| t == track_idx) {
+            self.selected_row = pos;
+            if pos >= 7 {
+                self.scroll_top = pos - 6;
+            } else {
+                self.scroll_top = 0;
+            }
+        } else {
+            self.selected_row = 0;
+            self.scroll_top = 0;
+        }
     }
 
     /// Returns the track indices corresponding to the active tab.

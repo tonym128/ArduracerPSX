@@ -85,6 +85,11 @@ pub const M7_Z_FAR_COMPRESSED: i32 = 560;
 /// Frustum scan radius in world units covering the extended far plane.
 pub const M7_SCAN_RADIUS_COMPRESSED: i32 = 800;
 
+/// Far clipping plane for Mode 7 vehicles and dynamic objects, spanning the
+/// full visible horizon ahead of the player (`3,600 * 16 = 57,600` Q4 units,
+/// within the 16-bit GTE `SZ3` limit).
+pub const M7_VEHICLE_Z_FAR: i32 = 3_600;
+
 /// The heading eases by 1/this of the remaining angle each tick.
 const M7_HEADING_EASE_DIV: i32 = 6;
 /// Position ease in chase mode. Stiffer than top-down because there is no
@@ -439,6 +444,23 @@ impl Camera {
             add_i16_saturating(self.center_x, off.0),
             add_i16_saturating(self.center_y, off.1),
         )
+    }
+
+    /// Returns the projected screen row (depth) of a vehicle for back-to-front painter's sorting.
+    /// In Mode 7, projects points ahead of the near plane all the way to the horizon without
+    /// clipping at the ground-tile far plane.
+    #[inline]
+    pub fn vehicle_screen_y(&self, world_pos: Vec2) -> i16 {
+        if self.mode7 {
+            let (right, z_q4) = self.view_rq4_zq4(world_pos);
+            if z_q4 < (M7_Z_NEAR << 4) {
+                // Behind camera: sort to front/bottom so it doesn't occlude visible cars
+                return 30_000;
+            }
+            self.project_cam(right, z_q4).1
+        } else {
+            self.world_to_screen(world_pos).1
+        }
     }
 
     /// World point -> pixel offset from screen centre, with zoom applied.

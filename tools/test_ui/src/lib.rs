@@ -2314,6 +2314,44 @@ mod extended_view_distance_tests {
     }
 
     #[test]
+    fn mode7_vehicle_screen_y_projects_distant_vehicles_to_valid_rows() {
+        let cam_pos = Vec2::new(Fixed::from_int(320), Fixed::from_int(240));
+        let cam = Camera::new_chase(cam_pos, 0);
+
+        // Heading 0 faces north (-Y).
+        // Depth = fwd + M7_Z0 (120).
+        let pos_near = Vec2::new(Fixed::from_int(320), Fixed::from_int(140)); // dy = -100, fwd = 100, depth = 220
+        let pos_mid = Vec2::new(Fixed::from_int(320), Fixed::from_int(40)); // dy = -200, fwd = 200, depth = 320
+        let pos_far = Vec2::new(Fixed::from_int(320), Fixed::from_int(-260)); // dy = -500, fwd = 500, depth = 620
+        let pos_horizon = Vec2::new(Fixed::from_int(320), Fixed::from_int(-1500)); // dy = -1740, depth = 1860
+        let pos_behind = Vec2::new(Fixed::from_int(320), Fixed::from_int(300)); // behind camera (z_q4 < near)
+
+        let y_near = cam.vehicle_screen_y(pos_near);
+        let y_mid = cam.vehicle_screen_y(pos_mid);
+        let y_far = cam.vehicle_screen_y(pos_far);
+        let y_horizon = cam.vehicle_screen_y(pos_horizon);
+        let y_behind = cam.vehicle_screen_y(pos_behind);
+
+        // All visible vehicles ahead of the player must project between horizon (~60) and viewport bottom (240)
+        assert!((60..=240).contains(&y_near), "y_near={y_near}");
+        assert!((60..=240).contains(&y_mid), "y_mid={y_mid}");
+        assert!((60..=240).contains(&y_far), "y_far={y_far}");
+        assert!((60..=240).contains(&y_horizon), "y_horizon={y_horizon}");
+
+        // Farther vehicles must have smaller screen Y (closer to horizon / higher on screen)
+        // so painter's algorithm sorts them back-to-front
+        assert!(
+            y_horizon < y_far,
+            "horizon vehicle must be above far vehicle"
+        );
+        assert!(y_far < y_mid, "far vehicle must be above mid vehicle");
+        assert!(y_mid < y_near, "mid vehicle must be above near vehicle");
+
+        // Vehicles behind camera sort to the very front/bottom
+        assert_eq!(y_behind, 30_000);
+    }
+
+    #[test]
     fn main_and_tracktex_camera_synchronization_wiring() {
         assert!(
             MAIN_SRC.contains("pub fn sync_camera_view_distance(&mut self)"),
@@ -4165,6 +4203,78 @@ mod graphics_settings {
     }
 
     #[test]
+    fn track_select_arm_with_track_focus() {
+        use super::track_select::TrackSelectScreen;
+        use arduracer_core::levels::GameMode;
+        use psx_pad::button;
+
+        let mut screen = TrackSelectScreen::new();
+
+        // Arm with valid track within Grand Prix range (0..25)
+        screen.arm_for_entry_with_track(GameMode::GrandPrix, false, 7);
+        assert_eq!(screen.selected_track_idx, 7);
+
+        // Clamping out-of-range track falls back to start
+        screen.arm_for_entry_with_track(GameMode::GrandPrix, false, 30);
+        assert_eq!(screen.selected_track_idx, 0);
+
+        // Arm with valid track within Mania range (25..40)
+        screen.arm_for_entry_with_track(GameMode::Mania, false, 32);
+        assert_eq!(screen.selected_track_idx, 32);
+
+        // Clamping out-of-range track for Mania mode falls back to 25
+        screen.arm_for_entry_with_track(GameMode::Mania, false, 5);
+        assert_eq!(screen.selected_track_idx, 25);
+
+        // Confirm button held on entry does not trigger confirmation immediately
+        let (confirmed, cancelled) = screen.update(&test_pad(button::CROSS));
+        assert_eq!(confirmed, None);
+        assert!(!cancelled);
+
+        // Once released and pressed again, it confirms the focused track
+        screen.update(&test_pad(0));
+        let (confirmed, _) = screen.update(&test_pad(button::CROSS));
+        assert_eq!(confirmed, Some(25));
+    }
+
+    #[test]
+    fn stage_table_arm_with_track_focus() {
+        use super::stage_table::{StageFilterTab, StageTableAction, StageTableScreen};
+        use psx_pad::button;
+
+        let mut screen = StageTableScreen::new();
+
+        // GrandPrix tab: track 10 is row 10 in GP_INDICES. Since row >= 7, scroll_top is 4.
+        screen.arm_for_entry_with_track(StageFilterTab::GrandPrix, 10);
+        assert_eq!(screen.selected_row, 10);
+        assert_eq!(screen.scroll_top, 4);
+
+        // Mania tab: track 28 is row 3 in MANIA_INDICES (25, 26, 27, 28). Since row < 7, scroll_top is 0.
+        screen.arm_for_entry_with_track(StageFilterTab::Mania, 28);
+        assert_eq!(screen.selected_row, 3);
+        assert_eq!(screen.scroll_top, 0);
+
+        // Mania tab: track 5 is not in MANIA_INDICES -> falls back to row 0, scroll_top 0
+        screen.arm_for_entry_with_track(StageFilterTab::Mania, 5);
+        assert_eq!(screen.selected_row, 0);
+        assert_eq!(screen.scroll_top, 0);
+
+        // All tab: track 39 is row 39 in ALL_INDICES. Since 39 >= 7, scroll_top is 33.
+        screen.arm_for_entry_with_track(StageFilterTab::All, 39);
+        assert_eq!(screen.selected_row, 39);
+        assert_eq!(screen.scroll_top, 33);
+
+        // Confirm button held on entry does not immediately select
+        let action = screen.update(&test_pad(button::CROSS));
+        assert_eq!(action, StageTableAction::None);
+
+        // After release and press, it selects the focused track
+        screen.update(&test_pad(0));
+        let action = screen.update(&test_pad(button::CROSS));
+        assert_eq!(action, StageTableAction::SelectStage(39));
+    }
+
+    #[test]
     fn main_menu_split_screen_nav_and_select() {
         use super::menu::{MainMenu, MenuItem};
         use psx_pad::button;
@@ -4685,5 +4795,39 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         cam.pitch_px = 6;
         let pitched_down = cam.m7_track_top();
         assert_eq!(pitched_down, comp_track_top + 6);
+    }
+    #[test]
+    fn m7_horizon_mountain_skirt_spans_to_viewport_bottom_matching_last_tile() {
+        let mut cam = Camera::new_chase(Vec2::new(Fixed::ZERO, Fixed::ZERO), 0);
+
+        // 1P Full Screen mode: viewport is 240 px tall
+        let v_h = cam.viewport_h;
+        assert_eq!(v_h, 240);
+        let track_top = cam.m7_track_top();
+        let roll = 0i16;
+        let base_y = track_top + roll;
+        let skirt_h = (v_h - base_y).max(0) as u16;
+        // Mountain base plus skirt must reach exactly to viewport bottom (row 240)
+        assert_eq!(base_y + skirt_h as i16, v_h);
+
+        // Even when pitch moves track_top up or down, mountain skirt always reaches viewport bottom
+        for pitch in [-10, -5, 0, 5, 10] {
+            cam.pitch_px = pitch;
+            let top = cam.m7_track_top();
+            let skirt = (v_h - top).max(0) as u16;
+            assert_eq!(
+                top + skirt as i16,
+                v_h,
+                "skirt must reach viewport bottom with pitch {pitch}"
+            );
+        }
+
+        // 2P Horizontal Split mode: viewport is 118 px tall
+        cam.set_split_mode(0, 1);
+        let split_vh = cam.viewport_h;
+        assert_eq!(split_vh, 118);
+        let split_top = cam.m7_track_top();
+        let split_skirt = (split_vh - split_top).max(0) as u16;
+        assert_eq!(split_top + split_skirt as i16, split_vh);
     }
 }

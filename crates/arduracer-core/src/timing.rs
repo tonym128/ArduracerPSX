@@ -198,7 +198,7 @@ impl ParTimes {
     /// [`MIN_PLAUSIBLE_LAP_TICKS`], so a circuit with an unset (zero) par table
     /// still gets a usable floor instead of rejecting every lap.
     pub fn min_plausible_lap_ticks(&self) -> u32 {
-        let from_par = self.dev_platinum_ticks / 2;
+        let from_par = self.dev_platinum_ticks / 4;
         from_par.clamp(MIN_PLAUSIBLE_LAP_TICKS, MAX_PLAUSIBLE_LAP_TICKS)
     }
 
@@ -1060,10 +1060,10 @@ mod tests {
         t.start();
 
         let bound = track.par_times.min_plausible_lap_ticks();
-        assert_eq!(bound, track.par_times.dev_platinum_ticks / 2);
+        assert_eq!(bound, track.par_times.dev_platinum_ticks / 4);
         assert!(bound > MIN_PLAUSIBLE_LAP_TICKS);
 
-        // A lap at half the fastest verified reference lap: 3.4 units/tick of
+        // A lap at a fraction of the fastest verified reference lap: 3.4 units/tick of
         // top speed cannot cover the circuit in this time.
         let per_gate = bound / 8;
         for g in track.checkpoint_slice() {
@@ -1081,7 +1081,7 @@ mod tests {
         assert_eq!(
             t.best_lap_ticks(),
             None,
-            "a lap faster than half of Dev Platinum is a cheat"
+            "a lap faster than the anti-cheat bound is rejected"
         );
         assert_eq!(t.current_lap, 2, "the lap still counts");
 
@@ -1142,6 +1142,40 @@ mod tests {
             );
             assert_eq!(t.min_plausible_lap_ticks(), min, "{}", track.name);
         }
+    }
+
+    #[test]
+    fn alleyway_chicanes_admits_fast_player_twenty_four_second_lap() {
+        let track = ALL_TRACKS
+            .iter()
+            .find(|t| t.name == "Alleyway Chicanes")
+            .expect("Alleyway Chicanes track exists");
+        let mut t = LapTimer::<16>::with_par_times(
+            track.checkpoint_slice(),
+            track.start_gate,
+            track.par_times,
+        );
+        t.start();
+
+        // 24 seconds at 60 Hz = 1440 ticks.
+        // Old anti-cheat had floor = 3878 / 2 = 1939 ticks (32.3s), which rejected 1440 ticks.
+        // New floor is 3878 / 4 = 969 ticks (16.15s), so 1440 ticks is accepted.
+        let ticks_24s = 24 * 60;
+        let per_gate = ticks_24s / track.checkpoint_count as u32;
+        for g in track.checkpoint_slice() {
+            drive_to(&mut t, *g, per_gate);
+        }
+        t.update_player_tile(track.start_gate.x, track.start_gate.y);
+        let past = track.start_gate.x.wrapping_add(track.start_gate.width + 2);
+        assert!(
+            t.update_player_tile(past, track.start_gate.y),
+            "crossing finish line must score"
+        );
+        let best = t
+            .best_lap_ticks()
+            .expect("24s lap must not be rejected by anti-cheat floor");
+        assert_eq!(best, ticks_24s);
+        assert_eq!(track.par_times.evaluate_medal(best), Medal::DevPlatinum);
     }
 
     // ---- Bug 2: gate progress survived a failed attempt ----

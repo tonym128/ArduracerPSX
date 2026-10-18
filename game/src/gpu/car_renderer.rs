@@ -171,14 +171,148 @@ fn render_car_mode7_3d(
         project_world_3d_gte(camera, wpos, base_z + h + dh).map(|(pt, _)| pt)
     };
 
-    let Some(center_ground) = proj(0, 0, 0) else {
+    let proj_z = |u: i32, v: i32, h: i32| -> Option<((i16, i16), i32)> {
+        let wpos = car_local_to_world(car.position, h_cos, h_sin, u, v);
+        let dh = if h > 1 {
+            (u * roll_u) / 8 + (v * pitch_v) / 12
+        } else {
+            0
+        };
+        project_world_3d_gte(camera, wpos, base_z + h + dh)
+    };
+
+    let Some((center_ground, z_q4)) = proj_z(0, 0, 0) else {
         return;
     };
-    if !(-60..=380).contains(&center_ground.0) || !(-60..=300).contains(&center_ground.1) {
+    let v_h = camera.viewport_h;
+    if !(-60..=(crate::gpu::camera::SCREEN_W + 60)).contains(&center_ground.0)
+        || !(-60..=(v_h + 60)).contains(&center_ground.1)
+    {
         return;
     }
 
     let layer = CarLayer::of(is_ghost);
+
+    let base_col = if is_ghost {
+        (
+            primary_color.0 / 2 + 50,
+            primary_color.1 / 2 + 60,
+            primary_color.2 / 2 + 80,
+        )
+    } else {
+        primary_color
+    };
+    let dark_col = scale_rgb(base_col, 145);
+    let mid_col = scale_rgb(base_col, 210);
+    let bright_col = (
+        base_col.0.saturating_add(35),
+        base_col.1.saturating_add(35),
+        base_col.2.saturating_add(35),
+    );
+
+    if z_q4 > 6000 {
+        // Distant LOD: when the car is far ahead (>10 car lengths, projected width <= 4 px),
+        // tiny 3D details like individual wheel pods and spoiler endplates collapse to zero
+        // pixels and jitter. Render a clean Gouraud-shaded LOD with guaranteed visible minimum
+        // dimensions (>= 2x2 px), drop shadow, tinted canopy, brake lights, and boost flames.
+        let fl = proj(-6, 12, 2);
+        let fr = proj(6, 12, 2);
+        let rl = proj(-7, -12, 3);
+        let rr = proj(7, -12, 3);
+
+        if let (Some(mut p_fl), Some(mut p_fr), Some(mut p_rl), Some(mut p_rr)) = (fl, fr, rl, rr) {
+            // Ensure minimum visible width of at least 2 pixels so the GPU rasterizer never drops the quad
+            if (p_fr.0 - p_fl.0).abs() < 2 {
+                let mid_f = (p_fl.0 + p_fr.0) / 2;
+                p_fl.0 = mid_f - 1;
+                p_fr.0 = mid_f + 1;
+            }
+            if (p_rr.0 - p_rl.0).abs() < 2 {
+                let mid_r = (p_rl.0 + p_rr.0) / 2;
+                p_rl.0 = mid_r - 1;
+                p_rr.0 = mid_r + 1;
+            }
+            if (p_rl.1 - p_fl.1).abs() < 2 && (p_rr.1 - p_fr.1).abs() < 2 {
+                let mid_y = (p_fl.1 + p_rl.1) / 2;
+                p_fl.1 = mid_y - 1;
+                p_fr.1 = mid_y - 1;
+                p_rl.1 = mid_y + 1;
+                p_rr.1 = mid_y + 1;
+            }
+
+            // 1. Ground Drop Shadow
+            if !is_ghost {
+                draw_quad(
+                    [
+                        (p_fl.0, p_fl.1 + 1),
+                        (p_fr.0, p_fr.1 + 1),
+                        (p_rl.0, p_rl.1 + 1),
+                        (p_rr.0, p_rr.1 + 1),
+                    ],
+                    10,
+                    12,
+                    16,
+                    layer,
+                );
+            }
+
+            // 2. Main Car Body Deck in rival team color
+            draw_quad_gouraud(
+                [p_fl, p_fr, p_rl, p_rr],
+                [bright_col, bright_col, base_col, base_col],
+                layer,
+            );
+
+            // 3. Tinted Canopy / Windshield
+            let c_fl = ((p_fl.0 * 2 + p_rl.0) / 3, (p_fl.1 * 2 + p_rl.1) / 3);
+            let c_fr = ((p_fr.0 * 2 + p_rr.0) / 3, (p_fr.1 * 2 + p_rr.1) / 3);
+            let c_rl = ((p_fl.0 + p_rl.0 * 2) / 3, (p_fl.1 + p_rl.1 * 2) / 3);
+            let c_rr = ((p_fr.0 + p_rr.0 * 2) / 3, (p_fr.1 + p_rr.1 * 2) / 3);
+            if (c_fr.0 - c_fl.0).abs() >= 1 || (c_rl.1 - c_fl.1).abs() >= 1 {
+                draw_quad([c_fl, c_fr, c_rl, c_rr], 45, 80, 120, layer);
+            }
+
+            // 4. Illuminated Brake Lights under braking/drifting
+            if braking {
+                let b_l = (p_rl.0, p_rl.1);
+                let b_r = (p_rr.0, p_rr.1);
+                draw_line(b_l, b_r, (255, 55, 45), layer);
+            }
+
+            // 5. Nitro / Super Boost Exhaust Plume
+            if car.boost_ticks > 0 || car.super_boost_ticks > 0 {
+                let flame_col = if car.super_boost_ticks > 0 {
+                    (255, 180, 50)
+                } else {
+                    (0, 200, 255)
+                };
+                let b_mid = ((p_rl.0 + p_rr.0) / 2, (p_rl.1 + p_rr.1) / 2 + 1);
+                draw_line(
+                    ((p_rl.0 + p_rr.0) / 2, (p_rl.1 + p_rr.1) / 2),
+                    b_mid,
+                    flame_col,
+                    layer,
+                );
+            }
+        } else {
+            // Robust fallback: draw centered 2x2 dot in rival's color
+            let cx = center_ground.0;
+            let cy = center_ground.1;
+            draw_quad(
+                [
+                    (cx - 1, cy - 1),
+                    (cx + 1, cy - 1),
+                    (cx - 1, cy + 1),
+                    (cx + 1, cy + 1),
+                ],
+                base_col.0,
+                base_col.1,
+                base_col.2,
+                layer,
+            );
+        }
+        return;
+    }
 
     // 1. Ground Drop Shadow (projected flat at height 0)
     if !is_ghost {
@@ -202,23 +336,6 @@ fn render_car_mode7_3d(
             Rot::from_bams(0),
         );
     }
-
-    let base_col = if is_ghost {
-        (
-            primary_color.0 / 2 + 50,
-            primary_color.1 / 2 + 60,
-            primary_color.2 / 2 + 80,
-        )
-    } else {
-        primary_color
-    };
-    let dark_col = scale_rgb(base_col, 145);
-    let mid_col = scale_rgb(base_col, 210);
-    let bright_col = (
-        base_col.0.saturating_add(35),
-        base_col.1.saturating_add(35),
-        base_col.2.saturating_add(35),
-    );
 
     // 3. Four 3D Corner Wheel Pods (with steered front wheels)
     if !is_ghost {
@@ -263,12 +380,22 @@ fn render_car_mode7_3d(
     }
 
     // 5. 3D Wedge Nose & Upper Body Deck (h = 2 at nose rising to h = 4 at rear haunches)
-    if let (Some(fl), Some(fr), Some(rl), Some(rr)) = (
+    if let (Some(mut fl), Some(mut fr), Some(mut rl), Some(mut rr)) = (
         proj(-6, 12, 2),
         proj(6, 12, 2),
         proj(-7, -12, 4),
         proj(7, -12, 4),
     ) {
+        if (fr.0 - fl.0).abs() < 2 {
+            let mid_f = (fl.0 + fr.0) / 2;
+            fl.0 = mid_f - 1;
+            fr.0 = mid_f + 1;
+        }
+        if (rr.0 - rl.0).abs() < 2 {
+            let mid_r = (rl.0 + rr.0) / 2;
+            rl.0 = mid_r - 1;
+            rr.0 = mid_r + 1;
+        }
         draw_quad_gouraud(
             [fl, fr, rl, rr],
             [bright_col, bright_col, base_col, base_col],
