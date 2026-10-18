@@ -62,13 +62,31 @@ impl TrackSelectScreen {
 
     /// Adopts the buttons held right now as the edge baseline.
     ///
-    /// Sets the mode and records browsing flag, clamping the selected track
-    /// to the mode's track range.
+    /// Sets the mode and records browsing flag, selecting the first track in
+    /// the mode's track range.
     pub fn arm_for_entry(&mut self, mode: GameMode, is_records_mode: bool) {
         self.mode = mode;
         self.is_records_mode = is_records_mode;
         let (start, _) = self.track_range();
-        self.selected_track_idx = start;
+        self.arm_for_entry_with_track(mode, is_records_mode, start);
+    }
+
+    /// Adopts the buttons held right now as the edge baseline and focuses
+    /// on `track_idx` (clamped to the mode's track range).
+    pub fn arm_for_entry_with_track(
+        &mut self,
+        mode: GameMode,
+        is_records_mode: bool,
+        track_idx: usize,
+    ) {
+        self.mode = mode;
+        self.is_records_mode = is_records_mode;
+        let (start, end) = self.track_range();
+        if track_idx >= start && track_idx < end {
+            self.selected_track_idx = track_idx;
+        } else {
+            self.selected_track_idx = start;
+        }
         self.prev_left = true;
         self.prev_right = true;
         self.prev_up = true;

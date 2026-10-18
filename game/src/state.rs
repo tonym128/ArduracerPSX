@@ -29,8 +29,18 @@ pub enum GameState {
     Victory,
 }
 
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum StageSelectorSource {
+    #[default]
+    None,
+    TrackSelect,
+    StageTable,
+}
+
 pub struct StateManager {
     pub current: GameState,
+    /// Originating trial stage selector, preserved so leaving a trial stage returns to it.
+    pub stage_selector_source: StageSelectorSource,
     /// Graphics settings screen, built on entry.
     pub settings: SettingsScreen,
     pub title: TitleScreen,
@@ -57,6 +67,7 @@ impl StateManager {
     pub fn new() -> Self {
         StateManager {
             current: GameState::Title,
+            stage_selector_source: StageSelectorSource::None,
             title: TitleScreen::new(),
             menu: MainMenu::new(),
             settings: SettingsScreen::new(SettingsValues {

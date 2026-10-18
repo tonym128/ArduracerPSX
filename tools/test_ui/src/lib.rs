@@ -4203,6 +4203,78 @@ mod graphics_settings {
     }
 
     #[test]
+    fn track_select_arm_with_track_focus() {
+        use super::track_select::TrackSelectScreen;
+        use arduracer_core::levels::GameMode;
+        use psx_pad::button;
+
+        let mut screen = TrackSelectScreen::new();
+
+        // Arm with valid track within Grand Prix range (0..25)
+        screen.arm_for_entry_with_track(GameMode::GrandPrix, false, 7);
+        assert_eq!(screen.selected_track_idx, 7);
+
+        // Clamping out-of-range track falls back to start
+        screen.arm_for_entry_with_track(GameMode::GrandPrix, false, 30);
+        assert_eq!(screen.selected_track_idx, 0);
+
+        // Arm with valid track within Mania range (25..40)
+        screen.arm_for_entry_with_track(GameMode::Mania, false, 32);
+        assert_eq!(screen.selected_track_idx, 32);
+
+        // Clamping out-of-range track for Mania mode falls back to 25
+        screen.arm_for_entry_with_track(GameMode::Mania, false, 5);
+        assert_eq!(screen.selected_track_idx, 25);
+
+        // Confirm button held on entry does not trigger confirmation immediately
+        let (confirmed, cancelled) = screen.update(&test_pad(button::CROSS));
+        assert_eq!(confirmed, None);
+        assert!(!cancelled);
+
+        // Once released and pressed again, it confirms the focused track
+        screen.update(&test_pad(0));
+        let (confirmed, _) = screen.update(&test_pad(button::CROSS));
+        assert_eq!(confirmed, Some(25));
+    }
+
+    #[test]
+    fn stage_table_arm_with_track_focus() {
+        use super::stage_table::{StageFilterTab, StageTableAction, StageTableScreen};
+        use psx_pad::button;
+
+        let mut screen = StageTableScreen::new();
+
+        // GrandPrix tab: track 10 is row 10 in GP_INDICES. Since row >= 7, scroll_top is 4.
+        screen.arm_for_entry_with_track(StageFilterTab::GrandPrix, 10);
+        assert_eq!(screen.selected_row, 10);
+        assert_eq!(screen.scroll_top, 4);
+
+        // Mania tab: track 28 is row 3 in MANIA_INDICES (25, 26, 27, 28). Since row < 7, scroll_top is 0.
+        screen.arm_for_entry_with_track(StageFilterTab::Mania, 28);
+        assert_eq!(screen.selected_row, 3);
+        assert_eq!(screen.scroll_top, 0);
+
+        // Mania tab: track 5 is not in MANIA_INDICES -> falls back to row 0, scroll_top 0
+        screen.arm_for_entry_with_track(StageFilterTab::Mania, 5);
+        assert_eq!(screen.selected_row, 0);
+        assert_eq!(screen.scroll_top, 0);
+
+        // All tab: track 39 is row 39 in ALL_INDICES. Since 39 >= 7, scroll_top is 33.
+        screen.arm_for_entry_with_track(StageFilterTab::All, 39);
+        assert_eq!(screen.selected_row, 39);
+        assert_eq!(screen.scroll_top, 33);
+
+        // Confirm button held on entry does not immediately select
+        let action = screen.update(&test_pad(button::CROSS));
+        assert_eq!(action, StageTableAction::None);
+
+        // After release and press, it selects the focused track
+        screen.update(&test_pad(0));
+        let action = screen.update(&test_pad(button::CROSS));
+        assert_eq!(action, StageTableAction::SelectStage(39));
+    }
+
+    #[test]
     fn main_menu_split_screen_nav_and_select() {
         use super::menu::{MainMenu, MenuItem};
         use psx_pad::button;

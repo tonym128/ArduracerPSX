@@ -220,7 +220,13 @@ impl ResultsScreen {
             (130, 150, 170),
             1,
         );
-        draw_text(112, 198, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
+        let exit_label = if self.is_2p_duel {
+            "CIRCLE: MAIN MENU"
+        } else {
+            "CIRCLE: STAGE SELECT"
+        };
+        let exit_x = if self.is_2p_duel { 112 } else { 96 };
+        draw_text(exit_x, 198, exit_label, (130, 150, 170), 1);
     }
 
     fn render_grand_prix(&self, champ: &ChampionshipSession) {
