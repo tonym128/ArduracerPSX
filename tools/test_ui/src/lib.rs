@@ -4109,6 +4109,31 @@ mod graphics_settings {
     }
 
     #[test]
+    fn instant_restart_requires_a_continuous_24_frame_recovery_hold() {
+        use super::pad::ControllerDriver;
+        use arduracer_core::save::InputProfile;
+        use psx_pad::button;
+
+        let mut driver = ControllerDriver::new(InputProfile::ClassicArcade);
+        for frame in 1..=23 {
+            driver.poll_from(&test_pad(button::L1));
+            assert!(!driver.instant_restart_triggered, "triggered on held frame {frame}");
+            assert_eq!(driver.respawn_pressed, frame == 1);
+        }
+
+        driver.poll_from(&test_pad(button::L1));
+        assert!(driver.instant_restart_triggered, "24th held frame restarts");
+        driver.poll_from(&test_pad(button::L1));
+        assert!(!driver.instant_restart_triggered, "restart is a one-frame event");
+
+        driver.poll_from(&test_pad(0));
+        for _ in 0..23 {
+            driver.poll_from(&test_pad(button::L1));
+        }
+        assert!(!driver.instant_restart_triggered, "release starts a fresh hold");
+    }
+
+    #[test]
     fn stage_table_tabs_and_active_tracks() {
         use super::stage_table::{StageFilterTab, StageTableScreen};
 
