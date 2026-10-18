@@ -2003,6 +2003,19 @@ mod tests {
     }
 
     #[test]
+    fn respawn_uses_the_most_recently_cleared_gate_and_keeps_the_clock_running() {
+        let mut t = four_gate_timer::<4>();
+        t.start();
+        drive_to(&mut t, RING[3], 40);
+
+        let before_respawn = t.current_lap_ticks;
+        assert_eq!(t.record_respawn().0, Some(3));
+        assert_eq!(t.respawn_count, 1);
+        t.tick();
+        assert_eq!(t.current_lap_ticks, before_respawn + 1);
+    }
+
+    #[test]
     fn target_laps_and_platform_medal_evaluation() {
         let mut t = four_gate_timer::<4>().with_target_laps(1);
         t.start();

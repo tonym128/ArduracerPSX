@@ -1223,13 +1223,25 @@ mod tests {
         assert_eq!(p_start, track.start_pos);
 
         for cp in 0..4u8 {
-            let (p_cp, _) = track.checkpoint_respawn_point(Some(cp));
+            let (p_cp, heading) = track.checkpoint_respawn_point(Some(cp));
             assert_eq!(
                 p_cp,
                 TrackDef::gate_centre(&track.route_node(cp as usize)),
                 "checkpoint respawn must drop at cleared checkpoint {cp}"
             );
+            let next = TrackDef::gate_centre(&track.route_node(cp as usize + 1));
+            assert_eq!(
+                heading,
+                heading_towards(p_cp, next),
+                "checkpoint respawn must face the next route node {cp}"
+            );
         }
+
+        // Even when another route node is spatially closer to the old car
+        // position, respawn is tied to race progress rather than proximity.
+        let (progress_pos, _) = track.checkpoint_respawn_point(Some(3));
+        let (nearest_pos, _) = track.respawn_point(TrackDef::gate_centre(&track.route_node(0)));
+        assert_ne!(progress_pos, nearest_pos);
     }
 
     #[test]
