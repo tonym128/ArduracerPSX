@@ -382,7 +382,11 @@ impl ArduracerGame {
         audio::stop_intro_audio();
         dbg::check_faults();
 
-        dbg::log_step(3, 9, "Playing attract FMV (INTRO.STR in 24bpp with locked audio)...");
+        dbg::log_step(
+            3,
+            9,
+            "Playing attract FMV (INTRO.STR in 24bpp with locked audio)...",
+        );
         // A profiling run wants frames on circuit, and the attract movie is
         // 755 sectors of single-speed CD reads before the first one. Skipping
         // it means the report windows are all racing frames.
@@ -744,16 +748,10 @@ impl ArduracerGame {
         if self.is_2p_mode {
             let p1_pos = grid_slot_position_on(track, 0);
             let p2_pos = grid_slot_position_on(track, 1);
-            self.player = VehicleState::new(
-                p1_pos,
-                track.start_heading,
-                self.state_mgr.garage.tuning(),
-            );
-            self.player2 = VehicleState::new(
-                p2_pos,
-                track.start_heading,
-                self.state_mgr.garage.tuning(),
-            );
+            self.player =
+                VehicleState::new(p1_pos, track.start_heading, self.state_mgr.garage.tuning());
+            self.player2 =
+                VehicleState::new(p2_pos, track.start_heading, self.state_mgr.garage.tuning());
             self.player2_timer = LapTimer::with_par_times(
                 track.checkpoint_slice(),
                 track.start_gate,
@@ -870,7 +868,11 @@ impl ArduracerGame {
                     psx_gpu_mod::draw_line_mono(161, 0, 161, 239, 255, 215, 0);
                     for i in 0..12 {
                         let y = (i * 20) as i16;
-                        let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                        let (r, g, b) = if (i % 2) == 0 {
+                            (255, 255, 255)
+                        } else {
+                            (30, 30, 30)
+                        };
                         psx_gpu_mod::draw_rect_flat(159, y, 2, 10, r, g, b);
                     }
 
@@ -926,7 +928,11 @@ impl ArduracerGame {
                         let y0 = (i * 15) as i16;
                         let x1 = 320 - ((i + 1) * 20) as i16;
                         let y1 = ((i + 1) * 15) as i16;
-                        let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                        let (r, g, b) = if (i % 2) == 0 {
+                            (255, 255, 255)
+                        } else {
+                            (30, 30, 30)
+                        };
                         psx_gpu_mod::draw_line_mono(x0, y0, x1, y1, r, g, b);
                     }
                 }
@@ -949,7 +955,11 @@ impl ArduracerGame {
                     psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
                     for i in 0..16 {
                         let x = (i * 20) as i16;
-                        let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                        let (r, g, b) = if (i % 2) == 0 {
+                            (255, 255, 255)
+                        } else {
+                            (30, 30, 30)
+                        };
                         psx_gpu_mod::draw_rect_flat(x, 119, 10, 2, r, g, b);
                     }
 
@@ -1134,7 +1144,10 @@ impl ArduracerGame {
                                 _ => 25, // Metro 8
                             };
                             self.load_track(demo_track);
-                            self.camera = Camera::new_rotating(self.player.position, self.current_track.start_heading);
+                            self.camera = Camera::new_rotating(
+                                self.player.position,
+                                self.current_track.start_heading,
+                            );
                             self.autopilot = autopilot::Autopilot::new(self.current_track);
                             self.state_mgr.current = GameState::Racing;
                         }
@@ -1194,7 +1207,11 @@ impl ArduracerGame {
                             MenuItem::TrackBuilder => {
                                 self.is_2p_mode = false;
                                 self.state_mgr.championship = None;
-                                if let Some(saved_track) = self.memcard.save_data.custom_track(self.state_mgr.track_editor.slot) {
+                                if let Some(saved_track) = self
+                                    .memcard
+                                    .save_data
+                                    .custom_track(self.state_mgr.track_editor.slot)
+                                {
                                     self.state_mgr.track_editor.track = saved_track;
                                 }
                                 self.state_mgr.track_editor.arm_for_entry();
@@ -1296,9 +1313,7 @@ impl ArduracerGame {
                                     arduracer_core::track_builder::CustomTrackDef::new(
                                         "CUSTOM ARENA",
                                     );
-                                self.state_mgr
-                                    .track_editor
-                                    .set_status("SLOT IS EMPTY");
+                                self.state_mgr.track_editor.set_status("SLOT IS EMPTY");
                             }
                         }
                         TrackEditorAction::TestDriveValidated(track_def) => {
@@ -1437,13 +1452,21 @@ impl ArduracerGame {
                         self.attract_demo_timer = self.attract_demo_timer.saturating_add(1);
 
                         if exit_pressed {
-                            dbg::println("[ATTRACT] Button pressed during demo race -> entering MainMenu");
+                            dbg::println(
+                                "[ATTRACT] Button pressed during demo race -> entering MainMenu",
+                            );
                             self.is_attract_demo = false;
                             self.audio.cdda.stop();
                             self.audio.leave_race();
                             self.camera = match self.camera_view {
-                                0 => Camera::new_chase(self.player.position, self.current_track.start_heading),
-                                2 => Camera::new_rotating(self.player.position, self.current_track.start_heading),
+                                0 => Camera::new_chase(
+                                    self.player.position,
+                                    self.current_track.start_heading,
+                                ),
+                                2 => Camera::new_rotating(
+                                    self.player.position,
+                                    self.current_track.start_heading,
+                                ),
                                 _ => Camera::new(self.player.position),
                             };
                             self.state_mgr.current = GameState::MainMenu;
@@ -1452,13 +1475,21 @@ impl ArduracerGame {
                             prof::end_frame();
                             continue;
                         } else if self.attract_demo_timer >= 1800 {
-                            dbg::println("[ATTRACT] 30s demo timeout reached -> returning to TitleScreen");
+                            dbg::println(
+                                "[ATTRACT] 30s demo timeout reached -> returning to TitleScreen",
+                            );
                             self.is_attract_demo = false;
                             self.audio.cdda.stop();
                             self.audio.leave_race();
                             self.camera = match self.camera_view {
-                                0 => Camera::new_chase(self.player.position, self.current_track.start_heading),
-                                2 => Camera::new_rotating(self.player.position, self.current_track.start_heading),
+                                0 => Camera::new_chase(
+                                    self.player.position,
+                                    self.current_track.start_heading,
+                                ),
+                                2 => Camera::new_rotating(
+                                    self.player.position,
+                                    self.current_track.start_heading,
+                                ),
                                 _ => Camera::new(self.player.position),
                             };
                             self.state_mgr.title = crate::ui::TitleScreen::new();
@@ -1672,7 +1703,8 @@ impl ArduracerGame {
                             self.input_mgr2.silence();
                             self.audio.leave_race();
                             self.audio.sync_ui_edges(pad.buttons.bits());
-                            self.audio.play_music(7, crate::gpu::tracktex::disc_reader());
+                            self.audio
+                                .play_music(7, crate::gpu::tracktex::disc_reader());
                             self.close_frame();
                             prof::end_frame();
                             continue;
@@ -1758,14 +1790,19 @@ impl ArduracerGame {
                             prof::set_budget_cycles(self.framerate.budget_cycles());
                             prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
                             let _s = prof::span(prof::RENDER_TRACK);
-                            let elapsed =
-                                psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
+                            let elapsed = psx_rt::interrupts::vblank_count()
+                                .wrapping_sub(self.last_flip_vblank);
                             let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
                                 ticks_to_run,
                                 elapsed,
                                 self.framerate.vblanks_per_frame(),
                             );
-                            render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                            render_track(
+                                track,
+                                &self.camera,
+                                self.last_flip_vblank,
+                                max_decode_rows,
+                            );
                         }
                         // b2. 3D Roadside props, Checkpoint arches & Start gantry truss (NO1-031)
                         crate::gpu::render_track_props(
@@ -1823,7 +1860,15 @@ impl ArduracerGame {
                             let pulse = (self.frame_counter >> 2) & 1 == 0;
                             let banner_bg = if pulse { (220, 35, 55) } else { (180, 25, 45) };
                             psx_gpu_mod::draw_rect_flat(70, 96, 180, 36, 15, 18, 25);
-                            psx_gpu_mod::draw_rect_flat(72, 98, 176, 32, banner_bg.0, banner_bg.1, banner_bg.2);
+                            psx_gpu_mod::draw_rect_flat(
+                                72,
+                                98,
+                                176,
+                                32,
+                                banner_bg.0,
+                                banner_bg.1,
+                                banner_bg.2,
+                            );
                             crate::ui::font::draw_text(112, 106, "FINISH!", (255, 235, 40), 2);
                         }
 
@@ -1848,9 +1893,21 @@ impl ArduracerGame {
 
                         // Attract Mode Arcade HUD Banner:
                         if self.is_attract_demo {
-                            crate::ui::font::draw_text(60, 16, "★ LIVE AI DEMO RACE ★", (0, 220, 255), 1);
+                            crate::ui::font::draw_text(
+                                60,
+                                16,
+                                "★ LIVE AI DEMO RACE ★",
+                                (0, 220, 255),
+                                1,
+                            );
                             if (self.attract_demo_timer / 30).is_multiple_of(2) {
-                                crate::ui::font::draw_text(76, 212, "PRESS START TO RACE", (255, 230, 0), 1);
+                                crate::ui::font::draw_text(
+                                    76,
+                                    212,
+                                    "PRESS START TO RACE",
+                                    (255, 230, 0),
+                                    1,
+                                );
                             }
                         }
 
@@ -1879,7 +1936,12 @@ impl ArduracerGame {
                                 // 1. Left Viewport (Player 1)
                                 psx_gpu_mod::set_draw_area(0, target_y, 157, target_y + 239);
                                 psx_gpu_mod::set_draw_offset(0, target_y as i16);
-                                render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                                render_track(
+                                    track,
+                                    &self.camera,
+                                    self.last_flip_vblank,
+                                    max_decode_rows,
+                                );
                                 crate::gpu::render_track_props(
                                     &self.camera,
                                     track,
@@ -1897,7 +1959,13 @@ impl ArduracerGame {
                                 render_car(&self.player2, &self.camera, false, (30, 144, 255));
                                 self.particles.render(&self.camera);
                                 if self.show_hud {
-                                    crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45), self.split_mode);
+                                    crate::gpu::render_split_hud(
+                                        &self.player,
+                                        &self.timer,
+                                        1,
+                                        (220, 25, 45),
+                                        self.split_mode,
+                                    );
                                 }
 
                                 // 2. Vertical Divider Bar (X=158..161)
@@ -1908,14 +1976,23 @@ impl ArduracerGame {
                                 psx_gpu_mod::draw_line_mono(161, 0, 161, 239, 255, 215, 0);
                                 for i in 0..12 {
                                     let y = (i * 20) as i16;
-                                    let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                                    let (r, g, b) = if (i % 2) == 0 {
+                                        (255, 255, 255)
+                                    } else {
+                                        (30, 30, 30)
+                                    };
                                     psx_gpu_mod::draw_rect_flat(159, y, 2, 10, r, g, b);
                                 }
 
                                 // 3. Right Viewport (Player 2)
                                 psx_gpu_mod::set_draw_area(162, target_y, 319, target_y + 239);
                                 psx_gpu_mod::set_draw_offset(162, target_y as i16);
-                                render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                                render_track(
+                                    track,
+                                    &self.camera2,
+                                    self.last_flip_vblank,
+                                    max_decode_rows,
+                                );
                                 crate::gpu::render_track_props(
                                     &self.camera2,
                                     track,
@@ -1933,7 +2010,13 @@ impl ArduracerGame {
                                 render_car(&self.player2, &self.camera2, false, (30, 144, 255));
                                 self.particles.render(&self.camera2);
                                 if self.show_hud {
-                                    crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255), self.split_mode);
+                                    crate::gpu::render_split_hud(
+                                        &self.player2,
+                                        &self.player2_timer,
+                                        2,
+                                        (30, 144, 255),
+                                        self.split_mode,
+                                    );
                                 }
                             }
                             2 => {
@@ -1943,11 +2026,21 @@ impl ArduracerGame {
 
                                 // Step A: Set bit 15 on P2 triangle
                                 psx_gpu_mod::set_mask_mode(true, false);
-                                psx_gpu_mod::draw_tri_flat([(0, 240), (320, 0), (320, 240)], 0, 0, 0);
+                                psx_gpu_mod::draw_tri_flat(
+                                    [(0, 240), (320, 0), (320, 240)],
+                                    0,
+                                    0,
+                                    0,
+                                );
 
                                 // Step B: Render P1
                                 psx_gpu_mod::set_mask_mode(true, true);
-                                render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                                render_track(
+                                    track,
+                                    &self.camera,
+                                    self.last_flip_vblank,
+                                    max_decode_rows,
+                                );
                                 crate::gpu::render_track_props(
                                     &self.camera,
                                     track,
@@ -1965,16 +2058,32 @@ impl ArduracerGame {
                                 render_car(&self.player2, &self.camera, false, (30, 144, 255));
                                 self.particles.render(&self.camera);
                                 if self.show_hud {
-                                    crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45), self.split_mode);
+                                    crate::gpu::render_split_hud(
+                                        &self.player,
+                                        &self.timer,
+                                        1,
+                                        (220, 25, 45),
+                                        self.split_mode,
+                                    );
                                 }
 
                                 // Step C: Clear P2 triangle with clear color (resets P2 pixels to bit 15 = 0)
                                 psx_gpu_mod::set_mask_mode(false, false);
-                                psx_gpu_mod::draw_tri_flat([(0, 240), (320, 0), (320, 240)], 18, 20, 26);
+                                psx_gpu_mod::draw_tri_flat(
+                                    [(0, 240), (320, 0), (320, 240)],
+                                    18,
+                                    20,
+                                    26,
+                                );
 
                                 // Step D: Render P2
                                 psx_gpu_mod::set_mask_mode(false, true);
-                                render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                                render_track(
+                                    track,
+                                    &self.camera2,
+                                    self.last_flip_vblank,
+                                    max_decode_rows,
+                                );
                                 crate::gpu::render_track_props(
                                     &self.camera2,
                                     track,
@@ -1992,7 +2101,13 @@ impl ArduracerGame {
                                 render_car(&self.player2, &self.camera2, false, (30, 144, 255));
                                 self.particles.render(&self.camera2);
                                 if self.show_hud {
-                                    crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255), self.split_mode);
+                                    crate::gpu::render_split_hud(
+                                        &self.player2,
+                                        &self.player2_timer,
+                                        2,
+                                        (30, 144, 255),
+                                        self.split_mode,
+                                    );
                                 }
 
                                 // Step E: Reset mask mode and draw diagonal checkered divider line
@@ -2006,7 +2121,11 @@ impl ArduracerGame {
                                     let y0 = (i * 15) as i16;
                                     let x1 = 320 - ((i + 1) * 20) as i16;
                                     let y1 = ((i + 1) * 15) as i16;
-                                    let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                                    let (r, g, b) = if (i % 2) == 0 {
+                                        (255, 255, 255)
+                                    } else {
+                                        (30, 30, 30)
+                                    };
                                     psx_gpu_mod::draw_line_mono(x0, y0, x1, y1, r, g, b);
                                 }
                             }
@@ -2014,7 +2133,12 @@ impl ArduracerGame {
                                 // 1. Top Viewport (Player 1)
                                 psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
                                 psx_gpu_mod::set_draw_offset(0, target_y as i16);
-                                render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                                render_track(
+                                    track,
+                                    &self.camera,
+                                    self.last_flip_vblank,
+                                    max_decode_rows,
+                                );
                                 crate::gpu::render_track_props(
                                     &self.camera,
                                     track,
@@ -2032,7 +2156,13 @@ impl ArduracerGame {
                                 render_car(&self.player2, &self.camera, false, (30, 144, 255));
                                 self.particles.render(&self.camera);
                                 if self.show_hud {
-                                    crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45), self.split_mode);
+                                    crate::gpu::render_split_hud(
+                                        &self.player,
+                                        &self.timer,
+                                        1,
+                                        (220, 25, 45),
+                                        self.split_mode,
+                                    );
                                 }
 
                                 // 2. Center Checkered Divider Bar (Y=118..121)
@@ -2043,14 +2173,23 @@ impl ArduracerGame {
                                 psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
                                 for i in 0..16 {
                                     let x = (i * 20) as i16;
-                                    let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                                    let (r, g, b) = if (i % 2) == 0 {
+                                        (255, 255, 255)
+                                    } else {
+                                        (30, 30, 30)
+                                    };
                                     psx_gpu_mod::draw_rect_flat(x, 119, 10, 2, r, g, b);
                                 }
 
                                 // 3. Bottom Viewport (Player 2)
                                 psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
                                 psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
-                                render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                                render_track(
+                                    track,
+                                    &self.camera2,
+                                    self.last_flip_vblank,
+                                    max_decode_rows,
+                                );
                                 crate::gpu::render_track_props(
                                     &self.camera2,
                                     track,
@@ -2068,7 +2207,13 @@ impl ArduracerGame {
                                 render_car(&self.player2, &self.camera2, false, (30, 144, 255));
                                 self.particles.render(&self.camera2);
                                 if self.show_hud {
-                                    crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255), self.split_mode);
+                                    crate::gpu::render_split_hud(
+                                        &self.player2,
+                                        &self.player2_timer,
+                                        2,
+                                        (30, 144, 255),
+                                        self.split_mode,
+                                    );
                                 }
                             }
                         }
@@ -2083,7 +2228,15 @@ impl ArduracerGame {
                             let pulse = (self.frame_counter >> 2) & 1 == 0;
                             let banner_bg = if pulse { (220, 35, 55) } else { (180, 25, 45) };
                             psx_gpu_mod::draw_rect_flat(70, 96, 180, 36, 15, 18, 25);
-                            psx_gpu_mod::draw_rect_flat(72, 98, 176, 32, banner_bg.0, banner_bg.1, banner_bg.2);
+                            psx_gpu_mod::draw_rect_flat(
+                                72,
+                                98,
+                                176,
+                                32,
+                                banner_bg.0,
+                                banner_bg.1,
+                                banner_bg.2,
+                            );
                             crate::ui::font::draw_text(112, 106, "FINISH!", (255, 235, 40), 2);
                         }
                     }
@@ -2350,10 +2503,13 @@ impl ArduracerGame {
 
             // P2 Lap timer
             self.player2_timer.tick();
-            self.player2_timer.update_player_on_track(&self.player2, track);
+            self.player2_timer
+                .update_player_on_track(&self.player2, track);
 
             // Car-to-car collision between Player 1 and Player 2!
-            if let Some(contact) = arduracer_core::contact::collide_cars(&mut self.player, &mut self.player2) {
+            if let Some(contact) =
+                arduracer_core::contact::collide_cars(&mut self.player, &mut self.player2)
+            {
                 if contact.closing_speed >= arduracer_core::contact::HARD_BUMP_THRESHOLD {
                     self.input_mgr.rumble.trigger_impact(180);
                     self.input_mgr2.rumble.trigger_impact(180);
@@ -2363,27 +2519,30 @@ impl ArduracerGame {
             }
 
             // Check 2P duel completion
-            if self.timer.is_finished || self.player2_timer.is_finished {
-                if !self.finish_recorded {
-                    self.finish_recorded = true;
-                    self.finish_slowdown = 120;
-                    let p1_won = self.timer.is_finished
-                        && (!self.player2_timer.is_finished
-                            || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
-                    self.p1_won_2p = p1_won;
-                    let best_ticks = if p1_won {
-                        self.timer.best_lap_ticks
-                    } else {
-                        self.player2_timer.best_lap_ticks
-                    };
-                    let total_ticks = if p1_won {
-                        self.timer.current_lap_ticks
-                    } else {
-                        self.player2_timer.current_lap_ticks
-                    };
-                    self.state_mgr.results = Some(ResultsScreen::new_2p(best_ticks, total_ticks, track, p1_won));
-                    self.audio.sfx.play_medal();
-                }
+            if (self.timer.is_finished || self.player2_timer.is_finished) && !self.finish_recorded {
+                self.finish_recorded = true;
+                self.finish_slowdown = 120;
+                let p1_won = self.timer.is_finished
+                    && (!self.player2_timer.is_finished
+                        || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
+                self.p1_won_2p = p1_won;
+                let best_ticks = if p1_won {
+                    self.timer.best_lap_ticks
+                } else {
+                    self.player2_timer.best_lap_ticks
+                };
+                let total_ticks = if p1_won {
+                    self.timer.current_lap_ticks
+                } else {
+                    self.player2_timer.current_lap_ticks
+                };
+                self.state_mgr.results = Some(ResultsScreen::new_2p(
+                    best_ticks,
+                    total_ticks,
+                    track,
+                    p1_won,
+                ));
+                self.audio.sfx.play_medal();
             }
         }
 
@@ -2410,8 +2569,7 @@ impl ArduracerGame {
             // Record completed lap times and trophies earned
             if self.current_track_idx == 999 {
                 if self.timer.has_best_lap() {
-                    self.state_mgr.track_editor.track.author_time_ticks =
-                        self.timer.best_lap_ticks;
+                    self.state_mgr.track_editor.track.author_time_ticks = self.timer.best_lap_ticks;
                     self.memcard.save_data.set_custom_track(
                         self.state_mgr.track_editor.slot,
                         &self.state_mgr.track_editor.track,
@@ -2503,56 +2661,54 @@ impl ArduracerGame {
         }
 
         // Check race completion (single player)
-        if !self.is_2p_mode && self.timer.is_finished {
-            if !self.finish_recorded {
-                self.finish_recorded = true;
-                self.finish_slowdown = 120;
-                if self.current_track_idx == 999 {
-                    self.state_mgr.track_editor.track.author_time_ticks = self.timer.best_lap_ticks;
-                    self.memcard.save_data.set_custom_track(
-                        self.state_mgr.track_editor.slot,
-                        &self.state_mgr.track_editor.track,
-                    );
-                    self.memcard.mark_dirty();
-                    self.state_mgr
-                        .track_editor
-                        .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
+        if !self.is_2p_mode && self.timer.is_finished && !self.finish_recorded {
+            self.finish_recorded = true;
+            self.finish_slowdown = 120;
+            if self.current_track_idx == 999 {
+                self.state_mgr.track_editor.track.author_time_ticks = self.timer.best_lap_ticks;
+                self.memcard.save_data.set_custom_track(
+                    self.state_mgr.track_editor.slot,
+                    &self.state_mgr.track_editor.track,
+                );
+                self.memcard.mark_dirty();
+                self.state_mgr
+                    .track_editor
+                    .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
+            } else {
+                let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                let medal = if self.timer.target_laps == 1 {
+                    time_medal.max(self.timer.evaluate_platform_medal())
                 } else {
-                    let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
-                    let medal = if self.timer.target_laps == 1 {
-                        time_medal.max(self.timer.evaluate_platform_medal())
-                    } else {
-                        time_medal
-                    };
-                    self.memcard.record_lap(
-                        self.current_track_idx,
-                        self.timer.best_lap_ticks,
-                        medal as u8,
-                    );
-                    // Every scored lap already promoted itself; this only
-                    // closes out the in-progress final lap.
-                    self.ghost.finish_lap(self.timer.best_lap_ticks, false);
-                    self.ghost.save_to_card_block(&mut self.memcard.block);
-                }
-                // Persist the record before leaving the race screen.
-                if self.memcard.is_dirty {
-                    self.memcard.flush();
-                }
-
-                let is_gp = self.state_mgr.championship.is_some();
-                if let Some(ref mut champ) = self.state_mgr.championship {
-                    champ.award_stage_points(standings);
-                }
-
-                self.state_mgr.results = Some(ResultsScreen::new(
+                    time_medal
+                };
+                self.memcard.record_lap(
+                    self.current_track_idx,
                     self.timer.best_lap_ticks,
-                    self.timer.current_lap_ticks,
-                    track,
-                    player_rank,
-                    is_gp,
-                ));
-                self.audio.sfx.play_medal();
+                    medal as u8,
+                );
+                // Every scored lap already promoted itself; this only
+                // closes out the in-progress final lap.
+                self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+                self.ghost.save_to_card_block(&mut self.memcard.block);
             }
+            // Persist the record before leaving the race screen.
+            if self.memcard.is_dirty {
+                self.memcard.flush();
+            }
+
+            let is_gp = self.state_mgr.championship.is_some();
+            if let Some(ref mut champ) = self.state_mgr.championship {
+                champ.award_stage_points(standings);
+            }
+
+            self.state_mgr.results = Some(ResultsScreen::new(
+                self.timer.best_lap_ticks,
+                self.timer.current_lap_ticks,
+                track,
+                player_rank,
+                is_gp,
+            ));
+            self.audio.sfx.play_medal();
         }
 
         let cleared = self.timer.checkpoints_cleared() as u8;
@@ -2641,7 +2797,8 @@ impl ArduracerGame {
                 self.input_mgr2.silence();
                 self.audio.leave_race();
                 self.audio.sync_ui_edges(pad.buttons.bits());
-                self.audio.play_music(7, crate::gpu::tracktex::disc_reader());
+                self.audio
+                    .play_music(7, crate::gpu::tracktex::disc_reader());
             }
         }
 
@@ -2802,7 +2959,7 @@ impl ArduracerGame {
                     self.memcard.mark_dirty();
                     self.memcard.flush();
                     #[cfg(not(feature = "profiling"))]
-                    let _ = video::play_video("VICTORY.STR");
+                    let _ = video::play_video(champ.victory_video_filename());
                     self.state_mgr.victory = Some(VictoryScreen::new(champ));
                     self.state_mgr.current = GameState::Victory;
                     self.audio

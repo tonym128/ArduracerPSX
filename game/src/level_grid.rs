@@ -242,7 +242,8 @@ pub fn compile_and_bind_custom_track(
 ) -> Result<&'static TrackDef, arduracer_core::track_builder::TrackBuildError> {
     unsafe {
         let all_tiles = &mut *(core::ptr::addr_of_mut!(GRID) as *mut [TrackTile; GRID_BYTES]);
-        let compiled = track.compile(&mut all_tiles[..arduracer_core::track_builder::TOTAL_CUSTOM_TILES])?;
+        let compiled =
+            track.compile(&mut all_tiles[..arduracer_core::track_builder::TOTAL_CUSTOM_TILES])?;
         GRID_LEN = arduracer_core::track_builder::TOTAL_CUSTOM_TILES;
 
         let def = &mut *core::ptr::addr_of_mut!(CUSTOM_TRACK_DEF);

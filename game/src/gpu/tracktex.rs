@@ -47,8 +47,8 @@ use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 
 use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{
-    Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR,
-    M7_Z_FAR_COMPRESSED, M7_Z_NEAR,
+    Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR, M7_Z_FAR_COMPRESSED,
+    M7_Z_NEAR,
 };
 use crate::gpu::texlayout::{
     self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES,
@@ -2957,18 +2957,8 @@ fn draw_m7_backdrop(camera: &Camera) {
             let rx0 = x0 + 6;
             let rw = 32;
             let tower_h = (h + 16) as u16;
-            gpu::draw_rect_flat(
-                rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2,
-            );
-            gpu::draw_rect_flat(
-                rx0 + 2,
-                peak_y,
-                2,
-                tower_h,
-                col_lit.0,
-                col_lit.1,
-                col_lit.2,
-            );
+            gpu::draw_rect_flat(rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2);
+            gpu::draw_rect_flat(rx0 + 2, peak_y, 2, tower_h, col_lit.0, col_lit.1, col_lit.2);
         } else {
             // Mountain / mesa / stadium triangular ridge
             gpu::draw_tri_flat(
@@ -2978,15 +2968,7 @@ fn draw_m7_backdrop(camera: &Camera) {
                 col_dark.2,
             );
             // Solid base skirt down into ground so track tiles seamlessly overlap the mountains
-            gpu::draw_rect_flat(
-                x0,
-                base_y,
-                44,
-                16,
-                col_dark.0,
-                col_dark.1,
-                col_dark.2,
-            );
+            gpu::draw_rect_flat(x0, base_y, 44, 16, col_dark.0, col_dark.1, col_dark.2);
             gpu::draw_line_mono(mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2);
         }
     }

@@ -120,16 +120,8 @@ impl SettingsScreen {
                 debug_metrics_label(self.values().debug_metrics),
                 116,
             ),
-            (
-                "CONTROLS",
-                controls_label(self.values().input_profile),
-                131,
-            ),
-            (
-                "2P SPLIT",
-                split_label(self.values().split_mode),
-                146,
-            ),
+            ("CONTROLS", controls_label(self.values().input_profile), 131),
+            ("2P SPLIT", split_label(self.values().split_mode), 146),
         ];
         for (i, (label, value, y)) in rows.iter().enumerate() {
             let selected = i as u8 == sel;

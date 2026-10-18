@@ -517,8 +517,12 @@ mod tests {
         assert_eq!(m.probe_with(&mut card), MemcardStatus::FreshProfile);
 
         let mut track = CustomTrackDef::new("SPEED STADIUM");
-        track.place_block(2, 2, TrackBlockKind::StartGrid, 0).unwrap();
-        track.place_block(2, 3, TrackBlockKind::Straight, 0).unwrap();
+        track
+            .place_block(2, 2, TrackBlockKind::StartGrid, 0)
+            .unwrap();
+        track
+            .place_block(2, 3, TrackBlockKind::Straight, 0)
+            .unwrap();
         track.place_block(2, 4, TrackBlockKind::Turn90, 0).unwrap();
         track.author_time_ticks = 1140;
 
@@ -529,7 +533,10 @@ mod tests {
 
         let mut reloaded = MemoryCardManager::new();
         assert_eq!(reloaded.probe_with(&mut card), MemcardStatus::Loaded);
-        let loaded_track = reloaded.save_data.custom_track(0).expect("custom track loaded");
+        let loaded_track = reloaded
+            .save_data
+            .custom_track(0)
+            .expect("custom track loaded");
         assert_eq!(loaded_track.name_str(), "SPEED STADIUM");
         assert_eq!(loaded_track.author_time_ticks, 1140);
         assert_eq!(loaded_track.block_count, 3);

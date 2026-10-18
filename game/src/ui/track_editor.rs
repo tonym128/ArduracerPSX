@@ -223,10 +223,8 @@ impl TrackEditorScreen {
 
         // SQUARE: Delete block at cursor
         let square = b.is_held(button::SQUARE);
-        if square && !self.prev_square {
-            if self.track.remove_block(self.cursor_x, self.cursor_y) {
-                self.set_status("BLOCK DELETED");
-            }
+        if square && !self.prev_square && self.track.remove_block(self.cursor_x, self.cursor_y) {
+            self.set_status("BLOCK DELETED");
         }
         self.prev_square = square;
 
@@ -361,15 +359,15 @@ impl TrackEditorScreen {
                     // Draw colored tile with orientation
                     let (cr, cg, cb) = match b.kind {
                         TrackBlockKind::StartGrid => (40, 200, 60),      // Green
-                        TrackBlockKind::Straight => (120, 130, 145),    // Gray
-                        TrackBlockKind::Turn90 => (50, 160, 230),       // Blue
-                        TrackBlockKind::Hairpin => (240, 130, 30),      // Orange
-                        TrackBlockKind::Chicane => (190, 60, 210),      // Purple
+                        TrackBlockKind::Straight => (120, 130, 145),     // Gray
+                        TrackBlockKind::Turn90 => (50, 160, 230),        // Blue
+                        TrackBlockKind::Hairpin => (240, 130, 30),       // Orange
+                        TrackBlockKind::Chicane => (190, 60, 210),       // Purple
                         TrackBlockKind::DirtSection => (160, 105, 50),   // Brown
                         TrackBlockKind::IceBobsleigh => (120, 210, 255), // Cyan
-                        TrackBlockKind::JumpRamp => (240, 200, 20),     // Yellow
+                        TrackBlockKind::JumpRamp => (240, 200, 20),      // Yellow
                         TrackBlockKind::BridgeOverpass => (160, 170, 185), // Steel
-                        TrackBlockKind::FreeWheel => (230, 40, 40),     // Red
+                        TrackBlockKind::FreeWheel => (230, 40, 40),      // Red
                         TrackBlockKind::ReactorBoost => (210, 40, 160),  // Violet
                         TrackBlockKind::CheckpointGate => (245, 230, 40), // Gold
                     };
@@ -386,15 +384,7 @@ impl TrackEditorScreen {
                     draw_text((sx + 7) as u16, (sy + 6) as u16, arrow, (255, 255, 255), 1);
                 } else {
                     // Empty cell
-                    gpu::draw_rect_flat(
-                        sx + 1,
-                        sy + 1,
-                        CELL_W_U16 - 2,
-                        CELL_W_U16 - 2,
-                        28,
-                        32,
-                        44,
-                    );
+                    gpu::draw_rect_flat(sx + 1, sy + 1, CELL_W_U16 - 2, CELL_W_U16 - 2, 28, 32, 44);
                 }
 
                 // Cursor highlight
@@ -419,7 +409,13 @@ impl TrackEditorScreen {
         let panel_y: i16 = 26;
         gpu::draw_rect_flat(panel_x, panel_y, 124, 162, 20, 24, 34);
 
-        draw_text(panel_x as u16 + 6, panel_y as u16 + 6, "CURRENT TOOL:", (255, 235, 40), 1);
+        draw_text(
+            panel_x as u16 + 6,
+            panel_y as u16 + 6,
+            "CURRENT TOOL:",
+            (255, 235, 40),
+            1,
+        );
         draw_text(
             panel_x as u16 + 6,
             panel_y as u16 + 18,
@@ -434,7 +430,13 @@ impl TrackEditorScreen {
             2 => "DIR: SOUTH (180)",
             _ => "DIR: WEST (270)",
         };
-        draw_text(panel_x as u16 + 6, panel_y as u16 + 30, rot_label, (100, 220, 255), 1);
+        draw_text(
+            panel_x as u16 + 6,
+            panel_y as u16 + 30,
+            rot_label,
+            (100, 220, 255),
+            1,
+        );
 
         // Tool preview box
         let pr_x = panel_x + 46;
@@ -461,7 +463,13 @@ impl TrackEditorScreen {
             2 => "V",
             _ => "<",
         };
-        draw_text((pr_x + 9) as u16, (pr_y + 8) as u16, parrow, (255, 255, 255), 1);
+        draw_text(
+            (pr_x + 9) as u16,
+            (pr_y + 8) as u16,
+            parrow,
+            (255, 255, 255),
+            1,
+        );
 
         // Controls legend
         let cx = panel_x as u16 + 6;

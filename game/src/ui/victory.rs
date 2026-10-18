@@ -309,8 +309,10 @@ impl VictoryScreen {
             "GOLD CUP"
         } else if self.player_rank == 2 {
             "SILVER CUP"
-        } else {
+        } else if self.player_rank == 3 {
             "BRONZE CUP"
+        } else {
+            "FINISHER"
         };
         draw_text(lx as u16 + 8, ly as u16 + 135, badge, banner_col, 1);
 

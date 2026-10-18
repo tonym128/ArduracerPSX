@@ -367,19 +367,33 @@ def main():
     mp4_in = None
     if len(sys.argv) > 2 and not sys.argv[2].startswith("--"):
         mp4_in = sys.argv[2]
-    elif os.environ.get("INTRO_MP4"):
+    elif os.environ.get("INTRO_MP4") and "INTRO" in os.path.basename(str_out).upper():
         mp4_in = os.environ["INTRO_MP4"]
     else:
-        if "VICTORY" in os.path.basename(str_out).upper():
-            default_mp4 = os.path.join(repo_root, "AssetSource", "The_Victory_Lap.mp4")
+        base = os.path.basename(str_out).upper()
+        if "VICTORY1" in base or "FINISH_1" in base:
+            default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Finish 1st.mp4")
+        elif "VICTORY2" in base or "FINISH_2" in base:
+            default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Finish 2nd.mp4")
+        elif "VICTORY3" in base or "FINISH_3" in base:
+            default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Finish 3rd.mp4")
+        elif "VICTORY4" in base or "DEFEAT" in base:
+            default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Finish defeat.mp4")
+        elif "VICTORY" in base:
+            finish_1 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Finish 1st.mp4")
+            vic_lap = os.path.join(repo_root, "AssetSource", "The_Victory_Lap.mp4")
+            default_mp4 = finish_1 if os.path.exists(finish_1) else vic_lap
         else:
             default_mp4 = os.path.join(repo_root, "AssetSource", "ArduracerPSX Intro.mp4")
+
         if os.path.exists(default_mp4):
             mp4_in = default_mp4
 
-    adpcm_out = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("--") else (
-        os.path.join(repo_root, "assets", "VICTORY.ADPCM") if "VICTORY" in os.path.basename(str_out).upper() else os.path.join(repo_root, "assets", "INTRO.ADPCM")
-    )
+    if len(sys.argv) > 3 and not sys.argv[3].startswith("--"):
+        adpcm_out = sys.argv[3]
+    else:
+        stem = os.path.splitext(os.path.basename(str_out))[0].upper()
+        adpcm_out = os.path.join(repo_root, "assets", f"{stem}.ADPCM")
 
     force = "--force" in sys.argv
     if not force and os.path.exists(str_out) and os.path.getsize(str_out) >= 200000:
@@ -389,7 +403,11 @@ def main():
 
     success = False
     if mp4_in and os.path.exists(mp4_in):
-        success = cook_mp4(mp4_in, str_out, adpcm_out)
+        if os.environ.get("EXTRACT_SPU_ADPCM"):
+            success = cook_mp4(mp4_in, str_out, adpcm_out)
+        else:
+            success = cook_mp4(mp4_in, str_out, None)
+            ensure_dummy_adpcm(adpcm_out)
 
     if not success:
         cook_procedural_fallback(str_out, 60)

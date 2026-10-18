@@ -60,7 +60,7 @@ help:
 	@echo "                   (also emits tracks/*.jpg and tracks/*.qoi blocks)"
 	@echo "  make atlas-and-calibrate - Re-measure par times, then make atlas"
 	@echo "  make exe       - Build bare-metal MIPS PSX executable (dist/arduracer.exe)"
-	@echo "  make assets    - Cook FMV intro video and CD-DA Redbook audio tracks"
+	@echo "  make assets    - Cook FMV intro & victory videos and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
 	@echo "  make iso       - Master simple data ISO (dist/arduracer.iso)"
 	@echo "  make release   - Package full release ZIP and SHA256 checksums"
@@ -216,7 +216,17 @@ ci-disc: disc
 	bin="$(DIST)/arduracer.bin"; cue="$(DIST)/arduracer.cue"; \
 	if [ ! -f "$$bin" ]; then echo "ERROR: $$bin missing"; exit 1; fi; \
 	if [ ! -f "$$cue" ]; then echo "ERROR: $$cue missing"; exit 1; fi; \
-	if [ ! -f "$(ROOT)/assets/INTRO.STR" ]; then echo "ERROR: assets/INTRO.STR missing"; exit 1; fi; \
+	for f in INTRO.STR VICTORY1.STR VICTORY2.STR VICTORY3.STR VICTORY4.STR; do \
+	  if [ ! -f "$(ROOT)/assets/$$f" ]; then echo "ERROR: assets/$$f missing"; exit 1; fi; \
+	  sz=$$(stat -c%s "$(ROOT)/assets/$$f"); \
+	  echo "$$f: $$sz bytes"; \
+	  if [ "$$sz" -lt 200000 ]; then \
+	    echo "ERROR: assets/$$f is only $$sz bytes."; \
+	    echo "       cook_intro_str.py falls back to a silent procedural placeholder"; \
+	    echo "       when psxavenc is unavailable. Install it and re-run 'make assets'."; \
+	    exit 1; \
+	  fi; \
+	done; \
 	if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then echo "ERROR: assets/TRACKS.BIN missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ]; then echo "ERROR: assets/QOITRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then echo "ERROR: assets/SVGTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
@@ -239,14 +249,6 @@ ci-disc: disc
 	sectors=$$(( $$(stat -c%s "$$bin") / 2352 )); \
 	if [ "$$sectors" -lt 100 ]; then \
 	  echo "ERROR: $$bin is only $$sectors sectors; that cannot hold a bootable disc"; exit 1; fi; \
-	str_bytes=$$(stat -c%s "$(ROOT)/assets/INTRO.STR"); \
-	echo "Intro STR: $$str_bytes bytes"; \
-	if [ "$$str_bytes" -lt 200000 ]; then \
-	  echo "ERROR: assets/INTRO.STR is only $$str_bytes bytes."; \
-	  echo "       cook_intro_str.py falls back to a silent procedural placeholder"; \
-	  echo "       when psxavenc is unavailable. Install it and re-run 'make assets'."; \
-	  exit 1; \
-	fi; \
 	ls -lh "$$bin" "$$cue"
 	@echo "--- CI Disc Check Passed ---"
 
@@ -487,7 +489,10 @@ assets:
 	@$(MAKE) --no-print-directory levels-bin
 	@mkdir -p $(ROOT)/assets/cdda
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
-	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY.STR
+	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY1.STR
+	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY2.STR
+	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY3.STR
+	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY4.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
 # Encodes the six CD-DA music masters into CD-XA-ADPCM sectors. The XA files
@@ -510,7 +515,10 @@ disc: assets music-xa exe
 		--out $(DIST)/arduracer.bin \
 		--volume ARDURACER \
 		--file $(ROOT)/assets/INTRO.STR \
-		--file $(ROOT)/assets/VICTORY.STR \
+		--file $(ROOT)/assets/VICTORY1.STR \
+		--file $(ROOT)/assets/VICTORY2.STR \
+		--file $(ROOT)/assets/VICTORY3.STR \
+		--file $(ROOT)/assets/VICTORY4.STR \
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
 		--file $(ROOT)/assets/SVGTRACKS.BIN \

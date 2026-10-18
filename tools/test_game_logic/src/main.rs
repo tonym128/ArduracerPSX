@@ -759,7 +759,10 @@ fn test_nitro_meter_and_surge() {
         empty_car.tick(nitro, SurfaceType::Tarmac);
     }
     assert_eq!(empty_car.nitro_charge, 0);
-    assert!(empty_car.is_boost_disabled(), "depleted boost must be locked out");
+    assert!(
+        empty_car.is_boost_disabled(),
+        "depleted boost must be locked out"
+    );
     assert!(empty_car.nitro_depleted);
 
     // While recharging below half full (179 ticks), holding nitro does not spend charge

@@ -382,6 +382,21 @@ impl ChampionshipSession {
         1
     }
 
+    /// Returns the video asset filename to play at the end of the championship
+    /// based on the player's final placement:
+    /// - 1st place -> "VICTORY1.STR"
+    /// - 2nd place -> "VICTORY2.STR"
+    /// - 3rd place -> "VICTORY3.STR"
+    /// - 4th place onwards -> "VICTORY4.STR"
+    pub fn victory_video_filename(&self) -> &'static str {
+        match self.player_leaderboard_rank() {
+            1 => "VICTORY1.STR",
+            2 => "VICTORY2.STR",
+            3 => "VICTORY3.STR",
+            _ => "VICTORY4.STR",
+        }
+    }
+
     /// Returns the 0-based grid slot index (0..5) assigned to `competitor_idx`.
     pub fn grid_slot_of(&self, competitor_idx: usize) -> usize {
         for (slot, &comp) in self.grid_positions.iter().enumerate() {
@@ -1011,5 +1026,41 @@ mod tests {
         assert_eq!(session.competitors[4].total_points, 12);
         assert_eq!(session.competitors[5].total_points, 6);
         assert_eq!(session.sorted_leaderboard()[0].name, "PLAYER");
+    }
+
+    #[test]
+    fn victory_video_filename_matches_player_placement() {
+        // Test both Grand Prix (e.g. cup 0) and Mania Prix (e.g. cup 5)
+        for cup in [0, 1, 5, 6] {
+            let mut session = ChampionshipSession::new(cup);
+            // Initially tied at 0 points, player is 1st in initial list -> rank 1
+            assert_eq!(session.player_leaderboard_rank(), 1);
+            assert_eq!(session.victory_video_filename(), "VICTORY1.STR");
+
+            // Player 2nd place
+            session.competitors[1].total_points = 50;
+            assert_eq!(session.player_leaderboard_rank(), 2);
+            assert_eq!(session.victory_video_filename(), "VICTORY2.STR");
+
+            // Player 3rd place
+            session.competitors[2].total_points = 60;
+            assert_eq!(session.player_leaderboard_rank(), 3);
+            assert_eq!(session.victory_video_filename(), "VICTORY3.STR");
+
+            // Player 4th place
+            session.competitors[3].total_points = 70;
+            assert_eq!(session.player_leaderboard_rank(), 4);
+            assert_eq!(session.victory_video_filename(), "VICTORY4.STR");
+
+            // Player 5th place
+            session.competitors[4].total_points = 80;
+            assert_eq!(session.player_leaderboard_rank(), 5);
+            assert_eq!(session.victory_video_filename(), "VICTORY4.STR");
+
+            // Player 6th place (last)
+            session.competitors[5].total_points = 90;
+            assert_eq!(session.player_leaderboard_rank(), 6);
+            assert_eq!(session.victory_video_filename(), "VICTORY4.STR");
+        }
     }
 }

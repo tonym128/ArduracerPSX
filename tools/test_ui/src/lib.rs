@@ -4431,10 +4431,27 @@ mod graphics_settings {
             session.competitors[1].total_points = 100;
             let screen_2nd = VictoryScreen::new(&session);
             assert_eq!(screen_2nd.player_rank, 2);
+            assert_eq!(session.victory_video_filename(), "VICTORY2.STR");
 
             session.competitors[2].total_points = 100;
             let screen_3rd = VictoryScreen::new(&session);
             assert_eq!(screen_3rd.player_rank, 3);
+            assert_eq!(session.victory_video_filename(), "VICTORY3.STR");
+
+            session.competitors[3].total_points = 100;
+            let screen_4th = VictoryScreen::new(&session);
+            assert_eq!(screen_4th.player_rank, 4);
+            assert_eq!(session.victory_video_filename(), "VICTORY4.STR");
+
+            session.competitors[4].total_points = 100;
+            let screen_5th = VictoryScreen::new(&session);
+            assert_eq!(screen_5th.player_rank, 5);
+            assert_eq!(session.victory_video_filename(), "VICTORY4.STR");
+
+            session.competitors[5].total_points = 100;
+            let screen_6th = VictoryScreen::new(&session);
+            assert_eq!(screen_6th.player_rank, 6);
+            assert_eq!(session.victory_video_filename(), "VICTORY4.STR");
         }
     }
 
@@ -4643,16 +4660,19 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         assert!(track_top < 140);
 
         // Projected point on ground at (x=0, z=z_far) should match m7_track_top
-        let far_zq4 = (cam.z_far << 4) as i32;
+        let far_zq4 = cam.z_far << 4;
         let (_sx, sy) = cam.project_cam(0, far_zq4);
-        assert_eq!(track_top, sy, "m7_track_top must equal projected y at far clipping plane");
+        assert_eq!(
+            track_top, sy,
+            "m7_track_top must equal projected y at far clipping plane"
+        );
 
         // Compressed format extended view distance
         cam.z_far = 560;
         let comp_track_top = cam.m7_track_top();
         assert!(comp_track_top > 60);
         assert!(comp_track_top < track_top);
-        let comp_far_zq4 = (cam.z_far << 4) as i32;
+        let comp_far_zq4 = cam.z_far << 4;
         let (_sx, comp_sy) = cam.project_cam(0, comp_far_zq4);
         assert_eq!(comp_track_top, comp_sy);
 
@@ -4667,4 +4687,3 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         assert_eq!(pitched_down, comp_track_top + 6);
     }
 }
-
