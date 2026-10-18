@@ -468,6 +468,18 @@ impl Camera {
         self.project_cam_elevated(right_q4, z_q4, 0)
     }
 
+    /// Depth (in Q4) beyond which a vehicle should switch to its distant LOD.
+    ///
+    /// Tied to this camera's far plane so the LOD always engages while the road
+    /// is still drawn beneath the car. A fixed threshold (6,000 Q4 = 375 world
+    /// units) sat *past* the uncompressed formats' `z_far` of 240, so those
+    /// paths kept drawing a car with no track under it.
+    #[inline]
+    pub fn z_far_lod_q4(&self) -> i32 {
+        let half = (self.z_far / 2).max(1);
+        (M7_Z0 + half) << 4
+    }
+
     /// Perspective scale at a world point as Q12 (4096 = 1 pixel per unit).
     /// Returns 0 for points behind the near plane or beyond the far plane.
     #[inline]

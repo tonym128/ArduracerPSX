@@ -15,8 +15,8 @@
 
 use crate::gpu::camera::{Camera, M7_OFFSCREEN};
 use crate::gpu::car_geometry::{
-    body_roll_pitch_px, make_quad, make_rect_at, make_twin_stripes, steered_wheel_rot,
-    transform_pt, Rot,
+    body_roll_pitch_px, enforce_min_visible_size, make_quad, make_rect_at, make_twin_stripes,
+    steered_wheel_rot, transform_pt, Rot,
 };
 use crate::gpu::gte_proj::{load_m7_camera_gte, project_world_3d_gte};
 use arduracer_core::{
@@ -218,35 +218,30 @@ fn render_car_mode7_3d(
         base_col.2.saturating_add(35),
     );
 
-    if z_q4 > 6000 {
-        // Distant LOD: when the car is far ahead (>10 car lengths, projected width <= 4 px),
-        // tiny 3D details like individual wheel pods and spoiler endplates collapse to zero
-        // pixels and jitter. Render a clean Gouraud-shaded LOD with guaranteed visible minimum
-        // dimensions (>= 2x2 px), drop shadow, tinted canopy, brake lights, and boost flames.
+    // Distant LOD: when the car is far ahead (>10 car lengths, projected width <= 4 px),
+    // tiny 3D details like individual wheel pods and spoiler endplates collapse to zero
+    // pixels and jitter. Render a clean Gouraud-shaded LOD with guaranteed visible minimum
+    // dimensions (>= 2x2 px), drop shadow, tinted canopy, brake lights, and boost flames.
+    //
+    // The threshold is relative to the camera's own far plane, not a fixed
+    // 6000. The road is only drawn out to `z_far`, which is 240 for the
+    // uncompressed formats and 560 for the compressed ones, so a fixed
+    // threshold let this branch take over *past* the end of the road on the
+    // uncompressed paths -- the car stayed visible with no track under it.
+    if z_q4 > camera.z_far_lod_q4() {
         let fl = proj(-6, 12, 2);
         let fr = proj(6, 12, 2);
         let rl = proj(-7, -12, 3);
         let rr = proj(7, -12, 3);
 
-        if let (Some(mut p_fl), Some(mut p_fr), Some(mut p_rl), Some(mut p_rr)) = (fl, fr, rl, rr) {
-            // Ensure minimum visible width of at least 2 pixels so the GPU rasterizer never drops the quad
-            if (p_fr.0 - p_fl.0).abs() < 2 {
-                let mid_f = (p_fl.0 + p_fr.0) / 2;
-                p_fl.0 = mid_f - 1;
-                p_fr.0 = mid_f + 1;
-            }
-            if (p_rr.0 - p_rl.0).abs() < 2 {
-                let mid_r = (p_rl.0 + p_rr.0) / 2;
-                p_rl.0 = mid_r - 1;
-                p_rr.0 = mid_r + 1;
-            }
-            if (p_rl.1 - p_fl.1).abs() < 2 && (p_rr.1 - p_fr.1).abs() < 2 {
-                let mid_y = (p_fl.1 + p_rl.1) / 2;
-                p_fl.1 = mid_y - 1;
-                p_fr.1 = mid_y - 1;
-                p_rl.1 = mid_y + 1;
-                p_rr.1 = mid_y + 1;
-            }
+        if let (Some(p_fl), Some(p_fr), Some(p_rl), Some(p_rr)) = (fl, fr, rl, rr) {
+            // Guarantee a minimum visible size so the rasteriser never drops the
+            // quad outright. The helper grows the quad downward from where the
+            // projection put it: the inline version this replaced re-centred on
+            // the midpoint and lifted every distant car a row above the road.
+            let mut quad = [p_fl, p_fr, p_rl, p_rr];
+            enforce_min_visible_size(&mut quad);
+            let [p_fl, p_fr, p_rl, p_rr] = quad;
 
             // 1. Ground Drop Shadow
             if !is_ghost {

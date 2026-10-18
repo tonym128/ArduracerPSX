@@ -5526,3 +5526,168 @@ mod roadside_prop_placement_tests {
         }
     }
 }
+
+/// Distant Mode 7 cars were drawn a row too high. The LOD's minimum-size clamp
+/// re-centred the quad on its own midpoint, lifting every distant car above the
+/// road it stood on.
+#[cfg(test)]
+mod distant_car_lod_tests {
+    use super::car_geometry::enforce_min_visible_size;
+
+    /// A projected LOD quad at world depth `d`, as the renderer computes it:
+    /// front pair 12 units ahead at height 2, rear pair 12 behind at height 3.
+    fn lod_quad(d: i32) -> [(i16, i16); 4] {
+        let row = |depth: i32, h: i32| -> i16 {
+            let z_q4 = (depth + 120) << 4;
+            let num = (2_080 - h * 16) * 120;
+            (60 + num / z_q4) as i16
+        };
+        [
+            (160 - 1, row(d + 12, 2)),
+            (160 + 1, row(d + 12, 2)),
+            (160 - 1, row(d - 12, 3)),
+            (160 + 1, row(d - 12, 3)),
+        ]
+    }
+
+    /// The clamp must never move the car's top row upward. This is the whole
+    /// defect: the car visibly detached from the road surface.
+    #[test]
+    fn the_minimum_size_clamp_never_lifts_a_car_above_its_projection() {
+        for d in [255, 300, 400, 600, 900, 1_600, 3_000] {
+            let original = lod_quad(d);
+            let mut q = original;
+            enforce_min_visible_size(&mut q);
+            let projected_top = original[0].1.min(original[1].1);
+            assert!(
+                q[0].1 >= projected_top && q[1].1 >= projected_top,
+                "depth {d}: clamp lifted the car from row {projected_top} to {:?}",
+                (q[0].1, q[1].1)
+            );
+        }
+    }
+
+    /// And specifically the previous behaviour: re-centring on the midpoint
+    /// lifted the body above its projected top at essentially every depth,
+    /// because a distant quad is nearly flat.
+    #[test]
+    fn the_old_midpoint_recentring_reproduces_the_lift() {
+        let mut lifted = 0;
+        let mut total = 0;
+        for d in 255..1_600 {
+            let original = lod_quad(d);
+            let fl = original[0];
+            let rl = original[2];
+            if (rl.1 - fl.1).abs() >= 2 {
+                continue; // clamp would not fire
+            }
+            total += 1;
+            let mid = (fl.1 + rl.1) / 2;
+            let old_top = mid - 1;
+            let projected_top = original[0].1.min(original[1].1);
+            if old_top < projected_top {
+                lifted += 1;
+            }
+        }
+        assert!(total > 1000, "expected many clamped depths, only {total}");
+        assert_eq!(
+            lifted, total,
+            "the old clamp should have lifted every clamped quad ({lifted}/{total})"
+        );
+    }
+
+    /// The clamp's purpose still holds: a too-small quad must be grown so the
+    /// rasteriser cannot drop it.
+    #[test]
+    fn the_clamp_still_guarantees_a_visible_size() {
+        for d in [400, 900, 1_600, 3_000] {
+            let mut q = lod_quad(d);
+            enforce_min_visible_size(&mut q);
+            let width = (q[1].0 - q[0].0).abs();
+            let height = (q[2].1 - q[0].1).abs();
+            assert!(width >= 2, "depth {d}: width collapsed to {width}");
+            assert!(height >= 2, "depth {d}: height collapsed to {height}");
+        }
+    }
+
+    /// The clamp must stay centred horizontally, or a distant car drifts
+    /// sideways as it passes.
+    #[test]
+    fn widening_the_clamp_keeps_the_car_centred() {
+        for d in [300, 600, 1_600] {
+            let original = lod_quad(d);
+            let mut q = original;
+            enforce_min_visible_size(&mut q);
+            let before = original[0].0 + original[1].0;
+            let after = q[0].0 + q[1].0;
+            assert_eq!(after, before, "depth {d}: clamp shifted the car sideways");
+        }
+    }
+
+    /// A quad that is already big enough must be left alone.
+    #[test]
+    fn a_quad_large_enough_is_untouched() {
+        let mut q = [
+            (150i16, 180i16),
+            (170i16, 180i16),
+            (150i16, 195i16),
+            (170i16, 195i16),
+        ];
+        let before = q;
+        enforce_min_visible_size(&mut q);
+        assert_eq!(q, before, "a large quad was modified");
+    }
+}
+
+/// The LOD threshold was a fixed 6000 Q4, which sat past the uncompressed
+/// formats' `z_far` of 240 -- so the road ended before the car did.
+#[cfg(test)]
+mod vehicle_lod_threshold_tests {
+    use super::camera::{Camera, M7_Z0, M7_Z_FAR, M7_Z_FAR_COMPRESSED};
+    use arduracer_core::Vec2;
+
+    fn cam_with_z_far(z_far: i32) -> Camera {
+        let mut c = Camera::new_chase(Vec2::ZERO, 0);
+        c.z_far = z_far;
+        c
+    }
+
+    /// The LOD must engage while the road is still drawn beneath the car.
+    #[test]
+    fn the_lod_engages_before_the_road_ends() {
+        for z_far in [M7_Z_FAR, M7_Z_FAR_COMPRESSED] {
+            let cam = cam_with_z_far(z_far);
+            let lod_depth = cam.z_far_lod_q4() / 16 - M7_Z0;
+            let road_depth = z_far - M7_Z0;
+            assert!(
+                lod_depth <= road_depth,
+                "z_far {z_far}: LOD at depth {lod_depth} is past the road at {road_depth}"
+            );
+        }
+    }
+
+    /// The old fixed threshold, for the record: 6000 Q4 = depth 255, which is
+    /// past the uncompressed road's 120.
+    #[test]
+    fn the_old_fixed_threshold_was_past_the_uncompressed_road() {
+        let old_depth = 6000i32 / 16 - M7_Z0;
+        assert!(
+            old_depth > M7_Z_FAR - M7_Z0,
+            "expected the fixed 6000 threshold to overrun the uncompressed road"
+        );
+    }
+
+    /// The threshold must actually be reachable: not so near that every car is
+    /// a LOD blob.
+    #[test]
+    fn the_lod_threshold_is_not_so_near_that_every_car_is_low_detail() {
+        for z_far in [M7_Z_FAR, M7_Z_FAR_COMPRESSED] {
+            let cam = cam_with_z_far(z_far);
+            let lod_depth = cam.z_far_lod_q4() / 16 - M7_Z0;
+            assert!(
+                lod_depth >= 100,
+                "z_far {z_far}: LOD at {lod_depth} would catch near cars"
+            );
+        }
+    }
+}

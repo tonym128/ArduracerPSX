@@ -347,3 +347,40 @@ pub fn quad_covers_its_interior(pts: &[(i16, i16); 4]) -> bool {
     }
     true
 }
+
+/// Grows a projected vehicle quad to a minimum on-screen size without lifting it.
+///
+/// The distant LOD draws a car a few pixels tall. Below about two pixels the
+/// rasteriser drops the quad entirely, so the renderer inflates it to a
+/// guaranteed minimum. The inflation has to grow *downward* from where the
+/// projection put the car: the previous version re-centred on the midpoint of
+/// the natural quad, which lifted every distant car a row above the road it
+/// stands on.
+///
+/// `corners` is `(front_left, front_right, rear_left, rear_right)`, all
+/// borrowed and mutated in place. Returns nothing; the quad is adjusted in
+/// place so the caller's shape type is preserved.
+pub fn enforce_min_visible_size(corners: &mut [(i16, i16); 4]) {
+    const MIN_SPAN: i16 = 2;
+    let [fl, fr, rl, rr] = corners;
+
+    // Columns: widen about the existing centre so the car stays centred.
+    if (fr.0 - fl.0).abs() < MIN_SPAN {
+        fl.0 -= 1;
+        fr.0 += 1;
+    }
+    if (rr.0 - rl.0).abs() < MIN_SPAN {
+        rl.0 -= 1;
+        rr.0 += 1;
+    }
+
+    // Rows: keep the projected top row and hang the guaranteed pixels below it,
+    // so the body never rises above the surface it is standing on.
+    if (rl.1 - fl.1).abs() < MIN_SPAN && (rr.1 - fr.1).abs() < MIN_SPAN {
+        let top = fl.1.min(fr.1);
+        fl.1 = top;
+        fr.1 = top;
+        rl.1 = top + MIN_SPAN;
+        rr.1 = top + MIN_SPAN;
+    }
+}
