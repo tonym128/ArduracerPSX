@@ -2955,6 +2955,9 @@ impl ArduracerGame {
             || b.pressed_since(prev, psx_pad::button::SELECT)
         {
             self.replay_camera_mode = (self.replay_camera_mode + 1) % 3;
+            // Cutting to a new camera angle should be a cut, not a sweep in
+            // from the previous angle's framing.
+            self.camera.tv_unplaced = true;
         }
         if b.pressed_since(prev, psx_pad::button::CROSS)
             || b.pressed_since(prev, psx_pad::button::START)
@@ -3070,6 +3073,7 @@ impl ArduracerGame {
             Some(ResultsAction::WatchReplay) => {
                 self.replay_tick = 0;
                 self.replay_camera_mode = 0;
+                self.camera.tv_unplaced = true;
                 self.prev_pad_racing = pad.buttons;
                 self.state_mgr.current = GameState::Replay;
             }

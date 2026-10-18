@@ -5143,3 +5143,181 @@ mod split_screen_projection_tests {
         assert!(cam.vehicle_screen_y(behind) >= near_y);
     }
 }
+
+/// Replay trackside-camera judder: `update_broadcast_tv` snapped its heading to
+/// an aim computed from a discrete route node, so every node step (and every
+/// frame-to-frame flip between two equidistant nodes) was a hard cut.
+#[cfg(test)]
+mod replay_camera_smoothing_tests {
+    use super::camera::Camera;
+    use arduracer_core::Vec2;
+
+    /// Shortest signed BAMS distance from `a` to `b`.
+    fn bams_delta(a: u16, b: u16) -> i32 {
+        let mut d = (b & 0x0FFF) as i32 - (a & 0x0FFF) as i32;
+        if d > 2048 {
+            d -= 4096;
+        } else if d < -2048 {
+            d += 4096;
+        }
+        d
+    }
+
+    /// One eased pan step must move less than the whole remaining angle. The
+    /// driving camera's divisor is 6; the trackside camera's is gentler, and
+    /// this is the property that removes the hard cut.
+    #[test]
+    fn a_pan_step_moves_only_a_fraction_of_the_remaining_angle() {
+        let mut cam = Camera::new(Vec2::ZERO);
+        cam.set_heading(0);
+        // A right-angle-ish correction.
+        let target = 1024u16;
+        let remaining = bams_delta(cam.heading, target).abs();
+        cam.follow_heading_slow(target);
+        let moved = bams_delta(0, cam.heading).abs();
+        assert!(moved > 0, "the pan made no progress at all");
+        assert!(
+            moved < remaining,
+            "the pan jumped the whole way ({moved} of {remaining})"
+        );
+        assert!(
+            moved * 3 <= remaining,
+            "the pan moved {moved} of {remaining}: too coarse to read as a sweep"
+        );
+    }
+
+    /// The pan must converge: an easing loop that stops short of the target
+    /// would leave the replay camera permanently pointing the wrong way.
+    #[test]
+    fn a_pan_converges_on_its_target() {
+        for target in [0u16, 512, 1024, 2048, 3000, 4095] {
+            let mut cam = Camera::new(Vec2::ZERO);
+            cam.set_heading(0);
+            for _ in 0..2000 {
+                cam.follow_heading_slow(target);
+            }
+            assert_eq!(
+                bams_delta(cam.heading, target).abs(),
+                0,
+                "pan did not converge on {target}, stopped at {}",
+                cam.heading
+            );
+        }
+    }
+
+    /// The pan takes the short way round, so a target just past the 0/4096
+    /// wrap does not send the camera the long way spinning.
+    #[test]
+    fn a_pan_takes_the_short_way_round_the_wrap() {
+        // 10 BAMS is 1 degree either side of zero; the short way is ~2, not ~4086.
+        let mut cam = Camera::new(Vec2::ZERO);
+        cam.set_heading(4090);
+        cam.follow_heading_slow(4);
+        assert!(
+            bams_delta(4090, cam.heading).abs() <= 20,
+            "pan took the long way around: {} -> {}",
+            4090,
+            cam.heading
+        );
+    }
+
+    /// The trackside camera must be gentler than the driving camera, which is
+    /// what makes a route-node step read as an operator following the car.
+    #[test]
+    fn the_trackside_pan_is_slower_than_the_driving_pan() {
+        let target = 1024u16;
+        let step = |slow: bool| -> i32 {
+            let mut cam = Camera::new(Vec2::ZERO);
+            cam.set_heading(0);
+            if slow {
+                cam.follow_heading_slow(target);
+            } else {
+                cam.follow_heading(target);
+            }
+            bams_delta(0, cam.heading).abs()
+        };
+        assert!(
+            step(true) < step(false),
+            "trackside pan ({}) is not slower than the driving pan ({})",
+            step(true),
+            step(false)
+        );
+    }
+
+    /// A fresh camera starts unplaced, so the first broadcast frame cuts to the
+    /// angle instead of sweeping in from an arbitrary heading.
+    #[test]
+    fn a_camera_starts_unplaced_so_the_first_broadcast_frame_cuts() {
+        assert!(
+            Camera::new(Vec2::ZERO).tv_unplaced,
+            "a new camera must start unplaced"
+        );
+    }
+
+    /// The regression itself, driven through the real entry point on a real
+    /// circuit: walking a car along the route, the camera heading must move a
+    /// bounded amount per frame.
+    ///
+    /// The unit tests above pin the easing helper, but on their own they would
+    /// still pass if the call site reverted to snapping -- which is exactly the
+    /// bug. This one exercises `update_broadcast_tv` itself.
+    #[test]
+    fn the_broadcast_camera_never_snaps_its_heading_while_the_car_drives() {
+        let track = &arduracer_core::ALL_TRACKS[0];
+        let route = track.route;
+        assert!(route.len() >= 4, "test circuit needs a route");
+
+        let mut cam = Camera::new(Vec2::ZERO);
+        // Start unplaced, as on entering the replay: the first frame cuts.
+        cam.tv_unplaced = true;
+        cam.update_broadcast_tv(track, route[0], 0);
+        let mut prev = cam.heading;
+
+        let mut worst = 0i32;
+        // Walk the car along the route and watch how far the heading travels
+        // per frame.
+        for &node in route.iter().skip(1) {
+            cam.update_broadcast_tv(track, node, 0);
+            let step = bams_delta(prev, cam.heading).abs();
+            worst = worst.max(step);
+            prev = cam.heading;
+        }
+
+        // Measured on this circuit, walking a whole route node per frame (far
+        // harsher than a real replay, where the car moves a few units a tick):
+        // the easing pan peaks at 96 BAMS, the snapping version at 1132 -- a
+        // ~100 degree cut. 256 sits between the two with margin on both sides.
+        assert!(
+            worst <= 256,
+            "broadcast camera jumped {worst} BAMS in one frame (snap-like)"
+        );
+    }
+
+    /// Consecutive frames along a route can never disagree by more than a
+    /// gentle fraction of a turn. This is the flip-flop between equidistant
+    /// route nodes that made the judder most visible.
+    #[test]
+    fn the_broadcast_pan_is_continuous_along_a_route() {
+        let track = &arduracer_core::ALL_TRACKS[0];
+        let route = track.route;
+        let mut cam = Camera::new(Vec2::ZERO);
+        cam.tv_unplaced = true;
+
+        let mut headings = [0u16; 256];
+        let n = route.len().min(headings.len());
+        for i in 0..n {
+            cam.update_broadcast_tv(track, route[i], 0);
+            headings[i] = cam.heading;
+        }
+
+        for i in 1..n {
+            let d = bams_delta(headings[i - 1], headings[i]).abs();
+            assert!(
+                d <= 256,
+                "pan reversed by {d} BAMS between route nodes {} and {}",
+                i - 1,
+                i
+            );
+        }
+    }
+}

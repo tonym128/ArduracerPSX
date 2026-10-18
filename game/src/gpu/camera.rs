@@ -98,6 +98,9 @@ pub const M7_VEHICLE_Z_FAR: i32 = 3_600;
 
 /// The heading eases by 1/this of the remaining angle each tick.
 const M7_HEADING_EASE_DIV: i32 = 6;
+/// Heading ease for the trackside replay camera: gentler than the driving
+/// camera's, because its aim target steps in whole route nodes.
+const TV_HEADING_EASE_DIV: i32 = 14;
 /// Position ease in chase mode. Stiffer than top-down because there is no
 /// look-ahead to hide the lag: the car must stay near its screen anchor.
 const M7_POSITION_EASE: i32 = 1_600;
@@ -147,6 +150,12 @@ pub struct Camera {
     hcos: i32,
     /// Farthest Mode 7 depth rendered for this camera.
     pub z_far: i32,
+    /// Set while the trackside replay camera has not yet been placed.
+    ///
+    /// The first update snaps instead of easing, so entering the replay cuts
+    /// straight to the broadcast angle rather than sweeping in from wherever the
+    /// camera happened to be. Cleared by the first `update_broadcast_tv`.
+    pub tv_unplaced: bool,
 }
 
 /// The direction the look-ahead starts at: up the screen, so the car renders
@@ -181,6 +190,7 @@ impl Camera {
             hsin: 0,
             hcos: FP_ONE,
             z_far: M7_Z_FAR,
+            tv_unplaced: true,
         }
     }
 
@@ -307,6 +317,21 @@ impl Camera {
 
     /// Eases the view heading toward `target` (BAMS) the short way round.
     pub fn follow_heading(&mut self, target: u16) {
+        self.ease_heading_toward(target, M7_HEADING_EASE_DIV);
+    }
+
+    /// Eases the view heading more slowly than [`Camera::follow_heading`].
+    ///
+    /// For the trackside replay camera, whose aim target is quantised to route
+    /// nodes. A node step is a real change in where the camera should point, so
+    /// it needs a pan that reads as a camera operator following the car rather
+    /// than a snap that reads as a glitch.
+    pub fn follow_heading_slow(&mut self, target: u16) {
+        self.ease_heading_toward(target, TV_HEADING_EASE_DIV);
+    }
+
+    /// Eases the view heading by `1/ease_div` of the remaining angle.
+    fn ease_heading_toward(&mut self, target: u16, ease_div: i32) {
         let mut diff = (target & 0x0FFF) as i32 - self.heading as i32;
         if diff > 2048 {
             diff -= 4096;
@@ -314,7 +339,7 @@ impl Camera {
             diff += 4096;
         }
         // Always make progress on a small residual so it cannot stall.
-        let mut step = diff / M7_HEADING_EASE_DIV;
+        let mut step = diff / ease_div;
         if step == 0 {
             step = diff.signum();
         }
@@ -726,7 +751,21 @@ impl Camera {
         } else {
             arduracer_core::heading_towards(vantage, target_pos)
         };
-        self.set_heading(aim_heading);
+        // Pan toward the aim rather than snapping to it.
+        //
+        // The aim is computed from a *discrete* vantage: the nearest route node
+        // and the one after it. As the car runs, that node index steps forward,
+        // and while the car sits near the midpoint between two nodes the choice
+        // can flip between them frame to frame. Snapping to the resulting
+        // heading turns each of those steps into a hard cut, which is what made
+        // the replay camera judder. Easing the pan the short way round turns
+        // the same input into a sweep.
+        if self.tv_unplaced {
+            self.tv_unplaced = false;
+            self.set_heading(aim_heading);
+        } else {
+            self.follow_heading_slow(aim_heading);
+        }
 
         // Keep the car centered vertically at sy = 120 (exact middle of 240px display).
         // sy = horizon (36) + k16 (15,600 * 16) / z_q4.
