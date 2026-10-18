@@ -39,11 +39,16 @@ impl ResultsScreen {
         rank: u8,
         is_grand_prix: bool,
     ) -> Self {
-        let medal = track.par_times.evaluate_medal(best_lap_ticks);
+        let effective_best = if best_lap_ticks != 0 && best_lap_ticks != u32::MAX {
+            best_lap_ticks
+        } else {
+            total_race_ticks
+        };
+        let medal = track.par_times.evaluate_medal(effective_best);
         let safe_rank = rank.clamp(1, 6);
         let points = POINTS_TABLE[(safe_rank - 1) as usize];
         ResultsScreen {
-            best_lap_ticks,
+            best_lap_ticks: effective_best,
             total_race_ticks,
             medal,
             rank: safe_rank,
@@ -62,9 +67,14 @@ impl ResultsScreen {
         track: &TrackDef,
         p1_won: bool,
     ) -> Self {
-        let medal = track.par_times.evaluate_medal(best_lap_ticks);
+        let effective_best = if best_lap_ticks != 0 && best_lap_ticks != u32::MAX {
+            best_lap_ticks
+        } else {
+            total_race_ticks
+        };
+        let medal = track.par_times.evaluate_medal(effective_best);
         ResultsScreen {
-            best_lap_ticks,
+            best_lap_ticks: effective_best,
             total_race_ticks,
             medal,
             rank: if p1_won { 1 } else { 2 },
@@ -147,21 +157,25 @@ impl ResultsScreen {
         draw_text(48, 62, medal_str, medal_col, 1);
 
         // Best Lap Time Display
-        let best_sec = self.best_lap_ticks / 60;
-        let best_cs = ((self.best_lap_ticks % 60) * 100) / 60;
-
         draw_text(40, 94, "BEST LAP: ", (0, 220, 255), 1);
-        let m_sec_ten = b'0' + ((best_sec / 10) % 10) as u8;
-        let m_sec_one = b'0' + (best_sec % 10) as u8;
-        let cs_ten = b'0' + ((best_cs / 10) % 10) as u8;
-        let cs_one = b'0' + (best_cs % 10) as u8;
+        if self.best_lap_ticks == 0 || self.best_lap_ticks == u32::MAX {
+            draw_text(120, 94, "--.-- S", (255, 255, 255), 1);
+        } else {
+            let best_sec = self.best_lap_ticks / 60;
+            let best_cs = ((self.best_lap_ticks % 60) * 100) / 60;
 
-        draw_char(120, 94, m_sec_ten, (255, 255, 255), 1);
-        draw_char(127, 94, m_sec_one, (255, 255, 255), 1);
-        draw_char(134, 94, b'.', (255, 255, 255), 1);
-        draw_char(141, 94, cs_ten, (255, 255, 255), 1);
-        draw_char(148, 94, cs_one, (255, 255, 255), 1);
-        draw_char(158, 94, b'S', (180, 180, 180), 1);
+            let m_sec_ten = b'0' + ((best_sec / 10) % 10) as u8;
+            let m_sec_one = b'0' + (best_sec % 10) as u8;
+            let cs_ten = b'0' + ((best_cs / 10) % 10) as u8;
+            let cs_one = b'0' + (best_cs % 10) as u8;
+
+            draw_char(120, 94, m_sec_ten, (255, 255, 255), 1);
+            draw_char(127, 94, m_sec_one, (255, 255, 255), 1);
+            draw_char(134, 94, b'.', (255, 255, 255), 1);
+            draw_char(141, 94, cs_ten, (255, 255, 255), 1);
+            draw_char(148, 94, cs_one, (255, 255, 255), 1);
+            draw_char(158, 94, b'S', (180, 180, 180), 1);
+        }
 
         // Total Race Time Display
         let tot_sec = self.total_race_ticks / 60;
@@ -270,19 +284,23 @@ impl ResultsScreen {
         }
 
         // Best lap
-        let best_sec = self.best_lap_ticks / 60;
-        let best_cs = ((self.best_lap_ticks % 60) * 100) / 60;
         draw_text(lx as u16 + 8, 86, "BEST LAP:", (140, 160, 185), 1);
-        let m_sec_ten = b'0' + ((best_sec / 10) % 10) as u8;
-        let m_sec_one = b'0' + (best_sec % 10) as u8;
-        let cs_ten = b'0' + ((best_cs / 10) % 10) as u8;
-        let cs_one = b'0' + (best_cs % 10) as u8;
-        draw_char(lx as u16 + 8, 98, m_sec_ten, (255, 255, 255), 1);
-        draw_char(lx as u16 + 15, 98, m_sec_one, (255, 255, 255), 1);
-        draw_char(lx as u16 + 22, 98, b'.', (255, 255, 255), 1);
-        draw_char(lx as u16 + 29, 98, cs_ten, (255, 255, 255), 1);
-        draw_char(lx as u16 + 36, 98, cs_one, (255, 255, 255), 1);
-        draw_char(lx as u16 + 46, 98, b'S', (180, 180, 180), 1);
+        if self.best_lap_ticks == 0 || self.best_lap_ticks == u32::MAX {
+            draw_text(lx as u16 + 8, 98, "--.-- S", (255, 255, 255), 1);
+        } else {
+            let best_sec = self.best_lap_ticks / 60;
+            let best_cs = ((self.best_lap_ticks % 60) * 100) / 60;
+            let m_sec_ten = b'0' + ((best_sec / 10) % 10) as u8;
+            let m_sec_one = b'0' + (best_sec % 10) as u8;
+            let cs_ten = b'0' + ((best_cs / 10) % 10) as u8;
+            let cs_one = b'0' + (best_cs % 10) as u8;
+            draw_char(lx as u16 + 8, 98, m_sec_ten, (255, 255, 255), 1);
+            draw_char(lx as u16 + 15, 98, m_sec_one, (255, 255, 255), 1);
+            draw_char(lx as u16 + 22, 98, b'.', (255, 255, 255), 1);
+            draw_char(lx as u16 + 29, 98, cs_ten, (255, 255, 255), 1);
+            draw_char(lx as u16 + 36, 98, cs_one, (255, 255, 255), 1);
+            draw_char(lx as u16 + 46, 98, b'S', (180, 180, 180), 1);
+        }
 
         // Grid feedback for next race
         draw_text(lx as u16 + 8, 114, "NEXT GRID:", (140, 160, 185), 1);

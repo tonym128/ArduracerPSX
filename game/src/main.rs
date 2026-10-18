@@ -818,9 +818,9 @@ impl ArduracerGame {
         // Insertion sort by depth across all 6 cars. 0 = player, 1..=5 = rivals.
         let mut order = [0usize, 1, 2, 3, 4, 5];
         let mut depth = [0i16; 6];
-        depth[0] = self.camera.world_to_screen(self.player.position).1;
+        depth[0] = self.camera.vehicle_screen_y(self.player.position);
         for (i, rival) in self.rivals.iter().enumerate() {
-            depth[i + 1] = self.camera.world_to_screen(rival.state.position).1;
+            depth[i + 1] = self.camera.vehicle_screen_y(rival.state.position);
         }
         for i in 1..order.len() {
             let mut j = i;
@@ -2372,9 +2372,21 @@ impl ArduracerGame {
                             || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
                     self.p1_won_2p = p1_won;
                     let best_ticks = if p1_won {
-                        self.timer.best_lap_ticks
+                        if self.timer.has_best_lap() {
+                            self.timer.best_lap_ticks
+                        } else if self.timer.last_completed_lap_ticks > 0 {
+                            self.timer.last_completed_lap_ticks
+                        } else {
+                            self.timer.current_lap_ticks
+                        }
                     } else {
-                        self.player2_timer.best_lap_ticks
+                        if self.player2_timer.has_best_lap() {
+                            self.player2_timer.best_lap_ticks
+                        } else if self.player2_timer.last_completed_lap_ticks > 0 {
+                            self.player2_timer.last_completed_lap_ticks
+                        } else {
+                            self.player2_timer.current_lap_ticks
+                        }
                     };
                     let total_ticks = if p1_won {
                         self.timer.current_lap_ticks
@@ -2518,7 +2530,14 @@ impl ArduracerGame {
                         .track_editor
                         .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
                 } else {
-                    let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                    let effective_best = if self.timer.has_best_lap() {
+                        self.timer.best_lap_ticks
+                    } else if self.timer.last_completed_lap_ticks > 0 {
+                        self.timer.last_completed_lap_ticks
+                    } else {
+                        self.timer.current_lap_ticks
+                    };
+                    let time_medal = track.par_times.evaluate_medal(effective_best);
                     let medal = if self.timer.target_laps == 1 {
                         time_medal.max(self.timer.evaluate_platform_medal())
                     } else {
@@ -2526,12 +2545,12 @@ impl ArduracerGame {
                     };
                     self.memcard.record_lap(
                         self.current_track_idx,
-                        self.timer.best_lap_ticks,
+                        effective_best,
                         medal as u8,
                     );
                     // Every scored lap already promoted itself; this only
                     // closes out the in-progress final lap.
-                    self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+                    self.ghost.finish_lap(effective_best, false);
                     self.ghost.save_to_card_block(&mut self.memcard.block);
                 }
                 // Persist the record before leaving the race screen.
@@ -2544,8 +2563,15 @@ impl ArduracerGame {
                     champ.award_stage_points(standings);
                 }
 
+                let display_best = if self.timer.has_best_lap() {
+                    self.timer.best_lap_ticks
+                } else if self.timer.last_completed_lap_ticks > 0 {
+                    self.timer.last_completed_lap_ticks
+                } else {
+                    self.timer.current_lap_ticks
+                };
                 self.state_mgr.results = Some(ResultsScreen::new(
-                    self.timer.best_lap_ticks,
+                    display_best,
                     self.timer.current_lap_ticks,
                     track,
                     player_rank,

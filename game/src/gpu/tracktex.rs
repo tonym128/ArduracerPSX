@@ -2921,13 +2921,14 @@ fn draw_m7_backdrop(camera: &Camera) {
         [sky.mid_sky, sky.horizon, sky.horizon],
     );
 
+    let v_h = camera.viewport_h as i16;
     // Ground backdrop below track top (painted over by Mode 7 track tiles)
     gpu::draw_tri_gouraud(
-        [(0, y_l), (320, y_r), (0, 240)],
+        [(0, y_l), (320, y_r), (0, v_h)],
         [sky.ground_haze, sky.ground_haze, sky.ground_deep],
     );
     gpu::draw_tri_gouraud(
-        [(320, y_r), (320, 240), (0, 240)],
+        [(320, y_r), (320, v_h), (0, v_h)],
         [sky.ground_haze, sky.ground_deep, sky.ground_deep],
     );
 
@@ -2952,11 +2953,22 @@ fn draw_m7_backdrop(camera: &Camera) {
         let mid_x = x0 + 22;
         let base_y = track_top + (roll as i32 * (mid_x as i32 - 160) / 160) as i16;
         let peak_y = base_y - h;
+        let skirt_h = (v_h - base_y).max(0) as u16;
         if sky.biome_style == 1 || sky.biome_style == 4 {
+            // Solid base skirt down into ground so track tiles seamlessly overlap the skyline
+            gpu::draw_rect_flat(
+                x0,
+                base_y,
+                44,
+                skirt_h,
+                col_dark.0,
+                col_dark.1,
+                col_dark.2,
+            );
             // City skyscraper / cyber tower block
             let rx0 = x0 + 6;
             let rw = 32;
-            let tower_h = (h + 16) as u16;
+            let tower_h = (v_h - peak_y).max(0) as u16;
             gpu::draw_rect_flat(
                 rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2,
             );
@@ -2982,7 +2994,7 @@ fn draw_m7_backdrop(camera: &Camera) {
                 x0,
                 base_y,
                 44,
-                16,
+                skirt_h,
                 col_dark.0,
                 col_dark.1,
                 col_dark.2,

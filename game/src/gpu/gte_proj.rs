@@ -16,7 +16,7 @@
 //! projects to `sx = 160 + right_q4 * 120 / z_q4`, `sy = 60 + 2080 * 120 / z_q4`, matching
 //! [`Camera::project_rz`] pixel-for-pixel while accelerating 3D elevated meshes in hardware.
 
-use crate::gpu::camera::{Camera, M7_Z0, M7_Z_FAR, M7_Z_NEAR, SCREEN_W};
+use crate::gpu::camera::{Camera, M7_VEHICLE_Z_FAR, M7_Z0, M7_Z_NEAR, SCREEN_W};
 use arduracer_core::Vec2;
 use psx_gte::{
     math::{Mat3I16, Vec3I16, Vec3I32},
@@ -66,20 +66,20 @@ pub fn load_m7_camera_gte(camera: &Camera) {
 /// Projects a single 3D world point `(world_pos, height_wu)` through the GTE (`RTPS`).
 ///
 /// Assumes [`load_m7_camera_gte`] has already been called for the current camera.
-/// Returns `Some(((sx, sy), z_q4))` if the point lies within `[M7_Z_NEAR..=M7_Z_FAR]`.
+/// Returns `Some(((sx, sy), z_q4))` if the point lies within `[M7_Z_NEAR..=M7_VEHICLE_Z_FAR]`.
 #[inline]
 pub fn project_world_3d_gte(
     camera: &Camera,
     world_pos: Vec2,
     height_wu: i32,
 ) -> Option<((i16, i16), i32)> {
-    let dx_q4 = ((world_pos.x.raw() - camera.pos.x.raw()) >> 8).clamp(-16_000, 16_000) as i16;
-    let dy_q4 = ((world_pos.y.raw() - camera.pos.y.raw()) >> 8).clamp(-16_000, 16_000) as i16;
+    let dx_q4 = ((world_pos.x.raw() - camera.pos.x.raw()) >> 8).clamp(-32_000, 32_000) as i16;
+    let dy_q4 = ((world_pos.y.raw() - camera.pos.y.raw()) >> 8).clamp(-32_000, 32_000) as i16;
     let neg_h_q4 = (-(height_wu.clamp(-256, 512) * 16)) as i16;
 
     let p = scene::project_vertex_scheduled(Vec3I16::new(dx_q4, neg_h_q4, dy_q4));
     let z_q4 = p.sz as i32;
-    if !((M7_Z_NEAR << 4)..=(M7_Z_FAR << 4)).contains(&z_q4) {
+    if !((M7_Z_NEAR << 4)..=(M7_VEHICLE_Z_FAR << 4)).contains(&z_q4) {
         return None;
     }
     Some(((p.sx, p.sy), z_q4))
@@ -109,8 +109,8 @@ pub fn project_tri_3d_gte(
     verts: [(Vec2, i32); 3],
 ) -> Option<([(i16, i16); 3], i32)> {
     let to_gte = |(pos, h_wu): (Vec2, i32)| -> Vec3I16 {
-        let dx = ((pos.x.raw() - camera.pos.x.raw()) >> 8).clamp(-16_000, 16_000) as i16;
-        let dy = ((pos.y.raw() - camera.pos.y.raw()) >> 8).clamp(-16_000, 16_000) as i16;
+        let dx = ((pos.x.raw() - camera.pos.x.raw()) >> 8).clamp(-32_000, 32_000) as i16;
+        let dy = ((pos.y.raw() - camera.pos.y.raw()) >> 8).clamp(-32_000, 32_000) as i16;
         let ny = (-(h_wu.clamp(-256, 512) * 16)) as i16;
         Vec3I16::new(dx, ny, dy)
     };
@@ -121,7 +121,7 @@ pub fn project_tri_3d_gte(
     let z2 = p[2].sz as i32;
     let zmin = z0.min(z1).min(z2);
     let zmax = z0.max(z1).max(z2);
-    if zmax < (M7_Z_NEAR << 4) || zmin > (M7_Z_FAR << 4) {
+    if zmax < (M7_Z_NEAR << 4) || zmin > (M7_VEHICLE_Z_FAR << 4) {
         return None;
     }
     let avg_z = scene::average_z_triangle() as i32;
