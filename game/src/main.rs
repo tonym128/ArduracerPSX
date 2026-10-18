@@ -57,16 +57,29 @@ pub const SCREEN_HEIGHT: u16 = 240;
 /// Whether AI rivals take part in a race.
 const RIVALS_ENABLED: bool = true;
 
-#[cfg(target_arch = "mips")]
+#[cfg(all(target_arch = "mips", not(feature = "profile-pal")))]
 #[inline]
 fn is_pal_mode() -> bool {
     psx_io::gpu::gpustat().contains(psx_hw::gpu::GpuStat::VMODE_PAL)
 }
 
-#[cfg(not(target_arch = "mips"))]
+#[cfg(any(not(target_arch = "mips"), feature = "profile-pal"))]
 #[inline]
 fn is_pal_mode() -> bool {
-    false
+    cfg!(feature = "profile-pal")
+}
+
+/// Budget one selected frame against the video region's actual VBlank rate.
+/// PAL VBlank cadence in PSoXide is 680,438 guest cycles (50 Hz), versus
+/// 564,480 cycles for NTSC (60 Hz); the user's FPS setting chooses how many
+/// such periods one frame may occupy.
+fn frame_budget_cycles(framerate: Framerate) -> u32 {
+    let vblank_cycles = if is_pal_mode() {
+        680_438
+    } else {
+        arduracer_core::texture_format::VBLANK_CYCLES_NTSC
+    };
+    vblank_cycles.saturating_mul(framerate.vblanks_per_frame())
 }
 
 // VRAM upload-path counters live in `main` so the heartbeat can report them
@@ -535,7 +548,7 @@ impl ArduracerGame {
             set_texture_format(headless_texture_format(saved.texture_format));
             game.framerate = Framerate::from_saved(saved.framerate);
             set_frame_period(game.framerate.vblanks_per_frame());
-            prof::set_budget_cycles(game.framerate.budget_cycles());
+            prof::set_budget_cycles(frame_budget_cycles(game.framerate));
             prof::set_expected_vblanks(game.framerate.vblanks_per_frame());
             // Applied before anything asks for a track: with TIM pinned and the
             // music left spinning, every tile read would hand the drive back to
@@ -1081,6 +1094,8 @@ impl ArduracerGame {
             self.load_track(0);
             self.state_mgr.current = GameState::Racing;
             dbg::println("[PROF] Profiling build: entering Racing on circuit 0");
+            #[cfg(feature = "profile-pal")]
+            dbg::println("[PROF] Video mode forced to PAL by profile-pal");
         }
 
         let mut first_frame = true;
@@ -1894,7 +1909,7 @@ impl ArduracerGame {
                         // b. Track visual map
                         {
                             set_frame_period(self.framerate.vblanks_per_frame());
-                            prof::set_budget_cycles(self.framerate.budget_cycles());
+                            prof::set_budget_cycles(frame_budget_cycles(self.framerate));
                             prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
                             let _s = prof::span(prof::RENDER_TRACK);
                             let elapsed = psx_rt::interrupts::vblank_count()
@@ -2397,6 +2412,25 @@ impl ArduracerGame {
             // 5. Close the frame and queue the flip for the next VBlank.
             self.close_frame();
             prof::end_frame();
+
+            // Three 30-frame reporting windows per course give the profiler
+            // moving-camera work to sample texture streaming and race
+            // rendering. Load between frames so CD/minimap setup is excluded
+            // from the next measured frame. Keep this opt-in: a normal
+            // profiling build remains useful for a focused single-course run.
+            #[cfg(all(feature = "profiling", feature = "profile-all-tracks"))]
+            if prof::total_frames() != 0 && prof::total_frames() % 90 == 0 {
+                let next = (self.current_track_idx + 1) % ALL_TRACKS.len();
+                if next != 0 {
+                    dbg::print("[PROF] next circuit=");
+                    dbg::print_dec(next as u32);
+                    dbg::print(" name=");
+                    dbg::println(ALL_TRACKS[next].name);
+                    self.load_track(next);
+                    self.autopilot = autopilot::Autopilot::new(self.current_track);
+                    self.state_mgr.current = GameState::Racing;
+                }
+            }
         }
     }
 
@@ -3290,7 +3324,7 @@ impl ArduracerGame {
             self.last_vblank_count = psx_rt::interrupts::vblank_count();
             self.sim_accumulator = 0;
             set_frame_period(self.framerate.vblanks_per_frame());
-            prof::set_budget_cycles(self.framerate.budget_cycles());
+            prof::set_budget_cycles(frame_budget_cycles(self.framerate));
             prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
         }
 

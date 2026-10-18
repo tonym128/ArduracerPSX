@@ -60,6 +60,7 @@ help:
 	@echo "                   (also emits tracks/*.jpg and tracks/*.qoi blocks)"
 	@echo "  make atlas-and-calibrate - Re-measure par times, then make atlas"
 	@echo "  make exe       - Build bare-metal MIPS PSX executable (dist/arduracer.exe)"
+	@echo "  make profile-disc - Build an emulator-only cycle-profiling disc (PROFILE_FEATURES=...)"
 	@echo "  make assets    - Cook FMV intro & victory videos and CD-DA Redbook audio tracks"
 	@echo "  make disc      - Master bootable PS1 disc image (dist/arduracer.bin/.cue)"
 	@echo "  make iso       - Master simple data ISO (dist/arduracer.iso)"
@@ -459,6 +460,39 @@ exe: require-sdk title-background
 	@test -f $(GAME_MAP) || { echo "ERROR: link map $(GAME_MAP) was not produced"; exit 1; }
 	@echo "BUILT PSX-EXE -> $(DIST)/arduracer.exe"
 	@echo "LINK MAP     -> $(GAME_MAP)"
+
+# Diagnostic build only. Whole-program LTO can place profiling helper calls
+# outside MIPS-I's 256 KiB PC-relative branch range; disabling LTO gives the
+# profiler a linkable layout. Do not ship this instrumented executable.
+PROFILE_FEATURES ?= profile-qoi,profile-all-tracks
+.PHONY: profile-exe
+profile-exe: require-sdk title-background
+	@mkdir -p $(DIST)
+	( cd $(GAME_DIR) && CARGO_PROFILE_RELEASE_LTO=false cargo rustc --release --features $(PROFILE_FEATURES) -- -C link-arg=-Map=$(DIST)/arduracer-profile.map )
+	@cp $(GAME_EXE) $(DIST)/arduracer-profile.exe
+	@echo "BUILT PROFILER -> $(DIST)/arduracer-profile.exe"
+
+.PHONY: profile-disc
+profile-disc: profile-exe assets
+	@case "$(PROFILE_FEATURES)" in \
+	  *profile-tim8*) texture=$(ROOT)/assets/TIM8TRACKS.BIN ;; \
+	  *profile-tim4*) texture=$(ROOT)/assets/TIM4TRACKS.BIN ;; \
+	  *profile-tim*) texture=$(ROOT)/assets/TIMTRACKS.BIN ;; \
+	  *profile-qoi*) texture=$(ROOT)/assets/QOITRACKS.BIN ;; \
+	  *) echo "ERROR: select a supported profile codec in PROFILE_FEATURES"; exit 1 ;; \
+	esac; \
+	cargo run --release --manifest-path $(MKISOPSX)/Cargo.toml -- \
+	  --exe $(DIST)/arduracer-profile.exe \
+	  --out $(DIST)/arduracer-profile.bin \
+	  --volume ARDURACER_PROFILE \
+	  --file $(ROOT)/assets/TRACKS.BIN \
+	  --file $(ROOT)/assets/QOITRACKS.BIN \
+	  --file $(ROOT)/assets/SVGTRACKS.BIN \
+	  --file $(ROOT)/assets/TIMTRACKS.BIN \
+	  --file $(ROOT)/assets/TIM4TRACKS.BIN \
+	  --file $(ROOT)/assets/TIM8TRACKS.BIN \
+	  --file $(ROOT)/assets/LEVELS.BIN
+	@echo "PROFILE CUE -> $(DIST)/arduracer-profile.cue"
 
 iso: exe
 	@mkdir -p $(DIST)

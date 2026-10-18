@@ -102,6 +102,10 @@ profile-tim = ["profiling"]
 profile-tim4 = ["profiling"]
 profile-tim8 = ["profiling"]
 profile-qoi = ["profiling"]
+# Cycle-sweep every authored course, switching after ten report windows.
+profile-all-tracks = ["profiling"]
+# Force the guest to select PAL timing during video initialisation.
+profile-pal = ["profiling"]
 
 [dependencies]
 psx-asset = { path = "../psoxide/sdk/crates/psx-asset" }

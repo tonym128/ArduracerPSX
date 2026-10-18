@@ -561,6 +561,19 @@ pub fn end_frame() {
     report_window();
 }
 
+/// Total frames closed since boot; used by the opt-in all-course profiler.
+#[cfg(feature = "profiling")]
+pub fn total_frames() -> u32 {
+    unsafe { *core::ptr::addr_of!(TOTAL_FRAMES) }
+}
+
+/// No-op frame count for non-profiling builds.
+#[cfg(not(feature = "profiling"))]
+#[inline(always)]
+pub fn total_frames() -> u32 {
+    0
+}
+
 /// No-op stand-in for [`end_frame`].
 #[cfg(not(feature = "profiling"))]
 #[inline(always)]
@@ -615,7 +628,9 @@ pub fn report_window() {
         dbg::print_dec(window_stages[VBLANK] / WINDOW_FRAMES);
         dbg::print(" slack-if-30fps=");
         dbg::print_dec(
-            BUDGET_CYCLES.saturating_sub(*core::ptr::addr_of!(WINDOW_WORK) / WINDOW_FRAMES),
+            active_budget_cycles()
+                .saturating_mul(2)
+                .saturating_sub(*core::ptr::addr_of!(WINDOW_WORK) / WINDOW_FRAMES),
         );
         dbg::print("\n");
 
