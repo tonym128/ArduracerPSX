@@ -99,10 +99,14 @@ Retaining the beloved 10% point-allocation mechanic from ArduRacer FX while addi
 Total points pool: 20 points to allocate freely across 5 categories.
 
 ### 3.3 Checkpoints & Timing
-- **Multi-point Checkpoint Gate Array**: Each track features 4–12 sequential checkpoint gates across the course.
-- **Anti-Cheat Validation**: Checkpoints must be cleared in strict order; cutting across off-road sections to skip gates invalidates the lap time.
+- **Multi-point Checkpoint Gate Array**: Each track features authored checkpoint gates across the course.
+- **Anti-Cheat Validation**: Every checkpoint must be cleared on each lap; checkpoints are order-independent to preserve compatibility with the authored circuits.
 - **Timing Precision**: 60 ticks per second yields 16.66 ms resolution. Displays formatted as `MM:SS.ccc` (e.g., `01:23.450`).
-- **Delta Splits**: Real-time HUD indicator showing `+0.25` (red, behind best lap) or `-0.14` (green, ahead of best lap) at each checkpoint.
+- **Delta Splits**: At each checkpoint, the HUD compares the actual crossing time with that checkpoint's personal-best split. Positive is slower; negative is faster. The value holds between gates rather than estimating pace from course progress.
+
+### 3.4 Countdown & launch
+
+Each race and retry uses the same grid hold, three-light countdown, GO window, and clock start. The lap clock arms on the lights-out tick. Throttle can be feathered during the countdown to rev the engine while the car stays on the grid. Launching at 6,200–7,600 RPM gives a short turbo start; over-revving above 7,600 RPM causes wheelspin. A normal launch remains available by ignoring the rev-matching bonus. This small, readable timing skill fits the arcade start and rewards practice without blocking a clean run.
 
 ---
 

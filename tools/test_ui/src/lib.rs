@@ -947,6 +947,34 @@ mod start_tests {
             assert!(!run(t).just_started(), "start edge repeated");
         }
     }
+
+    #[test]
+    fn a_fresh_retry_rearms_the_same_countdown_after_racing() {
+        let lights_end = StartSequence::lights_out_tick();
+        let finished_race = run(lights_end + COUNTDOWN_GO_TICKS);
+        assert_eq!(finished_race.phase(), StartPhase::Racing);
+
+        // reset_race constructs a fresh StartSequence. Its full phase trace and
+        // one-shot GO edge must match the original run exactly.
+        let mut reference = StartSequence::new();
+        let mut retry = StartSequence::new();
+        assert_eq!(retry.phase(), StartPhase::Grid);
+        assert!(!retry.just_started());
+        for tick in 1..=lights_end + COUNTDOWN_GO_TICKS {
+            reference.tick();
+            retry.tick();
+            assert_eq!(
+                retry.phase(),
+                reference.phase(),
+                "phase differs at tick {tick}"
+            );
+            assert_eq!(
+                retry.just_started(),
+                reference.just_started(),
+                "GO edge differs at tick {tick}"
+            );
+        }
+    }
 }
 
 /// Vehicle polygon geometry. `car_renderer.rs` draws through `psx_gpu` and so
@@ -4117,20 +4145,29 @@ mod graphics_settings {
         let mut driver = ControllerDriver::new(InputProfile::ClassicArcade);
         for frame in 1..=23 {
             driver.poll_from(&test_pad(button::L1));
-            assert!(!driver.instant_restart_triggered, "triggered on held frame {frame}");
+            assert!(
+                !driver.instant_restart_triggered,
+                "triggered on held frame {frame}"
+            );
             assert_eq!(driver.respawn_pressed, frame == 1);
         }
 
         driver.poll_from(&test_pad(button::L1));
         assert!(driver.instant_restart_triggered, "24th held frame restarts");
         driver.poll_from(&test_pad(button::L1));
-        assert!(!driver.instant_restart_triggered, "restart is a one-frame event");
+        assert!(
+            !driver.instant_restart_triggered,
+            "restart is a one-frame event"
+        );
 
         driver.poll_from(&test_pad(0));
         for _ in 0..23 {
             driver.poll_from(&test_pad(button::L1));
         }
-        assert!(!driver.instant_restart_triggered, "release starts a fresh hold");
+        assert!(
+            !driver.instant_restart_triggered,
+            "release starts a fresh hold"
+        );
     }
 
     #[test]
