@@ -17,7 +17,7 @@ pub use audio_policy::{AudioPolicy, UiSound};
 pub use cdda::{CddaController, CddaState};
 pub use engine_audio::EngineAudio;
 pub use sfx::{pan_stereo, AnnouncerClip, SfxPlayer};
-pub use spu::{init_spu_soundbank, play_intro_audio, stop_intro_audio, SpuSoundbankAddrs};
+pub use spu::{init_spu_soundbank, SpuSoundbankAddrs};
 
 use arduracer_core::timing::StartSequence;
 use arduracer_core::{AiRacer, Fixed, SurfaceType, VehicleState};

@@ -376,19 +376,17 @@ impl ArduracerGame {
         };
         psx_gpu_mod::init(video_mode, Resolution::R320X240);
         crate::ui::font::init_vram_font();
+        // The intro runs before AudioSystem loads the soundbank. Initialize
+        // SPU here once; later victory movies must not reset live game voices.
+        psx_spu::init();
         dbg::check_faults();
 
-        dbg::log_step(2, 9, "Preparing SPU soundbank & intro audio...");
-        audio::stop_intro_audio();
+        dbg::log_step(2, 9, "Preparing SPU soundbank...");
         dbg::check_faults();
 
-        dbg::log_step(
-            3,
-            9,
-            "Playing attract FMV (INTRO.STR in 24bpp with locked audio)...",
-        );
+        dbg::log_step(3, 9, "Playing attract FMV (CD-streamed XA audio)...");
         // A profiling run wants frames on circuit, and the attract movie is
-        // 755 sectors of single-speed CD reads before the first one. Skipping
+        // a streamed double-speed XA file. Skipping
         // it means the report windows are all racing frames.
         #[cfg(feature = "profiling")]
         let intro_res = video::VideoResult::Skipped;
@@ -396,8 +394,7 @@ impl ArduracerGame {
         let intro_res = video::play_video("INTRO.STR");
         dbg::check_faults();
 
-        dbg::log_step(4, 9, "Ensuring intro audio stopped...");
-        audio::stop_intro_audio();
+        dbg::log_step(4, 9, "Finishing intro FMV stream...");
         dbg::check_faults();
         // The FMV has just run a full CD sector stream (and, if it played, the
         // GPU column DMA), so both channel probes have had their chance by now.
@@ -456,6 +453,9 @@ impl ArduracerGame {
         dbg::check_faults();
 
         let mut state_mgr = StateManager::new();
+        if intro_res == video::VideoResult::Completed {
+            state_mgr.title.start_white_fade();
+        }
         if intro_res == video::VideoResult::Skipped {
             state_mgr.current = GameState::MainMenu;
             dbg::println("[STATE] Intro skipped -> starting at MainMenu");
@@ -1213,8 +1213,11 @@ impl ArduracerGame {
                             dbg::println("[ATTRACT] 20s idle -> Playing Intro FMV");
                             self.attract_cycle = self.attract_cycle.wrapping_add(1);
                             self.state_mgr.title = crate::ui::TitleScreen::new();
-                            let _ = video::play_video("INTRO.STR");
+                            let intro_res = video::play_video("INTRO.STR");
                             self.state_mgr.title = crate::ui::TitleScreen::new();
+                            if intro_res == video::VideoResult::Completed {
+                                self.state_mgr.title.start_white_fade();
+                            }
                         } else {
                             dbg::println("[ATTRACT] 20s idle -> Launching AI Autopilot Demo Race");
                             self.attract_cycle = self.attract_cycle.wrapping_add(1);
@@ -1234,7 +1237,7 @@ impl ArduracerGame {
                             self.state_mgr.current = GameState::Racing;
                         }
                     }
-                    self.fb.clear(12, 14, 20);
+                    self.fb.clear(0, 0, 0);
                     self.state_mgr.title.render();
                 }
                 GameState::MainMenu => {
@@ -3100,6 +3103,8 @@ impl ArduracerGame {
                     self.memcard.save_data.clear_championship();
                     self.memcard.mark_dirty();
                     self.memcard.flush();
+                    #[cfg(not(feature = "profiling"))]
+                    self.audio.pause_music();
                     #[cfg(not(feature = "profiling"))]
                     let _ = video::play_video(champ.victory_video_filename());
                     self.state_mgr.victory = Some(VictoryScreen::new(champ));

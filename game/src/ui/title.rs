@@ -1,15 +1,16 @@
-//! Title Screen with 90s Arcade Presentation for PlayStation 1.
-//!
-//! Features animated retro synthwave speed stripes, bold neon typography,
-//! and an edge-triggered pulsing PRESS START prompt.
+//! PS1 start screen with the cooked ArduracerPSX logo and an edge-triggered
+//! PRESS START prompt.
 
 use crate::ui::font::draw_text;
+use crate::ui::title_background;
 pub use crate::ui::title_input::TitleInput;
 use psx_gpu as gpu;
+use psx_gpu::material::BlendMode;
 use psx_pad::{button, PadState};
 
 pub struct TitleScreen {
     pub input: TitleInput,
+    white_fade_frames: u8,
 }
 
 impl Default for TitleScreen {
@@ -19,9 +20,11 @@ impl Default for TitleScreen {
 }
 
 impl TitleScreen {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
+        title_background::upload();
         TitleScreen {
             input: TitleInput::new(),
+            white_fade_frames: 0,
         }
     }
 
@@ -31,33 +34,23 @@ impl TitleScreen {
 
     /// Updates title screen state, returning true on fresh edge-triggered START or CROSS.
     pub fn update(&mut self, pad: &PadState) -> bool {
+        self.white_fade_frames = self.white_fade_frames.saturating_sub(1);
         let start_held = pad.buttons.is_held(button::START);
         let cross_held = pad.buttons.is_held(button::CROSS);
         self.input.update(start_held, cross_held)
     }
 
+    /// Starts the white flash/fade sequence used when an intro movie ends.
+    pub fn start_white_fade(&mut self) {
+        self.white_fade_frames = 8;
+    }
+
     /// Renders title screen elements.
     pub fn render(&self) {
         let timer = self.input.timer;
-        // 1. Dark synthwave gradient background stripes
-        for line in 0..12i16 {
-            let offset = ((timer * 2 + (line as u32) * 20) % 240) as i16;
-            let shade = (30 + line * 3) as u8;
-            gpu::draw_rect_flat(0, offset, 320, 4, 15, shade, shade + 30);
-        }
+        title_background::draw();
 
-        // 2. Main Title Banner Shadow & Header
-        gpu::draw_rect_flat(44, 44, 232, 42, 10, 10, 20);
-        gpu::draw_rect_flat(40, 40, 240, 40, 220, 25, 45); // Crimson Red
-        gpu::draw_rect_flat(42, 42, 236, 36, 30, 30, 40);
-
-        // Bold Title text: "ARDURACER PSX" (2x scale)
-        draw_text(60, 50, "ARDURACER PSX", (255, 230, 0), 2);
-
-        // Subtitle: "HIGH-OCTANE OVERHEAD RACING"
-        draw_text(52, 92, "HIGH-OCTANE OVERHEAD RACING", (0, 220, 255), 1);
-
-        // 3. Pulsing "PRESS START TO RACE" (blinks every 30 frames)
+        // Pulsing "PRESS START TO RACE" (blinks every 30 frames)
         if (timer / 30).is_multiple_of(2) {
             draw_text(88, 160, "PRESS START TO RACE", (255, 255, 255), 1);
         }
@@ -70,5 +63,13 @@ impl TitleScreen {
             (120, 120, 140),
             1,
         );
+
+        // Repeated quarter-add white overlays provide a stepped fade on the
+        // PS1 GPU. The base scene is redrawn each frame, so these layers do not
+        // accumulate differently across the two framebuffers.
+        let white_layers = self.white_fade_frames.div_ceil(2);
+        for _ in 0..white_layers {
+            gpu::draw_rect_flat_blended(0, 0, 320, 240, 255, 255, 255, BlendMode::AddQuarter);
+        }
     }
 }

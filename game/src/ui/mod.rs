@@ -13,6 +13,7 @@ pub mod settings;
 pub mod settings_input;
 pub mod stage_table;
 pub mod title;
+mod title_background;
 pub mod title_input;
 pub mod track_editor;
 pub mod track_select;

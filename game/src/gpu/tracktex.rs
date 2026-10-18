@@ -3182,11 +3182,29 @@ fn draw_tile_m7(
                 base_shade as u8
             };
             let material = TextureMaterial::opaque(clut_word, tpage_word, (shade, shade, shade));
+            // Cover raster cracks between independently drawn cells.
+            // Keep the UV endpoints fixed so the overlap stays within each
+            // cell's border texels instead of reaching into an atlas neighbour.
+            let verts = m7_guard_band([pa, pb, pc, pd]);
             gpu::draw_quad_textured_material(
-                [pa, pb, pc, pd],
+                verts,
                 [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
                 material,
             );
         }
     }
+}
+
+/// Expand a projected Mode 7 cell by two pixels at its outer edges.
+#[inline]
+fn m7_guard_band(mut verts: [(i16, i16); 4]) -> [(i16, i16); 4] {
+    let center_x = verts.iter().map(|p| p.0 as i32).sum::<i32>() / 4;
+    let center_y = verts.iter().map(|p| p.1 as i32).sum::<i32>() / 4;
+    for point in &mut verts {
+        point.0 = (point.0 as i32 + if (point.0 as i32) < center_x { -2 } else { 2 })
+            .clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+        point.1 = (point.1 as i32 + if (point.1 as i32) < center_y { -2 } else { 2 })
+            .clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+    }
+    verts
 }

@@ -6,10 +6,11 @@
 //!
 //! # Architecture & Pipeline
 //!
-//! 1. **1x Speed BS v2 Stream**: Encoded with `psxavenc -t strv -v v2 -s 320x240 -r 15 -x 1`.
-//!    At 1x speed (75 sectors/s), each 15 fps frame occupies exactly 5 sectors (10,240 bytes).
-//!    The data rate matches drive throughput with zero buffer overruns and zero seek penalties.
-//! 2. **6-Slot Frame Ring Buffer**: Assembles variable-length chunks into 6 slots with a
+//! 1. **2x XA BS v2 Stream**: Encoded with `psxavenc -t str -v v2 -s 320x240 -r 15 -x 2`.
+//!    Video sectors and interleaved XA audio sectors share the
+//!    drive stream. Audio sectors are routed by the CD controller directly to
+//!    the SPU; the player assembles up to 16 video chunks per frame.
+//! 2. **Frame Ring Buffer**: Assembles variable-length chunks into two slots with a
 //!    strict FIFO ready queue (`ready_queue`), absorbing initial drive spin-up jitter.
 //! 3. **Continuous Non-blocking Pump**: Drains sectors into the assembler via `try_read_sector()`
 //!    whenever the drive has data ready: inside VBlank wait loops, between macroblock columns,
@@ -28,6 +29,7 @@ use psx_io::dma;
 use psx_io::gpu::write_gp1;
 use psx_pack::cd::{SectorReader, SECTOR_WORDS};
 use psx_pad::{button, ButtonState, PadState};
+use psx_spu::{self as spu, CdVolume};
 use psx_vram::{dma_copy_to_vram, upload_words, VramRect};
 
 pub const VIDEO_W: u16 = 320;
@@ -40,14 +42,14 @@ pub const ROWS: u32 = VIDEO_H as u32 / 16;
 /// 60 Hz NTSC display.
 pub const VBLANKS_PER_VIDEO_FRAME: u32 = 4;
 
-/// Sectors one frame may span (5 for a 1x BS v2 frame; 8 leaves ample headroom).
-pub const MAX_CHUNKS: u16 = 8;
+/// Video sectors one frame may span; 16 leaves room for the XA stream's high-complexity frames.
+pub const MAX_CHUNKS: u16 = 16;
 /// Reassembly buffer per slot, in u32 words.
 pub const SLOT_WORDS: usize = MAX_CHUNKS as usize * strfmt::CHUNK_PAYLOAD_BYTES / 4;
 /// Frame slots: double buffering (one decoding, one filling).
 pub const SLOTS: usize = 2;
-/// MDEC run-length buffer in u32 words (32 KB headroom).
-pub const RLE_WORDS: usize = 8 * 1024;
+/// MDEC run-length buffer in u32 words (64 KB); XA FMVs announce up to 12,800.
+pub const RLE_WORDS: usize = 16 * 1024;
 /// Decoded pixels in one 16x240 column in 24bpp true-color: 12 words (48 bytes) per row.
 pub const COLUMN_WORDS: usize = 12 * VIDEO_H as usize;
 
@@ -129,7 +131,6 @@ pub struct VideoPlayer {
     last_sector_vblank: u32,
     wait_started_vblank: u32,
     pub eof: bool,
-    pub audio_started: bool,
 }
 
 impl Default for VideoPlayer {
@@ -172,7 +173,6 @@ impl VideoPlayer {
             last_sector_vblank: 0,
             wait_started_vblank: 0,
             eof: false,
-            audio_started: false,
         }
     }
 
@@ -184,9 +184,17 @@ impl VideoPlayer {
 
         let storage = unsafe { &mut *addr_of_mut!(STORAGE) };
 
-        crate::dbg::println("[VIDEO] Preparing CD reader at single speed (75 sec/s)...");
-        let prepared = unsafe { self.cd_reader.prepare_single_speed() };
-        crate::dbg::print("[VIDEO] prepare_single_speed returned ");
+        crate::dbg::println("[VIDEO] Preparing CD reader for 2x XA movie stream...");
+        // psxavenc -t str tags both video and XA audio as file 1, channel 0.
+        // Matching audio sectors bypass the CPU and are decoded by the SPU.
+        spu::set_cd_volume(CdVolume::MAX, CdVolume::MAX);
+        spu::enable_cd_audio(true);
+        let prepared = unsafe {
+            self.cd_reader.prepare_xa(true)
+                && self.cd_reader.demute()
+                && self.cd_reader.set_filter(1, 0)
+        };
+        crate::dbg::print("[VIDEO] prepare_xa returned ");
         crate::dbg::println(if prepared { "true" } else { "false" });
 
         psx_io::irq::set_mask(1 << psx_io::irq::source::VBLANK);
@@ -249,7 +257,6 @@ impl VideoPlayer {
         self.last_sector_vblank = now;
         self.wait_started_vblank = now;
         self.eof = false;
-        self.audio_started = false;
         self.saved_irq_mask = psx_io::irq::mask();
         self.irq_mask_saved = true;
     }
@@ -446,8 +453,11 @@ impl VideoPlayer {
             return;
         }
 
-        // 1. Ensure at least one frame is ready before presenting (2 on startup for jitter buffer).
-        let min_buffered = if self.frames_shown == 0 { 2 } else { 1 };
+        // 1. Wait for one complete frame. The two-slot FIFO replaces its
+        //    oldest ready frame when full, so waiting for two here can never
+        //    complete while the stream is live: the next completed frame
+        //    evicts one before `present` regains control.
+        let min_buffered = 1;
         if self.ready_len < min_buffered && !self.eof && self.using_cd {
             self.wait_started_vblank = psx_rt::interrupts::vblank_count();
             loop {
@@ -467,14 +477,17 @@ impl VideoPlayer {
 
         // 2. Pop oldest frame in strict FIFO sequence, decode and upload.
         let popped_slot = self.take_ready_slot();
-        if let Some(slot) = popped_slot {
+        let decoded = if let Some(slot) = popped_slot {
             self.slot_state[slot] = SlotState::Decoding;
-            self.decode_and_upload(slot, fb, storage);
+            let decoded = self.decode_and_upload(slot, fb, storage);
             self.slot_state[slot] = SlotState::Free;
+            decoded
         } else if self.frames_shown > 0 && (self.eof || self.stalled) {
             self.stop();
             return;
-        }
+        } else {
+            false
+        };
 
         // 3. Pace to 15 fps (every 4 VBlanks), pumping drive continuously.
         while (psx_rt::interrupts::vblank_count().wrapping_sub(self.next_flip_vblank) as i32) < 0 {
@@ -487,13 +500,9 @@ impl VideoPlayer {
             self.pump(storage);
         }
 
-        if popped_slot.is_some() {
+        if decoded {
             fb.swap();
             self.last_swap_vblank = psx_rt::interrupts::vblank_count();
-            if self.frames_shown == 0 && !self.audio_started {
-                crate::audio::play_intro_audio();
-                self.audio_started = true;
-            }
             self.frames_shown += 1;
         }
         self.next_flip_vblank =
@@ -506,7 +515,12 @@ impl VideoPlayer {
         }
     }
 
-    fn decode_and_upload(&mut self, slot: usize, fb: &FrameBuffer, storage: &mut VideoStorage) {
+    fn decode_and_upload(
+        &mut self,
+        slot: usize,
+        fb: &FrameBuffer,
+        storage: &mut VideoStorage,
+    ) -> bool {
         let frame: &[u8] = unsafe {
             let p = addr_of_mut!(storage.slots[slot]) as *const u8;
             core::slice::from_raw_parts(p, SLOT_WORDS * 4)
@@ -527,7 +541,7 @@ impl VideoPlayer {
             Ok(w) if w > 0 => w,
             _ => {
                 self.decode_errors += 1;
-                return;
+                return false;
             }
         };
 
@@ -568,6 +582,9 @@ impl VideoPlayer {
             let _ = mdec::load_tables();
             dma::abort(dma::Channel::MdecIn);
             dma::abort(dma::Channel::MdecOut);
+            false
+        } else {
+            true
         }
     }
 
@@ -576,18 +593,6 @@ impl VideoPlayer {
             return;
         }
         self.finished = true;
-
-        if self.audio_started {
-            crate::audio::stop_intro_audio();
-            self.audio_started = false;
-        }
-
-        // Restore GPU to standard 15bpp RGB555 display mode for gameplay (320x240)
-        let pal = crate::is_pal_mode();
-        write_gp1(gp1::display_mode(1, 0, pal, false, false));
-        write_gp1(gp1::h_display_range(0x260, 0x260 + 320 * 8));
-        let v_start = if pal { 0x23 } else { 0x10 };
-        write_gp1(gp1::v_display_range(v_start, v_start + 240));
 
         if self.irq_mask_saved {
             unsafe {
@@ -606,8 +611,29 @@ impl VideoPlayer {
     }
 }
 
-/// Plays a named STR video file from CD-ROM at locked 15 FPS in 24bpp true-color mode.
+/// Clear both 24-bit movie buffers before returning the GPU to gameplay mode.
+/// Otherwise the final RGB888 pixels are interpreted as RGB555 and briefly
+/// appear as a garbled image while the caller prepares its next frame.
+fn restore_display_after_video(pal: bool, white: bool) {
+    // Hide the screen while clearing the full 480-word-wide VRAM footprint of
+    // each 320-pixel 24bpp framebuffer.
+    write_gp1(gp1::display_enable(false));
+    psx_gpu::draw_sync();
+    let color = if white { 255 } else { 0 };
+    gpu::fill_rect(0, 0, VIDEO_W * 3 / 2, VIDEO_H, color, color, color);
+    gpu::fill_rect(0, VIDEO_H, VIDEO_W * 3 / 2, VIDEO_H, color, color, color);
+    psx_gpu::draw_sync();
+
+    write_gp1(gp1::display_mode(1, 0, pal, false, false));
+    write_gp1(gp1::h_display_range(0x260, 0x260 + 320 * 8));
+    let v_start = if pal { 0x23 } else { 0x10 };
+    write_gp1(gp1::v_display_range(v_start, v_start + 240));
+    write_gp1(gp1::display_enable(true));
+}
+
+/// Plays a named XA-interleaved STR video file from CD-ROM at locked 15 FPS.
 pub fn play_video(filename: &str) -> VideoResult {
+    let is_intro = filename.starts_with("INTRO.STR");
     psx_rt::interrupts::install_vblank_counter();
 
     // Switch GPU display hardware to 24-bit direct color mode at 320x240
@@ -626,6 +652,9 @@ pub fn play_video(filename: &str) -> VideoResult {
     if !player.using_cd {
         crate::dbg::println("[VIDEO] Disc streaming not active. Returning Unavailable.");
         player.stop();
+        restore_display_after_video(pal, false);
+        psx_gpu::set_draw_area(0, 0, VIDEO_W - 1, VIDEO_H - 1);
+        psx_gpu::set_draw_offset(0, 0);
         return VideoResult::Unavailable;
     }
 
@@ -660,10 +689,10 @@ pub fn play_video(filename: &str) -> VideoResult {
     crate::dbg::println("[VIDEO] Video playback loop finished. Stopping player...");
     player.stop();
 
+    let white_fade = is_intro && !skipped && player.cd_errors == 0 && !player.stalled;
+    restore_display_after_video(pal, white_fade);
     psx_gpu::set_draw_area(0, 0, VIDEO_W - 1, VIDEO_H - 1);
     psx_gpu::set_draw_offset(0, 0);
-    fb.clear(0, 0, 0);
-    gpu::draw_sync();
 
     let res = if skipped {
         VideoResult::Skipped

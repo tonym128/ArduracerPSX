@@ -57,8 +57,6 @@ pub const VOICE_MEDAL: Voice = Voice::new(17);
 pub const VOICE_ANNOUNCER: Voice = Voice::new(18);
 /// Menu UI navigation blip.
 pub const VOICE_UI: Voice = Voice::new(19);
-/// Attract mode intro audio.
-pub const VOICE_INTRO: Voice = Voice::new(20);
 
 /// Curb rumble level and pitch. Quieter and lower than the skid voice so it
 /// reads as a rumble strip rather than a squeal.
@@ -68,33 +66,8 @@ pub const CURB_PITCH: u16 = 0x0800;
 // SPU RAM layout:
 // 0x0000..0x1010: SPU capture buffers and system workspace (4 KB)
 // 0x1010..0x1FFFF: Soundbank sample data (~124 KB)
-// 0x20000..0x37000: INTRO.ADPCM attract audio (91.5 KB)
 // 0x78000..0x7FFFF: Hardware Reverb work area (32 KB, NO1-038)
 pub const BANK_START: u32 = 0x1010;
-pub const INTRO_ADDR: SpuAddr = SpuAddr::new(0x20000);
-pub const INTRO_SAMPLE_RATE: u32 = 16000;
-pub const INTRO_ADPCM_DATA: &[u8] = include_bytes!("../../../assets/INTRO.ADPCM");
-
-/// Prepares and begins playback of intro attract audio via SPU Voice 20.
-pub fn play_intro_audio() {
-    if INTRO_ADPCM_DATA.len() <= 16 {
-        crate::dbg::println("[SPU] INTRO.ADPCM data missing or empty. Skipping audio.");
-        return;
-    }
-    crate::dbg::println("[SPU] Initializing SPU hardware and uploading INTRO.ADPCM...");
-    spu::init();
-    spu::set_main_volume(Volume::MAX, Volume::MAX);
-    spu::upload_adpcm(INTRO_ADDR, INTRO_ADPCM_DATA);
-    VOICE_INTRO.configure_sample(INTRO_ADDR, INTRO_SAMPLE_RATE, Volume::MAX, Adsr::sample());
-    Voice::key_on(VOICE_INTRO.mask());
-    crate::dbg::println("[SPU] Intro audio playback started (voice 20 keyed on).");
-}
-
-/// Immediately silences the intro attract audio.
-pub fn stop_intro_audio() {
-    Voice::key_off(VOICE_INTRO.mask());
-    crate::dbg::println("[SPU] Intro audio stopped (voice 20 keyed off).");
-}
 
 /// SPU Sound RAM layout descriptor for all game sound effects (`NO1-037`).
 #[derive(Copy, Clone, Debug)]
@@ -143,10 +116,10 @@ pub const fn bank_end() -> u32 {
     offset
 }
 
-/// Compile-time guard ensuring the expanded soundbank never overlaps INTRO_ADDR.
+/// Compile-time guard ensuring the expanded soundbank stays below reserved SPU RAM.
 const _: () = assert!(
-    bank_end() <= INTRO_ADDR.byte_offset(),
-    "soundbank overlaps the intro sample: lower INTRO_ADDR or shrink the bank"
+    bank_end() <= 0x20000,
+    "soundbank exceeds its SPU RAM region"
 );
 
 /// Configures SPU Hardware Reverb work area and wet depth (`NO1-038`).
@@ -413,9 +386,6 @@ pub fn init_spu_soundbank() -> SpuSoundbankAddrs {
     );
 
     VOICE_UI.configure_sample(ui_addr, UI_MOVE_RATE, Volume::MAX, Adsr::sample_one_shot());
-
-    // Ensure intro audio voice is stopped
-    Voice::key_off(VOICE_INTRO.mask());
 
     // The engine loop is a continuous voice: it is keyed on at init, silent.
     VOICE_ENGINE.set_volume(Volume::SILENCE, Volume::SILENCE);

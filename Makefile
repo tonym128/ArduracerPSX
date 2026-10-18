@@ -44,7 +44,7 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test playtest atlas circuits atlas-and-calibrate require-track-images clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets deps require-sdk require-version
+.PHONY: all help test playtest atlas circuits atlas-and-calibrate require-track-images clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets title-background deps require-sdk require-version
 
 all: test exe
 
@@ -204,9 +204,8 @@ ci-game: exe
 #     padding is exactly 24.
 #   * SYSTEM.CNF is present, so the BIOS has something to execute,
 #   * the image is long enough to be a disc,
-#   * assets/INTRO.STR is big enough to be a real FMV. cook_intro_str.py
-#     silently substitutes a procedural placeholder -- video, no audio -- when
-#     psxavenc is missing, and that shipped once as a 92 KB-smaller exe.
+#   * every FMV is a raw XA stream (2336 bytes per sector), with audio
+#     interleaved by psxavenc -t str. Video-only strv assets are rejected.
 #
 # No `#` comments inside the recipe below: a comment inside a backslash-
 # continued shell command swallows the continuation and make echoes the rest.
@@ -220,10 +219,9 @@ ci-disc: disc
 	  if [ ! -f "$(ROOT)/assets/$$f" ]; then echo "ERROR: assets/$$f missing"; exit 1; fi; \
 	  sz=$$(stat -c%s "$(ROOT)/assets/$$f"); \
 	  echo "$$f: $$sz bytes"; \
-	  if [ "$$sz" -lt 200000 ]; then \
-	    echo "ERROR: assets/$$f is only $$sz bytes."; \
-	    echo "       cook_intro_str.py falls back to a silent procedural placeholder"; \
-	    echo "       when psxavenc is unavailable. Install it and re-run 'make assets'."; \
+	  if [ "$$sz" -lt 200000 ] || [ $$((sz % 2336)) -ne 0 ]; then \
+	    echo "ERROR: assets/$$f is not XA-interleaved STR data (2336-byte sectors)."; \
+	    echo "       Install psxavenc and re-run 'make assets'."; \
 	    exit 1; \
 	  fi; \
 	done; \
@@ -448,7 +446,13 @@ require-track-images:
 # NOLOAD, so the file on disk cannot show the static footprint that actually
 # occupies PSX RAM. The map is where `__text_start` / `__data_start` /
 # `__bss_start` / `__bss_end` live, and `ci-game` reads them from there.
-exe: require-sdk
+title-background:
+	@mkdir -p $(GAME_DIR)/assets
+	@python3 $(ROOT)/tools/title_cook/cook_title_background.py \
+		$(ROOT)/AssetSource/ArduracerPSX.png $(GAME_DIR)/assets/title_bg_idx.bin \
+		$(GAME_DIR)/assets/title_bg_palette.bin
+
+exe: require-sdk title-background
 	@mkdir -p $(DIST)
 	cd $(GAME_DIR) && cargo rustc --release -- -C link-arg=-Map=$(GAME_MAP)
 	@cp $(GAME_EXE) $(DIST)/arduracer.exe
@@ -514,11 +518,11 @@ disc: assets music-xa exe
 		--exe $(DIST)/arduracer.exe \
 		--out $(DIST)/arduracer.bin \
 		--volume ARDURACER \
-		--file $(ROOT)/assets/INTRO.STR \
-		--file $(ROOT)/assets/VICTORY1.STR \
-		--file $(ROOT)/assets/VICTORY2.STR \
-		--file $(ROOT)/assets/VICTORY3.STR \
-		--file $(ROOT)/assets/VICTORY4.STR \
+		--xa-file $(ROOT)/assets/INTRO.STR \
+		--xa-file $(ROOT)/assets/VICTORY1.STR \
+		--xa-file $(ROOT)/assets/VICTORY2.STR \
+		--xa-file $(ROOT)/assets/VICTORY3.STR \
+		--xa-file $(ROOT)/assets/VICTORY4.STR \
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
 		--file $(ROOT)/assets/SVGTRACKS.BIN \

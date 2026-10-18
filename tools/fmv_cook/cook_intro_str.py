@@ -4,7 +4,7 @@ Arduracer PSX - MDEC Full-Motion Video (STR) Cooker.
 
 Generates 320x240 @ 15 fps Version-2 PlayStation STR video streams for the
 game's attract intro cinematics, fully adhering to PSX MDEC hardware specifications.
-Encodes from source MP4 video assets when available, with graceful procedural fallback.
+Encodes source MP4 video and audio as XA-interleaved CD streams.
 """
 
 import math
@@ -15,8 +15,13 @@ import subprocess
 import sys
 import tempfile
 
-# 1x CD speed (75 sectors/s) / 15 fps = exactly 5 sectors per frame.
-SECTORS_PER_FRAME = 5
+# XA movie files use double speed so 15 fps video and 37.8 kHz XA audio fit.
+# The video decoder receives only the 2048-byte data sectors; XA audio sectors
+# are filtered by the drive and sent directly to the SPU.
+XA_SECTOR_BYTES = 2336
+RLE_WORD_CAPACITY = 16 * 1024
+PROCEDURAL_SECTORS_PER_FRAME = 5
+FMV_COOK_VERSION = "arduracer-fmv-v2"
 
 
 def find_repo_root():
@@ -46,6 +51,42 @@ def find_psxavenc():
         if os.path.isfile(c) and os.access(c, os.X_OK):
             return c
     return None
+
+
+def is_xa_fmv(path):
+    """Checks that a cached movie has complete XA sectors, video, and audio."""
+    try:
+        size = os.path.getsize(path)
+        if size < 200000 or size % XA_SECTOR_BYTES:
+            return False
+        has_video = False
+        has_audio = False
+        max_mdec_words = 0
+        with open(path, "rb") as movie:
+            while sector := movie.read(XA_SECTOR_BYTES):
+                if len(sector) != XA_SECTOR_BYTES:
+                    return False
+                is_video = struct.unpack_from("<HH", sector, 8) == (0x0160, 0x8001)
+                has_video |= is_video
+                if is_video and struct.unpack_from("<H", sector, 12)[0] == 0:
+                    max_mdec_words = max(max_mdec_words, struct.unpack_from("<H", sector, 28)[0])
+                has_audio |= (
+                    sector[0] == 1 and sector[1] == 0 and sector[2] & 0x04 != 0
+                )
+        return has_video and has_audio and max_mdec_words <= RLE_WORD_CAPACITY
+    except OSError:
+        return False
+
+
+def is_current_xa_fmv(path):
+    """Checks a cached stream was cooked with the current video filters."""
+    try:
+        with open(path + ".cook-version", "r", encoding="ascii") as stamp:
+            if stamp.read().strip() != FMV_COOK_VERSION:
+                return False
+    except OSError:
+        return False
+    return is_xa_fmv(path)
 
 
 class BitWriter:
@@ -159,11 +200,11 @@ def encode_str_frame(frame_num, grid):
     chunks = [
         bs_data[i : i + chunk_size] for i in range(0, len(bs_data), chunk_size)
     ]
-    if len(chunks) > SECTORS_PER_FRAME:
+    if len(chunks) > PROCEDURAL_SECTORS_PER_FRAME:
         raise ValueError(
-            f"frame {frame_num} needs {len(chunks)} sectors (> {SECTORS_PER_FRAME})"
+            f"frame {frame_num} needs {len(chunks)} sectors (> {PROCEDURAL_SECTORS_PER_FRAME})"
         )
-    while len(chunks) < SECTORS_PER_FRAME:
+    while len(chunks) < PROCEDURAL_SECTORS_PER_FRAME:
         chunks.append(b"")
     num_chunks = len(chunks)
 
@@ -202,24 +243,21 @@ def cook_procedural_fallback(str_out, num_frames=60):
     )
 
 
-def cook_mp4(mp4_path, str_out, adpcm_out=None):
-    """Cooks intro STR and SPU ADPCM from source MP4 video using psxavenc."""
+def cook_mp4(mp4_path, str_out):
+    """Cooks XA-interleaved video and audio sectors from an MP4."""
     psxavenc = find_psxavenc()
     if not psxavenc:
         print(
-            "psxavenc not found; falling back to procedural FMV generator. The "
-            "cooked FMV will be a silent placeholder, not the real cinematic.",
+            "psxavenc not found; cannot cook the XA-interleaved FMV.",
             file=sys.stderr,
         )
-        # This used to degrade silently, and did: CI shipped a placeholder intro
-        # because the runner had no psxavenc. Annotate so it is impossible to
-        # miss, and so a build that wanted the real FMV can fail on it.
+        # Make the missing XA encoder visible in CI logs as well as the build.
         if os.environ.get("GITHUB_ACTIONS"):
             print(
                 "::warning title=FMV encoder missing::psxavenc was not found, so "
-                "the intro FMV was replaced by a silent procedural placeholder. "
+                "the FMV could not be cooked as an XA-interleaved stream. "
                 "Install psxavenc (see the workflow's 'Install psxavenc' step) to "
-                "ship the real cinematic.",
+                "build the XA-interleaved cinematic.",
                 file=sys.stderr,
             )
         if os.environ.get("ARTHURACER_REQUIRE_FMV_ENCODER"):
@@ -231,7 +269,8 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
 
     os.makedirs(os.path.dirname(os.path.abspath(str_out)), exist_ok=True)
 
-    # 1. Encode 320x240 @ 15 fps Version-2 STR video stream at 1x speed (5 sectors/frame)
+    # Preserve the source soundtrack in the filtered intermediate. psxavenc's
+    # `str` muxer interleaves it as XA sectors in the same file as the video.
     # The source is 16:9 widescreen (1280x720) with fine film grain. Unfiltered high-frequency
     # AC coefficients exhaust the 1x MDEC sector budget, causing macroblock desynchronization
     # and chromatic corruption (neon green horizontal bands). Preprocess with spatial/temporal
@@ -241,6 +280,35 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
         tmp_mkv_path = tmp_mkv.name
     try:
         vf_filter = "hqdn3d=2.0:2.0:3.0:3.0,scale=w=320:h=176:flags=lanczos,pad=320:240:0:32:color=black"
+        is_intro = "INTRO" in os.path.basename(str_out).upper()
+        if is_intro:
+            probe = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    mp4_path,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if probe.returncode != 0:
+                print("ffprobe could not read the intro duration", file=sys.stderr)
+                return False
+            try:
+                duration = float(probe.stdout.strip())
+            except ValueError:
+                print("ffprobe returned an invalid intro duration", file=sys.stderr)
+                return False
+            fade_duration = 0.6
+            fade_start = max(0.0, duration - fade_duration)
+            vf_filter += (
+                f",fade=t=out:st={fade_start:.3f}:d={fade_duration:.3f}:color=white"
+            )
         ffmpeg_vcmd = [
             "ffmpeg",
             "-y",
@@ -255,7 +323,12 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
             "15",
             "-c:v",
             "ffv1",
-            "-an",
+            "-c:a",
+            "pcm_s16le",
+            "-ar",
+            "37800",
+            "-ac",
+            "2",
             tmp_mkv_path,
         ]
         fres = subprocess.run(ffmpeg_vcmd, capture_output=True, text=True)
@@ -265,7 +338,11 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
             psxavenc,
             "-q",
             "-t",
-            "strv",
+            "str",
+            "-f",
+            "37800",
+            "-c",
+            "2",
             "-v",
             "v2",
             "-s",
@@ -273,7 +350,11 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
             "-r",
             "15",
             "-x",
+            "2",
+            "-F",
             "1",
+            "-C",
+            "0",
             video_input,
             str_out,
         ]
@@ -286,78 +367,36 @@ def cook_mp4(mp4_path, str_out, adpcm_out=None):
             os.remove(tmp_mkv_path)
 
     size = os.path.getsize(str_out)
-    num_frames = size // (SECTORS_PER_FRAME * 2048)
+    with open(str_out, "rb") as cooked:
+        data = cooked.read()
+    video_sectors = sum(
+        1
+        for offset in range(0, len(data), XA_SECTOR_BYTES)
+        if len(data[offset : offset + XA_SECTOR_BYTES]) == XA_SECTOR_BYTES
+        and struct.unpack_from("<HH", data, offset + 8) == (0x0160, 0x8001)
+    )
+    num_frames = len(
+        {
+            struct.unpack_from("<I", data, offset + 16)[0]
+            for offset in range(0, len(data), XA_SECTOR_BYTES)
+            if len(data[offset : offset + XA_SECTOR_BYTES]) == XA_SECTOR_BYTES
+            and struct.unpack_from("<HH", data, offset + 8) == (0x0160, 0x8001)
+        }
+    )
+    if not is_xa_fmv(str_out):
+        print(
+            f"{str_out} does not contain both video chunks and XA audio sectors.",
+            file=sys.stderr,
+        )
+        return False
+    with open(str_out + ".cook-version", "w", encoding="ascii") as stamp:
+        stamp.write(FMV_COOK_VERSION + "\n")
     print(
-        f"Mastered FMV Cinematic -> {str_out} ({size} bytes, {num_frames} frames @ 15 fps)"
+        f"Mastered XA FMV -> {str_out} ({size} bytes, {video_sectors} video "
+        f"sectors, {num_frames} frames @ 15 fps)"
     )
 
-    # 2. Extract and encode intro audio to SPU ADPCM
-    if adpcm_out:
-        os.makedirs(os.path.dirname(os.path.abspath(adpcm_out)), exist_ok=True)
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_wav:
-            tmp_wav_path = tmp_wav.name
-        try:
-            ffmpeg_cmd = [
-                "ffmpeg",
-                "-y",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-i",
-                mp4_path,
-                "-vn",
-                "-ar",
-                "16000",
-                "-ac",
-                "1",
-                "-c:a",
-                "pcm_s16le",
-                tmp_wav_path,
-            ]
-            fres = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-            if fres.returncode == 0 and os.path.exists(tmp_wav_path):
-                # Raw SPU ADPCM format with one-shot end flag
-                acmd = [
-                    psxavenc,
-                    "-t",
-                    "spu",
-                    "-f",
-                    "16000",
-                    tmp_wav_path,
-                    adpcm_out,
-                ]
-                ares = subprocess.run(acmd, capture_output=True, text=True)
-                if ares.returncode == 0:
-                    asize = os.path.getsize(adpcm_out)
-                    print(
-                        f"Mastered Intro SPU ADPCM -> {adpcm_out} ({asize} bytes @ 16 kHz)"
-                    )
-                else:
-                    print(
-                        f"Warning: psxavenc SPU audio encoding failed: {ares.stderr}",
-                        file=sys.stderr,
-                    )
-            else:
-                print(
-                    f"Warning: ffmpeg audio extraction failed: {fres.stderr}",
-                    file=sys.stderr,
-                )
-        finally:
-            if os.path.exists(tmp_wav_path):
-                os.remove(tmp_wav_path)
-
     return True
-
-
-def ensure_dummy_adpcm(adpcm_out):
-    """Ensures a valid SPU ADPCM file exists so compilation never breaks."""
-    if not os.path.exists(adpcm_out):
-        os.makedirs(os.path.dirname(os.path.abspath(adpcm_out)), exist_ok=True)
-        # 16-byte silent SPU ADPCM block with loop-end flag (0x01)
-        dummy = bytearray(16)
-        dummy[1] = 0x01
-        with open(adpcm_out, "wb") as f:
-            f.write(dummy)
 
 
 def main():
@@ -389,29 +428,20 @@ def main():
         if os.path.exists(default_mp4):
             mp4_in = default_mp4
 
-    if len(sys.argv) > 3 and not sys.argv[3].startswith("--"):
-        adpcm_out = sys.argv[3]
-    else:
-        stem = os.path.splitext(os.path.basename(str_out))[0].upper()
-        adpcm_out = os.path.join(repo_root, "assets", f"{stem}.ADPCM")
-
     force = "--force" in sys.argv
-    if not force and os.path.exists(str_out) and os.path.getsize(str_out) >= 200000:
+    if not force and is_current_xa_fmv(str_out):
         print(f"{os.path.basename(str_out)} cached -> {str_out} ({os.path.getsize(str_out)} bytes)")
-        ensure_dummy_adpcm(adpcm_out)
         return
 
     success = False
     if mp4_in and os.path.exists(mp4_in):
-        if os.environ.get("EXTRACT_SPU_ADPCM"):
-            success = cook_mp4(mp4_in, str_out, adpcm_out)
-        else:
-            success = cook_mp4(mp4_in, str_out, None)
-            ensure_dummy_adpcm(adpcm_out)
+        success = cook_mp4(mp4_in, str_out)
 
     if not success:
-        cook_procedural_fallback(str_out, 60)
-        ensure_dummy_adpcm(adpcm_out)
+        raise SystemExit(
+            f"Could not cook XA-interleaved FMV {str_out}; install psxavenc and "
+            "provide an MP4 soundtrack with audio."
+        )
 
 
 if __name__ == "__main__":

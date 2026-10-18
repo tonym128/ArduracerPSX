@@ -85,10 +85,7 @@ mod tests {
         );
 
         policy.set_paused(false);
-        assert!(
-            policy.racing_voices(),
-            "resuming must re-arm the engine"
-        );
+        assert!(policy.racing_voices(), "resuming must re-arm the engine");
     }
 
     #[test]
@@ -424,7 +421,9 @@ mod engine_key_state_tests {
         // Arming belongs at init. Re-keying a loop restarts its ADPCM decoder
         // mid-sample and clicks, so `key_on`/`key_off` for the engine must not
         // appear in the per-frame path -- only the one call at init.
-        let on = SPU_SRC.matches("Voice::key_on(VOICE_ENGINE.mask())").count();
+        let on = SPU_SRC
+            .matches("Voice::key_on(VOICE_ENGINE.mask())")
+            .count();
         assert_eq!(on, 1, "the engine must be armed exactly once, at init");
         assert!(
             !SPU_SRC.contains("Voice::key_off(VOICE_ENGINE.mask())"),
@@ -465,5 +464,49 @@ mod engine_key_state_tests {
             "the per-frame SFX path must not touch the engine volume: \
              AudioSystem::tick owns it, behind the policy gate"
         );
+    }
+}
+
+#[cfg(test)]
+mod fmv_xa_streaming {
+    const COOK: &str = include_str!("../../../tools/fmv_cook/cook_intro_str.py");
+    const MAKE: &str = include_str!("../../../Makefile");
+    const VIDEO: &str = include_str!("../../../game/src/video.rs");
+
+    #[test]
+    fn cooker_and_disc_use_xa_str_sectors() {
+        assert!(COOK.contains("\"str\""));
+        assert!(COOK.contains("def is_xa_fmv(path):"));
+        assert!(COOK.contains("if not force and is_xa_fmv(str_out):"));
+        for name in [
+            "INTRO.STR",
+            "VICTORY1.STR",
+            "VICTORY2.STR",
+            "VICTORY3.STR",
+            "VICTORY4.STR",
+        ] {
+            assert!(MAKE.contains(&format!("--xa-file $(ROOT)/assets/{name}")));
+        }
+    }
+
+    #[test]
+    fn runtime_enables_filtered_xa_playback_for_all_named_videos() {
+        assert!(VIDEO.contains("prepare_xa(true)"));
+        assert!(VIDEO.contains("demute()"));
+        assert!(VIDEO.contains("set_filter(1, 0)"));
+        assert!(VIDEO.contains("enable_cd_audio(true)"));
+        assert!(VIDEO.contains("pub const RLE_WORDS: usize = 16 * 1024;"));
+    }
+
+    #[test]
+    fn startup_does_not_wait_for_a_frame_count_the_ring_evicts() {
+        assert!(VIDEO.contains("let min_buffered = 1;"));
+        assert!(VIDEO.contains("evicts one before `present` regains control"));
+    }
+
+    #[test]
+    fn decode_errors_hold_the_last_presented_frame() {
+        assert!(VIDEO.contains("let decoded = self.decode_and_upload(slot, fb, storage);"));
+        assert!(VIDEO.contains("if decoded {\n            fb.swap();"));
     }
 }
