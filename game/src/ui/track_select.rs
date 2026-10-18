@@ -416,10 +416,10 @@ impl TrackSelectScreen {
                 },
                 1,
             );
-            for split_idx in 0..2.min(splits.len()) {
+            for (split_idx, split_ticks) in splits.iter().enumerate().take(2) {
                 let y = 164 + split_idx as u16 * 12;
-                if ghost_ticks.is_some() && splits[split_idx] > 0 {
-                    let (m, s, cs) = arduracer_core::LapTimer::<1>::format_ticks(splits[split_idx]);
+                if ghost_ticks.is_some() && *split_ticks > 0 {
+                    let (m, s, cs) = arduracer_core::LapTimer::<1>::format_ticks(*split_ticks);
                     let chars = [
                         b'S',
                         b'0' + split_idx as u8 + 1,
