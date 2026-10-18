@@ -184,9 +184,17 @@ fn render_car_mode7_3d(
     let Some((center_ground, z_q4)) = proj_z(0, 0, 0) else {
         return;
     };
-    let v_h = camera.viewport_h;
-    if !(-60..=(crate::gpu::camera::SCREEN_W + 60)).contains(&center_ground.0)
-        || !(-60..=(v_h + 60)).contains(&center_ground.1)
+    // Cull against this camera's own viewport, not the whole screen: in a
+    // vertical split a rival can legitimately sit at x = 240, which the
+    // full-screen column test would have passed by luck and a centre-anchored
+    // viewport now rejects or keeps correctly.
+    let half_w = camera.viewport_w as i32 / 2 + 60;
+    let lo_x = camera.center_x as i32 - half_w;
+    let hi_x = camera.center_x as i32 + half_w;
+    if (center_ground.0 as i32) < lo_x
+        || (center_ground.0 as i32) > hi_x
+        || (center_ground.1 as i32) < -60
+        || (center_ground.1 as i32) > camera.viewport_h as i32 + 60
     {
         return;
     }
@@ -586,8 +594,14 @@ pub fn render_car(
 
     let (cx, cy) = camera.world_to_screen(car.position);
 
-    // Skip if offscreen
-    if !(-40..=360).contains(&cx) || !(-40..=280).contains(&cy) {
+    // Cull against this camera's viewport with a margin, so a car straddling
+    // the edge of a split half still contributes its visible part. The old
+    // full-screen bounds were wrong for every split layout: in a vertical
+    // split the viewport is 158 px wide and a car in the *other* half was
+    // never culled at all.
+    let lo_x = camera.center_x as i32 - camera.viewport_w as i32 / 2 - 40;
+    let hi_x = camera.center_x as i32 + camera.viewport_w as i32 / 2 + 40;
+    if (cx as i32) < lo_x || (cx as i32) > hi_x || (cy as i32) < -40 || (cy as i32) > 280 {
         return;
     }
 

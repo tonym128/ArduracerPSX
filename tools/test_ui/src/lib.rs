@@ -4831,3 +4831,493 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         assert_eq!(split_top + split_skirt as i16, split_vh);
     }
 }
+
+#[cfg(test)]
+/// 2P split-screen projection defects: a player's own car was invisible or
+/// off-centre, and rivals drew at the wrong size and position.
+///
+/// The root cause was that the Mode 7 projection carried full-screen
+/// constants (`SCREEN_W / 2`, an unscaled focal length and an unscaled
+/// camera height) into a viewport that is a fraction of the screen. Each
+/// case below pins one of those terms.
+mod split_screen_projection_tests {
+    use super::camera::{Camera, M7_HORIZON, M7_Z0, SCREEN_H, SCREEN_W};
+    use arduracer_core::{Fixed, Vec2};
+
+    /// Depth the chase camera puts its pivot at: the player's own car.
+    const CAR_Z_Q4: i32 = M7_Z0 << 4;
+
+    /// A player's own car must project inside their own viewport, for every
+    /// split layout, for both players. This is the "I cannot see my car"
+    /// report: at `CAR_Z_Q4` the car sits low in the frame, so any term
+    /// that is not scaled by the viewport pushes it off the bottom.
+    #[test]
+    fn a_players_own_car_is_inside_their_own_viewport_in_every_split_layout() {
+        for split_mode in 0u8..=2 {
+            for player in 1u8..=2 {
+                let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+                cam.set_split_mode(split_mode, player);
+
+                let (sx, sy) = cam.project_cam(0, CAR_Z_Q4);
+                let lo_x = cam.center_x - cam.viewport_w / 2;
+                let hi_x = cam.center_x + cam.viewport_w / 2;
+
+                assert!(
+                    sx >= lo_x && sx <= hi_x,
+                    "split {split_mode} p{player}: own car at x={sx}, outside {lo_x}..={hi_x}"
+                );
+                assert!(
+                    sy >= 0 && sy <= cam.viewport_h,
+                    "split {split_mode} p{player}: own car at y={sy}, outside rows 0..={}",
+                    cam.viewport_h
+                );
+            }
+        }
+    }
+
+    /// A rival a little ahead of the player must also land on screen. This
+    /// is the "rival is missing / in the wrong place" report.
+    #[test]
+    fn a_rival_near_the_player_is_inside_the_viewport_too() {
+        for split_mode in 0u8..=2 {
+            for player in 1u8..=2 {
+                let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+                cam.set_split_mode(split_mode, player);
+
+                // 60 world units ahead of the pivot, on the centreline.
+                let ahead = Vec2::new(Fixed::ZERO, Fixed::from_int(-60));
+                let (sx, sy) = cam.world_to_screen(ahead);
+                assert!(
+                    sx >= 0 && sx <= cam.viewport_w,
+                    "split {split_mode} p{player}: rival at x={sx}, outside 0..={}",
+                    cam.viewport_w
+                );
+                assert!(
+                    sy >= 0 && sy <= cam.viewport_h,
+                    "split {split_mode} p{player}: rival at y={sy}, outside 0..={}",
+                    cam.viewport_h
+                );
+            }
+        }
+    }
+
+    /// The car must be centred horizontally. A viewport whose `center_x` is
+    /// not honoured puts a vertical-split car at the middle of the *screen*
+    /// instead of the middle of its own half.
+    #[test]
+    fn the_car_is_centred_in_its_own_viewport_not_the_whole_screen() {
+        for split_mode in 0u8..=2 {
+            for player in 1u8..=2 {
+                let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+                cam.set_split_mode(split_mode, player);
+
+                let (sx, _) = cam.project_cam(0, CAR_Z_Q4);
+                assert_eq!(
+                    sx, cam.center_x,
+                    "split {split_mode} p{player}: car not centred in viewport"
+                );
+            }
+        }
+    }
+
+    /// Sizing: a split viewport must not draw the car at full-screen size.
+    ///
+    /// The scale is uniform (the smaller of the two axis ratios) because the
+    /// GTE has a single focal length for both axes. A car in a half-size
+    /// viewport must occupy proportionally fewer columns, and never zero.
+    #[test]
+    fn car_size_scales_with_the_viewport_not_left_at_full_screen() {
+        let width_of = |cam: &Camera| -> i32 {
+            let l = cam.project_cam(-1200, CAR_Z_Q4).0;
+            let r = cam.project_cam(1200, CAR_Z_Q4).0;
+            (r - l) as i32
+        };
+
+        let full = Camera::new_chase(Vec2::ZERO, 0);
+        let full_w = width_of(&full);
+        assert!(full_w > 0);
+
+        for split_mode in 0u8..=2 {
+            let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+            cam.set_split_mode(split_mode, 1);
+            let split_w = width_of(&cam);
+            assert!(
+                split_w > 0,
+                "split {split_mode}: car collapsed to zero width"
+            );
+            assert!(
+                split_w <= full_w,
+                "split {split_mode}: car is {split_w}px wide, wider than the \
+                 full-screen {full_w}px"
+            );
+            // The uniform scale is the smaller of the two axis ratios.
+            let expected_scale = cam.m7_view_scale_q12();
+            let expected = full_w * expected_scale / 4096;
+            assert!(
+                (split_w - expected).abs() <= 2,
+                "split {split_mode}: car width {split_w}px, expected ~{expected}px \
+                 at scale {expected_scale}/4096"
+            );
+        }
+    }
+
+    /// The uniform scale is the smaller of the two axis ratios, so a split
+    /// viewport is never letterboxed and never overflows its smaller axis.
+    #[test]
+    fn the_viewport_scale_fits_the_smaller_axis() {
+        for split_mode in 0u8..=2 {
+            let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+            cam.set_split_mode(split_mode, 1);
+            let w = (cam.viewport_w as i32 * 4096) / SCREEN_W as i32;
+            let h = (cam.viewport_h as i32 * 4096) / SCREEN_H as i32;
+            assert_eq!(
+                cam.m7_view_scale_q12(),
+                w.min(h),
+                "split {split_mode}: scale is not the smaller axis ratio"
+            );
+        }
+    }
+
+    /// The viewport scale must be exactly 1 on the full-screen path, or
+    /// this change would silently alter single-player.
+    #[test]
+    fn the_viewport_scale_is_exactly_one_for_single_player() {
+        let cam = Camera::new_chase(Vec2::ZERO, 0);
+        assert_eq!(cam.m7_view_scale_q12(), 4096);
+        assert_eq!(cam.viewport_w, SCREEN_W);
+        assert_eq!(cam.viewport_h, SCREEN_H);
+        assert_eq!(cam.m7_horizon_row(), M7_HORIZON);
+    }
+
+    /// 1P is unchanged: the ground under the camera pivot lands on the
+    /// full-screen row the documented model predicts.
+    #[test]
+    fn single_player_projection_is_unchanged() {
+        let cam = Camera::new_chase(Vec2::ZERO, 0);
+        let (_sx, sy) = cam.project_cam(0, CAR_Z_Q4);
+        assert_eq!(sy as i32, M7_HORIZON + 130, "1P ground row moved");
+    }
+
+    /// Elevated geometry has to use the same viewport scale as the road it
+    /// stands on, or a car's body floats above its own shadow.
+    #[test]
+    fn elevated_geometry_scales_with_the_viewport() {
+        let base_z = CAR_Z_Q4;
+        for split_mode in 0u8..=2 {
+            let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+            cam.set_split_mode(split_mode, 1);
+
+            let (_bx, ground) = cam.project_cam_elevated(0, base_z, 0);
+            let (_tx, top) = cam.project_cam_elevated(0, base_z, 8);
+
+            assert!(
+                top < ground,
+                "split {split_mode}: an 8-unit lift did not raise the car"
+            );
+            let lift_px = (ground - top) as i32;
+            // 8 world units at the pivot is ~8 px full-screen, scaled by
+            // the viewport.
+            let expected = 8 * cam.m7_view_scale_q12() / 4096;
+            assert!(
+                lift_px.abs_diff(expected) <= 1,
+                "split {split_mode}: lift {lift_px}px, expected ~{expected}px"
+            );
+        }
+    }
+
+    /// `project_cam_elevated` at zero height must agree with `project_cam`
+    /// exactly, or the road and the props standing on it would separate.
+    #[test]
+    fn the_elevated_projection_reduces_to_the_ground_projection() {
+        for split_mode in 0u8..=2 {
+            let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+            cam.set_split_mode(split_mode, 1);
+            for right in [-800i32, 0, 800] {
+                for z in [CAR_Z_Q4, 4000] {
+                    assert_eq!(
+                        cam.project_cam(right, z),
+                        cam.project_cam_elevated(right, z, 0),
+                        "split {split_mode}: ground and elevated projections disagree"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Both players in a vertical split get the same half-width, but each
+    /// must still centre its own car within that half.
+    #[test]
+    fn a_vertical_split_gives_each_player_their_own_half() {
+        let mut p1 = Camera::new_chase(Vec2::ZERO, 0);
+        let mut p2 = Camera::new_chase(Vec2::ZERO, 0);
+        p1.set_split_mode(1, 1);
+        p2.set_split_mode(1, 2);
+
+        assert_eq!(p1.viewport_w, 158);
+        assert_eq!(p2.viewport_w, 158);
+        assert_eq!(p1.center_x, 79);
+        assert_eq!(p2.center_x, 79);
+        let (x1, _) = p1.project_cam(0, CAR_Z_Q4);
+        let (x2, _) = p2.project_cam(0, CAR_Z_Q4);
+        assert_eq!(x1, p1.center_x);
+        assert_eq!(x2, p2.center_x);
+    }
+
+    /// A diagonal split recentres each player into their own triangle, so
+    /// the two projections must actually differ.
+    #[test]
+    fn a_diagonal_split_recentres_each_player() {
+        let mut p1 = Camera::new_chase(Vec2::ZERO, 0);
+        let mut p2 = Camera::new_chase(Vec2::ZERO, 0);
+        p1.set_split_mode(2, 1);
+        p2.set_split_mode(2, 2);
+
+        assert_ne!(p1.center_x, p2.center_x);
+        assert_ne!(p1.center_y, p2.center_y);
+        assert!(
+            p1.center_x < p2.center_x,
+            "player 1 should sit left of player 2 on the diagonal"
+        );
+        assert!(
+            p1.center_y < p2.center_y,
+            "player 1 should sit above player 2 on the diagonal"
+        );
+    }
+
+    /// The horizon has to move with an offset viewport, otherwise a recentred
+    /// player is left looking at a horizon belonging to the other half.
+    ///
+    /// The diagonal split is the case that needs this: it moves each player's
+    /// viewport centre without changing the projection scale, so the horizon has
+    /// to be anchored on the centre rather than on the screen's midpoint.
+    #[test]
+    fn the_horizon_follows_an_offset_viewport() {
+        // Full-screen, centre on the screen midpoint: horizon unchanged.
+        let centred = Camera::new_chase(Vec2::ZERO, 0);
+        assert_eq!(centred.m7_horizon_row(), M7_HORIZON);
+
+        // Diagonal split, player 1 sits high in the top-left triangle: the
+        // horizon rises with it, and player 2's sits lower.
+        let mut p1 = Camera::new_chase(Vec2::ZERO, 0);
+        p1.set_split_mode(2, 1);
+        let mut p2 = Camera::new_chase(Vec2::ZERO, 0);
+        p2.set_split_mode(2, 2);
+        assert!(
+            p1.m7_horizon_row() < p2.m7_horizon_row(),
+            "player 1's horizon ({}) must sit above player 2's ({})",
+            p1.m7_horizon_row(),
+            p2.m7_horizon_row()
+        );
+
+        // Moving the centre down moves the horizon down, at fixed scale.
+        let mut shifted = Camera::new_chase(Vec2::ZERO, 0);
+        let base = shifted.m7_horizon_row();
+        shifted.center_y = 150i16;
+        assert!(
+            shifted.m7_horizon_row() > base,
+            "lowering the viewport centre must lower the horizon"
+        );
+    }
+
+    /// Depth sorting must work per viewport. This is the 2P ordering defect:
+    /// a fixed player-1-then-player-2 draw order is only correct while the
+    /// two cars stay in that order relative to the camera.
+    #[test]
+    fn vehicle_depth_order_is_per_viewport() {
+        let near = Vec2::ZERO;
+        let far = Vec2::new(Fixed::ZERO, Fixed::from_int(-80));
+
+        let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+        cam.set_split_mode(0, 1);
+
+        let near_y = cam.vehicle_screen_y(near);
+        let far_y = cam.vehicle_screen_y(far);
+        assert!(
+            near_y > far_y,
+            "a nearer car must sort to a larger screen row ({near_y} vs {far_y})"
+        );
+
+        // A car behind the camera sorts to the very front so it cannot
+        // occlude anything visible.
+        let behind = Vec2::new(Fixed::ZERO, Fixed::from_int(400));
+        assert!(cam.vehicle_screen_y(behind) >= near_y);
+    }
+}
+
+/// Replay trackside-camera judder: `update_broadcast_tv` snapped its heading to
+/// an aim computed from a discrete route node, so every node step (and every
+/// frame-to-frame flip between two equidistant nodes) was a hard cut.
+#[cfg(test)]
+mod replay_camera_smoothing_tests {
+    use super::camera::Camera;
+    use arduracer_core::Vec2;
+
+    /// Shortest signed BAMS distance from `a` to `b`.
+    fn bams_delta(a: u16, b: u16) -> i32 {
+        let mut d = (b & 0x0FFF) as i32 - (a & 0x0FFF) as i32;
+        if d > 2048 {
+            d -= 4096;
+        } else if d < -2048 {
+            d += 4096;
+        }
+        d
+    }
+
+    /// One eased pan step must move less than the whole remaining angle. The
+    /// driving camera's divisor is 6; the trackside camera's is gentler, and
+    /// this is the property that removes the hard cut.
+    #[test]
+    fn a_pan_step_moves_only_a_fraction_of_the_remaining_angle() {
+        let mut cam = Camera::new(Vec2::ZERO);
+        cam.set_heading(0);
+        // A right-angle-ish correction.
+        let target = 1024u16;
+        let remaining = bams_delta(cam.heading, target).abs();
+        cam.follow_heading_slow(target);
+        let moved = bams_delta(0, cam.heading).abs();
+        assert!(moved > 0, "the pan made no progress at all");
+        assert!(
+            moved < remaining,
+            "the pan jumped the whole way ({moved} of {remaining})"
+        );
+        assert!(
+            moved * 3 <= remaining,
+            "the pan moved {moved} of {remaining}: too coarse to read as a sweep"
+        );
+    }
+
+    /// The pan must converge: an easing loop that stops short of the target
+    /// would leave the replay camera permanently pointing the wrong way.
+    #[test]
+    fn a_pan_converges_on_its_target() {
+        for target in [0u16, 512, 1024, 2048, 3000, 4095] {
+            let mut cam = Camera::new(Vec2::ZERO);
+            cam.set_heading(0);
+            for _ in 0..2000 {
+                cam.follow_heading_slow(target);
+            }
+            assert_eq!(
+                bams_delta(cam.heading, target).abs(),
+                0,
+                "pan did not converge on {target}, stopped at {}",
+                cam.heading
+            );
+        }
+    }
+
+    /// The pan takes the short way round, so a target just past the 0/4096
+    /// wrap does not send the camera the long way spinning.
+    #[test]
+    fn a_pan_takes_the_short_way_round_the_wrap() {
+        // 10 BAMS is 1 degree either side of zero; the short way is ~2, not ~4086.
+        let mut cam = Camera::new(Vec2::ZERO);
+        cam.set_heading(4090);
+        cam.follow_heading_slow(4);
+        assert!(
+            bams_delta(4090, cam.heading).abs() <= 20,
+            "pan took the long way around: {} -> {}",
+            4090,
+            cam.heading
+        );
+    }
+
+    /// The trackside camera must be gentler than the driving camera, which is
+    /// what makes a route-node step read as an operator following the car.
+    #[test]
+    fn the_trackside_pan_is_slower_than_the_driving_pan() {
+        let target = 1024u16;
+        let step = |slow: bool| -> i32 {
+            let mut cam = Camera::new(Vec2::ZERO);
+            cam.set_heading(0);
+            if slow {
+                cam.follow_heading_slow(target);
+            } else {
+                cam.follow_heading(target);
+            }
+            bams_delta(0, cam.heading).abs()
+        };
+        assert!(
+            step(true) < step(false),
+            "trackside pan ({}) is not slower than the driving pan ({})",
+            step(true),
+            step(false)
+        );
+    }
+
+    /// A fresh camera starts unplaced, so the first broadcast frame cuts to the
+    /// angle instead of sweeping in from an arbitrary heading.
+    #[test]
+    fn a_camera_starts_unplaced_so_the_first_broadcast_frame_cuts() {
+        assert!(
+            Camera::new(Vec2::ZERO).tv_unplaced,
+            "a new camera must start unplaced"
+        );
+    }
+
+    /// The regression itself, driven through the real entry point on a real
+    /// circuit: walking a car along the route, the camera heading must move a
+    /// bounded amount per frame.
+    ///
+    /// The unit tests above pin the easing helper, but on their own they would
+    /// still pass if the call site reverted to snapping -- which is exactly the
+    /// bug. This one exercises `update_broadcast_tv` itself.
+    #[test]
+    fn the_broadcast_camera_never_snaps_its_heading_while_the_car_drives() {
+        let track = &arduracer_core::ALL_TRACKS[0];
+        let route = track.route;
+        assert!(route.len() >= 4, "test circuit needs a route");
+
+        let mut cam = Camera::new(Vec2::ZERO);
+        // Start unplaced, as on entering the replay: the first frame cuts.
+        cam.tv_unplaced = true;
+        cam.update_broadcast_tv(track, route[0], 0);
+        let mut prev = cam.heading;
+
+        let mut worst = 0i32;
+        // Walk the car along the route and watch how far the heading travels
+        // per frame.
+        for &node in route.iter().skip(1) {
+            cam.update_broadcast_tv(track, node, 0);
+            let step = bams_delta(prev, cam.heading).abs();
+            worst = worst.max(step);
+            prev = cam.heading;
+        }
+
+        // Measured on this circuit, walking a whole route node per frame (far
+        // harsher than a real replay, where the car moves a few units a tick):
+        // the easing pan peaks at 96 BAMS, the snapping version at 1132 -- a
+        // ~100 degree cut. 256 sits between the two with margin on both sides.
+        assert!(
+            worst <= 256,
+            "broadcast camera jumped {worst} BAMS in one frame (snap-like)"
+        );
+    }
+
+    /// Consecutive frames along a route can never disagree by more than a
+    /// gentle fraction of a turn. This is the flip-flop between equidistant
+    /// route nodes that made the judder most visible.
+    #[test]
+    fn the_broadcast_pan_is_continuous_along_a_route() {
+        let track = &arduracer_core::ALL_TRACKS[0];
+        let route = track.route;
+        let mut cam = Camera::new(Vec2::ZERO);
+        cam.tv_unplaced = true;
+
+        let mut headings = [0u16; 256];
+        let n = route.len().min(headings.len());
+        for i in 0..n {
+            cam.update_broadcast_tv(track, route[i], 0);
+            headings[i] = cam.heading;
+        }
+
+        for i in 1..n {
+            let d = bams_delta(headings[i - 1], headings[i]).abs();
+            assert!(
+                d <= 256,
+                "pan reversed by {d} BAMS between route nodes {} and {}",
+                i - 1,
+                i
+            );
+        }
+    }
+}

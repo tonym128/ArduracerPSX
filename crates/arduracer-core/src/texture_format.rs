@@ -477,6 +477,52 @@ pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -
     vblanks_left.saturating_sub(catchup_ticks) as usize
 }
 
+/// The even share of `total` decode rows that each of `viewports` viewports
+/// receives, discarding any remainder.
+///
+/// This is the floor of the split: useful where only the size of an even share
+/// matters. To hand out the remainder as well, and so that the shares still sum
+/// to exactly `total`, use [`decode_row_budget_for_viewport`] per viewport
+/// index instead.
+///
+/// `viewports` of 0 or 1 is the single-viewport case and returns `total`
+/// unchanged, so the 1P path is untouched.
+pub const fn split_decode_row_budget(total: usize, viewports: usize) -> usize {
+    if viewports <= 1 {
+        return total;
+    }
+    total / viewports
+}
+
+/// How many decode rows the viewport at `index` receives out of a frame budget
+/// of `total` rows shared between `viewports` viewports.
+///
+/// Split-screen renders the track once per player, but the decode budget is a
+/// property of the *frame*, not of a pass: both passes run inside one VBlank
+/// period and share one tile cache. Handing each pass the full budget lets
+/// whichever viewport is drawn first (always player 1) spend it all, so the
+/// second viewport decodes nothing and its tiles stay as placeholders.
+///
+/// Shares sum to exactly `total`, and no two viewports differ by more than one
+/// row, so the split stays fair even when `total` does not divide evenly. An
+/// odd `total` cannot be split exactly -- one viewport necessarily receives one
+/// row more. `index` at or beyond `viewports` is a caller bug and yields no rows
+/// rather than reading another viewport's budget.
+pub const fn decode_row_budget_for_viewport(total: usize, viewports: usize, index: usize) -> usize {
+    if viewports <= 1 {
+        return total;
+    }
+    if index >= viewports {
+        return 0;
+    }
+    let base = total / viewports;
+    if index < total % viewports {
+        base + 1
+    } else {
+        base
+    }
+}
+
 /// Returns the number of MCU decode rows (or uncompressed tile uploads) admitted
 /// per unit of frame budget, tailored to each codec's CPU cycle cost on the PS1
 /// R3000A MIPS CPU and GPU DMA upload profile.
@@ -681,6 +727,72 @@ mod budget_tests {
     fn a_zero_period_degrades_to_one_vblank() {
         assert_eq!(decode_row_budget(1, 0, 0), 1);
         assert_eq!(decode_row_budget(1, 1, 0), 0);
+    }
+
+    /// The split-screen decode regression: both viewports share one frame
+    /// budget, so neither may be handed all of it. Player 1 is always drawn
+    /// first, so an unsplit budget starves player 2's tiles permanently.
+    ///
+    /// An odd budget cannot be halved exactly, so the invariant is that the
+    /// shares sum to `total` and never differ by more than one row.
+    #[test]
+    fn both_viewports_share_the_decode_budget_evenly() {
+        for total in [0usize, 1, 2, 3, 7, 8, 16, 33] {
+            let p1 = decode_row_budget_for_viewport(total, 2, 0);
+            let p2 = decode_row_budget_for_viewport(total, 2, 1);
+            assert_eq!(
+                p1 + p2,
+                total,
+                "total {total} lost rows to integer division"
+            );
+            assert!(
+                p1.abs_diff(p2) <= 1,
+                "total {total} split unevenly: p1={p1} p2={p2}"
+            );
+            assert!(
+                p1 <= total,
+                "viewport 0 was handed more than the whole budget ({p1} of {total})"
+            );
+        }
+    }
+
+    /// An even budget splits exactly; an odd one gives its spare row to the
+    /// earlier viewports.
+    #[test]
+    fn the_remainder_goes_to_the_earlier_viewports() {
+        assert_eq!(decode_row_budget_for_viewport(8, 2, 0), 4);
+        assert_eq!(decode_row_budget_for_viewport(8, 2, 1), 4);
+        assert_eq!(decode_row_budget_for_viewport(7, 2, 0), 4);
+        assert_eq!(decode_row_budget_for_viewport(7, 2, 1), 3);
+        // Three viewports over 8 rows: base 2, remainder 2, so viewports 0 and
+        // 1 each take a spare row and the shares still sum to 8.
+        assert_eq!(decode_row_budget_for_viewport(8, 3, 0), 3);
+        assert_eq!(decode_row_budget_for_viewport(8, 3, 1), 3);
+        assert_eq!(decode_row_budget_for_viewport(8, 3, 2), 2);
+        // Seven rows over three viewports leaves a single spare row.
+        assert_eq!(decode_row_budget_for_viewport(7, 3, 0), 3);
+        assert_eq!(decode_row_budget_for_viewport(7, 3, 1), 2);
+        assert_eq!(decode_row_budget_for_viewport(7, 3, 2), 2);
+    }
+
+    /// A zero or one viewport is the 1P path and must be handed the whole
+    /// budget; dividing by one would work, but zero would panic.
+    #[test]
+    fn a_single_viewport_keeps_the_whole_budget() {
+        for total in [0usize, 1, 8, 16] {
+            assert_eq!(decode_row_budget_for_viewport(total, 1, 0), total);
+            assert_eq!(decode_row_budget_for_viewport(total, 0, 0), total);
+            assert_eq!(split_decode_row_budget(total, 1), total);
+            assert_eq!(split_decode_row_budget(total, 0), total);
+        }
+    }
+
+    /// An out-of-range index is a caller bug, not a panic: it yields no rows
+    /// rather than indexing off the end of a budget.
+    #[test]
+    fn an_out_of_range_viewport_index_yields_no_rows() {
+        assert_eq!(decode_row_budget_for_viewport(8, 2, 2), 0);
+        assert_eq!(decode_row_budget_for_viewport(8, 2, 99), 0);
     }
 
     #[test]

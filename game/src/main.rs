@@ -901,6 +901,30 @@ impl ArduracerGame {
         }
     }
 
+    /// Draws the two 2P cars back-to-front through `camera`, far one first.
+    ///
+    /// Each split viewport has to sort for itself: the depth order that is
+    /// correct looking out of player 1's camera is the *reverse* of the one
+    /// correct looking out of player 2's whenever the two cars swap places.
+    /// Drawing them in a fixed player-1-then-player-2 order -- which is what the
+    /// 2P render path did -- makes the nearer car vanish behind the further one
+    /// exactly when they are level with each other.
+    fn render_2p_cars_sorted(&self, camera: &Camera) {
+        const P1_COLOUR: (u8, u8, u8) = (220, 25, 45);
+        const P2_COLOUR: (u8, u8, u8) = (30, 144, 255);
+
+        let p1_y = camera.vehicle_screen_y(self.player.position);
+        let p2_y = camera.vehicle_screen_y(self.player2.position);
+        // Larger screen row is nearer the camera, so it draws last.
+        if p1_y <= p2_y {
+            render_car(&self.player2, camera, false, P2_COLOUR);
+            render_car(&self.player, camera, false, P1_COLOUR);
+        } else {
+            render_car(&self.player, camera, false, P1_COLOUR);
+            render_car(&self.player2, camera, false, P2_COLOUR);
+        }
+    }
+
     /// Repaints the last simulated race frame (used while paused).
     fn draw_frozen_race(&mut self) {
         self.sync_camera_view_distance();
@@ -921,8 +945,7 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
                     self.skidmarks.render(&self.camera);
                     self.particles.render(&self.camera);
-                    render_car(&self.player, &self.camera, false, (220, 25, 45));
-                    render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                    self.render_2p_cars_sorted(&self.camera);
 
                     // Vertical Divider Bar (X=158..161)
                     psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
@@ -946,8 +969,7 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
                     self.skidmarks.render(&self.camera2);
                     self.particles.render(&self.camera2);
-                    render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                    render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                    self.render_2p_cars_sorted(&self.camera2);
 
                     psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
                     psx_gpu_mod::set_draw_offset(0, target_y as i16);
@@ -966,8 +988,7 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
                     self.skidmarks.render(&self.camera);
                     self.particles.render(&self.camera);
-                    render_car(&self.player, &self.camera, false, (220, 25, 45));
-                    render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                    self.render_2p_cars_sorted(&self.camera);
 
                     // Step C: Clear P2 triangle with background color (resets P2 pixels to bit 15 = 0)
                     psx_gpu_mod::set_mask_mode(false, false);
@@ -978,8 +999,7 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
                     self.skidmarks.render(&self.camera2);
                     self.particles.render(&self.camera2);
-                    render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                    render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                    self.render_2p_cars_sorted(&self.camera2);
 
                     // Step E: Reset mask mode and draw diagonal checkered divider line
                     psx_gpu_mod::set_mask_mode(false, false);
@@ -1008,8 +1028,7 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
                     self.skidmarks.render(&self.camera);
                     self.particles.render(&self.camera);
-                    render_car(&self.player, &self.camera, false, (220, 25, 45));
-                    render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                    self.render_2p_cars_sorted(&self.camera);
 
                     // Divider Bar
                     psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
@@ -1033,8 +1052,7 @@ impl ArduracerGame {
                     render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
                     self.skidmarks.render(&self.camera2);
                     self.particles.render(&self.camera2);
-                    render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                    render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                    self.render_2p_cars_sorted(&self.camera2);
 
                     // Restore full viewport
                     psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
@@ -2011,11 +2029,28 @@ impl ArduracerGame {
                         let target_y = self.fb.buffer_y(self.fb.drawing);
                         let elapsed =
                             psx_rt::interrupts::vblank_count().wrapping_sub(self.last_flip_vblank);
-                        let max_decode_rows = arduracer_core::texture_format::decode_row_budget(
+                        // Both viewports render the track inside one frame and
+                        // share one tile cache, so the frame's decode budget is
+                        // split evenly. Handing both passes the full budget let
+                        // player 1 -- always drawn first -- spend it all, and
+                        // player 2's tiles stayed placeholders.
+                        let frame_decode_rows = arduracer_core::texture_format::decode_row_budget(
                             ticks_to_run,
                             elapsed,
                             self.framerate.vblanks_per_frame(),
                         );
+                        let p1_decode_rows =
+                            arduracer_core::texture_format::decode_row_budget_for_viewport(
+                                frame_decode_rows,
+                                2,
+                                0,
+                            );
+                        let p2_decode_rows =
+                            arduracer_core::texture_format::decode_row_budget_for_viewport(
+                                frame_decode_rows,
+                                2,
+                                1,
+                            );
 
                         match self.split_mode {
                             1 => {
@@ -2026,7 +2061,7 @@ impl ArduracerGame {
                                     track,
                                     &self.camera,
                                     self.last_flip_vblank,
-                                    max_decode_rows,
+                                    p1_decode_rows,
                                 );
                                 crate::gpu::render_track_props(
                                     &self.camera,
@@ -2041,8 +2076,7 @@ impl ArduracerGame {
                                     self.timer.current_lap_ticks,
                                 );
                                 self.skidmarks.render(&self.camera);
-                                render_car(&self.player, &self.camera, false, (220, 25, 45));
-                                render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                                self.render_2p_cars_sorted(&self.camera);
                                 self.particles.render(&self.camera);
                                 if self.show_hud {
                                     crate::gpu::render_split_hud(
@@ -2077,7 +2111,7 @@ impl ArduracerGame {
                                     track,
                                     &self.camera2,
                                     self.last_flip_vblank,
-                                    max_decode_rows,
+                                    p2_decode_rows,
                                 );
                                 crate::gpu::render_track_props(
                                     &self.camera2,
@@ -2092,8 +2126,7 @@ impl ArduracerGame {
                                     self.player2_timer.current_lap_ticks,
                                 );
                                 self.skidmarks.render(&self.camera2);
-                                render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                                render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                                self.render_2p_cars_sorted(&self.camera2);
                                 self.particles.render(&self.camera2);
                                 if self.show_hud {
                                     crate::gpu::render_split_hud(
@@ -2125,7 +2158,7 @@ impl ArduracerGame {
                                     track,
                                     &self.camera,
                                     self.last_flip_vblank,
-                                    max_decode_rows,
+                                    p1_decode_rows,
                                 );
                                 crate::gpu::render_track_props(
                                     &self.camera,
@@ -2140,8 +2173,7 @@ impl ArduracerGame {
                                     self.timer.current_lap_ticks,
                                 );
                                 self.skidmarks.render(&self.camera);
-                                render_car(&self.player, &self.camera, false, (220, 25, 45));
-                                render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                                self.render_2p_cars_sorted(&self.camera);
                                 self.particles.render(&self.camera);
                                 if self.show_hud {
                                     crate::gpu::render_split_hud(
@@ -2168,7 +2200,7 @@ impl ArduracerGame {
                                     track,
                                     &self.camera2,
                                     self.last_flip_vblank,
-                                    max_decode_rows,
+                                    p2_decode_rows,
                                 );
                                 crate::gpu::render_track_props(
                                     &self.camera2,
@@ -2183,8 +2215,7 @@ impl ArduracerGame {
                                     self.player2_timer.current_lap_ticks,
                                 );
                                 self.skidmarks.render(&self.camera2);
-                                render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                                render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                                self.render_2p_cars_sorted(&self.camera2);
                                 self.particles.render(&self.camera2);
                                 if self.show_hud {
                                     crate::gpu::render_split_hud(
@@ -2223,7 +2254,7 @@ impl ArduracerGame {
                                     track,
                                     &self.camera,
                                     self.last_flip_vblank,
-                                    max_decode_rows,
+                                    p1_decode_rows,
                                 );
                                 crate::gpu::render_track_props(
                                     &self.camera,
@@ -2238,8 +2269,7 @@ impl ArduracerGame {
                                     self.timer.current_lap_ticks,
                                 );
                                 self.skidmarks.render(&self.camera);
-                                render_car(&self.player, &self.camera, false, (220, 25, 45));
-                                render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                                self.render_2p_cars_sorted(&self.camera);
                                 self.particles.render(&self.camera);
                                 if self.show_hud {
                                     crate::gpu::render_split_hud(
@@ -2274,7 +2304,7 @@ impl ArduracerGame {
                                     track,
                                     &self.camera2,
                                     self.last_flip_vblank,
-                                    max_decode_rows,
+                                    p2_decode_rows,
                                 );
                                 crate::gpu::render_track_props(
                                     &self.camera2,
@@ -2289,8 +2319,7 @@ impl ArduracerGame {
                                     self.player2_timer.current_lap_ticks,
                                 );
                                 self.skidmarks.render(&self.camera2);
-                                render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                                render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                                self.render_2p_cars_sorted(&self.camera2);
                                 self.particles.render(&self.camera2);
                                 if self.show_hud {
                                     crate::gpu::render_split_hud(
@@ -2926,6 +2955,9 @@ impl ArduracerGame {
             || b.pressed_since(prev, psx_pad::button::SELECT)
         {
             self.replay_camera_mode = (self.replay_camera_mode + 1) % 3;
+            // Cutting to a new camera angle should be a cut, not a sweep in
+            // from the previous angle's framing.
+            self.camera.tv_unplaced = true;
         }
         if b.pressed_since(prev, psx_pad::button::CROSS)
             || b.pressed_since(prev, psx_pad::button::START)
@@ -3041,6 +3073,7 @@ impl ArduracerGame {
             Some(ResultsAction::WatchReplay) => {
                 self.replay_tick = 0;
                 self.replay_camera_mode = 0;
+                self.camera.tv_unplaced = true;
                 self.prev_pad_racing = pad.buttons;
                 self.state_mgr.current = GameState::Replay;
             }

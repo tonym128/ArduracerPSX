@@ -63,6 +63,11 @@ fn gate_world_center(gate: &CheckpointGate) -> Vec2 {
 }
 
 /// Fast frustum and depth check: returns projected screen coordinates `(sx, sy)` and `z_q4`.
+///
+/// The projection itself belongs to [`Camera`], so props land in exactly the
+/// same place the software track tiles do in every split layout. This used to
+/// re-derive it from the full-screen constants (`320 / 2`, `M7_HORIZON`), which
+/// put arches and gantries off-centre in every 2P viewport.
 #[inline]
 fn project_prop_point(camera: &Camera, pos: Vec2, height_wu: i32) -> Option<((i16, i16), i32)> {
     let (right, z_q4) = camera.view_rq4_zq4(pos);
@@ -73,16 +78,17 @@ fn project_prop_point(camera: &Camera, pos: Vec2, height_wu: i32) -> Option<((i1
     if (right.abs() * 5) > (z_q4 * 7) + (32 << 4) {
         return None;
     }
-    // Apply elevation height offset to projected screen Y
-    let f = camera.m7_focal();
-    let k16 =
-        ((crate::gpu::camera::M7_HORIZON + camera.pitch_px as i32) << 16) + (15_600 * 16 / 120) * f;
-    let sy = (k16 - (height_wu * 16 * f)) / z_q4;
-    let sx = (320 / 2) + (right * f) / z_q4;
-    if !(-60..=380).contains(&sx) || !(-40..=260).contains(&sy) {
+    let (sx, sy) = camera.project_cam_elevated(right, z_q4, height_wu);
+    // Cull against this viewport, not the whole screen, with a margin so a prop
+    // straddling the edge still contributes its visible part.
+    let half_w = camera.viewport_w as i32 / 2 + 40;
+    let lo_x = camera.center_x as i32 - half_w;
+    let hi_x = camera.center_x as i32 + half_w;
+    let hi_y = camera.viewport_h as i32 + 40;
+    if (sx as i32) < lo_x || (sx as i32) > hi_x || (sy as i32) < -40 || (sy as i32) > hi_y {
         return None;
     }
-    Some(((sx as i16, sy as i16), z_q4))
+    Some(((sx, sy), z_q4))
 }
 
 /// Renders the 3D Start / Finish Gantry Truss with 3-2-1-GO light clusters (`NO1-031`).
