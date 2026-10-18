@@ -12,6 +12,9 @@
 #[path = "../../../game/src/memcard.rs"]
 mod memcard;
 
+#[path = "../../../game/src/ghost_recorder.rs"]
+mod ghost_recorder;
+
 #[cfg(test)]
 mod tests {
     use super::memcard::*;
@@ -118,6 +121,8 @@ mod tests {
         // save would silently claim two blocks of a 15-block card. This is a
         // property of the format, so it is checked at compile time.
         const { assert!(SAVE_PAYLOAD_SIZE + 16 <= MEMCARD_BLOCK_SIZE - 256) };
+        const { assert!(SAVE_FILE_DATA_SIZE == psx_mc::MAX_SINGLE_BLOCK_PAYLOAD) };
+        const { assert!(SAVE_FILE_DATA_SIZE <= MEMCARD_BLOCK_SIZE) };
         const { assert!(SAVE_FILE_NAME.len() <= psx_mc::MAX_NAME) };
     }
 
@@ -199,6 +204,100 @@ mod tests {
         assert_eq!(fresh.probe_with(&mut card), MemcardStatus::Loaded);
         assert_eq!(fresh.save_data.best_lap_ticks[3], 1234);
         assert!(fresh.card_detected);
+    }
+
+    #[test]
+    fn save_and_pb_ghost_round_trip_in_one_card_block() {
+        use arduracer_core::ghost::GhostFrame;
+        use arduracer_core::{Fixed, Vec2};
+
+        let mut card = FaultCard::formatted();
+        let mut manager = dirty_manager();
+        let frames = [
+            GhostFrame::encode(Vec2::new(Fixed::from_int(100), Fixed::from_int(100)), 0, 0),
+            GhostFrame::encode(Vec2::new(Fixed::from_int(110), Fixed::from_int(100)), 0, 1),
+            GhostFrame::encode(Vec2::new(Fixed::from_int(120), Fixed::from_int(110)), 32, 2),
+        ];
+        let splits = [300, 650];
+        let encoded = SaveData::write_ghost_to_block(&mut manager.block, 3, 900, &frames, &splits)
+            .expect("test ghost and split trailer fit the single-block tail");
+        assert!(encoded <= SAVE_FILE_DATA_SIZE - SAVE_PAYLOAD_SIZE);
+
+        assert_eq!(manager.flush_with(&mut card), MemcardStatus::Saved);
+        assert_eq!(card.free_blocks().unwrap(), psx_mc::DATA_BLOCKS - 1);
+
+        let mut restored = MemoryCardManager::new();
+        assert_eq!(restored.probe_with(&mut card), MemcardStatus::Loaded);
+        let mut decoded = [GhostFrame::default(); 4];
+        let (track_id, lap_ticks, count) =
+            SaveData::read_ghost_from_block(&restored.block, &mut decoded)
+                .expect("PB ghost survives the card write and read");
+        assert_eq!((track_id, lap_ticks, count), (3, 900, frames.len()));
+        assert_eq!(&decoded[..count], &frames);
+
+        let mut decoded_splits = [0u32; 4];
+        let split_count =
+            SaveData::read_ghost_splits_from_block(&restored.block, &mut decoded_splits)
+                .expect("exact checkpoint times survive the card round trip");
+        assert_eq!(&decoded_splits[..split_count], &splits);
+
+        let mut damaged = restored.block;
+        let ghost_stream_len = u16::from_le_bytes([
+            damaged[arduracer_core::save::PAYLOAD_SIZE + 17],
+            damaged[arduracer_core::save::PAYLOAD_SIZE + 18],
+        ]) as usize;
+        let first_split = arduracer_core::save::PAYLOAD_SIZE
+            + arduracer_core::ghost::GHOST_HEADER_SIZE
+            + ghost_stream_len
+            + 2 // compressed clip CRC
+            + 5; // split trailer header
+        damaged[first_split] ^= 0x01;
+        assert!(
+            SaveData::read_ghost_splits_from_block(&damaged, &mut decoded_splits).is_none(),
+            "damaged split metadata must fail its checksum"
+        );
+
+        let mut recorder = crate::ghost_recorder::LapGhostRecorder::new(3);
+        assert!(recorder.load_from_card_block(&restored.block, 3));
+        assert_eq!(recorder.best_split_count, splits.len());
+        assert_eq!(&recorder.best_splits[..split_count], &splits);
+    }
+
+    #[test]
+    fn truncated_lap_is_not_promoted_to_a_personal_best_ghost() {
+        use crate::ghost_recorder::{LapGhostRecorder, MAX_GHOST_FRAMES};
+        use arduracer_core::VehicleState;
+
+        let mut recorder = LapGhostRecorder::new(0);
+        recorder.start_lap();
+        for _ in 0..(MAX_GHOST_FRAMES * 2 + 2) {
+            recorder.record_tick(&VehicleState::default());
+        }
+        assert!(recorder.recorder.is_truncated);
+        recorder.finish_lap(3_700, true, &[]);
+        assert!(
+            !recorder.has_ghost,
+            "an incomplete ghost cannot become the PB"
+        );
+    }
+
+    #[test]
+    fn promoted_personal_best_keeps_its_exact_split_array() {
+        use crate::ghost_recorder::LapGhostRecorder;
+        use arduracer_core::VehicleState;
+
+        let mut recorder = LapGhostRecorder::new(2);
+        recorder.start_lap();
+        for _ in 0..8 {
+            recorder.record_tick(&VehicleState::default());
+        }
+        recorder.finish_lap(120, true, &[30, 75, 110]);
+        assert!(recorder.has_ghost);
+        assert_eq!(recorder.best_lap_ticks, 120);
+        assert_eq!(
+            &recorder.best_splits[..recorder.best_split_count],
+            &[30, 75, 110]
+        );
     }
 
     #[test]
@@ -321,7 +420,7 @@ mod tests {
             card.device().inner.read_frame(base + 2, &mut raw).unwrap();
             u32::from_le_bytes([raw[8], raw[9], raw[10], raw[11]]) as usize
         };
-        assert_eq!(container_raw_len, SAVE_PAYLOAD_SIZE);
+        assert_eq!(container_raw_len, SAVE_FILE_DATA_SIZE);
         // Blank the whole payload: the container still claims it is there.
         for f in 0..4 {
             let frame = save_block_frame(&mut card.device().inner) + 2 + f;

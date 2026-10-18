@@ -4,7 +4,7 @@
 //!
 //! * BIOS file name `BAS-ARDURACER-01`, human title `ARDURACER PSX`.
 //! * 1-block save holding the `SaveData` struct (lap records, medals, tuning
-//!   slots, preferences) with its 16-bit CRC.
+//!   slots, preferences) with its 16-bit CRC, plus one compact PB ghost clip.
 //! * Custom 16x16 16-colour BIOS icon showing a checkered racing flag.
 //! * Every failure path degrades gracefully to in-memory defaults rather than
 //!   hanging the 60 Hz frame loop on SIO retries.
@@ -19,10 +19,12 @@ pub const MEMCARD_BLOCK_SIZE: usize = 8192;
 pub const SAVE_FILE_NAME: &str = "BAS-ARDURACER-01";
 /// Label shown by the console's card manager.
 pub const SAVE_TITLE: &str = "ARDURACER PSX";
-/// Payload size actually written: the serialised `SaveData`, not a padded 8 KB
-/// block, so the file fits in a single 8 KB memory card block. Taken from the
-/// format itself so the two can never drift apart.
+/// Checksummed profile prefix inside the full card-file data payload.
 pub const SAVE_PAYLOAD_SIZE: usize = arduracer_core::save::PAYLOAD_SIZE;
+/// Maximum raw save bytes that fit in one card block with its container and
+/// title/icon frames. The remaining bytes after `SAVE_PAYLOAD_SIZE` hold a PB ghost.
+pub const SAVE_FILE_DATA_SIZE: usize = arduracer_core::save::CARD_FILE_DATA_CAPACITY;
+const _: () = assert!(SAVE_FILE_DATA_SIZE == psx_mc::MAX_SINGLE_BLOCK_PAYLOAD);
 
 /// How long a status message stays on screen after a card operation.
 const STATUS_HOLD_FRAMES: u16 = 150;
@@ -47,7 +49,7 @@ pub enum MemcardStatus {
 
 pub struct MemoryCardManager {
     pub save_data: SaveData,
-    /// Scratch buffer used to build the on-card payload.
+    /// Scratch buffer containing the profile prefix and optional PB ghost clip.
     pub block: [u8; MEMCARD_BLOCK_SIZE],
     pub card_detected: bool,
     pub is_dirty: bool,
@@ -146,6 +148,7 @@ impl MemoryCardManager {
                 // `len` is what the drive actually handed back. A file shorter
                 // than a payload is a truncated write, so it is treated as
                 // corrupt rather than read past.
+                self.block.fill(0);
                 match card.read(SAVE_FILE_NAME, &mut self.block) {
                     Ok(len) if len >= SAVE_PAYLOAD_SIZE => {
                         match SaveData::from_block_bytes(&self.block) {
@@ -213,12 +216,15 @@ impl MemoryCardManager {
             return self.status;
         }
         self.save_data.checksum = self.save_data.compute_checksum();
-        self.save_data.to_block_bytes(&mut self.block);
+        // Rewrite only the checksummed profile prefix. The rest of the buffer
+        // may contain the compressed PB ghost written by LapGhostRecorder.
+        self.save_data
+            .write_payload(&mut self.block[..SAVE_PAYLOAD_SIZE]);
 
         let status = match card.write_with_icon(
             SAVE_FILE_NAME,
             SAVE_TITLE,
-            &self.block[..SAVE_PAYLOAD_SIZE],
+            &self.block[..SAVE_FILE_DATA_SIZE],
             &racing_flag_icon(),
         ) {
             Ok(()) => {

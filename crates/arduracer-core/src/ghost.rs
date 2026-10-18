@@ -5,18 +5,9 @@
 //! 60-second lap is 10,800 bytes (10.5 KiB) at the shipped `MAX_FRAMES` of 1800
 //! (`MAX_GHOST_FRAMES` in `game/src/ghost_recorder.rs`).
 //!
-//! **That does not fit a PlayStation 1 Memory Card block, which is 8 KiB.**
-//! [`GHOST_MAGIC`] and [`GHOST_VERSION`] exist for a `to_bytes`/`from_bytes`
-//! serializer that has not been written: there is no ghost blob on the card
-//! today. [`crate::save::SaveData::to_block_bytes`] writes only
-//! [`crate::save::PAYLOAD_SIZE`] (161) bytes and zero-fills the rest of the
-//! 8 KiB block, and [`crate::save::SaveData`] has no ghost field at all -- a
-//! recorded ghost lives in RAM for the length of the session only.
-//!
-//! Shipping a ghost on the card therefore needs its own work, not a tweak to
-//! the numbers above: either a smaller frame (delta-coded, ~2-3 bytes) or a
-//! second block, plus the serializer, a compression ratio that survives
-//! quantisation, and the migration story for an existing card image.
+//! Position, heading, and flags are delta-compressed into the free tail of the
+//! save file's single 8 KiB card block. A typical one-minute lap fits in that
+//! space; encoding refuses clips that exceed the one-block data capacity.
 
 use crate::math::{self, Fixed, Vec2};
 
@@ -354,6 +345,33 @@ pub const GHOST_CRC_SIZE: usize = 2;
 /// Sentinel first byte (`-128i8`) indicating a 7-byte absolute keyframe in a compressed stream.
 pub const KEYFRAME_TAG: u8 = 0x80;
 
+/// Exact encoded size of a ghost clip, including its header and CRC.
+pub fn compressed_ghost_encoded_len(frames: &[GhostFrame]) -> Option<usize> {
+    if frames.len() > u16::MAX as usize {
+        return None;
+    }
+    let mut stream_len = 0usize;
+    let mut prev = GhostFrame::default();
+    for (idx, &frame) in frames.iter().enumerate() {
+        let dx = frame.pos_x as i32 - prev.pos_x as i32;
+        let dy = frame.pos_y as i32 - prev.pos_y as i32;
+        let dh = frame.heading_byte.wrapping_sub(prev.heading_byte) as i8;
+        let delta = idx > 0
+            && (-127..=127).contains(&dx)
+            && (-127..=127).contains(&dy)
+            && (-8..=7).contains(&dh)
+            && frame.flags & 0xF0 == 0;
+        stream_len = stream_len.checked_add(if delta { 3 } else { 7 })?;
+        prev = frame;
+    }
+    if stream_len > u16::MAX as usize {
+        return None;
+    }
+    GHOST_HEADER_SIZE
+        .checked_add(stream_len)?
+        .checked_add(GHOST_CRC_SIZE)
+}
+
 /// Encodes a slice of [`GhostFrame`]s into a compact, lossless delta-coded byte stream
 /// protected by a trailing CCITT-16 CRC (`NO1-024`).
 ///
@@ -363,15 +381,17 @@ pub const KEYFRAME_TAG: u8 = 0x80;
 /// - **7-byte Absolute Keyframe** `[0x80, x_lo, x_hi, y_lo, y_hi, heading_byte, flags]`
 ///   for frame 0 or any teleport/respawn/spinout exceeding delta range.
 ///
-/// A full 60-second lap (1,800 frames) compresses from 10,800 bytes down to ~5,425 bytes,
-/// fitting comfortably inside the 7,804 unused bytes of a single 8 KiB PS1 Memory Card block.
+/// A full 60-second lap (1,800 frames) typically compresses from 10,800 bytes to around
+/// 5,425 bytes. It shares the save file's 7,532-byte tail with up to 103 bytes of exact
+/// split metadata; encoding refuses a clip that cannot fit.
 pub fn encode_compressed_ghost(
     track_id: u8,
     lap_time_ticks: u32,
     frames: &[GhostFrame],
     out: &mut [u8],
 ) -> Option<usize> {
-    if frames.len() > u16::MAX as usize || out.len() < GHOST_HEADER_SIZE + GHOST_CRC_SIZE {
+    let required_len = compressed_ghost_encoded_len(frames)?;
+    if out.len() < required_len {
         return None;
     }
 
@@ -884,8 +904,9 @@ mod tests {
             };
         }
 
-        // Must fit comfortably in the 7,804 unused bytes of an 8 KiB memory card block!
-        let mut compressed = [0u8; 8192 - crate::save::PAYLOAD_SIZE];
+        // A typical lap fits in the save file tail after its profile data.
+        let mut compressed =
+            [0u8; crate::save::CARD_FILE_DATA_CAPACITY - crate::save::PAYLOAD_SIZE];
         let written = encode_compressed_ghost(7, 3600, &frames, &mut compressed)
             .expect("60s delta-coded ghost must fit in remaining memory card block space");
         assert!(

@@ -92,6 +92,15 @@ pub const CHECKSUM_OFFSET: usize = 386 + (TOTAL_CUSTOM_TRACK_SLOTS * CUSTOM_TRAC
 /// exact count of meaningful bytes with no padding in it.
 pub const PAYLOAD_SIZE: usize = CHECKSUM_OFFSET + 2;
 
+/// Raw bytes a file can store in its first PlayStation memory-card block after
+/// the filesystem's 16-byte container header and two title/icon frames.
+/// Mirrors `psx-mc::MAX_SINGLE_BLOCK_PAYLOAD` (7,920 bytes).
+pub const CARD_FILE_DATA_CAPACITY: usize = 7_920;
+/// Marker for per-checkpoint timestamps appended after the compressed ghost clip.
+const GHOST_SPLIT_MAGIC: [u8; 4] = *b"GSPL";
+const GHOST_SPLIT_HEADER_SIZE: usize = 5;
+const GHOST_SPLIT_CRC_SIZE: usize = 2;
+
 /// Offset of `best_lap_ticks`, the first of the fixed-length arrays.
 pub const OFF_BEST_LAPS: usize = 30;
 
@@ -607,29 +616,97 @@ impl SaveData {
         self.write_payload(&mut block[..PAYLOAD_SIZE]);
     }
 
-    /// Writes a delta-compressed Personal Best ghost clip into the unused 7,804 bytes
-    /// (`block[PAYLOAD_SIZE..8192]`) of the 8 KB Memory Card block (`NO1-024`).
+    /// Writes a delta-compressed Personal Best ghost and its split times into
+    /// the single-block file tail after `PAYLOAD_SIZE` (`NO1-024`).
     pub fn write_ghost_to_block(
         block: &mut [u8; 8192],
         track_id: u8,
         lap_time_ticks: u32,
         frames: &[crate::ghost::GhostFrame],
+        splits: &[u32],
     ) -> Option<usize> {
-        crate::ghost::encode_compressed_ghost(
-            track_id,
-            lap_time_ticks,
-            frames,
-            &mut block[PAYLOAD_SIZE..],
-        )
+        if splits.len() > crate::track::MAX_TRACK_CHECKPOINTS {
+            return None;
+        }
+        let out = &mut block[PAYLOAD_SIZE..CARD_FILE_DATA_CAPACITY];
+        let ghost_len = crate::ghost::compressed_ghost_encoded_len(frames)?;
+        let trailer_len = GHOST_SPLIT_HEADER_SIZE + splits.len() * 4 + GHOST_SPLIT_CRC_SIZE;
+        if ghost_len + trailer_len > out.len() {
+            return None;
+        }
+        let ghost_len =
+            crate::ghost::encode_compressed_ghost(track_id, lap_time_ticks, frames, out)?;
+
+        out[ghost_len..ghost_len + 4].copy_from_slice(&GHOST_SPLIT_MAGIC);
+        out[ghost_len + 4] = splits.len() as u8;
+        let mut offset = ghost_len + GHOST_SPLIT_HEADER_SIZE;
+        for &ticks in splits {
+            out[offset..offset + 4].copy_from_slice(&ticks.to_le_bytes());
+            offset += 4;
+        }
+        let crc = crc16(&out[ghost_len..offset]);
+        out[offset..offset + GHOST_SPLIT_CRC_SIZE].copy_from_slice(&crc.to_le_bytes());
+        Some(offset + GHOST_SPLIT_CRC_SIZE)
     }
 
-    /// Reads a delta-compressed Personal Best ghost clip from `block[PAYLOAD_SIZE..8192]`
-    /// if present and valid (`NO1-024`).
+    /// Reads a delta-compressed Personal Best ghost clip from the single-block
+    /// file tail if present and valid (`NO1-024`).
     pub fn read_ghost_from_block(
         block: &[u8; 8192],
         out_frames: &mut [crate::ghost::GhostFrame],
     ) -> Option<(u8, u32, usize)> {
-        crate::ghost::decode_compressed_ghost(&block[PAYLOAD_SIZE..], out_frames)
+        crate::ghost::decode_compressed_ghost(
+            &block[PAYLOAD_SIZE..CARD_FILE_DATA_CAPACITY],
+            out_frames,
+        )
+    }
+
+    /// Reads exact PB checkpoint crossing timestamps appended to its ghost clip.
+    /// Returns `None` for older clips without the split trailer or corrupt data.
+    pub fn read_ghost_splits_from_block(
+        block: &[u8; 8192],
+        out_splits: &mut [u32],
+    ) -> Option<usize> {
+        let bytes = &block[PAYLOAD_SIZE..CARD_FILE_DATA_CAPACITY];
+        if bytes.len() < crate::ghost::GHOST_HEADER_SIZE + crate::ghost::GHOST_CRC_SIZE {
+            return None;
+        }
+        if bytes[..8] != crate::ghost::GHOST_MAGIC {
+            return None;
+        }
+        let stream_len = u16::from_le_bytes([bytes[17], bytes[18]]) as usize;
+        let ghost_end = crate::ghost::GHOST_HEADER_SIZE + stream_len + crate::ghost::GHOST_CRC_SIZE;
+        if ghost_end + GHOST_SPLIT_HEADER_SIZE + GHOST_SPLIT_CRC_SIZE > bytes.len()
+            || bytes.get(ghost_end..ghost_end + 4)? != GHOST_SPLIT_MAGIC
+        {
+            return None;
+        }
+
+        let count = bytes[ghost_end + 4] as usize;
+        if count > crate::track::MAX_TRACK_CHECKPOINTS || count > out_splits.len() {
+            return None;
+        }
+        let split_start = ghost_end + GHOST_SPLIT_HEADER_SIZE;
+        let split_end = split_start.checked_add(count.checked_mul(4)?)?;
+        let crc_end = split_end.checked_add(GHOST_SPLIT_CRC_SIZE)?;
+        if crc_end > bytes.len() {
+            return None;
+        }
+        let expected_crc = u16::from_le_bytes([bytes[split_end], bytes[split_end + 1]]);
+        if crc16(&bytes[ghost_end..split_end]) != expected_crc {
+            return None;
+        }
+
+        for (index, slot) in out_splits.iter_mut().take(count).enumerate() {
+            let offset = split_start + index * 4;
+            *slot = u32::from_le_bytes([
+                bytes[offset],
+                bytes[offset + 1],
+                bytes[offset + 2],
+                bytes[offset + 3],
+            ]);
+        }
+        Some(count)
     }
 
     /// Attempts to deserialize save data from a Memory Card block buffer.

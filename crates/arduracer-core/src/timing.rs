@@ -543,6 +543,22 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         }
     }
 
+    /// Loads a trusted Personal Best reference and its exact checkpoint splits.
+    /// Returns false for an impossible time or split data outside this circuit.
+    pub fn load_best_lap_reference(&mut self, lap_ticks: u32, splits: &[u32]) -> bool {
+        if lap_ticks < self.min_lap_ticks
+            || lap_ticks == NO_BEST_LAP
+            || splits.len() > self.active_checkpoint_count()
+            || splits.iter().any(|&split| split > lap_ticks)
+        {
+            return false;
+        }
+        self.best_lap_ticks = lap_ticks;
+        self.best_splits.fill(0);
+        self.best_splits[..splits.len()].copy_from_slice(splits);
+        true
+    }
+
     /// Whether a plausible lap has been recorded, i.e. whether a best-lap
     /// readout and a delta split should be shown at all.
     #[inline]
@@ -1389,6 +1405,21 @@ mod tests {
         t.update_player_tile(RING[0].x, RING[0].y);
         assert_eq!(t.next_checkpoint_index(), 1);
         assert_eq!(t.delta_ticks(), 150 - 150);
+    }
+
+    #[test]
+    fn loaded_personal_best_uses_persisted_exact_checkpoint_splits() {
+        let mut t = four_gate_timer::<4>();
+        assert!(t.load_best_lap_reference(600, &[150, 300, 450, 600]));
+        assert_eq!(t.best_lap_ticks(), Some(600));
+
+        drive_to(&mut t, RING[0], 180);
+        assert_eq!(t.last_split_delta, Some(30));
+        assert_eq!(t.delta_ticks(), 30);
+
+        let mut fresh = four_gate_timer::<4>();
+        assert!(!fresh.load_best_lap_reference(600, &[150, 300, 450, 600, 750]));
+        assert_eq!(fresh.best_lap_ticks(), None);
     }
 
     #[test]

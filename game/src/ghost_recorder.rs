@@ -10,6 +10,7 @@
 use arduracer_core::ghost::{
     GhostFrame, GhostRecorder, FLAG_BOOSTING, FLAG_BRAKING, FLAG_DRIFTING,
 };
+use arduracer_core::track::MAX_TRACK_CHECKPOINTS;
 use arduracer_core::VehicleState;
 
 /// 60 seconds of telemetry at 30 Hz. Good laps are 15-25 s, so this leaves
@@ -21,6 +22,8 @@ pub struct LapGhostRecorder {
     pub best_frames: [GhostFrame; MAX_GHOST_FRAMES],
     pub best_frame_count: usize,
     pub best_lap_ticks: u32,
+    pub best_splits: [u32; MAX_TRACK_CHECKPOINTS],
+    pub best_split_count: usize,
     pub has_ghost: bool,
 }
 
@@ -31,6 +34,8 @@ impl LapGhostRecorder {
             best_frames: [GhostFrame::default(); MAX_GHOST_FRAMES],
             best_frame_count: 0,
             best_lap_ticks: 0,
+            best_splits: [0; MAX_TRACK_CHECKPOINTS],
+            best_split_count: 0,
             has_ghost: false,
         }
     }
@@ -59,13 +64,21 @@ impl LapGhostRecorder {
 
     /// Completes the recorded lap. If it beats the current best (or no ghost exists yet),
     /// promotes the lap to `best_frames`.
-    pub fn finish_lap(&mut self, lap_ticks: u32, is_new_record: bool) {
+    pub fn finish_lap(&mut self, lap_ticks: u32, is_new_record: bool, splits: &[u32]) {
         self.recorder.finish(lap_ticks);
-        if (is_new_record || !self.has_ghost) && self.recorder.frame_count > 0 && lap_ticks > 0 {
+        if (is_new_record || !self.has_ghost)
+            && self.recorder.frame_count > 0
+            && lap_ticks > 0
+            && !self.recorder.is_truncated
+            && splits.len() <= MAX_TRACK_CHECKPOINTS
+        {
             let count = self.recorder.frame_count.min(MAX_GHOST_FRAMES);
             self.best_frames[..count].copy_from_slice(&self.recorder.frames[..count]);
             self.best_frame_count = count;
             self.best_lap_ticks = lap_ticks;
+            self.best_splits.fill(0);
+            self.best_splits[..splits.len()].copy_from_slice(splits);
+            self.best_split_count = splits.len();
             self.has_ghost = true;
         }
     }
@@ -87,14 +100,18 @@ impl LapGhostRecorder {
     }
 
     /// Encodes the active Personal Best ghost into the unused tail of an 8 KB Memory Card block (`NO1-024`).
-    pub fn save_to_card_block(&self, block: &mut [u8; 8192]) {
+    pub fn save_to_card_block(&self, block: &mut [u8; 8192]) -> bool {
         if self.has_ghost && self.best_frame_count > 0 {
-            let _ = arduracer_core::SaveData::write_ghost_to_block(
+            arduracer_core::SaveData::write_ghost_to_block(
                 block,
                 self.recorder.track_id,
                 self.best_lap_ticks,
                 &self.best_frames[..self.best_frame_count],
-            );
+                &self.best_splits[..self.best_split_count],
+            )
+            .is_some()
+        } else {
+            false
         }
     }
 
@@ -106,6 +123,12 @@ impl LapGhostRecorder {
             if track_id == expected_track_id && count > 0 && lap_ticks > 0 {
                 self.best_frame_count = count.min(MAX_GHOST_FRAMES);
                 self.best_lap_ticks = lap_ticks;
+                self.best_splits.fill(0);
+                self.best_split_count = arduracer_core::SaveData::read_ghost_splits_from_block(
+                    block,
+                    &mut self.best_splits,
+                )
+                .unwrap_or(0);
                 self.has_ghost = true;
                 return true;
             }
@@ -118,6 +141,8 @@ impl LapGhostRecorder {
         self.recorder = GhostRecorder::new(track_id);
         self.best_frame_count = 0;
         self.best_lap_ticks = 0;
+        self.best_splits.fill(0);
+        self.best_split_count = 0;
         self.has_ghost = false;
     }
 }

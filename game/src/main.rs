@@ -745,6 +745,16 @@ impl ArduracerGame {
                 } else {
                     arduracer_core::TOTAL_LAPS
                 });
+        if self.ghost.has_ghost && self.ghost.best_lap_ticks > 0 {
+            let count = self
+                .ghost
+                .best_split_count
+                .min(self.timer.active_checkpoint_count());
+            self.timer.load_best_lap_reference(
+                self.ghost.best_lap_ticks,
+                &self.ghost.best_splits[..count],
+            );
+        }
         let player_slot = self
             .state_mgr
             .championship
@@ -775,6 +785,16 @@ impl ArduracerGame {
             } else {
                 arduracer_core::TOTAL_LAPS
             });
+            if self.ghost.has_ghost && self.ghost.best_lap_ticks > 0 {
+                let count = self
+                    .ghost
+                    .best_split_count
+                    .min(self.player2_timer.active_checkpoint_count());
+                self.player2_timer.load_best_lap_reference(
+                    self.ghost.best_lap_ticks,
+                    &self.ghost.best_splits[..count],
+                );
+            }
             self.p1_won_2p = false;
             self.camera = match self.camera_view {
                 0 => Camera::new_chase(p1_pos, track.start_heading),
@@ -2719,10 +2739,15 @@ impl ArduracerGame {
             // fresh recording: without this the "ghost" was only ever
             // the opening seconds of lap 1.
             let lap_ticks = self.timer.last_completed_lap_ticks;
-            let is_record = lap_ticks != 0 && lap_ticks == self.timer.best_lap_ticks;
-            self.ghost.finish_lap(lap_ticks, is_record);
+            let is_record =
+                lap_ticks != 0 && (!self.ghost.has_ghost || lap_ticks < self.ghost.best_lap_ticks);
+            let split_count = (track.checkpoint_count as usize).min(self.timer.best_splits.len());
+            self.ghost
+                .finish_lap(lap_ticks, is_record, &self.timer.best_splits[..split_count]);
             if is_record {
-                self.ghost.save_to_card_block(&mut self.memcard.block);
+                if self.ghost.save_to_card_block(&mut self.memcard.block) {
+                    self.memcard.mark_dirty();
+                }
                 self.audio
                     .sfx
                     .play_announcer(crate::audio::AnnouncerClip::NewRecord);
@@ -2856,8 +2881,16 @@ impl ArduracerGame {
                     .record_lap(self.current_track_idx, effective_best, medal as u8);
                 // Every scored lap already promoted itself; this only
                 // closes out the in-progress final lap.
-                self.ghost.finish_lap(effective_best, false);
-                self.ghost.save_to_card_block(&mut self.memcard.block);
+                let split_count =
+                    (track.checkpoint_count as usize).min(self.timer.best_splits.len());
+                self.ghost.finish_lap(
+                    effective_best,
+                    false,
+                    &self.timer.best_splits[..split_count],
+                );
+                if self.ghost.save_to_card_block(&mut self.memcard.block) {
+                    self.memcard.mark_dirty();
+                }
             }
             // Persist the record before leaving the race screen.
             if self.memcard.is_dirty {

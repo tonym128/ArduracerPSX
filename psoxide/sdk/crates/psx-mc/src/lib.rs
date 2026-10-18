@@ -217,4 +217,7 @@ impl<B: Block> Card<B> {
 /// ```
 pub(crate) const CONTAINER_MAGIC: [u8; 4] = *b"PMC1";
 pub(crate) const CONTAINER_LEN: usize = 16;
+/// Largest raw save payload that fits in one block, accounting for the
+/// container header and the title/icon frames in the first block.
+pub const MAX_SINGLE_BLOCK_PAYLOAD: usize = fs::FIRST_BLOCK_CAP - CONTAINER_LEN;
 pub(crate) const FLAG_COMPRESSED: u8 = 1 << 0;

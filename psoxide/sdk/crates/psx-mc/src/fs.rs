@@ -54,7 +54,7 @@ const LINK_NONE: u16 = 0xFFFF;
 /// Payload frames in a file's first block (title + icon consume 2 frames).
 const FIRST_BLOCK_FRAMES: usize = FRAMES_PER_BLOCK - 2;
 /// Payload bytes in a file's first block.
-const FIRST_BLOCK_CAP: usize = FIRST_BLOCK_FRAMES * FRAME_SIZE; // 7936
+pub(crate) const FIRST_BLOCK_CAP: usize = FIRST_BLOCK_FRAMES * FRAME_SIZE; // 7936
 /// Payload bytes in a continuation block.
 const BLOCK_CAP: usize = FRAMES_PER_BLOCK * FRAME_SIZE; // 8192
 
