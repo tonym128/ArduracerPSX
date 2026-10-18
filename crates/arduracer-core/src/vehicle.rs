@@ -3190,7 +3190,10 @@ mod tests {
             car.tick(boost_input, SurfaceType::Tarmac);
         }
         assert_eq!(car.nitro_charge, 0);
-        assert!(car.is_boost_disabled(), "fully exhausted boost must be disabled");
+        assert!(
+            car.is_boost_disabled(),
+            "fully exhausted boost must be disabled"
+        );
         assert!(car.nitro_depleted);
 
         // 3. Keep holding boost input while it recharges.

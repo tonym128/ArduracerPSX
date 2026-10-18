@@ -256,7 +256,8 @@ impl PauseMenu {
             match self.selected_idx {
                 ITEM_RESUME => PauseChoice::Resume,
                 ITEM_RESTART => PauseChoice::RestartRace,
-                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO | ITEM_METRICS | ITEM_CONTROLS | ITEM_SPLIT => {
+                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO | ITEM_METRICS
+                | ITEM_CONTROLS | ITEM_SPLIT => {
                     if changed {
                         PauseChoice::Graphics(self.values)
                     } else {

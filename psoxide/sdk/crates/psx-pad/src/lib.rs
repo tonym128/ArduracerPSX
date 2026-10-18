@@ -153,7 +153,10 @@ impl PadMode {
     /// `true` when the controller is currently reporting stick bytes.
     #[inline]
     pub const fn has_sticks(self) -> bool {
-        matches!(self, Self::Analog | Self::Config | Self::NeGcon | Self::Jogcon)
+        matches!(
+            self,
+            Self::Analog | Self::Config | Self::NeGcon | Self::Jogcon
+        )
     }
 }
 
@@ -920,11 +923,7 @@ unsafe fn poll_once_timed(port2: bool, setup_spins: u32, interbyte_spins: u32) -
             mode = PadMode::Unknown;
         }
         let read_sticks = analog && mode != PadMode::Unknown;
-        let (small_motor, large_motor) = if !port2 {
-            PORT1_MOTORS
-        } else {
-            PORT2_MOTORS
-        };
+        let (small_motor, large_motor) = if !port2 { PORT1_MOTORS } else { PORT2_MOTORS };
         let b0 = exchange_delayed(if small_motor { 0x01 } else { 0x00 }, interbyte_spins);
         i += 1;
         let b1 = exchange_delayed(large_motor, interbyte_spins);

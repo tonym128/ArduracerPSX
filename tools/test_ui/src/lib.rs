@@ -2321,10 +2321,10 @@ mod extended_view_distance_tests {
         // Heading 0 faces north (-Y).
         // Depth = fwd + M7_Z0 (120).
         let pos_near = Vec2::new(Fixed::from_int(320), Fixed::from_int(140)); // dy = -100, fwd = 100, depth = 220
-        let pos_mid = Vec2::new(Fixed::from_int(320), Fixed::from_int(40));   // dy = -200, fwd = 200, depth = 320
+        let pos_mid = Vec2::new(Fixed::from_int(320), Fixed::from_int(40)); // dy = -200, fwd = 200, depth = 320
         let pos_far = Vec2::new(Fixed::from_int(320), Fixed::from_int(-260)); // dy = -500, fwd = 500, depth = 620
         let pos_horizon = Vec2::new(Fixed::from_int(320), Fixed::from_int(-1500)); // dy = -1740, depth = 1860
-        let pos_behind = Vec2::new(Fixed::from_int(320), Fixed::from_int(300));  // behind camera (z_q4 < near)
+        let pos_behind = Vec2::new(Fixed::from_int(320), Fixed::from_int(300)); // behind camera (z_q4 < near)
 
         let y_near = cam.vehicle_screen_y(pos_near);
         let y_mid = cam.vehicle_screen_y(pos_mid);
@@ -2340,7 +2340,10 @@ mod extended_view_distance_tests {
 
         // Farther vehicles must have smaller screen Y (closer to horizon / higher on screen)
         // so painter's algorithm sorts them back-to-front
-        assert!(y_horizon < y_far, "horizon vehicle must be above far vehicle");
+        assert!(
+            y_horizon < y_far,
+            "horizon vehicle must be above far vehicle"
+        );
         assert!(y_far < y_mid, "far vehicle must be above mid vehicle");
         assert!(y_mid < y_near, "mid vehicle must be above near vehicle");
 
@@ -4678,16 +4681,19 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         assert!(track_top < 140);
 
         // Projected point on ground at (x=0, z=z_far) should match m7_track_top
-        let far_zq4 = (cam.z_far << 4) as i32;
+        let far_zq4 = cam.z_far << 4;
         let (_sx, sy) = cam.project_cam(0, far_zq4);
-        assert_eq!(track_top, sy, "m7_track_top must equal projected y at far clipping plane");
+        assert_eq!(
+            track_top, sy,
+            "m7_track_top must equal projected y at far clipping plane"
+        );
 
         // Compressed format extended view distance
         cam.z_far = 560;
         let comp_track_top = cam.m7_track_top();
         assert!(comp_track_top > 60);
         assert!(comp_track_top < track_top);
-        let comp_far_zq4 = (cam.z_far << 4) as i32;
+        let comp_far_zq4 = cam.z_far << 4;
         let (_sx, comp_sy) = cam.project_cam(0, comp_far_zq4);
         assert_eq!(comp_track_top, comp_sy);
 
@@ -4707,7 +4713,7 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         let mut cam = Camera::new_chase(Vec2::new(Fixed::ZERO, Fixed::ZERO), 0);
 
         // 1P Full Screen mode: viewport is 240 px tall
-        let v_h = cam.viewport_h as i16;
+        let v_h = cam.viewport_h;
         assert_eq!(v_h, 240);
         let track_top = cam.m7_track_top();
         let roll = 0i16;
@@ -4730,11 +4736,10 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
 
         // 2P Horizontal Split mode: viewport is 118 px tall
         cam.set_split_mode(0, 1);
-        let split_vh = cam.viewport_h as i16;
+        let split_vh = cam.viewport_h;
         assert_eq!(split_vh, 118);
         let split_top = cam.m7_track_top();
         let split_skirt = (split_vh - split_top).max(0) as u16;
         assert_eq!(split_top + split_skirt as i16, split_vh);
     }
 }
-

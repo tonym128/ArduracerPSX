@@ -764,10 +764,3 @@ fn the_synthetic_grids_differ_only_by_the_wall() {
         "the flat grid must have no solid tiles"
     );
 }
-
-
-
-
-
-
-

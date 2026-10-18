@@ -184,7 +184,7 @@ fn render_car_mode7_3d(
     let Some((center_ground, z_q4)) = proj_z(0, 0, 0) else {
         return;
     };
-    let v_h = camera.viewport_h as i16;
+    let v_h = camera.viewport_h;
     if !(-60..=(crate::gpu::camera::SCREEN_W + 60)).contains(&center_ground.0)
         || !(-60..=(v_h + 60)).contains(&center_ground.1)
     {
@@ -269,13 +269,7 @@ fn render_car_mode7_3d(
             let c_rl = ((p_fl.0 + p_rl.0 * 2) / 3, (p_fl.1 + p_rl.1 * 2) / 3);
             let c_rr = ((p_fr.0 + p_rr.0 * 2) / 3, (p_fr.1 + p_rr.1 * 2) / 3);
             if (c_fr.0 - c_fl.0).abs() >= 1 || (c_rl.1 - c_fl.1).abs() >= 1 {
-                draw_quad(
-                    [c_fl, c_fr, c_rl, c_rr],
-                    45,
-                    80,
-                    120,
-                    layer,
-                );
+                draw_quad([c_fl, c_fr, c_rl, c_rr], 45, 80, 120, layer);
             }
 
             // 4. Illuminated Brake Lights under braking/drifting
@@ -305,7 +299,12 @@ fn render_car_mode7_3d(
             let cx = center_ground.0;
             let cy = center_ground.1;
             draw_quad(
-                [(cx - 1, cy - 1), (cx + 1, cy - 1), (cx - 1, cy + 1), (cx + 1, cy + 1)],
+                [
+                    (cx - 1, cy - 1),
+                    (cx + 1, cy - 1),
+                    (cx - 1, cy + 1),
+                    (cx + 1, cy + 1),
+                ],
                 base_col.0,
                 base_col.1,
                 base_col.2,

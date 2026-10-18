@@ -370,7 +370,7 @@ impl Camera {
         let f = self.m7_focal();
         let k16 = ((M7_K * 16 / M7_FOCAL) * f * self.viewport_h as i32) / (SCREEN_H as i32);
         let horizon = (self.m7_horizon() * self.viewport_h as i32) / (SCREEN_H as i32);
-        let far_z = (self.z_far.max(100) << 4) as i32;
+        let far_z = self.z_far.max(100) << 4;
         clamp_i16(horizon + k16 / far_z)
     }
 

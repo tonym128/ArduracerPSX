@@ -211,13 +211,7 @@ impl ResultsScreen {
             (190, 25, 45)
         };
         gpu::draw_rect_flat(40, 156, 240, 22, btn_col.0, btn_col.1, btn_col.2);
-        draw_text(
-            85,
-            163,
-            "PRESS ANY KEY TO CONTINUE",
-            (255, 255, 255),
-            1,
-        );
+        draw_text(85, 163, "PRESS ANY KEY TO CONTINUE", (255, 255, 255), 1);
 
         draw_text(
             42,
@@ -226,13 +220,7 @@ impl ResultsScreen {
             (130, 150, 170),
             1,
         );
-        draw_text(
-            112,
-            198,
-            "CIRCLE: MAIN MENU",
-            (130, 150, 170),
-            1,
-        );
+        draw_text(112, 198, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
     }
 
     fn render_grand_prix(&self, champ: &ChampionshipSession) {
@@ -361,13 +349,7 @@ impl ResultsScreen {
             (190, 25, 45)
         };
         gpu::draw_rect_flat(26, 164, 268, 22, btn_col.0, btn_col.1, btn_col.2);
-        draw_text(
-            85,
-            171,
-            "PRESS ANY KEY TO CONTINUE",
-            (255, 255, 255),
-            1,
-        );
+        draw_text(85, 171, "PRESS ANY KEY TO CONTINUE", (255, 255, 255), 1);
 
         draw_text(
             42,
@@ -376,12 +358,6 @@ impl ResultsScreen {
             (130, 150, 170),
             1,
         );
-        draw_text(
-            112,
-            202,
-            "CIRCLE: MAIN MENU",
-            (130, 150, 170),
-            1,
-        );
+        draw_text(112, 202, "CIRCLE: MAIN MENU", (130, 150, 170), 1);
     }
 }

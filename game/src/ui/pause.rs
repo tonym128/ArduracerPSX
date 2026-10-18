@@ -91,9 +91,7 @@ impl PauseMenu {
             ),
             (
                 "2P SPLIT",
-                Some(crate::ui::settings::split_label(
-                    self.values().split_mode,
-                )),
+                Some(crate::ui::settings::split_label(self.values().split_mode)),
             ),
             ("QUIT TO MENU", None),
         ];

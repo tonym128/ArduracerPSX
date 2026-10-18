@@ -171,7 +171,6 @@ pub fn render_hud<const N: usize>(
 ) {
     let is_freeroam = track.checkpoint_count == 0;
 
-
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
     if is_freeroam {
         gpu::draw_rect_flat(8, 6, 88, 38, 14, 16, 24);
@@ -639,7 +638,12 @@ pub fn render_replay_hud(track_name: &str, replay_tick: u32, total_ticks: u32, c
 
 /// Formerly rendered flashing radial lines during Nitro / Turbo; removed per visual styling preference.
 #[inline(always)]
-pub fn render_speed_lines(_speed_raw: i32, _nitro_ticks: u16, _super_boost_ticks: u16, _ticks: u32) {
+pub fn render_speed_lines(
+    _speed_raw: i32,
+    _nitro_ticks: u16,
+    _super_boost_ticks: u16,
+    _ticks: u32,
+) {
     // Flashing lines removed per user styling preference.
 }
 
@@ -745,16 +749,37 @@ pub fn render_split_hud(
         gpu::draw_rect_flat(bx + 1, by + 1, 146, 20, 22, 26, 36);
 
         // Player Badge
-        gpu::draw_rect_flat(bx + 3, by + 3, 20, 14, badge_color.0, badge_color.1, badge_color.2);
+        gpu::draw_rect_flat(
+            bx + 3,
+            by + 3,
+            20,
+            14,
+            badge_color.0,
+            badge_color.1,
+            badge_color.2,
+        );
         draw_text((bx + 6) as u16, (by + 6) as u16, p_str, (255, 255, 255), 1);
 
         // Lap & Speed
-        blit(&lap_buf, (bx + 26) as u16, (by + 6) as u16, (255, 220, 40), 1);
-        blit(&speed_buf, (bx + 54) as u16, (by + 6) as u16, (240, 240, 250), 1);
+        blit(
+            &lap_buf,
+            (bx + 26) as u16,
+            (by + 6) as u16,
+            (255, 220, 40),
+            1,
+        );
+        blit(
+            &speed_buf,
+            (bx + 54) as u16,
+            (by + 6) as u16,
+            (240, 240, 250),
+            1,
+        );
 
         // Mini Nitro
         gpu::draw_rect_flat(bx + 104, by + 7, 40, 6, 14, 16, 24);
-        let nitro_w = ((player.nitro_charge as i32 * 38) / NITRO_MAX_TICKS as i32).clamp(0, 38) as u16;
+        let nitro_w =
+            ((player.nitro_charge as i32 * 38) / NITRO_MAX_TICKS as i32).clamp(0, 38) as u16;
         if nitro_w > 0 {
             let (nr, ng, nb) = if player.is_boost_disabled() {
                 (180, 40, 30)
@@ -774,16 +799,37 @@ pub fn render_split_hud(
         gpu::draw_rect_flat(bx + 1, by + 1, 146, 20, 22, 26, 36);
 
         // Player Badge
-        gpu::draw_rect_flat(bx + 3, by + 3, 20, 14, badge_color.0, badge_color.1, badge_color.2);
+        gpu::draw_rect_flat(
+            bx + 3,
+            by + 3,
+            20,
+            14,
+            badge_color.0,
+            badge_color.1,
+            badge_color.2,
+        );
         draw_text((bx + 6) as u16, (by + 6) as u16, p_str, (255, 255, 255), 1);
 
         // Lap & Speed
-        blit(&lap_buf, (bx + 26) as u16, (by + 6) as u16, (255, 220, 40), 1);
-        blit(&speed_buf, (bx + 54) as u16, (by + 6) as u16, (240, 240, 250), 1);
+        blit(
+            &lap_buf,
+            (bx + 26) as u16,
+            (by + 6) as u16,
+            (255, 220, 40),
+            1,
+        );
+        blit(
+            &speed_buf,
+            (bx + 54) as u16,
+            (by + 6) as u16,
+            (240, 240, 250),
+            1,
+        );
 
         // Mini Nitro
         gpu::draw_rect_flat(bx + 104, by + 7, 40, 6, 14, 16, 24);
-        let nitro_w = ((player.nitro_charge as i32 * 38) / NITRO_MAX_TICKS as i32).clamp(0, 38) as u16;
+        let nitro_w =
+            ((player.nitro_charge as i32 * 38) / NITRO_MAX_TICKS as i32).clamp(0, 38) as u16;
         if nitro_w > 0 {
             let (nr, ng, nb) = if player.is_boost_disabled() {
                 (180, 40, 30)
@@ -826,7 +872,8 @@ pub fn render_split_hud(
             gpu::draw_rect_flat(219, 9, fill_w, 4, bar_col.0, bar_col.1, bar_col.2);
         }
         gpu::draw_rect_flat(218, 16, 90, 4, 14, 16, 24);
-        let nitro_w = ((player.nitro_charge as i32 * 88) / NITRO_MAX_TICKS as i32).clamp(0, 88) as u16;
+        let nitro_w =
+            ((player.nitro_charge as i32 * 88) / NITRO_MAX_TICKS as i32).clamp(0, 88) as u16;
         if nitro_w > 0 {
             let (nr, ng, nb) = if player.is_boost_disabled() {
                 (180, 40, 30)
@@ -837,4 +884,3 @@ pub fn render_split_hud(
         }
     }
 }
-
