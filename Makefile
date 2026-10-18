@@ -318,7 +318,7 @@ clippy-host: require-sdk
 # warnings listed in the audit, and that is the point -- they are the reason
 # `game/src` was unchecked.
 .PHONY: clippy-game
-clippy-game: require-sdk
+clippy-game: require-sdk title-background
 	@echo "Running clippy on the bare-metal game crate (bin target only)..."
 	@if [ -f "game/Cargo.toml" ]; then \
 		( cd $(GAME_DIR) && cargo clippy --release -- -D warnings ) || exit 1; \

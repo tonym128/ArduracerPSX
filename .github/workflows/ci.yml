@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install title image cooking tools
+        run: sudo apt-get update && sudo apt-get install -y python3-pil
+
       - name: Check the vendored PSoXide SDK is present
         # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
         # front so a partial checkout fails with one line rather than a cargo
@@ -70,6 +73,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+
+      - name: Install title image cooking tools
+        run: sudo apt-get update && sudo apt-get install -y python3-pil
 
       - name: Check the vendored PSoXide SDK is present
         # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
