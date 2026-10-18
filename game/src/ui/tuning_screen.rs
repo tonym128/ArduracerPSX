@@ -169,7 +169,7 @@ impl TuningScreen {
             ("TOP SPEED", self.menu.tuning.top_speed),
             ("ACCELERATION", self.menu.tuning.acceleration),
             ("HANDLING", self.menu.tuning.handling),
-            ("DRIFT GRIP", self.menu.tuning.drift_stability),
+            ("DRIFT STAB.", self.menu.tuning.drift_stability),
             ("GEARING RATIO", self.menu.tuning.gearing),
         ];
 
