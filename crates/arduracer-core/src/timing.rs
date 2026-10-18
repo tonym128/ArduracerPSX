@@ -339,6 +339,8 @@ pub struct LapTimer<const MAX_CHECKPOINTS: usize> {
     pub current_lap: u8,
     pub target_laps: u8,
     pub current_lap_ticks: u32,
+    /// Total elapsed race ticks across all laps, excluding countdown and pause time.
+    pub total_race_ticks: u32,
     /// Best lap recorded so far, or [`NO_BEST_LAP`] if none is plausible yet.
     ///
     /// Prefer [`LapTimer::best_lap_ticks`] (an `Option`) or
@@ -440,6 +442,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             current_lap: 1,
             target_laps: TOTAL_LAPS,
             current_lap_ticks: 0,
+            total_race_ticks: 0,
             best_lap_ticks: NO_BEST_LAP,
             last_completed_lap_ticks: 0,
             total_checkpoints: count as u8,
@@ -564,6 +567,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
     pub fn tick(&mut self) {
         if self.is_running && !self.is_finished {
             self.current_lap_ticks = self.current_lap_ticks.saturating_add(1);
+            self.total_race_ticks = self.total_race_ticks.saturating_add(1);
         }
         self.split_banner_ticks = self.split_banner_ticks.saturating_sub(1);
     }
@@ -574,6 +578,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
         self.is_finished = false;
         self.current_lap = 1;
         self.current_lap_ticks = 0;
+        self.total_race_ticks = 0;
         self.checkpoint_mask = 0;
         self.current_splits = [0; MAX_CHECKPOINTS];
         self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];
@@ -1047,6 +1052,23 @@ mod tests {
             None => panic!("a lap at the floor was rejected"),
         };
         assert!(recorded >= MIN_PLAUSIBLE_LAP_TICKS);
+    }
+
+    #[test]
+    fn total_race_time_accumulates_across_laps_and_resets_for_a_new_race() {
+        let mut t = four_gate_timer::<4>().with_target_laps(2);
+        full_lap(&mut t, 60);
+        assert_eq!(t.current_lap_ticks, 0);
+        assert_eq!(t.total_race_ticks, 240);
+
+        full_lap(&mut t, 90);
+        assert!(t.is_finished);
+        assert_eq!(t.last_completed_lap_ticks, 360);
+        assert_eq!(t.total_race_ticks, 600);
+
+        t.start();
+        assert_eq!(t.current_lap_ticks, 0);
+        assert_eq!(t.total_race_ticks, 0);
     }
 
     #[test]

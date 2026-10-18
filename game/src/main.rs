@@ -2662,9 +2662,9 @@ impl ArduracerGame {
                     }
                 };
                 let total_ticks = if p1_won {
-                    self.timer.current_lap_ticks
+                    self.timer.total_race_ticks
                 } else {
-                    self.player2_timer.current_lap_ticks
+                    self.player2_timer.total_race_ticks
                 };
                 self.state_mgr.results = Some(ResultsScreen::new_2p(
                     best_ticks,
@@ -2844,7 +2844,7 @@ impl ArduracerGame {
             };
             self.state_mgr.results = Some(ResultsScreen::new(
                 display_best,
-                self.timer.current_lap_ticks,
+                self.timer.total_race_ticks,
                 track,
                 player_rank,
                 is_gp,
