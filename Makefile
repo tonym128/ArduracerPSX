@@ -323,31 +323,19 @@ clippy-game: require-sdk
 
 test: require-sdk levels-bin
 	@echo "Running host-side tests in crates/arduracer-core..."
-	@if [ -f "crates/arduracer-core/Cargo.toml" ]; then \
-		cargo test --manifest-path crates/arduracer-core/Cargo.toml || exit 1; \
-	fi
+	python3 tools/run_test_suite.py crates/arduracer-core/Cargo.toml
 	@echo "Running test_game_logic harness..."
-	@if [ -f "tools/test_game_logic/Cargo.toml" ]; then \
-		cargo run --manifest-path tools/test_game_logic/Cargo.toml || exit 1; \
-	fi
+	cargo run --manifest-path tools/test_game_logic/Cargo.toml
 	@echo "Running memory card persistence suite..."
-	@if [ -f "tools/test_memcard/Cargo.toml" ]; then \
-		cargo test --manifest-path tools/test_memcard/Cargo.toml || exit 1; \
-	fi
+	python3 tools/run_test_suite.py tools/test_memcard/Cargo.toml
 	@echo "Running UI state-machine suite..."
-	@if [ -f "tools/test_ui/Cargo.toml" ]; then \
-		cargo test --manifest-path tools/test_ui/Cargo.toml || exit 1; \
-	fi
+	python3 tools/run_test_suite.py tools/test_ui/Cargo.toml
 	@echo "Running audio policy suite..."
 	@echo "(race-voice gating for pause/results/menus, menu navigation cues)"
-	@if [ -f "tools/test_audio/Cargo.toml" ]; then \
-		cargo test --manifest-path tools/test_audio/Cargo.toml || exit 1; \
-	fi
+	python3 tools/run_test_suite.py tools/test_audio/Cargo.toml
 	@echo "Running playtest invariant suite..."
 	@echo "(AI obstacle avoidance, championship progression, interior-wall exit)"
-	@if [ -f "tools/playtest/Cargo.toml" ]; then \
-		cargo test --manifest-path tools/playtest/Cargo.toml || exit 1; \
-	fi
+	python3 tools/run_test_suite.py tools/playtest/Cargo.toml
 
 # Simulates real laps on all 24 circuits with the real core physics.
 # This is the gate that would have caught the unplayable-lap regressions.

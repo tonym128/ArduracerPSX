@@ -263,6 +263,10 @@ fn main() {
     println!("  Summary: {}/{} tests passed", passed, total);
     println!("============================================================");
 
+    if total == 0 {
+        eprintln!("ERROR: game-logic harness registered zero tests");
+        std::process::exit(2);
+    }
     if passed != total {
         std::process::exit(1);
     }
