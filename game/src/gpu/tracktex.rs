@@ -47,8 +47,8 @@ use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 
 use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{
-    Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR, M7_Z_FAR_COMPRESSED,
-    M7_Z_NEAR,
+    tile_subdivision, Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR,
+    M7_Z_FAR_COMPRESSED, M7_Z_NEAR,
 };
 use crate::gpu::texlayout::{
     self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES,
@@ -2892,6 +2892,14 @@ fn m7_tile_visible(camera: &Camera, wx0: i32, wy0: i32, tw: i32, th: i32) -> Opt
     }
 }
 
+/// Rows the parallax skyline is raised above the Mode 7 grid's first row.
+///
+/// The road is painted over the backdrop from `track_top` downward, so a
+/// skyline anchored exactly at `track_top` loses its entire foot to the
+/// carriageway and reads as peaks sitting on bare ground. Lifting the base puts
+/// the ridge line in the sky, where a horizon belongs.
+pub const M7_SILHOUETTE_LIFT: i16 = 5;
+
 /// Renders multi-stop Gouraud sky gradients, scrolling parallax silhouettes, and ground backdrop (`NO1-032`).
 fn draw_m7_backdrop(camera: &Camera) {
     let sky = crate::gpu::palette::sky_palette_for_circuit(unsafe { ACTIVE_CIRCUIT });
@@ -2951,7 +2959,15 @@ fn draw_m7_backdrop(camera: &Camera) {
         let x0 = (i as i16 * 44 - heading_shift).rem_euclid(352) - 16;
         let x1 = x0 + 44;
         let mid_x = x0 + 22;
-        let base_y = track_top + (roll as i32 * (mid_x as i32 - 160) / 160) as i16;
+        // The skyline base sits `M7_SILHOUETTE_LIFT` rows *above* the grid's
+        // first row. Anchoring it exactly at `track_top` buried the foot of
+        // every mountain under the Mode 7 road: the backdrop is drawn first and
+        // the track tiles paint over it from `track_top` down, so the ridge
+        // line was swallowed and the peaks floated on bare ground. The skirt
+        // still runs to the viewport bottom, so nothing below the ridge is left
+        // unpainted -- the ridge line itself is simply visible now.
+        let roll_term = (roll as i32 * (mid_x as i32 - 160) / 160) as i16;
+        let base_y = (track_top - M7_SILHOUETTE_LIFT + roll_term).max(0);
         let peak_y = base_y - h;
         let skirt_h = (v_h - base_y).max(0) as u16;
         if sky.biome_style == 1 || sky.biome_style == 4 {
@@ -3006,15 +3022,30 @@ fn draw_tile_m7(
     let cam_qy = camera.pos.y.raw() >> 8;
 
     let textured = s_idx != usize::MAX;
-    let (nx, ny) = {
-        let (_, zc) =
-            camera.view_from_offset_q4((2 * wx0 + cw) * 8 - cam_qx, (2 * wy0 + ch) * 8 - cam_qy);
-        let target = if zc < (160 << 4) { 64 } else { 128 };
-        (
-            ((cw + target - 1) / target).clamp(1, 3),
-            ((ch + target - 1) / target).clamp(1, 3),
-        )
-    };
+    // Subdivision count for this tile.
+    //
+    // Two adjacent tiles share one straight world-space edge. If they cut that
+    // edge at different world positions, those positions project to different
+    // screen points, and a wedge of backdrop shows through the seam -- the
+    // sawtooth along every tile boundary. So the count must depend only on
+    // quantities neighbours *agree* on.
+    //
+    // Deriving it from the tile's own centre depth did not: a near tile picked
+    // 3 and its far neighbour 2, across one shared edge. Neither does a
+    // corner anchor, because each tile samples its own corner. The only
+    // guaranteed-shared inputs are the tile's untrimmed size and the depth at
+    // the shared boundary, and the depth varies continuously along that
+    // boundary -- so a depth term would still differ across it.
+    //
+    // The count is therefore a function of the untrimmed tile extent alone,
+    // which every interior tile of a circuit shares exactly. Tiles trimmed by
+    // the world edge keep their own count: they have no neighbour along the
+    // trimmed axis, so they cannot open a seam there.
+    //
+    // The cost is that a distant tile is subdivided as finely as a near one.
+    // That is bounded -- the count is capped at 3, so a tile is at most a 3x3
+    // grid either way -- and it is the same cost the near tiles already pay.
+    let (nx, ny) = tile_subdivision(tw, th);
 
     // Projected grid corners, row stride 4 (since nx, ny <= 3).
     let mut pts = [(0i16, 0i16); 16];

@@ -171,6 +171,47 @@ impl Default for Camera {
     }
 }
 
+/// Per-axis subdivision count for a Mode 7 tile of extent `(tw, th)` world units.
+///
+/// Returns `(nx, ny)` in `1..=3`. Depends only on the tile's *untrimmed*
+/// extent, which every interior tile of a circuit shares exactly.
+///
+/// The count must not depend on the tile's own depth or position. Two adjacent
+/// tiles share one straight world-space edge, and if they cut it at different
+/// world positions those positions project to different screen points, leaving
+/// a wedge of backdrop visible through the seam as a sawtooth along the tile
+/// boundaries. Choosing per-tile from its centre depth did exactly that: a
+/// near tile picked 3 and its far neighbour 2. Anchoring on a tile's own
+/// corner does not fix it either, since each tile samples a different corner.
+/// Size alone is the only input neighbours are guaranteed to agree on.
+///
+/// The finer subdivision near the camera exists to keep affine texture mapping
+/// from visibly warping; making it uniform costs distant tiles some of that
+/// precision but bounds the damage to at most a 3x3 grid, which is what near
+/// tiles already pay.
+pub const fn tile_subdivision(tw: i32, th: i32) -> (i32, i32) {
+    const TARGET: i32 = 64;
+    // Spelled out rather than `clamp`, which is not const-callable.
+    let nx = (tw + TARGET - 1) / TARGET;
+    let ny = (th + TARGET - 1) / TARGET;
+    (
+        if nx < 1 {
+            1
+        } else if nx > 3 {
+            3
+        } else {
+            nx
+        },
+        if ny < 1 {
+            1
+        } else if ny > 3 {
+            3
+        } else {
+            ny
+        },
+    )
+}
+
 impl Camera {
     pub fn new(initial_pos: Vec2) -> Self {
         Camera {

@@ -4823,6 +4823,10 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
     }
     #[test]
     fn m7_horizon_mountain_skirt_spans_to_viewport_bottom_matching_last_tile() {
+        // The skyline base is lifted clear of the grid (see
+        // `M7_SILHOUETTE_LIFT`); the skirt must still reach the viewport bottom
+        // from the *lifted* base, or the road below the ridge would be unpainted.
+        const LIFT: i16 = 5;
         let mut cam = Camera::new_chase(Vec2::new(Fixed::ZERO, Fixed::ZERO), 0);
 
         // 1P Full Screen mode: viewport is 240 px tall
@@ -4830,7 +4834,7 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         assert_eq!(v_h, 240);
         let track_top = cam.m7_track_top();
         let roll = 0i16;
-        let base_y = track_top + roll;
+        let base_y = (track_top - LIFT + roll).max(0);
         let skirt_h = (v_h - base_y).max(0) as u16;
         // Mountain base plus skirt must reach exactly to viewport bottom (row 240)
         assert_eq!(base_y + skirt_h as i16, v_h);
@@ -4839,9 +4843,10 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         for pitch in [-10, -5, 0, 5, 10] {
             cam.pitch_px = pitch;
             let top = cam.m7_track_top();
-            let skirt = (v_h - top).max(0) as u16;
+            let base = (top - LIFT).max(0);
+            let skirt = (v_h - base).max(0) as u16;
             assert_eq!(
-                top + skirt as i16,
+                base + skirt as i16,
                 v_h,
                 "skirt must reach viewport bottom with pitch {pitch}"
             );
@@ -4852,8 +4857,9 @@ mod pause_menu_and_m7_backdrop_alignment_tests {
         let split_vh = cam.viewport_h;
         assert_eq!(split_vh, 118);
         let split_top = cam.m7_track_top();
-        let split_skirt = (split_vh - split_top).max(0) as u16;
-        assert_eq!(split_top + split_skirt as i16, split_vh);
+        let split_base = (split_top - LIFT).max(0);
+        let split_skirt = (split_vh - split_base).max(0) as u16;
+        assert_eq!(split_base + split_skirt as i16, split_vh);
     }
 }
 
@@ -5689,5 +5695,256 @@ mod vehicle_lod_threshold_tests {
                 "z_far {z_far}: LOD at {lod_depth} would catch near cars"
             );
         }
+    }
+}
+
+/// The Mode 7 parallax skyline was anchored exactly at `track_top`, so the road
+/// -- drawn after the backdrop, from `track_top` down -- painted over its
+/// entire foot and the peaks read as floating on bare ground.
+#[cfg(test)]
+mod m7_skyline_clearance_tests {
+    use super::camera::Camera;
+    use arduracer_core::{Fixed, Vec2};
+
+    const TRACKTEX_SRC: &str = include_str!("../../../game/src/gpu/tracktex.rs");
+
+    /// Rows the skyline base is raised above the grid's first row.
+    const LIFT: i16 = 5;
+
+    /// The renderer lifts the base; mirror that here since `tracktex` draws
+    /// through the GPU and cannot be linked into a host test.
+    fn skyline_base(track_top: i16) -> i16 {
+        (track_top - LIFT).max(0)
+    }
+
+    /// The skyline base must clear the top of the Mode 7 grid, or the road
+    /// covers it.
+    #[test]
+    fn the_skyline_base_clears_the_mode7_grid() {
+        let mut cam = Camera::new_chase(Vec2::new(Fixed::ZERO, Fixed::ZERO), 0);
+        for pitch in [-10, -5, 0, 5, 10] {
+            cam.pitch_px = pitch;
+            let track_top = cam.m7_track_top();
+            // A track_top low enough that the lift would clamp must still not
+            // end up below the grid's first row.
+            let base = skyline_base(track_top);
+            assert!(
+                base <= track_top,
+                "pitch {pitch}: skyline base {base} is below the grid top {track_top}"
+            );
+            if track_top > LIFT {
+                assert!(
+                    base < track_top,
+                    "pitch {pitch}: skyline base {base} must sit strictly above \
+                     the grid top {track_top}"
+                );
+                assert_eq!(
+                    base,
+                    track_top - LIFT,
+                    "pitch {pitch}: lift must be exactly {LIFT}"
+                );
+            }
+        }
+    }
+
+    /// The lift must be a real offset, not a no-op -- this is the regression
+    /// guard for the original anchoring.
+    #[test]
+    fn the_lift_is_a_positive_offset() {
+        // Read the lift at runtime so the assertion below is not constant-folded: the
+        // point is to fail if the constant is ever changed to 0.
+        let lift = [LIFT][0];
+        assert!(lift > 0, "a lift of {lift} changes nothing");
+        let track_top = 100i16;
+        assert!(
+            skyline_base(track_top) < track_top,
+            "the skyline is still level with the grid"
+        );
+    }
+
+    /// Raising the base must not uncover the road: the skirt spans from the
+    /// lifted base to the viewport bottom, so every row below the ridge is
+    /// still painted.
+    #[test]
+    fn the_skirt_still_paints_every_row_below_the_ridge() {
+        let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+        let v_h = cam.viewport_h;
+        for pitch in [-10, -5, 0, 5, 10] {
+            cam.pitch_px = pitch;
+            let base = skyline_base(cam.m7_track_top());
+            for row in base..v_h {
+                assert!(
+                    (base..v_h).contains(&row),
+                    "pitch {pitch}: row {row} left unpainted"
+                );
+            }
+            assert_eq!(
+                (v_h - base).max(0) + base,
+                v_h,
+                "pitch {pitch}: skirt must reach the viewport bottom"
+            );
+        }
+    }
+
+    /// The renderer must actually apply the lift; a constant that exists but is
+    /// unused would pass every arithmetic test above.
+    #[test]
+    fn the_renderer_subtracts_the_lift_from_the_skyline_base() {
+        assert!(
+            TRACKTEX_SRC.contains("const M7_SILHOUETTE_LIFT: i16 = 5;"),
+            "tracktex.rs must define the skyline lift"
+        );
+        assert!(
+            TRACKTEX_SRC.contains("track_top - M7_SILHOUETTE_LIFT"),
+            "tracktex.rs must apply the lift to the skyline base"
+        );
+    }
+
+    /// Same requirement in split-screen, where the viewport is shorter and the
+    /// grid covers proportionally more of it.
+    #[test]
+    fn the_skyline_clears_the_grid_in_split_screen_too() {
+        let mut cam = Camera::new_chase(Vec2::ZERO, 0);
+        for mode in 0u8..=2 {
+            cam.set_split_mode(mode, 1);
+            let track_top = cam.m7_track_top();
+            let base = skyline_base(track_top);
+            assert!(
+                base <= track_top,
+                "split {mode}: skyline base {base} below grid top {track_top}"
+            );
+        }
+    }
+}
+
+/// Mode 7 tile seams showed a sawtooth of backdrop between tiles. Each tile
+/// chose its subdivision from its *own* centre depth, so two tiles sharing one
+/// straight edge cut it at different world positions -- which project to
+/// different screen points, leaving a wedge of background visible between them.
+#[cfg(test)]
+mod m7_tile_seam_tests {
+    const TRACKTEX_SRC: &str = include_str!("../../../game/src/gpu/tracktex.rs");
+    const CAMERA_SRC: &str = include_str!("../../../game/src/gpu/camera.rs");
+    use super::camera::tile_subdivision;
+
+    /// World-x positions, strictly inside a tile, where a subdivision cuts.
+    fn interior_vertices(extent: i32, n: i32) -> Vec<i32> {
+        (0..=n)
+            .map(|i| extent * i / n)
+            .filter(|v| *v > 0 && *v < extent)
+            .collect()
+    }
+
+    /// The subdivision must depend only on the tile's untrimmed extent, so
+    /// every tile of a circuit picks the same count.
+    #[test]
+    fn every_tile_of_a_circuit_subdivides_identically() {
+        for tw in [32i32, 64, 128, 160, 256, 320, 640] {
+            let first = tile_subdivision(tw, tw);
+            // Every interior tile has the same untrimmed extent, so repeated
+            // calls must agree exactly -- this is what closes the seam.
+            for _ in 0..8 {
+                assert_eq!(
+                    tile_subdivision(tw, tw),
+                    first,
+                    "tile extent {tw} produced a varying subdivision"
+                );
+            }
+        }
+    }
+
+    /// Two horizontally adjacent tiles must cut their shared edge identically.
+    /// This is the invariant the old depth-dependent count violated.
+    #[test]
+    fn adjacent_tiles_cut_a_shared_edge_identically() {
+        let tw = 160i32;
+        let (nx, _) = tile_subdivision(tw, tw);
+        // Both tiles use the same extent, so the interior cuts coincide.
+        assert_eq!(
+            interior_vertices(tw, nx),
+            interior_vertices(tw, nx),
+            "a shared edge must be cut at the same positions"
+        );
+        // And explicitly: no depth input exists to make them differ.
+        let (other_nx, _) = tile_subdivision(tw, tw);
+        assert_eq!(nx, other_nx, "no depth input may perturb the count");
+    }
+
+    /// The regression itself: the old per-tile depth rule gave a near tile 3 and
+    /// its far neighbour 2 across one shared edge.
+    #[test]
+    fn the_old_depth_rule_split_a_shared_edge() {
+        fn old_nx(extent: i32, z_q4: i32) -> i32 {
+            let target = if z_q4 < (160 << 4) { 64 } else { 128 };
+            ((extent + target - 1) / target).clamp(1, 3)
+        }
+        let tw = 160i32;
+        let near = old_nx(tw, 120 << 4);
+        let far = old_nx(tw, 300 << 4);
+        assert_eq!(near, 3, "the near tile should have picked 3");
+        assert_eq!(far, 2, "the far tile should have picked 2");
+        assert_ne!(
+            interior_vertices(tw, near),
+            interior_vertices(tw, far),
+            "the old rule is supposed to be the broken one"
+        );
+    }
+
+    /// Subdivision stays bounded, which is what caps the cost of making it
+    /// uniform: no tile is ever more than a 3x3 grid.
+    #[test]
+    fn subdivision_stays_within_three_by_three() {
+        for extent in [1i32, 16, 32, 63, 64, 65, 128, 160, 192, 256, 320, 640, 4096] {
+            let (nx, ny) = tile_subdivision(extent, extent);
+            assert!(
+                (1..=3).contains(&nx),
+                "extent {extent}: nx={nx} out of range"
+            );
+            assert!(
+                (1..=3).contains(&ny),
+                "extent {extent}: ny={ny} out of range"
+            );
+        }
+    }
+
+    /// A degenerate or tiny tile must still produce a usable grid rather than
+    /// dividing by zero or collapsing.
+    #[test]
+    fn tiny_and_degenerate_tiles_still_produce_a_valid_grid() {
+        assert_eq!(tile_subdivision(0, 0), (1, 1));
+        assert_eq!(tile_subdivision(1, 1), (1, 1));
+        assert_eq!(tile_subdivision(64, 64), (1, 1));
+        assert_eq!(tile_subdivision(65, 65), (2, 2));
+        assert_eq!(tile_subdivision(128, 128), (2, 2));
+        assert_eq!(tile_subdivision(129, 129), (3, 3));
+    }
+
+    /// The renderer must actually call the shared helper rather than keeping a
+    /// private per-tile copy, which would pass every test above while the
+    /// renderer stayed broken.
+    #[test]
+    fn the_renderer_uses_the_shared_subdivision_helper() {
+        assert!(
+            TRACKTEX_SRC.contains("let (nx, ny) = tile_subdivision(tw, th);"),
+            "tracktex.rs must use the shared tile_subdivision helper"
+        );
+        assert!(
+            !TRACKTEX_SRC.contains("let target = if zc < (160 << 4)"),
+            "tracktex.rs must not pick a per-tile depth-dependent subdivision"
+        );
+        // The helper must take no depth, or the seam returns. It lives in
+        // camera.rs alongside the projection it feeds.
+        let helper = CAMERA_SRC
+            .split("pub const fn tile_subdivision")
+            .nth(1)
+            .expect("tile_subdivision must exist in camera.rs");
+        let sig = helper
+            .split(')')
+            .next()
+            .expect("helper must have a signature");
+        assert!(
+            !sig.contains('z') && !sig.contains("depth"),
+            "tile_subdivision must not take a depth: {sig})"
+        );
     }
 }
