@@ -44,6 +44,8 @@ pub struct SettingsValues {
     pub debug_metrics: u8,
     /// 0 = Classic Arcade, 1 = Modern Triggers, 2 = Dual Stick.
     pub input_profile: u8,
+    /// 0 = Horizontal, 1 = Vertical, 2 = Diagonal.
+    pub split_mode: u8,
 }
 
 /// What the player chose from the pause menu.
@@ -106,8 +108,9 @@ const ITEM_VIEW: u8 = 4;
 const ITEM_CD_AUDIO: u8 = 5;
 const ITEM_METRICS: u8 = 6;
 const ITEM_CONTROLS: u8 = 7;
-const ITEM_QUIT: u8 = 8;
-const ITEM_COUNT: u8 = 9;
+const ITEM_SPLIT: u8 = 8;
+const ITEM_QUIT: u8 = 9;
+const ITEM_COUNT: u8 = 10;
 
 /// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
 pub const MAX_TEXTURE_FORMAT: u8 = 6;
@@ -140,6 +143,7 @@ impl PauseMenu {
                 cd_audio: 1,
                 debug_metrics: 0,
                 input_profile: 0,
+                split_mode: 0,
             },
             prev: PauseInput {
                 start: false,
@@ -177,6 +181,7 @@ impl PauseMenu {
             ITEM_CD_AUDIO => (self.values.cd_audio as i32, 3),
             ITEM_METRICS => (self.values.debug_metrics as i32, 4),
             ITEM_CONTROLS => (self.values.input_profile as i32, 3),
+            ITEM_SPLIT => (self.values.split_mode as i32, 3),
             _ => return false,
         };
         let next = (cur + dir).rem_euclid(span) as u8;
@@ -187,6 +192,7 @@ impl PauseMenu {
             ITEM_CD_AUDIO => self.values.cd_audio = next,
             ITEM_METRICS => self.values.debug_metrics = next,
             ITEM_CONTROLS => self.values.input_profile = next,
+            ITEM_SPLIT => self.values.split_mode = next,
             _ => return false,
         }
         next as i32 != cur
@@ -250,7 +256,7 @@ impl PauseMenu {
             match self.selected_idx {
                 ITEM_RESUME => PauseChoice::Resume,
                 ITEM_RESTART => PauseChoice::RestartRace,
-                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO | ITEM_METRICS => {
+                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO | ITEM_METRICS | ITEM_CONTROLS | ITEM_SPLIT => {
                     if changed {
                         PauseChoice::Graphics(self.values)
                     } else {

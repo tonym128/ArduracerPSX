@@ -349,6 +349,14 @@ pub struct ArduracerGame {
     pub attract_cycle: u8,
     /// Synthetic AI autopilot driver used for attract mode demos and profiling.
     pub autopilot: autopilot::Autopilot,
+    /// 2-Player Split-Screen layout mode: 0 = Horizontal, 1 = Vertical, 2 = Diagonal.
+    pub split_mode: u8,
+    /// Finish slowdown countdown ticks after crossing the finish line.
+    pub finish_slowdown: u16,
+    /// Whether the race completion has been recorded and slowdown initiated.
+    pub finish_recorded: bool,
+    /// Edge detection state for controller port 2 buttons.
+    pub prev_pad2_racing: psx_pad::ButtonState,
 }
 
 impl Default for ArduracerGame {
@@ -496,6 +504,10 @@ impl ArduracerGame {
             attract_demo_timer: 0,
             attract_cycle: 0,
             autopilot: autopilot::Autopilot::new(track),
+            split_mode: 0,
+            finish_slowdown: 0,
+            finish_recorded: false,
+            prev_pad2_racing: psx_pad::ButtonState::from_bits(0),
         };
         // Restore the saved graphics settings before anything renders, so the
         // first frame already uses the player's chosen format and pacing rather
@@ -508,6 +520,7 @@ impl ArduracerGame {
                 cd_audio: game.memcard.save_data.cd_audio,
                 debug_metrics: game.debug_metrics,
                 input_profile: game.memcard.save_data.input_profile,
+                split_mode: game.split_mode,
             };
             game.input_mgr.controller.profile = match saved.input_profile {
                 1 => InputProfile::ModernTriggers,
@@ -757,21 +770,21 @@ impl ArduracerGame {
                 2 => Camera::new_rotating(p1_pos, track.start_heading),
                 _ => Camera::new(p1_pos),
             };
-            self.camera.set_split_viewport(true);
+            self.camera.set_split_mode(self.split_mode, 1);
             self.camera2 = match self.camera_view {
                 0 => Camera::new_chase(p2_pos, track.start_heading),
                 2 => Camera::new_rotating(p2_pos, track.start_heading),
                 _ => Camera::new(p2_pos),
             };
-            self.camera2.set_split_viewport(true);
+            self.camera2.set_split_mode(self.split_mode, 2);
         } else {
             self.camera = match self.camera_view {
                 0 => Camera::new_chase(player_pos, track.start_heading),
                 2 => Camera::new_rotating(player_pos, track.start_heading),
                 _ => Camera::new(player_pos),
             };
-            self.camera.set_split_viewport(false);
-            self.camera2.set_split_viewport(false);
+            self.camera.set_split_mode(0, 0);
+            self.camera2.set_split_mode(0, 0);
         }
         self.sync_camera_view_distance();
         self.particles = ParticleSystem::new();
@@ -782,6 +795,8 @@ impl ArduracerGame {
         self.start = StartSequence::new();
         self.paused = false;
         self.show_hud = true;
+        self.finish_slowdown = 0;
+        self.finish_recorded = false;
         self.sim_accumulator = 0;
         self.last_vblank_count = psx_rt::interrupts::vblank_count();
         self.sim_tick_counter = 0;
@@ -836,34 +851,122 @@ impl ArduracerGame {
             self.render_cars_sorted((220, 25, 45));
         } else {
             let target_y = self.fb.buffer_y(self.fb.drawing);
-            // P1 Top Viewport
-            psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
-            psx_gpu_mod::set_draw_offset(0, target_y as i16);
-            render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
-            self.skidmarks.render(&self.camera);
-            self.particles.render(&self.camera);
-            render_car(&self.player, &self.camera, false, (220, 25, 45));
-            render_car(&self.player2, &self.camera, false, (30, 144, 255));
+            match self.split_mode {
+                1 => {
+                    // Vertical Split (Left P1, Right P2)
+                    psx_gpu_mod::set_draw_area(0, target_y, 157, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                    render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
+                    self.skidmarks.render(&self.camera);
+                    self.particles.render(&self.camera);
+                    render_car(&self.player, &self.camera, false, (220, 25, 45));
+                    render_car(&self.player2, &self.camera, false, (30, 144, 255));
 
-            // Divider Bar
-            psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
-            psx_gpu_mod::set_draw_offset(0, target_y as i16);
-            psx_gpu_mod::draw_rect_flat(0, 118, 320, 4, 15, 18, 25);
-            psx_gpu_mod::draw_line_mono(0, 118, 319, 118, 255, 215, 0);
-            psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
+                    // Vertical Divider Bar (X=158..161)
+                    psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                    psx_gpu_mod::draw_rect_flat(158, 0, 4, 240, 15, 18, 25);
+                    psx_gpu_mod::draw_line_mono(158, 0, 158, 239, 255, 215, 0);
+                    psx_gpu_mod::draw_line_mono(161, 0, 161, 239, 255, 215, 0);
+                    for i in 0..12 {
+                        let y = (i * 20) as i16;
+                        let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                        psx_gpu_mod::draw_rect_flat(159, y, 2, 10, r, g, b);
+                    }
 
-            // P2 Bottom Viewport
-            psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
-            psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
-            render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
-            self.skidmarks.render(&self.camera2);
-            self.particles.render(&self.camera2);
-            render_car(&self.player, &self.camera2, false, (220, 25, 45));
-            render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                    // P2 Right Viewport
+                    psx_gpu_mod::set_draw_area(162, target_y, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(162, target_y as i16);
+                    render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
+                    self.skidmarks.render(&self.camera2);
+                    self.particles.render(&self.camera2);
+                    render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                    render_car(&self.player2, &self.camera2, false, (30, 144, 255));
 
-            // Restore full viewport
-            psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
-            psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                    psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                }
+                2 => {
+                    // Diagonal Split (Top-Left P1, Bottom-Right P2) via Hardware Mask Bit
+                    psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+
+                    // Step A: Set bit 15 on P2 triangle
+                    psx_gpu_mod::set_mask_mode(true, false);
+                    psx_gpu_mod::draw_tri_flat([(0, 240), (320, 0), (320, 240)], 0, 0, 0);
+
+                    // Step B: Render P1 (skip if bit 15 == 1, tag drawn pixels with bit 15 = 1)
+                    psx_gpu_mod::set_mask_mode(true, true);
+                    render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
+                    self.skidmarks.render(&self.camera);
+                    self.particles.render(&self.camera);
+                    render_car(&self.player, &self.camera, false, (220, 25, 45));
+                    render_car(&self.player2, &self.camera, false, (30, 144, 255));
+
+                    // Step C: Clear P2 triangle with background color (resets P2 pixels to bit 15 = 0)
+                    psx_gpu_mod::set_mask_mode(false, false);
+                    psx_gpu_mod::draw_tri_flat([(0, 240), (320, 0), (320, 240)], 18, 20, 26);
+
+                    // Step D: Render P2 (skip if bit 15 == 1, draw into P2 region)
+                    psx_gpu_mod::set_mask_mode(false, true);
+                    render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
+                    self.skidmarks.render(&self.camera2);
+                    self.particles.render(&self.camera2);
+                    render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                    render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+
+                    // Step E: Reset mask mode and draw diagonal checkered divider line
+                    psx_gpu_mod::set_mask_mode(false, false);
+                    psx_gpu_mod::draw_line_mono(318, 0, 0, 238, 255, 215, 0);
+                    psx_gpu_mod::draw_line_mono(321, 0, 1, 241, 255, 215, 0);
+                    psx_gpu_mod::draw_line_mono(319, 0, 0, 239, 15, 18, 25);
+                    psx_gpu_mod::draw_line_mono(320, 0, 1, 240, 15, 18, 25);
+                    for i in 0..16 {
+                        let x0 = 320 - (i * 20) as i16;
+                        let y0 = (i * 15) as i16;
+                        let x1 = 320 - ((i + 1) * 20) as i16;
+                        let y1 = ((i + 1) * 15) as i16;
+                        let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                        psx_gpu_mod::draw_line_mono(x0, y0, x1, y1, r, g, b);
+                    }
+                }
+                _ => {
+                    // Horizontal Split (Top P1, Bottom P2)
+                    // P1 Top Viewport
+                    psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                    render_track(self.current_track, &self.camera, self.last_flip_vblank, 1);
+                    self.skidmarks.render(&self.camera);
+                    self.particles.render(&self.camera);
+                    render_car(&self.player, &self.camera, false, (220, 25, 45));
+                    render_car(&self.player2, &self.camera, false, (30, 144, 255));
+
+                    // Divider Bar
+                    psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                    psx_gpu_mod::draw_rect_flat(0, 118, 320, 4, 15, 18, 25);
+                    psx_gpu_mod::draw_line_mono(0, 118, 319, 118, 255, 215, 0);
+                    psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
+                    for i in 0..16 {
+                        let x = (i * 20) as i16;
+                        let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                        psx_gpu_mod::draw_rect_flat(x, 119, 10, 2, r, g, b);
+                    }
+
+                    // P2 Bottom Viewport
+                    psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
+                    render_track(self.current_track, &self.camera2, self.last_flip_vblank, 1);
+                    self.skidmarks.render(&self.camera2);
+                    self.particles.render(&self.camera2);
+                    render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                    render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+
+                    // Restore full viewport
+                    psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                    psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                }
+            }
         }
     }
 
@@ -1556,7 +1659,29 @@ impl ArduracerGame {
                     {
                         self.debug_metrics = (self.debug_metrics + 1) % 4;
                     }
+
+                    if self.finish_recorded && self.finish_slowdown < 105 {
+                        let pad_any = (pad.buttons.bits() & !self.prev_pad_racing.bits()) != 0;
+                        let pad2_any = self.is_2p_mode && {
+                            let p2 = psx_pad::poll_port2();
+                            (p2.buttons.bits() & !self.prev_pad2_racing.bits()) != 0
+                        };
+                        if pad_any || pad2_any {
+                            self.state_mgr.current = GameState::Results;
+                            self.input_mgr.silence();
+                            self.input_mgr2.silence();
+                            self.audio.leave_race();
+                            self.audio.sync_ui_edges(pad.buttons.bits());
+                            self.audio.play_music(7, crate::gpu::tracktex::disc_reader());
+                            self.close_frame();
+                            prof::end_frame();
+                            continue;
+                        }
+                    }
                     self.prev_pad_racing = pad.buttons;
+                    if self.is_2p_mode {
+                        self.prev_pad2_racing = psx_pad::poll_port2().buttons;
+                    }
 
                     // Frame-rate agnostic simulation updates:
                     let ticks_to_run = self.compute_ticks_to_run();
@@ -1694,13 +1819,13 @@ impl ArduracerGame {
                             self.particles.render(&self.camera);
                             render_start_lights(self.start.phase());
                         }
-                        // Speed lines overlay during Nitro / Super Boost / Extreme speed (NO1-036)
-                        crate::gpu::hud_renderer::render_speed_lines(
-                            self.player.speed.raw(),
-                            self.player.boost_ticks,
-                            self.player.super_boost_ticks,
-                            self.timer.current_lap_ticks,
-                        );
+                        if self.finish_recorded {
+                            let pulse = (self.frame_counter >> 2) & 1 == 0;
+                            let banner_bg = if pulse { (220, 35, 55) } else { (180, 25, 45) };
+                            psx_gpu_mod::draw_rect_flat(70, 96, 180, 36, 15, 18, 25);
+                            psx_gpu_mod::draw_rect_flat(72, 98, 176, 32, banner_bg.0, banner_bg.1, banner_bg.2);
+                            crate::ui::font::draw_text(112, 106, "FINISH!", (255, 235, 40), 2);
+                        }
 
                         // i. In-Game HUD overlay (Select hides it for clean screenshots)
                         if self.show_hud {
@@ -1749,64 +1874,203 @@ impl ArduracerGame {
                             self.framerate.vblanks_per_frame(),
                         );
 
-                        // 1. Top Viewport (Player 1)
-                        psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
-                        psx_gpu_mod::set_draw_offset(0, target_y as i16);
-                        render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
-                        crate::gpu::render_track_props(
-                            &self.camera,
-                            track,
-                            if self.current_track_idx < ALL_TRACK_VISUALS.len() {
-                                ALL_TRACK_VISUALS[self.current_track_idx]
-                            } else {
-                                self.current_track_idx
-                            },
-                            self.timer.checkpoint_mask,
-                            Some(&self.start),
-                            self.timer.current_lap_ticks,
-                        );
-                        self.skidmarks.render(&self.camera);
-                        render_car(&self.player, &self.camera, false, (220, 25, 45));
-                        render_car(&self.player2, &self.camera, false, (30, 144, 255));
-                        self.particles.render(&self.camera);
-                        if self.show_hud {
-                            crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45));
-                        }
+                        match self.split_mode {
+                            1 => {
+                                // 1. Left Viewport (Player 1)
+                                psx_gpu_mod::set_draw_area(0, target_y, 157, target_y + 239);
+                                psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                                render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                                crate::gpu::render_track_props(
+                                    &self.camera,
+                                    track,
+                                    if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                        ALL_TRACK_VISUALS[self.current_track_idx]
+                                    } else {
+                                        self.current_track_idx
+                                    },
+                                    self.timer.checkpoint_mask,
+                                    Some(&self.start),
+                                    self.timer.current_lap_ticks,
+                                );
+                                self.skidmarks.render(&self.camera);
+                                render_car(&self.player, &self.camera, false, (220, 25, 45));
+                                render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                                self.particles.render(&self.camera);
+                                if self.show_hud {
+                                    crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45), self.split_mode);
+                                }
 
-                        // 2. Center Checkered Divider Bar (Y=118..121)
-                        psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
-                        psx_gpu_mod::set_draw_offset(0, target_y as i16);
-                        psx_gpu_mod::draw_rect_flat(0, 118, 320, 4, 15, 18, 25);
-                        psx_gpu_mod::draw_line_mono(0, 118, 319, 118, 255, 215, 0);
-                        psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
-                        for i in 0..16 {
-                            let x = (i * 20) as i16;
-                            let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
-                            psx_gpu_mod::draw_rect_flat(x, 119, 10, 2, r, g, b);
-                        }
+                                // 2. Vertical Divider Bar (X=158..161)
+                                psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                                psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                                psx_gpu_mod::draw_rect_flat(158, 0, 4, 240, 15, 18, 25);
+                                psx_gpu_mod::draw_line_mono(158, 0, 158, 239, 255, 215, 0);
+                                psx_gpu_mod::draw_line_mono(161, 0, 161, 239, 255, 215, 0);
+                                for i in 0..12 {
+                                    let y = (i * 20) as i16;
+                                    let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                                    psx_gpu_mod::draw_rect_flat(159, y, 2, 10, r, g, b);
+                                }
 
-                        // 3. Bottom Viewport (Player 2)
-                        psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
-                        psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
-                        render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
-                        crate::gpu::render_track_props(
-                            &self.camera2,
-                            track,
-                            if self.current_track_idx < ALL_TRACK_VISUALS.len() {
-                                ALL_TRACK_VISUALS[self.current_track_idx]
-                            } else {
-                                self.current_track_idx
-                            },
-                            self.player2_timer.checkpoint_mask,
-                            Some(&self.start),
-                            self.player2_timer.current_lap_ticks,
-                        );
-                        self.skidmarks.render(&self.camera2);
-                        render_car(&self.player, &self.camera2, false, (220, 25, 45));
-                        render_car(&self.player2, &self.camera2, false, (30, 144, 255));
-                        self.particles.render(&self.camera2);
-                        if self.show_hud {
-                            crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255));
+                                // 3. Right Viewport (Player 2)
+                                psx_gpu_mod::set_draw_area(162, target_y, 319, target_y + 239);
+                                psx_gpu_mod::set_draw_offset(162, target_y as i16);
+                                render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                                crate::gpu::render_track_props(
+                                    &self.camera2,
+                                    track,
+                                    if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                        ALL_TRACK_VISUALS[self.current_track_idx]
+                                    } else {
+                                        self.current_track_idx
+                                    },
+                                    self.player2_timer.checkpoint_mask,
+                                    Some(&self.start),
+                                    self.player2_timer.current_lap_ticks,
+                                );
+                                self.skidmarks.render(&self.camera2);
+                                render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                                render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                                self.particles.render(&self.camera2);
+                                if self.show_hud {
+                                    crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255), self.split_mode);
+                                }
+                            }
+                            2 => {
+                                // Diagonal Split (Top-Left P1, Bottom-Right P2) via Hardware Mask Bit
+                                psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                                psx_gpu_mod::set_draw_offset(0, target_y as i16);
+
+                                // Step A: Set bit 15 on P2 triangle
+                                psx_gpu_mod::set_mask_mode(true, false);
+                                psx_gpu_mod::draw_tri_flat([(0, 240), (320, 0), (320, 240)], 0, 0, 0);
+
+                                // Step B: Render P1
+                                psx_gpu_mod::set_mask_mode(true, true);
+                                render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                                crate::gpu::render_track_props(
+                                    &self.camera,
+                                    track,
+                                    if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                        ALL_TRACK_VISUALS[self.current_track_idx]
+                                    } else {
+                                        self.current_track_idx
+                                    },
+                                    self.timer.checkpoint_mask,
+                                    Some(&self.start),
+                                    self.timer.current_lap_ticks,
+                                );
+                                self.skidmarks.render(&self.camera);
+                                render_car(&self.player, &self.camera, false, (220, 25, 45));
+                                render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                                self.particles.render(&self.camera);
+                                if self.show_hud {
+                                    crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45), self.split_mode);
+                                }
+
+                                // Step C: Clear P2 triangle with clear color (resets P2 pixels to bit 15 = 0)
+                                psx_gpu_mod::set_mask_mode(false, false);
+                                psx_gpu_mod::draw_tri_flat([(0, 240), (320, 0), (320, 240)], 18, 20, 26);
+
+                                // Step D: Render P2
+                                psx_gpu_mod::set_mask_mode(false, true);
+                                render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                                crate::gpu::render_track_props(
+                                    &self.camera2,
+                                    track,
+                                    if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                        ALL_TRACK_VISUALS[self.current_track_idx]
+                                    } else {
+                                        self.current_track_idx
+                                    },
+                                    self.player2_timer.checkpoint_mask,
+                                    Some(&self.start),
+                                    self.player2_timer.current_lap_ticks,
+                                );
+                                self.skidmarks.render(&self.camera2);
+                                render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                                render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                                self.particles.render(&self.camera2);
+                                if self.show_hud {
+                                    crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255), self.split_mode);
+                                }
+
+                                // Step E: Reset mask mode and draw diagonal checkered divider line
+                                psx_gpu_mod::set_mask_mode(false, false);
+                                psx_gpu_mod::draw_line_mono(318, 0, 0, 238, 255, 215, 0);
+                                psx_gpu_mod::draw_line_mono(321, 0, 1, 241, 255, 215, 0);
+                                psx_gpu_mod::draw_line_mono(319, 0, 0, 239, 15, 18, 25);
+                                psx_gpu_mod::draw_line_mono(320, 0, 1, 240, 15, 18, 25);
+                                for i in 0..16 {
+                                    let x0 = 320 - (i * 20) as i16;
+                                    let y0 = (i * 15) as i16;
+                                    let x1 = 320 - ((i + 1) * 20) as i16;
+                                    let y1 = ((i + 1) * 15) as i16;
+                                    let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                                    psx_gpu_mod::draw_line_mono(x0, y0, x1, y1, r, g, b);
+                                }
+                            }
+                            _ => {
+                                // 1. Top Viewport (Player 1)
+                                psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 117);
+                                psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                                render_track(track, &self.camera, self.last_flip_vblank, max_decode_rows);
+                                crate::gpu::render_track_props(
+                                    &self.camera,
+                                    track,
+                                    if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                        ALL_TRACK_VISUALS[self.current_track_idx]
+                                    } else {
+                                        self.current_track_idx
+                                    },
+                                    self.timer.checkpoint_mask,
+                                    Some(&self.start),
+                                    self.timer.current_lap_ticks,
+                                );
+                                self.skidmarks.render(&self.camera);
+                                render_car(&self.player, &self.camera, false, (220, 25, 45));
+                                render_car(&self.player2, &self.camera, false, (30, 144, 255));
+                                self.particles.render(&self.camera);
+                                if self.show_hud {
+                                    crate::gpu::render_split_hud(&self.player, &self.timer, 1, (220, 25, 45), self.split_mode);
+                                }
+
+                                // 2. Center Checkered Divider Bar (Y=118..121)
+                                psx_gpu_mod::set_draw_area(0, target_y, 319, target_y + 239);
+                                psx_gpu_mod::set_draw_offset(0, target_y as i16);
+                                psx_gpu_mod::draw_rect_flat(0, 118, 320, 4, 15, 18, 25);
+                                psx_gpu_mod::draw_line_mono(0, 118, 319, 118, 255, 215, 0);
+                                psx_gpu_mod::draw_line_mono(0, 121, 319, 121, 255, 215, 0);
+                                for i in 0..16 {
+                                    let x = (i * 20) as i16;
+                                    let (r, g, b) = if (i % 2) == 0 { (255, 255, 255) } else { (30, 30, 30) };
+                                    psx_gpu_mod::draw_rect_flat(x, 119, 10, 2, r, g, b);
+                                }
+
+                                // 3. Bottom Viewport (Player 2)
+                                psx_gpu_mod::set_draw_area(0, target_y + 122, 319, target_y + 239);
+                                psx_gpu_mod::set_draw_offset(0, (target_y + 122) as i16);
+                                render_track(track, &self.camera2, self.last_flip_vblank, max_decode_rows);
+                                crate::gpu::render_track_props(
+                                    &self.camera2,
+                                    track,
+                                    if self.current_track_idx < ALL_TRACK_VISUALS.len() {
+                                        ALL_TRACK_VISUALS[self.current_track_idx]
+                                    } else {
+                                        self.current_track_idx
+                                    },
+                                    self.player2_timer.checkpoint_mask,
+                                    Some(&self.start),
+                                    self.player2_timer.current_lap_ticks,
+                                );
+                                self.skidmarks.render(&self.camera2);
+                                render_car(&self.player, &self.camera2, false, (220, 25, 45));
+                                render_car(&self.player2, &self.camera2, false, (30, 144, 255));
+                                self.particles.render(&self.camera2);
+                                if self.show_hud {
+                                    crate::gpu::render_split_hud(&self.player2, &self.player2_timer, 2, (30, 144, 255), self.split_mode);
+                                }
+                            }
                         }
 
                         // 4. Restore Full Viewport
@@ -1814,6 +2078,13 @@ impl ArduracerGame {
                         psx_gpu_mod::set_draw_offset(0, target_y as i16);
                         if !self.start.accepts_input() {
                             render_start_lights(self.start.phase());
+                        }
+                        if self.finish_recorded {
+                            let pulse = (self.frame_counter >> 2) & 1 == 0;
+                            let banner_bg = if pulse { (220, 35, 55) } else { (180, 25, 45) };
+                            psx_gpu_mod::draw_rect_flat(70, 96, 180, 36, 15, 18, 25);
+                            psx_gpu_mod::draw_rect_flat(72, 98, 176, 32, banner_bg.0, banner_bg.1, banner_bg.2);
+                            crate::ui::font::draw_text(112, 106, "FINISH!", (255, 235, 40), 2);
                         }
                     }
                     {
@@ -1942,6 +2213,12 @@ impl ArduracerGame {
             input.handbrake = false;
             input.nitro = false;
         }
+        if self.finish_recorded {
+            input.throttle = Fixed::ZERO;
+            input.brake = Fixed::from_raw(2500);
+            input.handbrake = false;
+            input.nitro = false;
+        }
 
         // TrackMania Dual Respawn & Instant Restart (NO1-012):
         // - Hold L1 (24 frames): Instant Full Track Restart back to starting grid.
@@ -2034,6 +2311,12 @@ impl ArduracerGame {
                 input2.handbrake = false;
                 input2.nitro = false;
             }
+            if self.finish_recorded {
+                input2.throttle = Fixed::ZERO;
+                input2.brake = Fixed::from_raw(2500);
+                input2.handbrake = false;
+                input2.nitro = false;
+            }
 
             // P2 Respawn
             if self.input_mgr2.controller.instant_restart_triggered {
@@ -2081,28 +2364,26 @@ impl ArduracerGame {
 
             // Check 2P duel completion
             if self.timer.is_finished || self.player2_timer.is_finished {
-                let p1_won = self.timer.is_finished
-                    && (!self.player2_timer.is_finished
-                        || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
-                self.p1_won_2p = p1_won;
-                let best_ticks = if p1_won {
-                    self.timer.best_lap_ticks
-                } else {
-                    self.player2_timer.best_lap_ticks
-                };
-                let total_ticks = if p1_won {
-                    self.timer.current_lap_ticks
-                } else {
-                    self.player2_timer.current_lap_ticks
-                };
-                self.state_mgr.results = Some(ResultsScreen::new_2p(best_ticks, total_ticks, track, p1_won));
-                self.state_mgr.current = GameState::Results;
-                self.input_mgr.silence();
-                self.input_mgr2.silence();
-                self.audio.leave_race();
-                self.audio.sync_ui_edges(pad.buttons.bits());
-                self.audio.play_music(7, crate::gpu::tracktex::disc_reader());
-                return (if p1_won { 1 } else { 2 }, self.last_standings);
+                if !self.finish_recorded {
+                    self.finish_recorded = true;
+                    self.finish_slowdown = 120;
+                    let p1_won = self.timer.is_finished
+                        && (!self.player2_timer.is_finished
+                            || self.timer.current_lap_ticks <= self.player2_timer.current_lap_ticks);
+                    self.p1_won_2p = p1_won;
+                    let best_ticks = if p1_won {
+                        self.timer.best_lap_ticks
+                    } else {
+                        self.player2_timer.best_lap_ticks
+                    };
+                    let total_ticks = if p1_won {
+                        self.timer.current_lap_ticks
+                    } else {
+                        self.player2_timer.current_lap_ticks
+                    };
+                    self.state_mgr.results = Some(ResultsScreen::new_2p(best_ticks, total_ticks, track, p1_won));
+                    self.audio.sfx.play_medal();
+                }
             }
         }
 
@@ -2223,59 +2504,55 @@ impl ArduracerGame {
 
         // Check race completion (single player)
         if !self.is_2p_mode && self.timer.is_finished {
-            if self.current_track_idx == 999 {
-                self.state_mgr.track_editor.track.author_time_ticks = self.timer.best_lap_ticks;
-                self.memcard.save_data.set_custom_track(
-                    self.state_mgr.track_editor.slot,
-                    &self.state_mgr.track_editor.track,
-                );
-                self.memcard.mark_dirty();
-                self.state_mgr
-                    .track_editor
-                    .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
-            } else {
-                let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
-                let medal = if self.timer.target_laps == 1 {
-                    time_medal.max(self.timer.evaluate_platform_medal())
+            if !self.finish_recorded {
+                self.finish_recorded = true;
+                self.finish_slowdown = 120;
+                if self.current_track_idx == 999 {
+                    self.state_mgr.track_editor.track.author_time_ticks = self.timer.best_lap_ticks;
+                    self.memcard.save_data.set_custom_track(
+                        self.state_mgr.track_editor.slot,
+                        &self.state_mgr.track_editor.track,
+                    );
+                    self.memcard.mark_dirty();
+                    self.state_mgr
+                        .track_editor
+                        .set_status("TRACK VALIDATED! AUTHOR TIME SET!");
                 } else {
-                    time_medal
-                };
-                self.memcard.record_lap(
-                    self.current_track_idx,
+                    let time_medal = track.par_times.evaluate_medal(self.timer.best_lap_ticks);
+                    let medal = if self.timer.target_laps == 1 {
+                        time_medal.max(self.timer.evaluate_platform_medal())
+                    } else {
+                        time_medal
+                    };
+                    self.memcard.record_lap(
+                        self.current_track_idx,
+                        self.timer.best_lap_ticks,
+                        medal as u8,
+                    );
+                    // Every scored lap already promoted itself; this only
+                    // closes out the in-progress final lap.
+                    self.ghost.finish_lap(self.timer.best_lap_ticks, false);
+                    self.ghost.save_to_card_block(&mut self.memcard.block);
+                }
+                // Persist the record before leaving the race screen.
+                if self.memcard.is_dirty {
+                    self.memcard.flush();
+                }
+
+                let is_gp = self.state_mgr.championship.is_some();
+                if let Some(ref mut champ) = self.state_mgr.championship {
+                    champ.award_stage_points(standings);
+                }
+
+                self.state_mgr.results = Some(ResultsScreen::new(
                     self.timer.best_lap_ticks,
-                    medal as u8,
-                );
-                // Every scored lap already promoted itself; this only
-                // closes out the in-progress final lap.
-                self.ghost.finish_lap(self.timer.best_lap_ticks, false);
-                self.ghost.save_to_card_block(&mut self.memcard.block);
+                    self.timer.current_lap_ticks,
+                    track,
+                    player_rank,
+                    is_gp,
+                ));
+                self.audio.sfx.play_medal();
             }
-            // Persist the record before leaving the race screen.
-            if self.memcard.is_dirty {
-                self.memcard.flush();
-            }
-
-            let is_gp = self.state_mgr.championship.is_some();
-            if let Some(ref mut champ) = self.state_mgr.championship {
-                champ.award_stage_points(standings);
-            }
-
-            self.state_mgr.results = Some(ResultsScreen::new(
-                self.timer.best_lap_ticks,
-                self.timer.current_lap_ticks,
-                track,
-                player_rank,
-                is_gp,
-            ));
-            self.state_mgr.current = GameState::Results;
-            self.input_mgr.silence();
-            // Cut before the tick below, which would otherwise run
-            // once more this frame and re-latch a live engine volume
-            // over the victory fanfare.
-            self.audio.leave_race();
-            self.audio.sync_ui_edges(pad.buttons.bits());
-            self.audio
-                .play_music(7, crate::gpu::tracktex::disc_reader());
         }
 
         let cleared = self.timer.checkpoints_cleared() as u8;
@@ -2354,6 +2631,20 @@ impl ArduracerGame {
         self.particles.tick();
         self.skidmarks.tick();
 
+        if self.finish_recorded {
+            if self.finish_slowdown > 0 {
+                self.finish_slowdown -= 1;
+            }
+            if self.finish_slowdown == 0 {
+                self.state_mgr.current = GameState::Results;
+                self.input_mgr.silence();
+                self.input_mgr2.silence();
+                self.audio.leave_race();
+                self.audio.sync_ui_edges(pad.buttons.bits());
+                self.audio.play_music(7, crate::gpu::tracktex::disc_reader());
+            }
+        }
+
         (player_rank, standings)
     }
 
@@ -2374,6 +2665,7 @@ impl ArduracerGame {
             || b.pressed_since(prev, psx_pad::button::START)
             || b.pressed_since(prev, psx_pad::button::CIRCLE)
         {
+            self.camera.pitch_px = 0;
             if let Some(ref mut results) = self.state_mgr.results {
                 results.prev_buttons = b.bits();
             }
@@ -2636,6 +2928,17 @@ impl ArduracerGame {
             cd_audio: self.audio.cd_audio,
             debug_metrics: self.debug_metrics,
             input_profile: self.input_mgr.controller.profile as u8,
+            split_mode: self.split_mode,
+        }
+    }
+
+    fn sync_camera_split_mode(&mut self) {
+        if self.is_2p_mode {
+            self.camera.set_split_mode(self.split_mode, 1);
+            self.camera2.set_split_mode(self.split_mode, 2);
+        } else {
+            self.camera.set_split_mode(0, 0);
+            self.camera2.set_split_mode(0, 0);
         }
     }
 
@@ -2766,6 +3069,8 @@ impl ArduracerGame {
             _ => InputProfile::ClassicArcade,
         };
         self.input_mgr2.controller.profile = self.input_mgr.controller.profile;
+        self.split_mode = values.split_mode;
+        self.sync_camera_split_mode();
 
         // Persist unconditionally: values are cheap and a card write is
         // already the established pattern for settings changes.

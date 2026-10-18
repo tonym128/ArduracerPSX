@@ -171,15 +171,6 @@ pub fn render_hud<const N: usize>(
 ) {
     let is_freeroam = track.checkpoint_count == 0;
 
-    // High-speed radial speed lines during Nitro or Super Boost (NO1-036)
-    if player.boost_ticks > 0 || player.super_boost_ticks > 0 || player.speed.raw() > 14_000 {
-        render_speed_lines(
-            player.speed.raw(),
-            player.boost_ticks,
-            player.super_boost_ticks,
-            timer.current_lap_ticks,
-        );
-    }
 
     // ------------------------------------------------- 1. Lap / Checkpoint Panel
     if is_freeroam {
@@ -646,50 +637,10 @@ pub fn render_replay_hud(track_name: &str, replay_tick: u32, total_ticks: u32, c
     draw_text(224, 226, "CROSS: RESULTS", (220, 225, 235), 1);
 }
 
-/// Renders high-speed radial motion streaks during Nitro, Super Boost, or extreme velocity (`NO1-036`).
-pub fn render_speed_lines(speed_raw: i32, nitro_ticks: u16, super_boost_ticks: u16, ticks: u32) {
-    let intensity = if super_boost_ticks > 0 {
-        3
-    } else if nitro_ticks > 0 {
-        2
-    } else if speed_raw > 14_000 {
-        1
-    } else {
-        0
-    };
-    if intensity == 0 {
-        return;
-    }
-
-    let col = match intensity {
-        3 => (255, 60, 40),   // Reactor Super Boost: fiery crimson
-        2 => (50, 220, 255),  // Nitro Boost: cyan/electric
-        _ => (160, 180, 210), // High Speed: white/blue streaks
-    };
-
-    let cx = 160i16;
-    let cy = 130i16;
-
-    // 12 pseudo-random radial lines shooting to screen edges
-    const ANGLES_Q8: [i32; 12] = [15, 42, 75, 110, 145, 178, 205, 238, 270, 305, 335, 355];
-    for (i, &ang) in ANGLES_Q8.iter().enumerate() {
-        let t_seed = (ticks.wrapping_mul(7) + (i as u32 * 53)) & 31;
-        let r0 = 55 + t_seed as i32;
-        let r1 = r0 + 40 + (intensity * 25);
-
-        let h_bam = ((ang + (ticks as i32 * 3)) & 0x0FFF) as u16;
-        let s = sin(h_bam).raw();
-        let c = cos(h_bam).raw();
-
-        let x0 = cx + ((s * r0) >> FP_SHIFT) as i16;
-        let y0 = cy - ((c * r0) >> FP_SHIFT) as i16;
-        let x1 = cx + ((s * r1) >> FP_SHIFT) as i16;
-        let y1 = cy - ((c * r1) >> FP_SHIFT) as i16;
-
-        if (0..320).contains(&x1) && (0..240).contains(&y1) {
-            gpu::draw_line_mono_blended((x0, y0), (x1, y1), (col.0, col.1, col.2), BlendMode::Add);
-        }
-    }
+/// Formerly rendered flashing radial lines during Nitro / Turbo; removed per visual styling preference.
+#[inline(always)]
+pub fn render_speed_lines(_speed_raw: i32, _nitro_ticks: u16, _super_boost_ticks: u16, _ticks: u32) {
+    // Flashing lines removed per user styling preference.
 }
 
 /// Renders the fullscreen "LOADING CIRCUIT..." overlay with track metadata and progress bar (`NO1-036`).
@@ -768,63 +719,122 @@ pub fn render_music_toast(title: &str, toast_ticks: u16) {
     draw_text(x + 48, y + 4, title, (220, 235, 255), 1);
 }
 
-/// Renders a streamlined top-bar HUD overlay for 2-Player Split-Screen mode (`NO1-045`).
+/// Renders a streamlined HUD overlay for 2-Player Split-Screen mode (`NO1-045`).
 pub fn render_split_hud(
     player: &VehicleState,
     timer: &LapTimer<16>,
     player_num: u8,
     badge_color: (u8, u8, u8),
+    split_mode: u8,
 ) {
-    // Top bar card
-    gpu::draw_rect_flat(6, 4, 308, 22, 14, 16, 24);
-    gpu::draw_rect_flat(7, 5, 306, 20, 22, 26, 36);
-
-    // Player Badge (e.g. "1P" or "2P")
-    gpu::draw_rect_flat(9, 7, 24, 16, badge_color.0, badge_color.1, badge_color.2);
     let p_str = if player_num == 1 { "1P" } else { "2P" };
-    draw_text(13, 11, p_str, (255, 255, 255), 1);
-
-    // Lap counter: "LAP X/Y"
-    draw_text(38, 11, "LAP", (150, 165, 190), 1);
     let cur_lap_char = b'0' + timer.current_lap.min(9);
     let tot_lap_char = b'0' + timer.target_laps.min(9);
     let lap_buf = [cur_lap_char, b'/', tot_lap_char];
-    blit(&lap_buf, 62, 11, (255, 220, 40), 1);
-
-    // Current Lap Time: "MM:SS.CC"
     let mut time_buf = [b' '; 8];
     format_time(&mut time_buf, timer.current_lap_ticks);
-    blit(&time_buf, 92, 11, (245, 245, 250), 1);
-
-    // Speedometer (MPH)
     let speed_mph = ((player.speed.raw() * 145) / 14000).clamp(0, 199) as u16;
     let mut speed_buf = [b' '; 7];
     format_speed(&mut speed_buf, speed_mph);
-    blit(&speed_buf, 154, 11, (240, 240, 250), 1);
 
-    // Mini Tachometer & Nitro Bar
-    gpu::draw_rect_flat(218, 8, 90, 6, 14, 16, 24);
-    let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 88) / 7000;
-    let fill_w = rpm_ratio.clamp(0, 88) as u16;
-    let bar_col = if player.boost_ticks > 0 {
-        (0, 220, 255)
-    } else if player.engine_rpm > 5500 {
-        (255, 40, 40)
-    } else {
-        (40, 220, 70)
-    };
-    if fill_w > 0 {
-        gpu::draw_rect_flat(219, 9, fill_w, 4, bar_col.0, bar_col.1, bar_col.2);
-    }
-    gpu::draw_rect_flat(218, 16, 90, 4, 14, 16, 24);
-    let nitro_w = ((player.nitro_charge as i32 * 88) / NITRO_MAX_TICKS as i32).clamp(0, 88) as u16;
-    if nitro_w > 0 {
-        let (nr, ng, nb) = if player.is_boost_disabled() {
-            (180, 40, 30)
+    if split_mode == 1 {
+        // Compact top bar for Vertical Split (148 px wide)
+        let bx = 5i16;
+        let by = 4i16;
+        gpu::draw_rect_flat(bx, by, 148, 22, 14, 16, 24);
+        gpu::draw_rect_flat(bx + 1, by + 1, 146, 20, 22, 26, 36);
+
+        // Player Badge
+        gpu::draw_rect_flat(bx + 3, by + 3, 20, 14, badge_color.0, badge_color.1, badge_color.2);
+        draw_text((bx + 6) as u16, (by + 6) as u16, p_str, (255, 255, 255), 1);
+
+        // Lap & Speed
+        blit(&lap_buf, (bx + 26) as u16, (by + 6) as u16, (255, 220, 40), 1);
+        blit(&speed_buf, (bx + 54) as u16, (by + 6) as u16, (240, 240, 250), 1);
+
+        // Mini Nitro
+        gpu::draw_rect_flat(bx + 104, by + 7, 40, 6, 14, 16, 24);
+        let nitro_w = ((player.nitro_charge as i32 * 38) / NITRO_MAX_TICKS as i32).clamp(0, 38) as u16;
+        if nitro_w > 0 {
+            let (nr, ng, nb) = if player.is_boost_disabled() {
+                (180, 40, 30)
+            } else {
+                (255, 150, 40)
+            };
+            gpu::draw_rect_flat(bx + 105, by + 8, nitro_w, 4, nr, ng, nb);
+        }
+    } else if split_mode == 2 {
+        // Compact corner card for Diagonal Split (P1 top-left, P2 bottom-right)
+        let (bx, by) = if player_num == 1 {
+            (6i16, 4i16)
         } else {
-            (255, 150, 40)
+            (166i16, 212i16)
         };
-        gpu::draw_rect_flat(219, 17, nitro_w, 2, nr, ng, nb);
+        gpu::draw_rect_flat(bx, by, 148, 22, 14, 16, 24);
+        gpu::draw_rect_flat(bx + 1, by + 1, 146, 20, 22, 26, 36);
+
+        // Player Badge
+        gpu::draw_rect_flat(bx + 3, by + 3, 20, 14, badge_color.0, badge_color.1, badge_color.2);
+        draw_text((bx + 6) as u16, (by + 6) as u16, p_str, (255, 255, 255), 1);
+
+        // Lap & Speed
+        blit(&lap_buf, (bx + 26) as u16, (by + 6) as u16, (255, 220, 40), 1);
+        blit(&speed_buf, (bx + 54) as u16, (by + 6) as u16, (240, 240, 250), 1);
+
+        // Mini Nitro
+        gpu::draw_rect_flat(bx + 104, by + 7, 40, 6, 14, 16, 24);
+        let nitro_w = ((player.nitro_charge as i32 * 38) / NITRO_MAX_TICKS as i32).clamp(0, 38) as u16;
+        if nitro_w > 0 {
+            let (nr, ng, nb) = if player.is_boost_disabled() {
+                (180, 40, 30)
+            } else {
+                (255, 150, 40)
+            };
+            gpu::draw_rect_flat(bx + 105, by + 8, nitro_w, 4, nr, ng, nb);
+        }
+    } else {
+        // Standard full-width top bar card for Horizontal Split
+        gpu::draw_rect_flat(6, 4, 308, 22, 14, 16, 24);
+        gpu::draw_rect_flat(7, 5, 306, 20, 22, 26, 36);
+
+        // Player Badge (e.g. "1P" or "2P")
+        gpu::draw_rect_flat(9, 7, 24, 16, badge_color.0, badge_color.1, badge_color.2);
+        draw_text(13, 11, p_str, (255, 255, 255), 1);
+
+        // Lap counter: "LAP X/Y"
+        draw_text(38, 11, "LAP", (150, 165, 190), 1);
+        blit(&lap_buf, 62, 11, (255, 220, 40), 1);
+
+        // Current Lap Time: "MM:SS.CC"
+        blit(&time_buf, 92, 11, (245, 245, 250), 1);
+
+        // Speedometer (MPH)
+        blit(&speed_buf, 154, 11, (240, 240, 250), 1);
+
+        // Mini Tachometer & Nitro Bar
+        gpu::draw_rect_flat(218, 8, 90, 6, 14, 16, 24);
+        let rpm_ratio = ((player.engine_rpm as i32 - 1000) * 88) / 7000;
+        let fill_w = rpm_ratio.clamp(0, 88) as u16;
+        let bar_col = if player.boost_ticks > 0 {
+            (0, 220, 255)
+        } else if player.engine_rpm > 5500 {
+            (255, 40, 40)
+        } else {
+            (40, 220, 70)
+        };
+        if fill_w > 0 {
+            gpu::draw_rect_flat(219, 9, fill_w, 4, bar_col.0, bar_col.1, bar_col.2);
+        }
+        gpu::draw_rect_flat(218, 16, 90, 4, 14, 16, 24);
+        let nitro_w = ((player.nitro_charge as i32 * 88) / NITRO_MAX_TICKS as i32).clamp(0, 88) as u16;
+        if nitro_w > 0 {
+            let (nr, ng, nb) = if player.is_boost_disabled() {
+                (180, 40, 30)
+            } else {
+                (255, 150, 40)
+            };
+            gpu::draw_rect_flat(219, 17, nitro_w, 2, nr, ng, nb);
+        }
     }
 }
 

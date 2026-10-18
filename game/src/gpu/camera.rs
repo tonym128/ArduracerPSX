@@ -170,18 +170,48 @@ impl Camera {
         }
     }
 
-    /// Configures the camera for 2-Player Split-Screen horizontal viewports (`NO1-045`).
-    /// Viewport is 320×118 with center Y at 59.
-    pub fn set_split_viewport(&mut self, is_split: bool) {
-        if is_split {
-            self.center_x = 160;
-            self.center_y = 59;
-            self.viewport_h = 118;
-        } else {
+    /// Configures the camera viewport for 1P Full Screen or 2P Split-Screen modes:
+    /// - `player_idx == 0`: 1P Full Screen (320×240, center 160, 120)
+    /// - `split_mode == 0`: Horizontal split (320×118, center 160, 59)
+    /// - `split_mode == 1`: Vertical split (158×240, center 79, 120)
+    /// - `split_mode == 2`: Diagonal split (P1 center 120, 90; P2 center 200, 150)
+    pub fn set_split_mode(&mut self, split_mode: u8, player_idx: u8) {
+        if player_idx == 0 {
             self.center_x = 160;
             self.center_y = 120;
             self.viewport_h = 240;
+            return;
         }
+        match split_mode {
+            1 => {
+                // Vertical split: 158×240 viewport
+                self.center_x = 79;
+                self.center_y = 120;
+                self.viewport_h = 240;
+            }
+            2 => {
+                // Diagonal split: shifted into respective triangle centroids
+                if player_idx == 1 {
+                    self.center_x = 120;
+                    self.center_y = 90;
+                } else {
+                    self.center_x = 200;
+                    self.center_y = 150;
+                }
+                self.viewport_h = 240;
+            }
+            _ => {
+                // Horizontal split (default): 320×118 viewport
+                self.center_x = 160;
+                self.center_y = 59;
+                self.viewport_h = 118;
+            }
+        }
+    }
+
+    /// Configures the camera for 2-Player Split-Screen horizontal viewports (`NO1-045`).
+    pub fn set_split_viewport(&mut self, is_split: bool) {
+        self.set_split_mode(0, if is_split { 1 } else { 0 });
     }
 
     /// Sets whether this camera uses the extended view distance (2 tiles further)
@@ -573,6 +603,8 @@ impl Camera {
     ) {
         self.mode7 = true;
         self.rotating = false;
+        // Pitch down so horizon sits at row 36, giving balanced 36..240 ground coverage
+        self.pitch_px = -24;
 
         let n = if !track.route.is_empty() {
             track.route.len()
@@ -621,11 +653,12 @@ impl Camera {
         };
         self.set_heading(aim_heading);
 
-        // Keep `target_pos` inside the Mode 7 frustum depth [85..185] while panning:
-        // Since `z = fwd + M7_Z0 (120)`, placing `self.pos` at `target_pos - aim_dir * (depth - 120)`
-        // puts `target_pos` at exact camera depth `depth`.
-        let raw_dist = (target_pos - vantage).length().to_int().clamp(85, 185);
-        let fwd_offset = raw_dist - M7_Z0;
+        // Keep the car centered vertically at sy = 120 (exact middle of 240px display).
+        // sy = horizon (36) + k16 (15,600 * 16) / z_q4.
+        // For sy = 120: 120 - 36 = 84 = 15,600 / z_units => z_units = 185.
+        // With z = fwd + M7_Z0 (120), placing camera pivot at fwd = 185 - 120 = 65
+        // behind the car along the camera aim heading puts target_pos at exact depth 185.
+        let fwd_offset = 65i32;
         let world_w = track.world_width().max(0);
         let world_h = track.world_height().max(0);
         let pivot_x = target_pos.x - Fixed::from_raw(self.hsin * fwd_offset);

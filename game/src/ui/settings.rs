@@ -28,6 +28,14 @@ pub fn controls_label(profile: u8) -> &'static str {
     }
 }
 
+pub const fn split_label(mode: u8) -> &'static str {
+    match mode {
+        1 => "VERTICAL",
+        2 => "DIAGONAL",
+        _ => "HORIZONTAL",
+    }
+}
+
 /// Maps the enums back into the persisted integers.
 pub fn state_to_values(
     f: TextureFormat,
@@ -36,6 +44,7 @@ pub fn state_to_values(
     cd_audio: u8,
     debug_metrics: u8,
     input_profile: u8,
+    split_mode: u8,
 ) -> SettingsValues {
     SettingsValues {
         texture_format: f.to_saved(),
@@ -44,6 +53,7 @@ pub fn state_to_values(
         cd_audio,
         debug_metrics,
         input_profile,
+        split_mode,
     }
 }
 
@@ -88,10 +98,10 @@ impl SettingsScreen {
         let (fmt, fps) = values_to_state(self.values());
         let sel = self.selected_row();
 
-        gpu::draw_rect_flat(60, 36, 200, 164, 8, 10, 14);
-        gpu::draw_rect_flat(62, 38, 196, 160, 16, 20, 30);
-        gpu::draw_rect_flat(64, 40, 192, 2, 220, 40, 60);
-        draw_text(112, 44, "SETTINGS", (200, 210, 235), 1);
+        gpu::draw_rect_flat(60, 34, 200, 170, 8, 10, 14);
+        gpu::draw_rect_flat(62, 36, 196, 166, 16, 20, 30);
+        gpu::draw_rect_flat(64, 38, 192, 2, 220, 40, 60);
+        draw_text(112, 42, "SETTINGS", (200, 210, 235), 1);
 
         let view_label = match self.values().camera_view {
             0 => "BEHIND",
@@ -99,22 +109,26 @@ impl SettingsScreen {
             _ => "ROTATING",
         };
 
-        // Six rows, value between `<` and `>`. Spacing is 16 px so all rows
-        // and hint text sit comfortably inside the panel.
+        // Seven rows, value between `<` and `>`. Spacing is 15 px.
         let rows: [(&str, &str, u16); ROW_COUNT as usize] = [
-            ("TEXTURE", fmt.label(), 60),
-            ("FRAMERATE", fps.label(), 76),
-            ("VIEW", view_label, 92),
-            ("CD AUDIO", cd_audio_label(self.values().cd_audio), 108),
+            ("TEXTURE", fmt.label(), 56),
+            ("FRAMERATE", fps.label(), 71),
+            ("VIEW", view_label, 86),
+            ("CD AUDIO", cd_audio_label(self.values().cd_audio), 101),
             (
                 "METRICS",
                 debug_metrics_label(self.values().debug_metrics),
-                124,
+                116,
             ),
             (
                 "CONTROLS",
                 controls_label(self.values().input_profile),
-                140,
+                131,
+            ),
+            (
+                "2P SPLIT",
+                split_label(self.values().split_mode),
+                146,
             ),
         ];
         for (i, (label, value, y)) in rows.iter().enumerate() {

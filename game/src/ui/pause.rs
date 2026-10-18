@@ -50,7 +50,7 @@ impl PauseMenu {
 
     /// Renders the dimmed pause panel.
     pub fn render(&self) {
-        // Panel grown to hold nine rows plus the footer hint.
+        // Panel grown to hold ten rows plus the footer hint.
         gpu::draw_rect_flat(60, 28, 200, 186, 8, 10, 14);
         gpu::draw_rect_flat(62, 30, 196, 182, 16, 20, 30);
         gpu::draw_rect_flat(64, 32, 192, 178, 26, 30, 42);
@@ -67,7 +67,7 @@ impl PauseMenu {
             1 => "OVERHEAD",
             _ => "ROTATING",
         };
-        let rows: [(&str, Option<&str>); 9] = [
+        let rows: [(&str, Option<&str>); 10] = [
             ("RESUME", None),
             ("RESTART RACE", None),
             ("TEXTURE", Some(fmt.label())),
@@ -89,11 +89,17 @@ impl PauseMenu {
                     self.values().input_profile,
                 )),
             ),
+            (
+                "2P SPLIT",
+                Some(crate::ui::settings::split_label(
+                    self.values().split_mode,
+                )),
+            ),
             ("QUIT TO MENU", None),
         ];
         for (idx, (label, value)) in rows.iter().enumerate() {
-            // 14 px vertical spacing so nine rows sit cleanly inside the frame.
-            let y = 60 + (idx as u16) * 14;
+            // 13 px vertical spacing so ten rows sit cleanly inside the frame.
+            let y = 54 + (idx as u16) * 13;
             let selected = (idx as u8) == self.selected_idx;
             let color = if selected {
                 (255, 255, 255)

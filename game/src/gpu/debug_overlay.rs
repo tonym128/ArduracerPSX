@@ -14,6 +14,7 @@ use arduracer_core::surface::SurfaceType;
 use arduracer_core::track::TrackDef;
 use arduracer_core::vehicle::VehicleState;
 use psx_gpu as gpu;
+use psx_gpu::material::BlendMode;
 
 pub const DEBUG_MODE_OFF: u8 = 0;
 pub const DEBUG_MODE_FPS: u8 = 1;
@@ -161,8 +162,13 @@ impl DebugOverlay {
         let w: u16 = 96;
         let h: u16 = 16;
 
-        gpu::draw_rect_flat(x, y, w, h, 14, 16, 24);
-        gpu::draw_rect_flat(x + 1, y + 1, w - 2, h - 2, 22, 26, 36);
+        // 40% semi-transparent backdrop panel
+        gpu::draw_rect_flat_blended(x, y, w, h, 20, 24, 34, BlendMode::Average);
+        // Crisp 1px framing border
+        gpu::draw_rect_flat(x, y, w, 1, 35, 42, 58);
+        gpu::draw_rect_flat(x, y + h as i16 - 1, w, 1, 35, 42, 58);
+        gpu::draw_rect_flat(x, y, 1, h, 35, 42, 58);
+        gpu::draw_rect_flat(x + w as i16 - 1, y, 1, h, 35, 42, 58);
 
         let fps_col = fps_color(self.fps_tenths, vblanks_per_frame);
         let mut fps_buf = [b' '; 9];
@@ -181,8 +187,13 @@ impl DebugOverlay {
         let w: u16 = 96;
         let h: u16 = 44;
 
-        gpu::draw_rect_flat(x, y, w, h, 14, 16, 24);
-        gpu::draw_rect_flat(x + 1, y + 1, w - 2, h - 2, 22, 26, 36);
+        // 40% semi-transparent backdrop panel
+        gpu::draw_rect_flat_blended(x, y, w, h, 20, 24, 34, BlendMode::Average);
+        // Crisp 1px framing border
+        gpu::draw_rect_flat(x, y, w, 1, 35, 42, 58);
+        gpu::draw_rect_flat(x, y + h as i16 - 1, w, 1, 35, 42, 58);
+        gpu::draw_rect_flat(x, y, 1, h, 35, 42, 58);
+        gpu::draw_rect_flat(x + w as i16 - 1, y, 1, h, 35, 42, 58);
 
         // Header: FPS and ms
         let fps_col = fps_color(self.fps_tenths, vblanks_per_frame);
@@ -199,7 +210,7 @@ impl DebugOverlay {
         let gy: i16 = y + 15;
         let gw: u16 = 88;
         let gh: u16 = 24;
-        gpu::draw_rect_flat(gx, gy, gw, gh, 12, 14, 20);
+        gpu::draw_rect_flat_blended(gx, gy, gw, gh, 12, 14, 20, BlendMode::Average);
 
         // Reference target budget line (16.7 ms for 60 FPS, 33.3 ms for 30 FPS)
         let target_tenths: u16 = if vblanks_per_frame <= 1 { 167 } else { 333 };
@@ -238,8 +249,13 @@ impl DebugOverlay {
         let w: u16 = 162;
         let h: u16 = 118;
 
-        gpu::draw_rect_flat(x, y, w, h, 14, 16, 24);
-        gpu::draw_rect_flat(x + 1, y + 1, w - 2, h - 2, 22, 26, 36);
+        // 40% semi-transparent backdrop panel
+        gpu::draw_rect_flat_blended(x, y, w, h, 20, 24, 34, BlendMode::Average);
+        // Crisp 1px framing border
+        gpu::draw_rect_flat(x, y, w, 1, 35, 42, 58);
+        gpu::draw_rect_flat(x, y + h as i16 - 1, w, 1, 35, 42, 58);
+        gpu::draw_rect_flat(x, y, 1, h, 35, 42, 58);
+        gpu::draw_rect_flat(x + w as i16 - 1, y, 1, h, 35, 42, 58);
         gpu::draw_rect_flat(x + 1, y + 1, w - 2, 2, 220, 40, 60);
 
         // Line 1: FPS & Frame Time
@@ -435,7 +451,7 @@ impl DebugOverlay {
         let gy: i16 = y + 97;
         let gw: u16 = 152;
         let gh: u16 = 16;
-        gpu::draw_rect_flat(gx, gy, gw, gh, 12, 14, 20);
+        gpu::draw_rect_flat_blended(gx, gy, gw, gh, 12, 14, 20, BlendMode::Average);
 
         let max_scale_tenths: u16 = if vblanks_per_frame <= 1 { 333 } else { 500 };
         let budget_y: i16 = gy + (gh as i16)

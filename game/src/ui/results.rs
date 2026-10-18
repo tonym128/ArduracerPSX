@@ -91,14 +91,14 @@ impl ResultsScreen {
             return None;
         }
 
-        if b.pressed_since(prev, button::CROSS) || b.pressed_since(prev, button::START) {
-            Some(ResultsAction::Continue)
-        } else if b.pressed_since(prev, button::SQUARE) {
+        if b.pressed_since(prev, button::SQUARE) {
             Some(ResultsAction::RestartRace)
         } else if b.pressed_since(prev, button::TRIANGLE) {
             Some(ResultsAction::WatchReplay)
         } else if b.pressed_since(prev, button::CIRCLE) {
             Some(ResultsAction::ExitToMenu)
+        } else if (b.bits() & !prev.bits()) != 0 {
+            Some(ResultsAction::Continue)
         } else {
             None
         }
@@ -198,17 +198,24 @@ impl ResultsScreen {
         };
         gpu::draw_rect_flat(40, 156, 240, 22, btn_col.0, btn_col.1, btn_col.2);
         draw_text(
-            52,
+            85,
             163,
-            "CROSS: CONTINUE   SQUARE: RETRY",
+            "PRESS ANY KEY TO CONTINUE",
             (255, 255, 255),
             1,
         );
 
         draw_text(
             42,
-            190,
-            "TRIANGLE: REPLAY   CIRCLE: MAIN MENU",
+            186,
+            "SQUARE: RETRY   TRIANGLE: REPLAY",
+            (130, 150, 170),
+            1,
+        );
+        draw_text(
+            112,
+            198,
+            "CIRCLE: MAIN MENU",
             (130, 150, 170),
             1,
         );
@@ -337,17 +344,24 @@ impl ResultsScreen {
         };
         gpu::draw_rect_flat(26, 164, 268, 22, btn_col.0, btn_col.1, btn_col.2);
         draw_text(
-            34,
+            85,
             171,
-            "CROSS: NEXT RACE   SQUARE: RETRY",
+            "PRESS ANY KEY TO CONTINUE",
             (255, 255, 255),
             1,
         );
 
         draw_text(
             42,
-            194,
-            "TRIANGLE: REPLAY   CIRCLE: MAIN MENU",
+            190,
+            "SQUARE: RETRY   TRIANGLE: REPLAY",
+            (130, 150, 170),
+            1,
+        );
+        draw_text(
+            112,
+            202,
+            "CIRCLE: MAIN MENU",
             (130, 150, 170),
             1,
         );

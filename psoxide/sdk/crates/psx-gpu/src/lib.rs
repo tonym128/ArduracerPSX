@@ -486,6 +486,21 @@ pub fn draw_rect_flat(x: i16, y: i16, w: u16, h: u16, r: u8, g: u8, b: u8) {
     draw_quad_flat([(x, y), (x1, y), (x, y1), (x1, y1)], r, g, b);
 }
 
+/// Draw a flat-shaded semi-transparent rectangle with native PS1 blending.
+pub fn draw_rect_flat_blended(
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+    r: u8,
+    g: u8,
+    b: u8,
+    blend_mode: BlendMode,
+) {
+    let (x1, y1) = (x + w as i16, y + h as i16);
+    draw_quad_flat_blended([(x, y), (x1, y), (x, y1), (x1, y1)], r, g, b, blend_mode);
+}
+
 /// Draw a flat-shaded quad (two triangles sharing the v1-v2 edge).
 pub fn draw_quad_flat(verts: [(i16, i16); 4], r: u8, g: u8, b: u8) {
     wait_cmd_ready();

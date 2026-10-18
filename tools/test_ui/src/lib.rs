@@ -490,7 +490,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 9);
+        assert_eq!(PauseMenu::item_count(), 10);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -3455,6 +3455,7 @@ mod graphics_settings {
             cd_audio: 1,
             debug_metrics: 0,
             input_profile: 0,
+            split_mode: 0,
         }
     }
 
@@ -3557,15 +3558,34 @@ mod graphics_settings {
         assert_eq!(m.values().texture_format, 1);
     }
 
-    /// Row selection must stay in range with five rows.
+    #[test]
+    fn split_mode_cycles_through_options_and_wraps() {
+        let mut m = SettingsMenu::new(values());
+        for _ in 0..6 {
+            m.update(press(|i| i.down = true));
+            m.update(SettingsInput::default());
+        }
+        assert_eq!(m.selected_row, 6, "row 6 is 2P SPLIT");
+        assert_eq!(m.values().split_mode, 0, "default is Horizontal");
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().split_mode, 1, "right selects Vertical");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().split_mode, 2, "right selects Diagonal");
+        m.update(SettingsInput::default());
+        m.update(press(|i| i.right = true));
+        assert_eq!(m.values().split_mode, 0, "and wraps back to Horizontal");
+    }
+
+    /// Row selection must stay in range with seven rows.
     #[test]
     fn row_selection_wraps_between_the_rows() {
         let mut m = SettingsMenu::new(values());
         assert_eq!(m.selected_row, 0);
         m.update(press(|i| i.up = true));
         assert_eq!(
-            m.selected_row, 5,
-            "up from the first row wraps to the last (CONTROLS)"
+            m.selected_row, 6,
+            "up from the first row wraps to the last (2P SPLIT)"
         );
         m.update(SettingsInput::default());
         m.update(press(|i| i.down = true));
@@ -3927,12 +3947,10 @@ mod graphics_settings {
         assert_eq!(p.values().debug_metrics, 1);
     }
 
-    /// QUIT must still be the last row and still quit. The METRICS row was
-    /// inserted before it, and an off-by-one there turns the destructive
-    /// option into a setting or, worse, makes the pause menu unexitable.
     #[test]
-    fn quit_is_still_the_last_row_and_still_quits() {
+    fn pause_menu_edits_split_mode_inline() {
         let mut p = PauseMenu::default();
+        // Row 8 is 2P SPLIT.
         for _ in 0..8 {
             p.update(PauseInput {
                 down: true,
@@ -3940,8 +3958,46 @@ mod graphics_settings {
             });
             p.update(PauseInput::default());
         }
-        assert_eq!(p.selected_idx, 8, "row 8 is QUIT TO MENU");
-        assert_eq!(PauseMenu::item_count(), 9);
+        assert_eq!(p.selected_idx, 8);
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert!(
+            matches!(out.choice, PauseChoice::Graphics(_)),
+            "right on a settings row must report a change, got {:?}",
+            out.choice
+        );
+        assert_eq!(p.values().split_mode, 1);
+        p.update(PauseInput::default());
+        p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert_eq!(p.values().split_mode, 2);
+        p.update(PauseInput::default());
+        p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        assert_eq!(p.values().split_mode, 0);
+    }
+
+    /// QUIT must still be the last row and still quit. The 2P SPLIT row was
+    /// inserted before it, and an off-by-one there turns the destructive
+    /// option into a setting or, worse, makes the pause menu unexitable.
+    #[test]
+    fn quit_is_still_the_last_row_and_still_quits() {
+        let mut p = PauseMenu::default();
+        for _ in 0..9 {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, 9, "row 9 is QUIT TO MENU");
+        assert_eq!(PauseMenu::item_count(), 10);
 
         let out = p.update(PauseInput {
             cross: true,
