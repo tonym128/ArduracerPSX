@@ -57,7 +57,7 @@ jobs:
       - name: Run host-side game logic tests
         run: make test
 
-      - name: Verify all 24 circuits are drivable
+      - name: Verify all authored circuits are drivable
         # Par-time drift against tools/track_cook/par_calibration.json fails here
         # too: the harness treats a stale generated table the same as an
         # undrivable circuit. Escape hatches exist for local work

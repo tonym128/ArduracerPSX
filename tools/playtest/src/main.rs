@@ -3,8 +3,8 @@
 //! Runs the *real* `arduracer-core` simulation headlessly on the host and proves
 //! that every shipped circuit is actually drivable:
 //!
-//! * a reference "good driver" completes N timed laps on all 24 tracks,
-//! * all 5 rival AI personalities complete laps on all 24 tracks,
+//! * a reference "good driver" completes N timed laps on every authored track,
+//! * all 5 rival AI personalities complete laps on every authored track,
 //! * the measured lap times are sane against the track's par times,
 //! * checkpoints are reachable and ordered along the racing line.
 //!
@@ -56,8 +56,8 @@ const BRONZE_FACTOR: f64 = 1.28;
 /// `best_tuning_for` returns the *default* lap unchanged when no preset beats
 /// it, so without this the sweep would report "ok" if the Garage sliders were
 /// silently dropped from the physics, or if every preset tied. Measured across
-/// all 24 circuits the best preset is 7.9%-22.4% quicker than the default
-/// tune, so a 5% floor is comfortably below the real signal while still being
+/// the original 24-course set the best preset was 7.9%-22.4% quicker than the
+/// default tune, so a 5% floor is below the measured signal while still being
 /// an order of magnitude above the noise of a one-tick timing change.
 const MIN_TUNING_GAIN_PCT: u32 = 5;
 
@@ -371,7 +371,10 @@ fn main() {
     let mut par_table = String::new();
 
     println!("=======================================================================");
-    println!("  ARDURACER PSX - PLAYABILITY VERIFICATION (all 24 circuits)");
+    println!(
+        "  ARDURACER PSX - PLAYABILITY VERIFICATION ({} authored circuits)",
+        ALL_TRACKS.len()
+    );
     println!("=======================================================================");
     println!(
         "{:<3} {:<23} {:>3} {:>5} {:>8} {:>8} {:>8} {:>8} {:>8} {:>6} {:>4} {:<18}",
@@ -522,8 +525,10 @@ fn main() {
     println!("-----------------------------------------------------------------------");
     if all_errors.is_empty() {
         println!(
-            "  RESULT: all 24 circuits are playable ({} laps player + {} AI rivals).",
-            LAPS_PER_TRACK, LAPS_PER_TRACK
+            "  RESULT: all {} authored circuits are playable ({} laps player + {} AI rivals).",
+            ALL_TRACKS.len(),
+            LAPS_PER_TRACK,
+            LAPS_PER_TRACK
         );
     } else {
         println!("  RESULT: {} failure(s) found.", all_errors.len());

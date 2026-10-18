@@ -1,6 +1,6 @@
 # Arduracer PSX 🏎️💨
 
-> **The High-Octane 60 FPS Overhead Arcade Racer for the Sony PlayStation 1 (PSX)**  
+> **The High-Octane Arcade Racer for the Sony PlayStation 1 (PSX)**
 > *Spiritual successor to ArduRacer FX (Arduboy), engineered in bare-metal `#![no_std]` Rust using the PSoXide SDK.*
 
 ---
@@ -10,12 +10,12 @@
 **Arduracer PSX** takes the pinpoint time-trial precision, car tuning, and track-mastery gameplay of the acclaimed Arduboy title **ArduRacer FX** and catapults it onto 32-bit Sony PlayStation hardware.
 
 Where the Arduboy original ran on an 8-bit ATmega32U4 with a 128×64 monochrome OLED screen, **Arduracer PSX** unleashes the full power of the PS1:
-- **Locked 60 FPS Racing**: Razor-sharp, butter-smooth 60 Hz NTSC (50 Hz PAL) physics and rendering for flawless arcade responsiveness.
+- **Frame-rate target**: 60 Hz NTSC and 50 Hz PAL. This is a target, not a locked-performance claim: the October 2026 diagnostic profile exceeded its frame budget on every sampled course, and the shipping LTO build still needs direct measurement.
 - **2D/2.5D Overhead Neo-Arcade Presentation**: Rich multi-layer parallax scrolling, crisp 32-bit color palettes, dynamic trackside objects, hardware semi-transparency for smoke and sparks, dynamic tire skidmark buffers in VRAM, and GTE-driven camera tilt and zoom.
 - **Pure Arcade Driving Dynamics**: High-speed cornering, weight transfer, drift slides, surface grip mechanics (tarmac, curbs, dirt, grass, oil slicks), and aerodynamic drafting/slipstreaming.
 - **Thumping Red Book CD-DA Soundtrack**: High-energy 90s Eurobeat, synthwave, and big-beat techno streamed straight off the CD-ROM disc, complemented by hardware SPU engine synthesis, tire screech, and environmental reverb.
 - **Deep Replayability**:
-  - **Time Trial Mode**: 20 classic ArduRacer FX circuits completely remastered + 4 brand-new PSX Super Stages. Beat Bronze, Silver, Gold, and Dev Platinum times.
+  - **Time Trial Mode**: 40 authored circuits. Beat Bronze, Silver, Gold, and Dev Platinum times.
   - **Deterministic Ghost Car**: Race against your own personal best ghost or developer record ghosts in real-time.
   - **Grand Prix Cup Mode**: Compete against a full 6-car grid of aggressive, personality-driven AI racers across 4 championship cups.
   - **Car Tuning & Garage**: Comprehensive performance tuning (Top Speed, Acceleration, Downforce, Drift Factor, Gearing) and custom liveries.
@@ -36,7 +36,7 @@ The architecture of Arduracer PSX is built on the battle-tested lessons learned 
 ### 2.1 Pure `#![no_std]` Core Separation (`arduracer-core`)
 - **Lesson**: Testing game logic inside an emulator is slow and blind; testing a *mirror* of the code in the host harness leads to silent drift and false green test runs.
 - **Solution**: All vehicle physics, collision detection, track definitions, waypoint graphs, lap timers, AI steering decisions, and save data serialization live in `crates/arduracer-core` with `#![no_std]` and zero hardware dependencies.
-- **Host Testing**: The host test harness (`tools/test_game_logic`) imports `arduracer-core` directly. 100% of physics ticks, replay serialization, and rank evaluations are verified natively on the host workstation with `cargo test` in milliseconds.
+- **Host Testing**: `make test` runs the `arduracer-core` unit and integration tests plus host suites for game logic, memory-card behavior, UI state machines, audio policy, and playtest invariants. These tests exercise production code, but they do not cover every physics tick or every runtime path. CI also builds and lints the PSX target and runs full-course playability and par-drift checks.
 
 ### 2.2 Strict Hardware & Memory Budget Discipline
 - **Main RAM (2 MB total, ~2,001,152 bytes link region)**:
@@ -206,7 +206,7 @@ Uncompressed 44.1 kHz 16-bit stereo Red Book CD-DA audio mastered onto disc trac
 - **Capacity**: Exactly 1 Memory Card Block (8 KB).
 - **Icon**: Custom 16×16 16-color animated 3-frame BIOS icon (spinning checkered flag / flashing race car).
 - **Contents**:
-  - Lap records (Best times for all 24 tracks with checksum).
+  - Lap records (best times for all 40 authored tracks with checksum).
   - Trophy & Cup progress (Unlocked tracks, dev medals earned).
   - Tuning setups (3 custom save slots for car tuning presets).
   - Best Ghost lap telemetry (Compact delta-encoded track positions).
