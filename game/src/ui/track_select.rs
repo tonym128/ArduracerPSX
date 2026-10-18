@@ -227,7 +227,7 @@ impl TrackSelectScreen {
     }
 
     /// Renders the track selection screen with minimap, personal records, and level passed status.
-    pub fn render(&self, save: Option<&arduracer_core::SaveData>) {
+    pub fn render(&self, save: Option<&arduracer_core::SaveData>, card_block: Option<&[u8; 8192]>) {
         let track: &'static TrackDef =
             ALL_TRACKS[self.selected_track_idx.min(ALL_TRACKS.len() - 1)];
 
@@ -382,16 +382,71 @@ impl TrackSelectScreen {
         };
         draw_text(244, 134, medal_str, medal_col, 1);
 
-        // Level Passed Status
-        draw_text(200, 152, "LEVEL:", (180, 200, 220), 1);
-        let is_passed = medal_code > 0
-            || (best_ticks != arduracer_core::timing::NO_BEST_LAP && best_ticks != u32::MAX);
-        if is_passed {
-            gpu::draw_rect_flat(200, 164, 96, 14, 25, 75, 35);
-            draw_text(224, 167, "PASSED", (100, 255, 120), 1);
+        // Record-browser replay availability and the first exact PB splits.
+        let mut splits = [0u32; arduracer_core::track::MAX_TRACK_CHECKPOINTS];
+        let ghost_ticks = card_block.and_then(|block| {
+            let count = arduracer_core::SaveData::read_ghost_splits_from_block(block, &mut splits)?;
+            let tail = &block
+                [arduracer_core::save::PAYLOAD_SIZE..arduracer_core::save::CARD_FILE_DATA_CAPACITY];
+            if tail.get(10).copied()? as usize != self.selected_track_idx {
+                return None;
+            }
+            let ticks = u32::from_le_bytes([
+                *tail.get(11)?,
+                *tail.get(12)?,
+                *tail.get(13)?,
+                *tail.get(14)?,
+            ]);
+            (ticks == best_ticks && count > 0).then_some(ticks)
+        });
+        if self.is_records_mode {
+            draw_text(200, 152, "REPLAY:", (180, 200, 220), 1);
+            draw_text(
+                242,
+                152,
+                if ghost_ticks.is_some() {
+                    "SAVED"
+                } else {
+                    "NONE"
+                },
+                if ghost_ticks.is_some() {
+                    (80, 235, 255)
+                } else {
+                    (140, 150, 160)
+                },
+                1,
+            );
+            for split_idx in 0..2.min(splits.len()) {
+                let y = 164 + split_idx as u16 * 12;
+                if ghost_ticks.is_some() && splits[split_idx] > 0 {
+                    let (m, s, cs) = arduracer_core::LapTimer::<1>::format_ticks(splits[split_idx]);
+                    let chars = [
+                        b'S',
+                        b'0' + split_idx as u8 + 1,
+                        b':',
+                        b'0' + ((m * 60 + s) / 10 % 10) as u8,
+                        b'0' + ((m * 60 + s) % 10) as u8,
+                        b'.',
+                        b'0' + (cs / 10) as u8,
+                        b'0' + (cs % 10) as u8,
+                    ];
+                    for (i, ch) in chars.iter().copied().enumerate() {
+                        draw_char(200 + i as u16 * 6, y, ch, (175, 195, 215), 1);
+                    }
+                }
+            }
         } else {
-            gpu::draw_rect_flat(200, 164, 96, 14, 45, 48, 56);
-            draw_text(210, 167, "NOT PASSED", (170, 180, 195), 1);
+            // Level Passed Status
+            draw_text(200, 152, "LEVEL:", (180, 200, 220), 1);
+            let is_passed = medal_code > 0
+                || (best_ticks != arduracer_core::timing::NO_BEST_LAP && best_ticks != u32::MAX);
+            if is_passed {
+                gpu::draw_rect_flat(200, 164, 96, 14, 25, 75, 35);
+                draw_text(224, 167, "PASSED", (100, 255, 120), 1);
+            } else {
+                gpu::draw_rect_flat(200, 164, 96, 14, 45, 48, 56);
+                draw_text(210, 167, "NOT PASSED", (170, 180, 195), 1);
+            }
         }
 
         // Navigation Footer

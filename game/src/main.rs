@@ -1554,7 +1554,7 @@ impl ArduracerGame {
                     self.fb.clear(15, 18, 25);
                     self.state_mgr
                         .track_select
-                        .render(Some(&self.memcard.save_data));
+                        .render(Some(&self.memcard.save_data), Some(&self.memcard.block));
                 }
                 GameState::StageTable => {
                     self.audio.ui_frame(pad.buttons.bits());
