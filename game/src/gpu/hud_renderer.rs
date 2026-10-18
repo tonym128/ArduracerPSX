@@ -389,6 +389,22 @@ pub fn render_hud<const N: usize>(
             };
             blit(&next_target, 164, (banner_y + 12) as u16, (0, 220, 255), 1);
         }
+
+        if timer.validity_warning_ticks > 0 {
+            let (message, color) = match timer.validity_warning {
+                arduracer_core::timing::LapValidityWarning::MissingCheckpoints => {
+                    ("LAP INVALID: CLEAR ALL GATES", (255, 150, 80))
+                }
+                arduracer_core::timing::LapValidityWarning::WrongDirection => {
+                    ("LAP INVALID: CROSS FORWARD", (255, 150, 80))
+                }
+                arduracer_core::timing::LapValidityWarning::None => ("", (255, 255, 255)),
+            };
+            if !message.is_empty() {
+                gpu::draw_rect_flat(70, 56, 180, 14, 18, 16, 20);
+                draw_text(73, 59, message, color, 1);
+            }
+        }
     }
 
     // ------------------------------------------------ 3. Gauges & Telemetry Cluster

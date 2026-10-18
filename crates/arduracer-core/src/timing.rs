@@ -385,6 +385,10 @@ pub struct LapTimer<const MAX_CHECKPOINTS: usize> {
     /// Lap timing arms once the car first leaves the grid.
     pub is_running: bool,
     pub is_finished: bool,
+    /// Most recent failed start/finish validation, retained until the next attempt.
+    pub validity_warning: LapValidityWarning,
+    /// Brief HUD duration for explaining the failed crossing.
+    pub validity_warning_ticks: u8,
     /// Shortest completed lap accepted as a lap time (see
     /// [`LapTimer::with_par_times`]). Private: it is an anti-cheat bound, not
     /// game state for a caller to tune.
@@ -394,6 +398,15 @@ pub struct LapTimer<const MAX_CHECKPOINTS: usize> {
 /// Sentinel stored in [`LapTimer::best_lap_ticks`] while no lap time has been
 /// recorded. Read it through [`LapTimer::best_lap_ticks`] instead.
 pub const NO_BEST_LAP: u32 = u32::MAX;
+
+/// Feedback shown after a start/finish crossing fails to validate the lap.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum LapValidityWarning {
+    #[default]
+    None,
+    MissingCheckpoints,
+    WrongDirection,
+}
 
 /// Longest lap the plausibility floor is allowed to be pushed to, in ticks
 /// (60 s). The longest shipped circuit's reference lap is 38 s, so this only
@@ -461,6 +474,8 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             on_start_gate: false,
             is_running: false,
             is_finished: false,
+            validity_warning: LapValidityWarning::None,
+            validity_warning_ticks: 0,
             min_lap_ticks: min_lap_ticks.clamp(MIN_PLAUSIBLE_LAP_TICKS, MAX_PLAUSIBLE_LAP_TICKS),
         }
     }
@@ -586,6 +601,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             self.total_race_ticks = self.total_race_ticks.saturating_add(1);
         }
         self.split_banner_ticks = self.split_banner_ticks.saturating_sub(1);
+        self.validity_warning_ticks = self.validity_warning_ticks.saturating_sub(1);
     }
 
     /// Starts timing (called when the countdown light turns GREEN).
@@ -808,6 +824,18 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             && track.is_forward_crossing(total_gates, player.velocity);
         let finished_splits = self.current_splits;
         if left_start {
+            self.validity_warning = if !self.all_checkpoints_cleared() {
+                LapValidityWarning::MissingCheckpoints
+            } else if !track.is_forward_crossing(total_gates, player.velocity) {
+                LapValidityWarning::WrongDirection
+            } else {
+                LapValidityWarning::None
+            };
+            self.validity_warning_ticks = if self.validity_warning == LapValidityWarning::None {
+                0
+            } else {
+                180
+            };
             self.checkpoint_mask = 0;
             self.current_splits = [0; MAX_CHECKPOINTS];
             self.current_split_speeds = [Fixed::ZERO; MAX_CHECKPOINTS];

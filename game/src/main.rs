@@ -2909,13 +2909,19 @@ impl ArduracerGame {
             } else {
                 self.timer.current_lap_ticks
             };
-            self.state_mgr.results = Some(ResultsScreen::new(
+            let mut results = ResultsScreen::new(
                 display_best,
                 self.timer.total_race_ticks,
                 track,
                 player_rank,
                 is_gp,
-            ));
+            );
+            results.valid_lap_recorded =
+                self.timer.last_completed_lap_ticks >= self.timer.min_plausible_lap_ticks();
+            if !results.valid_lap_recorded {
+                results.medal = arduracer_core::Medal::None;
+            }
+            self.state_mgr.results = Some(results);
             self.audio.sfx.play_medal();
         }
 

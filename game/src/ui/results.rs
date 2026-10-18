@@ -30,6 +30,8 @@ pub struct ResultsScreen {
     pub is_grand_prix: bool,
     pub is_2p_duel: bool,
     pub p1_won: bool,
+    /// False when the player reached results without completing a validated lap.
+    pub valid_lap_recorded: bool,
     pub anim_timer: u32,
     pub prev_buttons: u16,
 }
@@ -67,6 +69,7 @@ impl ResultsScreen {
             is_grand_prix,
             is_2p_duel: false,
             p1_won: true,
+            valid_lap_recorded: true,
             anim_timer: 0,
             prev_buttons: 0,
         }
@@ -101,6 +104,7 @@ impl ResultsScreen {
             is_grand_prix: false,
             is_2p_duel: true,
             p1_won,
+            valid_lap_recorded: true,
             anim_timer: 0,
             prev_buttons: 0,
         }
@@ -211,8 +215,39 @@ impl ResultsScreen {
         draw_text(48, 62, medal_str, medal_col, 1);
 
         // Best Lap Time Display
-        draw_text(40, 94, "BEST LAP: ", (0, 220, 255), 1);
-        if self.best_lap_ticks == 0 || self.best_lap_ticks == u32::MAX {
+        draw_text(
+            40,
+            94,
+            if self.valid_lap_recorded {
+                "BEST LAP: "
+            } else {
+                "NO VALID LAP"
+            },
+            if self.valid_lap_recorded {
+                (0, 220, 255)
+            } else {
+                (255, 110, 80)
+            },
+            1,
+        );
+        if !self.valid_lap_recorded {
+            // Spell out the actual validation rules: order is flexible, direction is not,
+            // and recovery does not invalidate the running lap.
+            draw_text(
+                40,
+                104,
+                "CLEAR EVERY GATE, IN ANY ORDER, FORWARD",
+                (255, 190, 110),
+                1,
+            );
+            draw_text(
+                40,
+                124,
+                "CHECKPOINT RESPAWNS KEEP THE LAP LIVE",
+                (170, 190, 210),
+                1,
+            );
+        } else if self.best_lap_ticks == 0 || self.best_lap_ticks == u32::MAX {
             draw_text(120, 94, "--.-- S", (255, 255, 255), 1);
         } else {
             let best_sec = self.best_lap_ticks / 60;
@@ -231,7 +266,9 @@ impl ResultsScreen {
             draw_char(158, 94, b'S', (180, 180, 180), 1);
         }
 
-        if self.next_medal == Medal::None {
+        if !self.valid_lap_recorded {
+            // The validation guidance above replaces medal pace for an unscored run.
+        } else if self.next_medal == Medal::None {
             draw_text(40, 104, "ALL MEDALS EARNED", (0, 220, 255), 1);
         } else {
             let (label, color) = match self.next_medal {
@@ -328,6 +365,24 @@ impl ResultsScreen {
         gpu::draw_rect_flat(lx + 2, 38, 122, 118, 22, 26, 38);
 
         draw_text(lx as u16 + 8, 42, "RACE RESULT", (0, 220, 255), 1);
+
+        if !self.valid_lap_recorded {
+            draw_text(lx as u16 + 8, 132, "NO VALID LAP", (255, 110, 80), 1);
+            draw_text(
+                lx as u16 + 8,
+                142,
+                "ALL GATES, ANY ORDER",
+                (255, 190, 110),
+                1,
+            );
+            draw_text(
+                lx as u16 + 8,
+                152,
+                "FORWARD ONLY; RESPAWN OK",
+                (170, 190, 210),
+                1,
+            );
+        }
 
         let (pos_str, pos_col) = match self.rank {
             1 => ("1ST PLACE", (255, 215, 0)),
