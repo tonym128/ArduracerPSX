@@ -352,17 +352,36 @@ pub fn render_hud<const N: usize>(
             if let Some(d) = split_delta {
                 let mut d_buf = [b' '; 6];
                 format_delta(&mut d_buf, d);
-                let d_col = if d <= 0 { (50, 245, 95) } else { (255, 65, 65) };
-                blit(&d_buf, 142, (banner_y + 12) as u16, d_col, 1);
+                let (label, d_col) = if d < 0 {
+                    ("GAIN", (50, 245, 95))
+                } else if d > 0 {
+                    ("LOST", (255, 65, 65))
+                } else {
+                    ("EVEN", (210, 220, 230))
+                };
+                draw_text(109, (banner_y + 12) as u16, label, d_col, 1);
+                blit(&d_buf, 133, (banner_y + 12) as u16, d_col, 1);
             } else {
-                draw_text(
-                    136,
-                    (banner_y + 12) as u16,
-                    "SPLIT TIME",
-                    (150, 165, 190),
-                    1,
-                );
+                draw_text(109, (banner_y + 12) as u16, "PB SPLIT", (150, 165, 190), 1);
             }
+
+            let next_gate = timer.next_checkpoint_index();
+            let next_target = if next_gate >= timer.total_checkpoints as u32 {
+                *b"NEXT GO "
+            } else {
+                let cp_num = (next_gate + 1).min(99) as u8;
+                [
+                    b'N',
+                    b'E',
+                    b'X',
+                    b'T',
+                    b' ',
+                    b'C',
+                    b'0' + cp_num / 10,
+                    b'0' + cp_num % 10,
+                ]
+            };
+            blit(&next_target, 164, (banner_y + 12) as u16, (0, 220, 255), 1);
         }
     }
 
