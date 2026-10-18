@@ -313,15 +313,21 @@ pub fn render_hud<const N: usize>(
         blit(&time_buf, 112, 25, (245, 245, 250), 2);
 
         if has_best {
-            let delta = timer.delta_ticks();
-            let mut delta_buf = [b' '; 6];
-            format_delta(&mut delta_buf, delta);
-            let delta_col = if delta < 0 {
-                (60, 240, 90) // Ahead of pace: vivid green
+            draw_text(112, 40, "PACE", (150, 165, 190), 1);
+            if let Some(delta) = timer.last_split_delta {
+                let mut delta_buf = [b' '; 6];
+                format_delta(&mut delta_buf, delta);
+                let delta_col = if delta < 0 {
+                    (60, 240, 90) // Ahead of the PB split: vivid green
+                } else if delta > 0 {
+                    (245, 60, 60) // Behind the PB split: bright red
+                } else {
+                    (210, 220, 230) // Exact match
+                };
+                blit(&delta_buf, 142, 40, delta_col, 1);
             } else {
-                (245, 60, 60) // Behind pace: bright red
-            };
-            blit(&delta_buf, 142, 40, delta_col, 1);
+                draw_text(142, 40, "--.--", (150, 165, 190), 1);
+            }
         }
 
         // TrackMania Checkpoint Split Banner (NO1-010)

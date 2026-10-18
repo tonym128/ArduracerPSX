@@ -5,7 +5,7 @@
 
 use crate::ui::font::{draw_char, draw_text};
 use arduracer_core::championship::{ChampionshipSession, POINTS_TABLE};
-use arduracer_core::timing::Medal;
+use arduracer_core::timing::{LapTimer, Medal};
 use arduracer_core::TrackDef;
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
@@ -22,6 +22,9 @@ pub struct ResultsScreen {
     pub best_lap_ticks: u32,
     pub total_race_ticks: u32,
     pub medal: Medal,
+    pub next_medal: Medal,
+    pub next_medal_target_ticks: u32,
+    pub ticks_to_next_medal: u32,
     pub rank: u8,
     pub points: u8,
     pub is_grand_prix: bool,
@@ -45,12 +48,20 @@ impl ResultsScreen {
             total_race_ticks
         };
         let medal = track.par_times.evaluate_medal(effective_best);
+        let (next_medal, next_medal_target_ticks) = if medal == Medal::DevPlatinum {
+            (Medal::None, 0)
+        } else {
+            track.par_times.next_medal_target(effective_best)
+        };
         let safe_rank = rank.clamp(1, 6);
         let points = POINTS_TABLE[(safe_rank - 1) as usize];
         ResultsScreen {
             best_lap_ticks: effective_best,
             total_race_ticks,
             medal,
+            next_medal,
+            next_medal_target_ticks,
+            ticks_to_next_medal: effective_best.saturating_sub(next_medal_target_ticks),
             rank: safe_rank,
             points,
             is_grand_prix,
@@ -73,10 +84,18 @@ impl ResultsScreen {
             total_race_ticks
         };
         let medal = track.par_times.evaluate_medal(effective_best);
+        let (next_medal, next_medal_target_ticks) = if medal == Medal::DevPlatinum {
+            (Medal::None, 0)
+        } else {
+            track.par_times.next_medal_target(effective_best)
+        };
         ResultsScreen {
             best_lap_ticks: effective_best,
             total_race_ticks,
             medal,
+            next_medal,
+            next_medal_target_ticks,
+            ticks_to_next_medal: effective_best.saturating_sub(next_medal_target_ticks),
             rank: if p1_won { 1 } else { 2 },
             points: if p1_won { 10 } else { 6 },
             is_grand_prix: false,
@@ -84,6 +103,41 @@ impl ResultsScreen {
             p1_won,
             anim_timer: 0,
             prev_buttons: 0,
+        }
+    }
+
+    fn format_ticks(buf: &mut [u8; 8], ticks: u32) {
+        let (minutes, seconds, hundredths) = LapTimer::<1>::format_ticks(ticks);
+        buf.copy_from_slice(&[
+            b'0' + (minutes / 10) as u8 % 10,
+            b'0' + (minutes % 10) as u8,
+            b':',
+            b'0' + (seconds / 10) as u8,
+            b'0' + (seconds % 10) as u8,
+            b'.',
+            b'0' + (hundredths / 10) as u8,
+            b'0' + (hundredths % 10) as u8,
+        ]);
+    }
+
+    fn format_delta(buf: &mut [u8; 6], ticks: u32) {
+        let seconds = ticks / 60;
+        let hundredths = ((ticks % 60) * 100) / 60;
+        buf.copy_from_slice(&[
+            b'+',
+            b'0' + ((seconds / 10) % 10) as u8,
+            b'0' + (seconds % 10) as u8,
+            b'.',
+            b'0' + (hundredths / 10) as u8,
+            b'0' + (hundredths % 10) as u8,
+        ]);
+    }
+
+    fn blit(buf: &[u8], x: u16, y: u16, color: (u8, u8, u8)) {
+        for (idx, &byte) in buf.iter().enumerate() {
+            if byte != b' ' {
+                draw_char(x + idx as u16 * 6, y, byte, color, 1);
+            }
         }
     }
 
@@ -175,6 +229,27 @@ impl ResultsScreen {
             draw_char(141, 94, cs_ten, (255, 255, 255), 1);
             draw_char(148, 94, cs_one, (255, 255, 255), 1);
             draw_char(158, 94, b'S', (180, 180, 180), 1);
+        }
+
+        if self.next_medal == Medal::None {
+            draw_text(40, 104, "ALL MEDALS EARNED", (0, 220, 255), 1);
+        } else {
+            let (label, color) = match self.next_medal {
+                Medal::Bronze => ("BRONZE", (205, 127, 50)),
+                Medal::Silver => ("SILVER", (200, 200, 210)),
+                Medal::Gold => ("GOLD", (255, 215, 0)),
+                Medal::DevPlatinum => ("PLAT", (0, 220, 255)),
+                Medal::None => ("", (150, 160, 170)),
+            };
+            draw_text(40, 104, "NEXT", (150, 165, 190), 1);
+            draw_text(70, 104, label, color, 1);
+            let mut target_buf = [b' '; 8];
+            Self::format_ticks(&mut target_buf, self.next_medal_target_ticks);
+            Self::blit(&target_buf, 110, 104, color);
+            draw_text(164, 104, "NEED", (150, 165, 190), 1);
+            let mut gap_buf = [b' '; 6];
+            Self::format_delta(&mut gap_buf, self.ticks_to_next_medal);
+            Self::blit(&gap_buf, 190, 104, color);
         }
 
         // Total Race Time Display
