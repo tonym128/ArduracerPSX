@@ -5703,7 +5703,9 @@ mod m7_mesh_tests {
             ))
         }
 
-        fn tri(&mut self, p: [(i16, i16); 3], uv: [(i32, i32); 3]) {
+        /// Rasterizes one triangle; `uv` carries each vertex's ground
+        /// position in world units.
+        fn tri(&mut self, p: [(i16, i16); 3], uv: [(f64, f64); 3]) {
             let pt = |k: usize| (p[k].0 as i64, p[k].1 as i64);
             let (mut a, mut b, c) = (pt(0), pt(1), pt(2));
             let (mut ua, mut ub, uc) = (uv[0], uv[1], uv[2]);
@@ -5751,20 +5753,15 @@ mod m7_mesh_tests {
                         w1 as f64 / (4.0 * area as f64),
                         w2 as f64 / (4.0 * area as f64),
                     );
-                    let u = l0 * ua.0 as f64 + l1 * ub.0 as f64 + l2 * uc.0 as f64;
-                    let v = l0 * ua.1 as f64 + l1 * ub.1 as f64 + l2 * uc.1 as f64;
-                    let Some((wx, wy, z_q4)) = self.unproject(x as f64 + 0.5, y as f64 + 0.5)
-                    else {
-                        continue;
-                    };
-                    let _ = (wx, wy, z_q4);
-                    // Where the GPU's texel actually sits on the ground, and
-                    // where that ground point projects: the warp is the screen
-                    // distance from the pixel showing it.
-                    // 63 texel steps span a tile (see `m7_mesh::line`); u/v
-                    // are in 1/16 texel.
-                    let gx = (self.tile.0 * TILE) as f64 + u * TILE as f64 / (63.0 * 16.0);
-                    let gy = (self.tile.1 * TILE) as f64 + v * TILE as f64 / (63.0 * 16.0);
+                    // The GPU interpolates texture coordinates affinely, so the
+                    // texel it shows here belongs to the ground point at the
+                    // same affine blend of the vertices' ground positions.
+                    // Project that back: the warp is its screen distance from
+                    // the pixel showing it. (Measured on ground positions, not
+                    // texels, so the rigid sub-texel placement of a tile's
+                    // texture is not mistaken for warp.)
+                    let gx = l0 * ua.0 + l1 * ub.0 + l2 * uc.0;
+                    let gy = l0 * ua.1 + l1 * ub.1 + l2 * uc.1;
                     let Some((px_x, px_y)) = self.project(gx, gy) else {
                         continue;
                     };
@@ -5800,11 +5797,10 @@ mod m7_mesh_tests {
                 self.clipped += 1;
             }
             let p: Vec<(i16, i16)> = poly.iter().map(|v| (v.sx, v.sy)).collect();
-            // The mesh is built with `TexMap::LOCAL`, so u/v are tile-local
-            // texels; the warp check works in 1/16 texel.
-            let uv: Vec<(i32, i32)> = poly
+            let (cx, cy) = (self.cam_wx, self.cam_wy);
+            let uv: Vec<(f64, f64)> = poly
                 .iter()
-                .map(|v| (v.u as i32 * 16, v.v as i32 * 16))
+                .map(|v| (cx + v.dx as f64 / 16.0, cy + v.dy as f64 / 16.0))
                 .collect();
             if poly.len() == 4 {
                 // The GPU splits a quad v0..v3 as (v0,v1,v2) + (v1,v2,v3), and
@@ -5846,8 +5842,8 @@ mod m7_mesh_tests {
     fn render_view(cam: Camera, force: Option<i32>, view: (i16, i16, i16, i16)) -> Raster {
         let mut ras = Raster::new(cam);
         let mut scratch = MeshScratch::new();
-        let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
-        let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
+        let ctx = (cam.pos.x.raw() >> 12) / TILE;
+        let cty = (cam.pos.y.raw() >> 12) / TILE;
         for ty in cty - 12..=cty + 12 {
             for tx in ctx - 12..=ctx + 12 {
                 let tile = (tx, ty);
@@ -5998,8 +5994,7 @@ mod m7_mesh_tests {
             pixels += r.pixels;
             over += r.over_3px;
         }
-        // ~6.5 px since tiles map 63 texel steps (the bleed fix), up from ~5.4.
-        assert!(worst <= 7.0, "worst texel displacement {worst:.2} px");
+        assert!(worst <= 6.0, "worst texel displacement {worst:.2} px");
         assert!(
             over * 100 <= pixels,
             "{over} of {pixels} ground pixels are more than 3 px off"
@@ -6033,8 +6028,8 @@ mod m7_mesh_tests {
     fn render_counting(cam: Camera) -> usize {
         let mut scratch = MeshScratch::new();
         let mut counter = Collect(Vec::new());
-        let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
-        let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
+        let ctx = (cam.pos.x.raw() >> 12) / TILE;
+        let cty = (cam.pos.y.raw() >> 12) / TILE;
         for ty in cty - 12..=cty + 12 {
             for tx in ctx - 12..=ctx + 12 {
                 let tile = (tx, ty);
