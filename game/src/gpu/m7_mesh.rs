@@ -60,12 +60,19 @@ pub const MAX_POLY: usize = 4 + 4 * (MAX_LEVEL as usize - 1) + 1;
 ///
 /// Each band boundary is twice the last, because halving a cell quarters its
 /// affine error. The values were chosen by sweeping the host warp test
-/// (`m7_mesh_tests`): 136/272/544 holds the same worst case (~5.4 px, at the
-/// bottom corners) and the same share of pixels over 3 px (~0.4%) as the
-/// stricter 193/386/771 the error model first suggested, with a quarter fewer
-/// polygons; 115/230/460 starts to lose quality. Polygons are the expensive
-/// part on this hardware.
-pub const LEVEL_DEPTH_Q4: [i32; 3] = [136 << 4, 272 << 4, 544 << 4];
+/// (`m7_mesh_tests`), trading warp for polygons, which are the expensive part
+/// on this hardware:
+///
+/// | bands       | polygons (mean) | worst warp | pixels > 3 px |
+/// |-------------|-----------------|------------|---------------|
+/// | 136/272/544 | 322             | 5.4 px     | 0.4%          |
+/// | 102/204/408 | 220             | 7.3 px     | 1.9%          |
+/// | 68/136/272  | 148             | 15.3 px    | 9.4%          |
+///
+/// The middle row is the knee: a third fewer polygons for a worst case still
+/// half the old uniform grid's, and the error concentrates in the bottom
+/// corners. Below it warp climbs fast.
+pub const LEVEL_DEPTH_Q4: [i32; 3] = [102 << 4, 204 << 4, 408 << 4];
 
 /// Cells per axis for a tile whose nearest corner is at `zmin_q4`.
 pub const fn level_for_depth(zmin_q4: i32) -> i32 {

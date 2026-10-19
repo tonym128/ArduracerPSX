@@ -5980,10 +5980,11 @@ mod m7_mesh_tests {
     ///
     /// Measured on screen: the ground point the GPU's affinely interpolated
     /// texel belongs to is projected back, and its distance from the pixel
-    /// showing it is the warp. Over 24 poses the worst is ~5.4 px, in the
-    /// bottom corners where cells hang below the screen edge, and fewer than
-    /// 0.4% of ground pixels exceed 3 px. A uniform 4x4 grid -- finer than the
-    /// 3x3 this replaced -- reaches ~15 px, so the test discriminates.
+    /// showing it is the warp. Over 24 poses the worst is ~7.3 px, in the
+    /// bottom corners where cells hang below the screen edge, and ~1.9% of
+    /// ground pixels exceed 3 px (see `LEVEL_DEPTH_Q4` for the trade). A
+    /// uniform 4x4 grid -- finer than the 3x3 this replaced -- reaches ~15 px,
+    /// so the test discriminates.
     #[test]
     fn texture_warp_stays_small() {
         let mut worst = 0.0f64;
@@ -5994,9 +5995,9 @@ mod m7_mesh_tests {
             pixels += r.pixels;
             over += r.over_3px;
         }
-        assert!(worst <= 6.0, "worst texel displacement {worst:.2} px");
+        assert!(worst <= 8.0, "worst texel displacement {worst:.2} px");
         assert!(
-            over * 100 <= pixels,
+            over * 40 <= pixels,
             "{over} of {pixels} ground pixels are more than 3 px off"
         );
 
@@ -6021,7 +6022,8 @@ mod m7_mesh_tests {
             let ras = render_counting(cam);
             worst = worst.max(ras);
         }
-        // 528 over these poses; the old fixed grid drew roughly 200.
+        // ~300 over these poses (528 at the finer bands before); the old fixed
+        // grid drew roughly 200.
         assert!(worst <= 600, "{worst} polygons in one frame");
     }
 
