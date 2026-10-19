@@ -5,20 +5,17 @@
 //! a way no screenshot catches, so they live where `tools/test_ui` can drive
 //! them directly.
 //!
-//! Two independent settings are edited: the circuit texture format and the
-//! framerate. Up/Down picks the row, Left/Right cycles that row's value, Cross
-//! confirms and exits. Both wrap, because a 2-row menu is too small to warrant
-//! open-ended behaviour.
+//! Up/Down picks the row, Left/Right cycles that row's value, Cross confirms
+//! and exits. Rows and values both wrap, because a menu this small does not
+//! warrant open-ended behaviour.
 
 /// Rows, in display order.
-pub const ROW_COUNT: u8 = 7;
-const ROW_TEXTURE: u8 = 0;
-const ROW_FRAMERATE: u8 = 1;
-const ROW_VIEW: u8 = 2;
-const ROW_CD_AUDIO: u8 = 3;
-const ROW_METRICS: u8 = 4;
-const ROW_CONTROLS: u8 = 5;
-const ROW_SPLIT: u8 = 6;
+pub const ROW_COUNT: u8 = 5;
+const ROW_VIEW: u8 = 0;
+const ROW_MUSIC: u8 = 1;
+const ROW_METRICS: u8 = 2;
+const ROW_CONTROLS: u8 = 3;
+const ROW_SPLIT: u8 = 4;
 
 /// Raw button state for one frame.
 #[derive(Copy, Clone, Default)]
@@ -34,14 +31,14 @@ pub struct SettingsInput {
 
 // The value type lives in `pause_input.rs` so both menus share one definition
 // even when `tools/test_ui` includes the two files by path in either order.
-pub use super::pause_input::{SettingsValues, TEXTURE_FORMAT_BYTES};
+pub use super::pause_input::SettingsValues;
 
 /// What the caller must do after an update.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SettingsChoice {
     /// Nothing happened; keep drawing the screen.
     None,
-    /// A value changed and must be applied and persisted.
+    /// A value changed and must be applied. Persisting waits for `Exit`.
     Changed(SettingsValues),
     /// The screen should close.
     Exit,
@@ -121,30 +118,21 @@ impl SettingsMenu {
 
     /// Steps the selected row's value, wrapping in both directions.
     fn cycle(&mut self, dir: i32) -> bool {
-        // The texture row is no longer a contiguous byte range: only AUTO (0)
-        // and QOI (2) are offered. Cycle directly between them.
-        if self.selected_row == ROW_TEXTURE {
-            let bytes = TEXTURE_FORMAT_BYTES;
-            let cur = self.values.texture_format;
-            let idx = bytes.iter().position(|&b| b == cur).unwrap_or(0);
-            self.values.texture_format =
-                bytes[(idx as i32 + dir).rem_euclid(bytes.len() as i32) as usize];
+        // Two states either way, so both directions are a toggle.
+        if self.selected_row == ROW_MUSIC {
+            self.values.music = !self.values.music;
             return true;
         }
 
         let span = match self.selected_row {
-            ROW_FRAMERATE => 2,
             ROW_VIEW => 3,
-            ROW_CD_AUDIO => 3,
             ROW_METRICS => 4,
             ROW_CONTROLS => 3,
             ROW_SPLIT => 3,
             _ => return false,
         };
         let cur = match self.selected_row {
-            ROW_FRAMERATE => self.values.framerate as i32,
             ROW_VIEW => self.values.camera_view as i32,
-            ROW_CD_AUDIO => self.values.cd_audio as i32,
             ROW_METRICS => self.values.debug_metrics as i32,
             ROW_CONTROLS => self.values.input_profile as i32,
             ROW_SPLIT => self.values.split_mode as i32,
@@ -152,9 +140,7 @@ impl SettingsMenu {
         };
         let next = (cur + dir).rem_euclid(span) as u8;
         match self.selected_row {
-            ROW_FRAMERATE => self.values.framerate = next,
             ROW_VIEW => self.values.camera_view = next,
-            ROW_CD_AUDIO => self.values.cd_audio = next,
             ROW_METRICS => self.values.debug_metrics = next,
             ROW_CONTROLS => self.values.input_profile = next,
             ROW_SPLIT => self.values.split_mode = next,

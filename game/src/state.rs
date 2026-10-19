@@ -71,10 +71,8 @@ impl StateManager {
             title: TitleScreen::new(),
             menu: MainMenu::new(),
             settings: SettingsScreen::new(SettingsValues {
-                texture_format: 0,
-                framerate: 0,
                 camera_view: 0,
-                cd_audio: 1,
+                music: true,
                 debug_metrics: 0,
                 input_profile: 0,
                 split_mode: 0,

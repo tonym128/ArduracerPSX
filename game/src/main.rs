@@ -36,9 +36,9 @@ use ghost_player::render_active_ghost;
 use ghost_recorder::LapGhostRecorder;
 use gpu::{
     bake_minimap, codec_is_uncompressed, init_track_texture, prewarm_starting_tiles, render_car,
-    render_hud, render_replay_hud, render_track, reset_texture_caches, set_frame_period,
-    set_texture_format, texture_format, Camera, DebugOverlay, Framerate, ParticleSystem,
-    SkidmarkBuffer, TextureFormat, TextureSlot,
+    render_hud, render_replay_hud, render_track, set_frame_period, set_texture_format,
+    texture_format, Camera, DebugOverlay, Framerate, ParticleSystem, SkidmarkBuffer, TextureFormat,
+    TextureSlot,
 };
 use input::{InputManager, InputProfile};
 use memcard::{MemcardStatus, MemoryCardManager};
@@ -123,32 +123,33 @@ static mut SILICON_REPORTED: bool = false;
 #[cfg_attr(target_arch = "mips", link_section = ".data")]
 static mut CD_SILICON_REPORTED: bool = false;
 
-/// The texture format a headless comparison run is pinned to, if any.
+/// The circuit texture format the game streams.
 ///
-/// The format normally comes from the memory card, so a headless run boots at
-/// `AUTO`, which resolves to QOI now that SVG, JPEG, TIM, TIM4 and TIM8 are no
-/// longer offered in the settings menu or mastered on the disc. Pinning QOI at
-/// build time makes a format comparison reproducible without a save file
-/// authored for it; the TIM/TIM4 DMA upload paths never execute in a headless
-/// run.
+/// Not a player choice. `AUTO` walks SVG -> QOI -> JPEG, and with no
+/// `SVGTRACKS.BIN` mastered on the disc that is QOI with the JPEG fallback for
+/// the circuits that have no QOI block. The saved `texture_format` byte is
+/// ignored, so an old card naming TIM or SVG cannot pin a format the disc does
+/// not carry.
 ///
-/// Pinning is a *build* choice rather than a runtime one on purpose: it costs
-/// the shipped binary nothing, it cannot be left switched on by a stray runtime
-/// flag, and a comparison run is reproducible from its feature list alone.
-/// With no pin feature -- every build that can reach a player's console -- this
-/// returns `saved` unchanged.
+/// A `profile-qoi` build pins QOI outright, so a profiling run measures the QOI
+/// decoder alone rather than whichever codec each circuit falls back to.
 #[inline]
-#[allow(unused_variables)]
-fn headless_texture_format(saved: u8) -> TextureFormat {
+fn boot_texture_format() -> TextureFormat {
     #[cfg(feature = "profile-qoi")]
     {
-        return TextureFormat::Qoi;
+        TextureFormat::Qoi
     }
     #[cfg(not(feature = "profile-qoi"))]
     {
-        TextureFormat::from_saved(saved)
+        TextureFormat::Auto
     }
 }
+
+/// The frame pacing the game runs at.
+///
+/// Locked to 30 FPS: there is no headroom for 60 at present, so it is no longer
+/// offered in the menus and the saved `framerate` byte is ignored.
+const FRAMERATE: Framerate = Framerate::Fps30;
 
 /// Logs the one-shot silicon-class fallback decision for each channel, once
 /// that channel's probe has decided, plus the live ch3 sector counts.
@@ -295,8 +296,8 @@ pub struct ArduracerGame {
     pub sim_tick_counter: u32,
     /// VBlank counter value of the last display flip applied (for 30 FPS pacing).
     pub last_flip_vblank: u32,
-    /// Player-selected frame pacing. 30 FPS occupies two VBlank periods per
-    /// frame, 60 occupies one; every pacing decision below reads it.
+    /// Frame pacing, always [`FRAMERATE`]. 30 FPS occupies two VBlank periods
+    /// per frame; every pacing decision below reads it.
     pub framerate: Framerate,
     /// Cached race standings across simulation sub-ticks.
     pub last_standings: [usize; 6],
@@ -420,10 +421,9 @@ impl ArduracerGame {
             "Initializing audio subsystem and cueing CD-DA Track 2...",
         );
         let mut audio = AudioSystem::new();
-        // The mode has to be set before the first `play_music`, or the title
-        // screen plays CD-DA regardless of what the player chose.
-        let cd_audio = memcard.save_data.cd_audio;
-        audio.set_cd_audio(cd_audio);
+        // The choice has to be set before the first `play_music`, or the title
+        // screen plays music regardless of what the player chose.
+        audio.set_music_enabled(memcard.save_data.cd_audio_mode().enabled());
         audio.set_sound_volume(memcard.save_data.sound_volume);
         audio.set_music_volume(memcard.save_data.music_volume);
         audio.play_music(2, crate::gpu::tracktex::disc_reader());
@@ -474,7 +474,7 @@ impl ArduracerGame {
             last_vblank_count: 0,
             sim_tick_counter: 0,
             last_flip_vblank: 0,
-            framerate: Framerate::Fps60,
+            framerate: FRAMERATE,
             last_standings: [0, 1, 2, 3, 4, 5],
             last_player_rank: 1,
             camera_view: 0,
@@ -505,10 +505,8 @@ impl ArduracerGame {
         // than the defaults for a frame or two.
         {
             let saved = SettingsValues {
-                texture_format: game.memcard.save_data.texture_format,
-                framerate: game.memcard.save_data.framerate,
                 camera_view: game.camera_view,
-                cd_audio: game.memcard.save_data.cd_audio,
+                music: game.memcard.save_data.cd_audio_mode().enabled(),
                 debug_metrics: game.debug_metrics,
                 input_profile: game.memcard.save_data.input_profile,
                 split_mode: game.split_mode,
@@ -519,30 +517,20 @@ impl ArduracerGame {
                 _ => InputProfile::ClassicArcade,
             };
             game.input_mgr2.controller.profile = game.input_mgr.controller.profile;
-            set_texture_format(headless_texture_format(saved.texture_format));
-            game.framerate = Framerate::from_saved(saved.framerate);
+            set_texture_format(boot_texture_format());
             set_frame_period(game.framerate.vblanks_per_frame());
             prof::set_budget_cycles(frame_budget_cycles(game.framerate));
             prof::set_expected_vblanks(game.framerate.vblanks_per_frame());
-            // Applied before anything asks for a track: with TIM pinned and the
-            // music left spinning, every tile read would hand the drive back to
-            // CD-DA and hand it straight back, for the whole boot.
-            let want_cdda = game.memcard.save_data.cd_audio_mode() != CdAudioMode::Xa
-                && game.memcard.save_data.cd_audio_mode().enabled();
-            game.audio.cdda.set_enabled(want_cdda);
-            // Who yields to whom for the drive. The mode itself was already
-            // applied to the audio system above, before the first play_music.
+            // Who yields to whom for the drive. The music choice itself was
+            // already applied to the audio system above, before the first
+            // play_music.
             crate::drive::install_preempt(crate::audio::xa::player_suspend);
             dbg::print("[BOOT] graphics: format=");
             dbg::print(texture_format().label());
             dbg::print(" framerate=");
             dbg::print(game.framerate.label());
-            dbg::print(" cd-audio=");
-            dbg::println(match game.memcard.save_data.cd_audio {
-                2 => "xa",
-                1 => "cdda",
-                _ => "off",
-            });
+            dbg::print(" music=");
+            dbg::println(game.audio.music_source());
             game.sync_camera_view_distance();
         }
 
@@ -591,7 +579,6 @@ impl ArduracerGame {
         self.ghost
             .load_from_card_block(&self.memcard.block, idx as u8);
         self.reset_race();
-        self.audio.cdda.stop();
         init_track_texture(ALL_TRACK_VISUALS[idx]);
         // After `init_track_texture`: that is what locates `LEVELS.BIN`. Loading
         // first finds no asset, leaves every tile `Barrier`, and the AI has no
@@ -641,7 +628,6 @@ impl ArduracerGame {
         self.current_track = city.track;
         self.ghost.reset(city.track_id as u8);
         self.reset_race();
-        self.audio.cdda.stop();
         init_track_texture(city.track_id);
         gpu::load_level_grid(city.track_id, city.track);
         bake_minimap(&self.minimap_texture, self.current_track);
@@ -681,7 +667,6 @@ impl ArduracerGame {
             self.current_track_idx = 999;
             self.ghost.reset(255);
             self.reset_race();
-            self.audio.cdda.stop();
             init_track_texture(0);
             bake_minimap(&self.minimap_texture, self.current_track);
             prewarm_starting_tiles(
@@ -1449,6 +1434,9 @@ impl ArduracerGame {
                             self.state_mgr.settings.set_values(self.current_settings());
                         }
                         SettingsChoice::Exit => {
+                            // The one place this screen writes the card: every
+                            // change above was applied live and only staged.
+                            self.persist_settings();
                             self.state_mgr.current = GameState::MainMenu;
                             // The button that closed the screen is necessarily
                             // held; arm so it does not re-trigger on the menu.
@@ -1586,7 +1574,6 @@ impl ArduracerGame {
                                 "[ATTRACT] Button pressed during demo race -> entering MainMenu",
                             );
                             self.is_attract_demo = false;
-                            self.audio.cdda.stop();
                             self.audio.leave_race();
                             self.camera = match self.camera_view {
                                 0 => Camera::new_chase(
@@ -1609,7 +1596,6 @@ impl ArduracerGame {
                                 "[ATTRACT] 30s demo timeout reached -> returning to TitleScreen",
                             );
                             self.is_attract_demo = false;
-                            self.audio.cdda.stop();
                             self.audio.leave_race();
                             self.camera = match self.camera_view {
                                 0 => Camera::new_chase(
@@ -1649,6 +1635,8 @@ impl ArduracerGame {
                             self.input_mgr.silence();
                             self.audio.pause_music();
                         } else {
+                            // Leaving the veil: write whatever was changed in it.
+                            self.persist_settings();
                             self.audio.resume_music(crate::gpu::tracktex::disc_reader());
                             self.sim_accumulator = 0;
                             self.last_vblank_count = psx_rt::interrupts::vblank_count();
@@ -1671,6 +1659,7 @@ impl ArduracerGame {
                         if was_paused {
                             match frame.choice {
                                 PauseChoice::Resume => {
+                                    self.persist_settings();
                                     self.paused = false;
                                     self.audio.set_paused(false);
                                     self.audio.resume_music(crate::gpu::tracktex::disc_reader());
@@ -1679,6 +1668,8 @@ impl ArduracerGame {
                                     self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                                 }
                                 PauseChoice::RestartRace => {
+                                    // Closing the veil: write any settings staged in it.
+                                    self.persist_settings();
                                     if self.timer.has_best_lap() {
                                         let medal = track
                                             .par_times
@@ -1719,6 +1710,8 @@ impl ArduracerGame {
                                     self.apply_settings(values);
                                 }
                                 PauseChoice::QuitToMenu => {
+                                    // Closing the veil: write any settings staged in it.
+                                    self.persist_settings();
                                     if self.timer.has_best_lap() {
                                         if self.current_track_idx == 999 {
                                             self.state_mgr.track_editor.track.author_time_ticks =
@@ -3243,13 +3236,11 @@ impl ArduracerGame {
     /// GP0(1Fh) closes the command stream, and the VBlank handler applies the
     /// display-start word only once the GPU has reached that flag -- so the flip
     /// cannot land on a half-drawn frame.
-    /// The graphics settings currently in force, in persisted form.
+    /// The settings currently in force.
     fn current_settings(&self) -> SettingsValues {
         SettingsValues {
-            texture_format: texture_format().to_saved(),
-            framerate: self.framerate.to_saved(),
             camera_view: self.camera_view,
-            cd_audio: self.audio.cd_audio,
+            music: self.audio.music_enabled,
             debug_metrics: self.debug_metrics,
             input_profile: self.input_mgr.controller.profile as u8,
             split_mode: self.split_mode,
@@ -3266,21 +3257,13 @@ impl ArduracerGame {
         }
     }
 
-    /// Applies a settings change and persists it.
+    /// Applies a settings change to the running session.
     ///
-    /// Order matters. The texture format is pushed into the streamer and the
-    /// caches dropped *before* the save is written, so a card write that fails
-    /// still leaves the session in the state the player just chose; the next
-    /// write picks it up. The reverse order could persist a setting and then
-    /// fail to apply it.
+    /// Live only: the change is staged in the save data and the card is marked
+    /// dirty, but nothing is written until the player leaves the menu -- see
+    /// [`Self::persist_settings`]. Writing on every Left/Right press meant one
+    /// card write per step through a value, each a visible stall.
     fn apply_settings(&mut self, values: SettingsValues) {
-        let previous_format = texture_format();
-        let previous_fps = self.framerate;
-        let previous_cdda_enabled = self.audio.cdda.enabled();
-
-        let format = TextureFormat::from_saved(values.texture_format);
-        let framerate = Framerate::from_saved(values.framerate);
-
         self.camera_view = values.camera_view;
         self.debug_metrics = values.debug_metrics;
         self.debug_overlay.mode = values.debug_metrics;
@@ -3294,98 +3277,24 @@ impl ArduracerGame {
             }
         }
 
-        if format != previous_format {
-            set_texture_format(format);
-            self.sync_camera_view_distance();
-            // Drop every cached tile so the new codec is used for the circuit
-            // already on screen, not just the next one loaded.
-            reset_texture_caches();
-            if self.state_mgr.current == GameState::Racing {
-                let circuit = self.active_circuit();
-                init_track_texture(circuit);
-                // Prewarm, exactly as `load_track` does, and this is the whole
-                // fix for the stutter on switching format mid-race.
-                //
-                // `reset_texture_caches` above just emptied all 64 VRAM slots, so
-                // every visible tile is now a cache miss. Without this the
-                // renderer draws placeholders and refills the cache at the
-                // decode budget -- one MCU row per frame. A 320x240 view is
-                // ~48 tiles at four rows each, so unpausing straight into that
-                // is seconds of track visibly repainting itself, at speed, in
-                // front of the car. Pausing does not hide it either: the frozen
-                // frame admits one row per frame too, and the player changes the
-                // setting and unpauses long before that finishes.
-                //
-                // Paying the same decode here moves the cost to a moment when
-                // the simulation is already stopped, which is where `load_track`
-                // has always paid it.
-                prewarm_starting_tiles(
-                    self.current_track.world_width(),
-                    self.current_track.world_height(),
-                    &self.camera,
-                );
-                log_silicon_fallback_once();
-            }
-        }
-
-        if framerate != previous_fps {
-            self.framerate = framerate;
-            // Re-stamp the pacing counters: the new period is measured against
-            // `last_flip_vblank`, and leaving it from the old mode would make
-            // the first frame after the switch wait for the wrong duration.
-            self.last_flip_vblank = psx_rt::interrupts::vblank_count();
-            self.last_vblank_count = psx_rt::interrupts::vblank_count();
-            self.sim_accumulator = 0;
-            set_frame_period(self.framerate.vblanks_per_frame());
-            prof::set_budget_cycles(frame_budget_cycles(self.framerate));
-            prof::set_expected_vblanks(self.framerate.vblanks_per_frame());
-        }
-
-        // Applied before the caches are dropped, so the drive is released before
-        // the next frame starts pulling tiles off it. Turning the music back on
-        // does not restart it here: the next `play_track` for whatever screen
-        // the player is on does that, which keeps this function free of
-        // knowledge about which screen that is.
-        // Only CD-DA and Off reach the drive controller; XA is a separate
-        // player with its own transfer, and selecting it must not leave the
-        // Redbook stream holding the drive.
-        let want_cdda =
-            values.cd_audio_mode() != CdAudioMode::Xa && values.cd_audio_mode().enabled();
-        if want_cdda != previous_cdda_enabled {
-            self.audio.cdda.set_enabled(want_cdda);
-        }
-        // A change of source, not just of on/off: restart the current track on
-        // whichever source the player now wants. Without this the choice only
-        // takes effect on the next screen, which reads as the setting being
-        // ignored.
-        //
-        // The audio system's copy is updated first and the switch keys off the
-        // comparison, so it fires once per change rather than on every later
-        // settings write -- a stale copy would restart the music on an unrelated
-        // change such as a texture format tweak.
-        let source_changed = values.cd_audio != self.audio.cd_audio;
-        self.audio.set_cd_audio(values.cd_audio);
-        if source_changed {
+        // Restart or stop the current track at once. Without this the choice
+        // only takes effect on the next screen, which reads as the setting
+        // being ignored. Keyed off the comparison so an unrelated change, such
+        // as the camera view, does not restart the music.
+        if values.music != self.audio.music_enabled {
+            self.audio.set_music_enabled(values.music);
             self.audio
                 .apply_music_mode(crate::gpu::tracktex::disc_reader());
         }
 
-        dbg::print("[SETTINGS] applied format=");
-        dbg::print(format.label());
-        dbg::print(" framerate=");
-        dbg::print(framerate.label());
-        dbg::print(" view=");
+        dbg::print("[SETTINGS] applied view=");
         dbg::print(match self.camera_view {
             0 => "BEHIND",
             1 => "OVERHEAD",
             _ => "ROTATING",
         });
-        dbg::print(" cd-audio=");
-        dbg::println(match self.audio.cd_audio {
-            2 => "xa",
-            1 => "cdda",
-            _ => "off",
-        });
+        dbg::print(" music=");
+        dbg::println(self.audio.music_source());
 
         self.input_mgr.controller.profile = match values.input_profile {
             1 => InputProfile::ModernTriggers,
@@ -3396,14 +3305,26 @@ impl ArduracerGame {
         self.split_mode = values.split_mode;
         self.sync_camera_split_mode();
 
-        // Persist unconditionally: values are cheap and a card write is
-        // already the established pattern for settings changes.
-        self.memcard.save_data.texture_format = values.texture_format;
-        self.memcard.save_data.framerate = values.framerate;
-        self.memcard.save_data.cd_audio = values.cd_audio;
-        self.memcard.save_data.input_profile = values.input_profile;
-        self.memcard.mark_dirty();
-        self.memcard.flush();
+        // Stage, do not write. Only mark dirty when a persisted byte actually
+        // moved, so leaving the menu after changing only the view (which is not
+        // saved) does not cost a card write.
+        let cd_audio = CdAudioMode::from_enabled(values.music).as_u8();
+        let save = &mut self.memcard.save_data;
+        if save.cd_audio != cd_audio || save.input_profile != values.input_profile {
+            save.cd_audio = cd_audio;
+            save.input_profile = values.input_profile;
+            self.memcard.mark_dirty();
+        }
+    }
+
+    /// Writes staged settings to the card. Call when the player leaves a
+    /// settings menu (the standalone screen or the pause veil).
+    ///
+    /// A no-op when nothing is dirty, so closing a menu untouched never writes.
+    fn persist_settings(&mut self) {
+        if self.memcard.is_dirty {
+            self.memcard.flush();
+        }
     }
 
     fn close_frame(&mut self) {

@@ -515,7 +515,7 @@ mod tests {
         assert_eq!(fresh, defaulted);
         assert_eq!(defaulted.selected_idx, 0);
 
-        assert_eq!(PauseMenu::item_count(), 10);
+        assert_eq!(PauseMenu::item_count(), 8);
         assert_eq!(PauseChoice::default(), PauseChoice::None);
         assert_eq!(
             PauseFrame::default(),
@@ -3531,19 +3531,16 @@ mod intro_transition_tests {
     }
 }
 
-/// Tests for the two graphics settings and the menus that edit them.
+/// Tests for the settings values and the menus that edit them.
 #[cfg(test)]
 mod graphics_settings {
-    use crate::pause_input::{self, PauseChoice, PauseInput, PauseMenu, SettingsValues};
-    use crate::settings_input::{SettingsChoice, SettingsInput, SettingsMenu};
-    use pause_input::texture_format_is_selectable;
+    use crate::pause_input::{PauseChoice, PauseInput, PauseMenu, SettingsValues};
+    use crate::settings_input::{SettingsChoice, SettingsInput, SettingsMenu, ROW_COUNT};
 
     fn values() -> SettingsValues {
         SettingsValues {
-            texture_format: 0,
-            framerate: 0,
             camera_view: 0,
-            cd_audio: 1,
+            music: true,
             debug_metrics: 0,
             input_profile: 0,
             split_mode: 0,
@@ -3556,46 +3553,51 @@ mod graphics_settings {
         i
     }
 
-    /// The texture row now offers only AUTO (0) and QOI (2); SVG, JPEG, TIM,
-    /// TIM4 and TIM8 are no longer reachable from the menu, although the engine
-    /// still decodes them and a save card naming one of them still loads. The
-    /// two remaining options cycle and wrap in both directions.
-    #[test]
-    fn texture_format_cycles_through_the_two_options_and_wraps() {
+    /// Moves the settings screen's highlight down `rows` rows.
+    fn settings_at(rows: u8) -> SettingsMenu {
         let mut m = SettingsMenu::new(values());
-        let mut seen = vec![m.values().texture_format];
-        for _ in 0..4 {
-            m.update(press(|i| i.right = true));
+        for _ in 0..rows {
+            m.update(press(|i| i.down = true));
             m.update(SettingsInput::default());
-            seen.push(m.values().texture_format);
         }
-        assert_eq!(seen, vec![0, 2, 0, 2, 0], "right must cycle and wrap");
-
-        // Left from Auto lands on QOI, the other offered option.
-        m.update(press(|i| i.left = true));
-        assert_eq!(m.values().texture_format, 2, "left must wrap to QOI");
+        assert_eq!(m.selected_row, rows);
+        m
     }
 
+    /// Moves the pause menu's highlight down `rows` rows.
+    fn pause_at(rows: u8) -> PauseMenu {
+        let mut p = PauseMenu::default();
+        for _ in 0..rows {
+            p.update(PauseInput {
+                down: true,
+                ..Default::default()
+            });
+            p.update(PauseInput::default());
+        }
+        assert_eq!(p.selected_idx, rows);
+        p
+    }
+
+    fn pause_right(p: &mut PauseMenu) -> PauseChoice {
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        p.update(PauseInput::default());
+        out.choice
+    }
+
+    /// The texture format and framerate rows are gone: texture streaming is
+    /// always QOI with its JPEG fallback, and the game is locked to 30 FPS.
     #[test]
-    fn framerate_toggles_between_the_two_modes() {
-        let mut m = SettingsMenu::new(values());
-        m.update(press(|i| i.down = true)); // move to the framerate row
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().framerate, 1, "right selects 30 FPS");
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().framerate, 0, "and wraps back to 60 FPS");
+    fn the_menus_have_no_texture_or_framerate_rows() {
+        assert_eq!(ROW_COUNT, 5);
+        assert_eq!(PauseMenu::item_count(), 8);
     }
 
     #[test]
     fn camera_view_cycles_between_the_three_modes() {
-        let mut m = SettingsMenu::new(values());
-        m.update(press(|i| i.down = true)); // move to framerate
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.down = true)); // move to view
-        m.update(SettingsInput::default());
-        assert_eq!(m.selected_row, 2, "row 2 is VIEW");
+        let mut m = settings_at(0);
         m.update(press(|i| i.right = true));
         assert_eq!(m.values().camera_view, 1, "right selects Overhead");
         m.update(SettingsInput::default());
@@ -3606,23 +3608,119 @@ mod graphics_settings {
         assert_eq!(m.values().camera_view, 0, "and wraps back to Behind");
     }
 
+    /// Music is a two-state toggle: ON (XA) or OFF. There is no CD-DA option.
     #[test]
-    fn controls_input_profile_cycles_through_options_and_wraps() {
-        let mut m = SettingsMenu::new(values());
-        for _ in 0..5 {
-            m.update(press(|i| i.down = true));
+    fn music_toggles_on_the_settings_screen() {
+        let mut m = settings_at(1);
+        assert!(m.values().music, "music is on by default");
+        for (right, expect) in [(true, false), (true, true), (false, false)] {
+            let choice = if right {
+                m.update(press(|i| i.right = true))
+            } else {
+                m.update(press(|i| i.left = true))
+            };
+            match choice {
+                SettingsChoice::Changed(v) => assert_eq!(v.music, expect),
+                other => panic!("expected a change, got {other:?}"),
+            }
             m.update(SettingsInput::default());
         }
-        assert_eq!(m.selected_row, 5, "row 5 is CONTROLS");
+    }
+
+    #[test]
+    fn music_toggles_in_the_pause_menu() {
+        let mut p = pause_at(3);
+        assert!(p.values().music, "music is on by default");
+        assert!(matches!(pause_right(&mut p), PauseChoice::Graphics(_)));
+        assert!(!p.values().music, "right turns music off");
+        assert!(matches!(pause_right(&mut p), PauseChoice::Graphics(_)));
+        assert!(p.values().music, "and back on");
+    }
+
+    /// A music choice must survive the main loop re-seeding the menu from the
+    /// values it just applied.
+    #[test]
+    fn music_choice_survives_sync_with_applied_values() {
+        let mut m = settings_at(1);
+        let applied = match m.update(press(|i| i.right = true)) {
+            SettingsChoice::Changed(v) => v,
+            other => panic!("expected a change, got {other:?}"),
+        };
+        assert!(!applied.music);
+        m.set_values(applied);
+        assert!(!m.values().music, "OFF preserved after sync");
+
+        let mut p = pause_at(3);
+        let out = p.update(PauseInput {
+            right: true,
+            ..Default::default()
+        });
+        let applied = match out.choice {
+            PauseChoice::Graphics(v) => v,
+            other => panic!("expected a change, got {other:?}"),
+        };
+        p.update_with_values(PauseInput::default(), applied);
+        assert!(!p.values().music, "OFF preserved on the next pause frame");
+    }
+
+    /// The METRICS row must cycle through all four modes (OFF, FPS, FPS GRAPH,
+    /// ALL) and wrap both ways.
+    #[test]
+    fn debug_metrics_cycles_on_the_settings_screen() {
+        let mut m = settings_at(2);
+        let mut seen = vec![m.values().debug_metrics];
+        for _ in 0..4 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().debug_metrics);
+        }
+        assert_eq!(seen, vec![0, 1, 2, 3, 0]);
+        m.update(press(|i| i.left = true));
+        assert_eq!(m.values().debug_metrics, 3, "left must wrap back to ALL");
+    }
+
+    #[test]
+    fn debug_metrics_is_reachable_in_the_pause_menu() {
+        let mut p = pause_at(4);
+        assert!(matches!(pause_right(&mut p), PauseChoice::Graphics(_)));
+        assert_eq!(p.values().debug_metrics, 1);
+    }
+
+    #[test]
+    fn controls_input_profile_cycles_through_options_and_wraps() {
+        let mut m = settings_at(3);
         assert_eq!(m.values().input_profile, 0, "default is Classic");
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().input_profile, 1, "right selects Triggers");
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().input_profile, 2, "right selects Dual Stick");
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().input_profile, 0, "and wraps back to Classic");
+        let mut seen = vec![];
+        for _ in 0..3 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().input_profile);
+        }
+        assert_eq!(seen, vec![1, 2, 0]);
+    }
+
+    #[test]
+    fn split_mode_cycles_through_options_and_wraps() {
+        let mut m = settings_at(4);
+        assert_eq!(m.values().split_mode, 0, "default is Horizontal");
+        let mut seen = vec![];
+        for _ in 0..3 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().split_mode);
+        }
+        assert_eq!(seen, vec![1, 2, 0]);
+    }
+
+    #[test]
+    fn pause_menu_edits_split_mode_inline() {
+        let mut p = pause_at(6);
+        let mut seen = vec![];
+        for _ in 0..3 {
+            assert!(matches!(pause_right(&mut p), PauseChoice::Graphics(_)));
+            seen.push(p.values().split_mode);
+        }
+        assert_eq!(seen, vec![1, 2, 0]);
     }
 
     /// A held button is one change, not one per frame. Without this the value
@@ -3641,36 +3739,18 @@ mod graphics_settings {
             changes, 1,
             "a held direction changed the value {changes} times"
         );
-        assert_eq!(m.values().texture_format, 2);
+        assert_eq!(m.values().camera_view, 1);
     }
 
-    #[test]
-    fn split_mode_cycles_through_options_and_wraps() {
-        let mut m = SettingsMenu::new(values());
-        for _ in 0..6 {
-            m.update(press(|i| i.down = true));
-            m.update(SettingsInput::default());
-        }
-        assert_eq!(m.selected_row, 6, "row 6 is 2P SPLIT");
-        assert_eq!(m.values().split_mode, 0, "default is Horizontal");
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().split_mode, 1, "right selects Vertical");
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().split_mode, 2, "right selects Diagonal");
-        m.update(SettingsInput::default());
-        m.update(press(|i| i.right = true));
-        assert_eq!(m.values().split_mode, 0, "and wraps back to Horizontal");
-    }
-
-    /// Row selection must stay in range with seven rows.
+    /// Row selection must stay in range and wrap at both ends.
     #[test]
     fn row_selection_wraps_between_the_rows() {
         let mut m = SettingsMenu::new(values());
         assert_eq!(m.selected_row, 0);
         m.update(press(|i| i.up = true));
         assert_eq!(
-            m.selected_row, 6,
+            m.selected_row,
+            ROW_COUNT - 1,
             "up from the first row wraps to the last (2P SPLIT)"
         );
         m.update(SettingsInput::default());
@@ -3678,13 +3758,15 @@ mod graphics_settings {
         assert_eq!(m.selected_row, 0, "down from the last wraps to the first");
     }
 
+    /// Changes are reported as `Changed` (apply live, do not write the card);
+    /// only `Exit` closes the screen, and that is where the caller persists.
     #[test]
     fn cross_exits_and_reports_changes_separately() {
         let mut m = SettingsMenu::new(values());
         // A change alone must not close the screen.
         match m.update(press(|i| i.right = true)) {
             SettingsChoice::Changed(v) => assert_eq!(
-                v.texture_format, 2,
+                v.camera_view, 1,
                 "a change must report the value it moved to"
             ),
             other => panic!("expected a change, got {other:?}"),
@@ -3694,7 +3776,7 @@ mod graphics_settings {
             SettingsChoice::None,
             "a value edit must not be mistaken for a confirm"
         );
-        // Change and confirm in the same frame: apply, then close.
+        // Change and confirm in the same frame: apply, but do not close yet.
         let both = SettingsInput {
             right: true,
             cross: true,
@@ -3720,372 +3802,26 @@ mod graphics_settings {
         );
     }
 
-    /// The pause menu edits the same values in place.
+    /// The pause menu edits the same values in place, without moving the
+    /// cursor or activating the row.
     #[test]
-    fn pause_menu_edits_texture_inline() {
-        let mut p = PauseMenu::default();
-        // Row 2 is TEXTURE.
-        for _ in 0..2 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
+    fn pause_menu_edits_view_inline() {
+        let mut p = pause_at(2);
+        let mut seen = vec![];
+        for _ in 0..3 {
+            assert!(matches!(pause_right(&mut p), PauseChoice::Graphics(_)));
+            seen.push(p.values().camera_view);
         }
-        assert_eq!(p.selected_idx, 2);
-        let out = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(
-            matches!(out.choice, PauseChoice::Graphics(_)),
-            "right on a settings row must report a change, got {:?}",
-            out.choice
-        );
-        assert_eq!(p.values().texture_format, 2);
-        // Editing a value must not move the cursor or activate the row.
+        assert_eq!(seen, vec![1, 2, 0], "Overhead, Rotating, then Behind");
         assert_eq!(p.selected_idx, 2, "the row should stay selected");
     }
 
-    /// Every press that moves a value reports it, and the value survives the
-    /// round trip through the menu. Writing the card on a no-op frame is the
-    /// thing worth preventing here, so this checks the reporting, not the
-    /// arithmetic.
-    #[test]
-    fn each_move_is_reported_once() {
-        let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
-        for _ in 0..3 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        assert_eq!(p.selected_idx, 3, "row 3 is FRAMERATE");
-
-        let first = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(first.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().framerate, 1);
-
-        // Release, then press again: a second genuine press.
-        p.update(PauseInput::default());
-        let second = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(second.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().framerate, 0, "wraps back to 60 FPS");
-    }
-
-    #[test]
-    fn pause_menu_edits_view_inline() {
-        let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, QUIT.
-        for _ in 0..4 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        assert_eq!(p.selected_idx, 4, "row 4 is VIEW");
-
-        let first = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(first.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().camera_view, 1, "view switched to Overhead");
-
-        p.update(PauseInput::default());
-        let second = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(second.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().camera_view, 2, "view switched to Rotating");
-
-        p.update(PauseInput::default());
-        let third = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(third.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().camera_view, 0, "view wrapped to Behind");
-    }
-
-    /// Every value the settings screen can produce must be one the save
-    /// sanitiser accepts. The menu only offers AUTO (0) and QOI (2) now; the
-    /// engine still decodes SVG, JPEG, TIM, TIM4 and TIM8, and a card naming one
-    /// of them still loads, but the menus cannot reach those bytes.
-    #[test]
-    fn every_reachable_value_is_persistable() {
-        let mut m = SettingsMenu::new(values());
-        let mut seen = vec![m.values().texture_format];
-        for _ in 0..4 {
-            m.update(press(|i| i.right = true));
-            m.update(SettingsInput::default());
-            seen.push(m.values().texture_format);
-        }
-        assert_eq!(seen, vec![0, 2, 0, 2, 0]);
-        for v in seen {
-            assert!(
-                texture_format_is_selectable(v),
-                "settings emitted out-of-range texture byte {v}"
-            );
-        }
-    }
-
-    /// The CD-audio row must be reachable on both menus and must cycle through
-    /// all three states (OFF = 0, CD-DA = 1, XA = 2).
-    #[test]
-    fn cd_audio_is_reachable_on_the_settings_screen() {
-        let mut m = SettingsMenu::new(values());
-        for _ in 0..3 {
-            m.update(press(|i| i.down = true));
-            m.update(SettingsInput::default());
-        }
-        assert_eq!(m.selected_row, 3, "row 3 is CD AUDIO");
-        assert_eq!(m.values().cd_audio, 1, "CD-DA by default");
-
-        // Right cycles CD-DA (1) -> XA (2)
-        match m.update(press(|i| i.right = true)) {
-            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 2, "right cycles to XA"),
-            other => panic!("expected a change, got {other:?}"),
-        }
-        m.update(SettingsInput::default());
-
-        // Right cycles XA (2) -> OFF (0)
-        match m.update(press(|i| i.right = true)) {
-            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "right cycles to OFF"),
-            other => panic!("expected a change, got {other:?}"),
-        }
-        m.update(SettingsInput::default());
-
-        // Right cycles OFF (0) -> CD-DA (1)
-        match m.update(press(|i| i.right = true)) {
-            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 1, "right cycles to CD-DA"),
-            other => panic!("expected a change, got {other:?}"),
-        }
-        m.update(SettingsInput::default());
-
-        // Left cycles CD-DA (1) -> OFF (0)
-        match m.update(press(|i| i.left = true)) {
-            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 0, "left cycles to OFF"),
-            other => panic!("expected a change, got {other:?}"),
-        }
-        m.update(SettingsInput::default());
-
-        // Left cycles OFF (0) -> XA (2)
-        match m.update(press(|i| i.left = true)) {
-            SettingsChoice::Changed(v) => assert_eq!(v.cd_audio, 2, "left wraps to XA"),
-            other => panic!("expected a change, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn cd_audio_is_reachable_in_the_pause_menu() {
-        let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, METRICS, QUIT.
-        for _ in 0..5 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        assert_eq!(p.selected_idx, 5, "row 5 is CD AUDIO");
-        assert_eq!(p.values().cd_audio, 1, "CD-DA by default");
-
-        // Right cycles to XA (2)
-        let out = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().cd_audio, 2, "right cycles to XA");
-
-        p.update(PauseInput::default());
-        // Right cycles to OFF (0)
-        let out = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().cd_audio, 0, "right cycles to OFF");
-
-        p.update(PauseInput::default());
-        // Left wraps back to XA (2)
-        let out = p.update(PauseInput {
-            left: true,
-            ..Default::default()
-        });
-        assert!(matches!(out.choice, PauseChoice::Graphics(_)));
-        assert_eq!(p.values().cd_audio, 2, "left wraps to XA");
-    }
-
-    /// When XA mode is selected, synchronizing the menu with current settings
-    /// (or feeding values on subsequent frames in the pause menu) must keep
-    /// XA mode intact instead of reverting to OFF or CD-DA.
-    #[test]
-    fn cd_audio_xa_mode_survives_sync_with_applied_values() {
-        // Settings screen:
-        let mut m = SettingsMenu::new(values());
-        for _ in 0..3 {
-            m.update(press(|i| i.down = true));
-            m.update(SettingsInput::default());
-        }
-        let choice = m.update(press(|i| i.right = true));
-        let applied_values = match choice {
-            SettingsChoice::Changed(v) => {
-                assert_eq!(v.cd_audio, 2, "changed to XA");
-                v
-            }
-            other => panic!("expected a change, got {other:?}"),
-        };
-        // Simulated main loop re-sync (set_values with current_settings):
-        m.set_values(applied_values);
-        assert_eq!(m.values().cd_audio, 2, "XA preserved after sync");
-
-        // Pause menu:
-        let mut p = PauseMenu::default();
-        for _ in 0..5 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        let out = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        let applied_pause_values = match out.choice {
-            PauseChoice::Graphics(v) => {
-                assert_eq!(v.cd_audio, 2, "pause menu changed to XA");
-                v
-            }
-            other => panic!("expected graphics change, got {other:?}"),
-        };
-        // Next frame feeding applied values via update_with_values:
-        p.update_with_values(PauseInput::default(), applied_pause_values);
-        assert_eq!(
-            p.values().cd_audio,
-            2,
-            "XA preserved on subsequent pause frame"
-        );
-    }
-
-    /// The METRICS row must be reachable on the settings screen and cycle
-    /// through all four modes (OFF, FPS, FPS GRAPH, ALL).
-    #[test]
-    fn debug_metrics_cycles_on_the_settings_screen() {
-        let mut m = SettingsMenu::new(values());
-        for _ in 0..4 {
-            m.update(press(|i| i.down = true));
-            m.update(SettingsInput::default());
-        }
-        assert_eq!(m.selected_row, 4, "row 4 is METRICS");
-        assert_eq!(m.values().debug_metrics, 0, "off by default");
-
-        let mut seen = vec![m.values().debug_metrics];
-        for _ in 0..4 {
-            m.update(press(|i| i.right = true));
-            m.update(SettingsInput::default());
-            seen.push(m.values().debug_metrics);
-        }
-        assert_eq!(
-            seen,
-            vec![0, 1, 2, 3, 0],
-            "right must cycle through all 4 modes and wrap"
-        );
-
-        // Left wraps to ALL (3)
-        m.update(press(|i| i.left = true));
-        assert_eq!(m.values().debug_metrics, 3, "left must wrap back to ALL");
-    }
-
-    /// The METRICS row must be reachable in the pause menu and edit inline.
-    #[test]
-    fn debug_metrics_is_reachable_in_the_pause_menu() {
-        let mut p = PauseMenu::default();
-        // Row order is RESUME, RESTART, TEXTURE, FRAMERATE, VIEW, CD AUDIO, METRICS, QUIT.
-        for _ in 0..6 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        assert_eq!(p.selected_idx, 6, "row 6 is METRICS");
-
-        let out = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(
-            matches!(out.choice, PauseChoice::Graphics(_)),
-            "metrics edit must report Graphics choice"
-        );
-        assert_eq!(p.values().debug_metrics, 1);
-    }
-
-    #[test]
-    fn pause_menu_edits_split_mode_inline() {
-        let mut p = PauseMenu::default();
-        // Row 8 is 2P SPLIT.
-        for _ in 0..8 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        assert_eq!(p.selected_idx, 8);
-        let out = p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert!(
-            matches!(out.choice, PauseChoice::Graphics(_)),
-            "right on a settings row must report a change, got {:?}",
-            out.choice
-        );
-        assert_eq!(p.values().split_mode, 1);
-        p.update(PauseInput::default());
-        p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert_eq!(p.values().split_mode, 2);
-        p.update(PauseInput::default());
-        p.update(PauseInput {
-            right: true,
-            ..Default::default()
-        });
-        assert_eq!(p.values().split_mode, 0);
-    }
-
-    /// QUIT must still be the last row and still quit. The 2P SPLIT row was
-    /// inserted before it, and an off-by-one there turns the destructive
-    /// option into a setting or, worse, makes the pause menu unexitable.
+    /// QUIT must still be the last row and still quit. Removing the texture and
+    /// framerate rows moved it; an off-by-one there turns the destructive option
+    /// into a setting or makes the pause menu unexitable.
     #[test]
     fn quit_is_still_the_last_row_and_still_quits() {
-        let mut p = PauseMenu::default();
-        for _ in 0..9 {
-            p.update(PauseInput {
-                down: true,
-                ..Default::default()
-            });
-            p.update(PauseInput::default());
-        }
-        assert_eq!(p.selected_idx, 9, "row 9 is QUIT TO MENU");
-        assert_eq!(PauseMenu::item_count(), 10);
-
+        let mut p = pause_at(7);
         let out = p.update(PauseInput {
             cross: true,
             ..Default::default()
@@ -4099,28 +3835,6 @@ mod graphics_settings {
             ..Default::default()
         });
         assert_eq!(p.selected_idx, 0);
-    }
-
-    /// The settings menu shares `TEXTURE_FORMAT_BYTES` with the pause menu, so
-    /// neither can offer a byte the other cannot. Only AUTO (0) and QOI (2) are
-    /// offered; SVG, JPEG, TIM, TIM4 and TIM8 are still decoded by the engine
-    /// but are no longer reachable from the settings menu.
-    #[test]
-    fn both_menus_reach_only_the_offered_texture_format_bytes() {
-        let mut m = SettingsMenu::new(values());
-        let mut seen = vec![m.values().texture_format];
-        for _ in 0..4 {
-            m.update(press(|i| i.right = true));
-            m.update(SettingsInput::default());
-            seen.push(m.values().texture_format);
-        }
-        assert_eq!(seen, vec![0, 2, 0, 2, 0]);
-        for v in seen {
-            assert!(
-                texture_format_is_selectable(v),
-                "settings reached non-selectable texture byte {v}"
-            );
-        }
     }
 
     fn test_pad(mask: u16) -> psx_pad::PadState {
