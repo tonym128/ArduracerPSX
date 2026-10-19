@@ -3170,6 +3170,11 @@ impl FloorPackets {
     }
 
     /// Hands the current half to the GPU and starts filling the other.
+    ///
+    /// Cold and out of line: inlined, the DMA kick doubled the size of every
+    /// primitive writer on the floor's per-tile path.
+    #[cold]
+    #[inline(never)]
     fn kick(&mut self) {
         if self.len == 0 {
             return;

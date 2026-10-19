@@ -367,7 +367,7 @@ pub fn build_tile<P: Projector, S: Sink>(
     sink: &mut S,
 ) -> usize {
     let n = n.clamp(1, MAX_LEVEL);
-    let cells = visible_cells(camera, r, n, oc.z_far_q4, oc.view);
+    let cells = visible_cells(camera, r, n, oc);
     let (count, layout) = make_points(camera, r, n, sides, tex, cells, *oc, scratch);
     proj.project(&mut scratch.pts[..count], &mut scratch.code[..count], oc);
     emit_cells(&layout, scratch, proj, sink);
@@ -383,7 +383,10 @@ pub fn build_tile<P: Projector, S: Sink>(
 /// `extent` the trimmed and `full` the untrimmed length, `t0` and `shift` the
 /// tile's place in its texture page. An untrimmed tile's lines fall on whole
 /// texels, `64k / 2^lg`; only a tile cut by the circuit edge divides.
-#[inline(always)]
+///
+/// Out of line on purpose: inlined at each call site it made `make_points`
+/// 5 KB under LTO, more than the whole instruction cache.
+#[inline(never)]
 fn line(origin_q4: i32, extent: i32, full: i32, k: i32, lg: u32, t0: u16, shift: u8) -> (i32, u8) {
     let o = (extent * k) >> lg;
     let texel = if extent == full {
@@ -507,13 +510,7 @@ fn make_points(
 /// interpolation. Each row and column is then tested with shifts and adds,
 /// without projecting anything. Points that are built are computed exactly as
 /// before, so neighbours still agree on every shared point.
-fn visible_cells(
-    camera: &Camera,
-    r: &TileRect,
-    n: i32,
-    z_far_q4: i32,
-    view: (i16, i16, i16, i16),
-) -> (i32, i32, i32, i32) {
+fn visible_cells(camera: &Camera, r: &TileRect, n: i32, oc: &Outcoder) -> (i32, i32, i32, i32) {
     // Coarse tiles have too few points for the test to pay for itself.
     if n < 4 {
         return (0, n, 0, n);
@@ -526,16 +523,13 @@ fn visible_cells(
     let c10 = c(r.wx0 + r.cw, r.wy0);
     let c01 = c(r.wx0, r.wy0 + r.ch);
 
-    // Depth window: from the screen's bottom row (or the near plane, if that
-    // is further) to the far plane, a little wider either way for rounding.
-    let f = (camera.m7_focal() * camera.m7_view_scale_q12()) / 4096;
-    let below = view.3 as i32 - camera.m7_horizon_row();
-    let z_bottom = if below > 0 { (2080 * f) / below } else { 0 };
-    let z_lo = (M7_Z_NEAR << 4).max(z_bottom) - 32;
-    let z_hi = z_far_q4 + 32;
-    // Screen-edge offsets from the projection centre, padded a few pixels.
-    let x_lo = view.0 as i32 - camera.center_x as i32 - 4;
-    let x_hi = view.2 as i32 - camera.center_x as i32 + 4;
+    let Frustum {
+        f,
+        z_lo,
+        z_hi,
+        x_lo,
+        x_hi,
+    } = oc.frustum;
     // Each plane as (right, depth) -> value, non-negative on the visible side.
     let planes = |(rq, z): (i32, i32)| -> [i32; 4] {
         [z - z_lo, z_hi - z, rq * f - x_lo * z, x_hi * z - rq * f]
@@ -543,25 +537,11 @@ fn visible_cells(
     let (p00, p10, p01) = (planes(c00), planes(c10), planes(c01));
 
     // Bit k of `rows` / `cols` survives while row / column k may be visible.
-    // A plane's largest value over row k is linear in k, so it is stepped by
-    // addition rather than multiplied out per row.
-    let all = (1u32 << n) - 1;
-    let (mut rows, mut cols) = (all, all);
+    let (mut rows, mut cols) = ((1u32 << n) - 1, (1u32 << n) - 1);
     for q in 0..4 {
         let (v, dx, dy) = (p00[q], p10[q] - p00[q], p01[q] - p00[q]);
-        let (row_base, col_base) = (v + dx.max(0), v + dy.max(0));
-        // The larger end of each step: `max(d*k, d*(k+1)) = d*k + max(d, 0)`.
-        let (mut row_acc, mut col_acc) = (dy.max(0), dx.max(0));
-        for k in 0..n {
-            if row_base + (row_acc >> lg) < 0 {
-                rows &= !(1 << k);
-            }
-            if col_base + (col_acc >> lg) < 0 {
-                cols &= !(1 << k);
-            }
-            row_acc += dy;
-            col_acc += dx;
-        }
+        rows &= lines_on_plane(v + dx.max(0), dy, n, lg);
+        cols &= lines_on_plane(v + dy.max(0), dx, n, lg);
     }
     if rows == 0 || cols == 0 {
         return (0, 0, 0, 0);
@@ -569,6 +549,24 @@ fn visible_cells(
     let span = |m: u32| (m.trailing_zeros() as i32, 32 - m.leading_zeros() as i32);
     let ((i0, i1), (j0, j1)) = (span(cols), span(rows));
     (i0, i1, j0, j1)
+}
+
+/// Bit k set for each of `n` strips whose largest plane value is non-negative.
+///
+/// The largest value over strip k is `base + (step * k + max(step, 0)) >> lg`:
+/// linear in k, so it is stepped by addition rather than multiplied out. Out of
+/// line so the four planes share one copy rather than unrolling into four.
+#[inline(never)]
+fn lines_on_plane(base: i32, step: i32, n: i32, lg: u32) -> u32 {
+    let mut mask = 0u32;
+    let mut acc = step.max(0);
+    for k in 0..n {
+        if base + (acc >> lg) >= 0 {
+            mask |= 1 << k;
+        }
+        acc += step;
+    }
+    mask
 }
 
 /// Outcodes points, so a cell is culled with one AND.
@@ -585,16 +583,42 @@ pub struct Outcoder {
     z_far_q4: i32,
     view: (i16, i16, i16, i16),
     behind: u8,
+    frustum: Frustum,
+}
+
+/// The view's planes on the ground, for [`visible_cells`]: depth from the
+/// screen's bottom row (or the near plane, if further) to the far plane, and
+/// the screen edges as offsets from the projection centre -- each padded for
+/// rounding. Per frame, since every term depends only on the camera.
+#[derive(Copy, Clone)]
+struct Frustum {
+    /// Focal length, pixels.
+    f: i32,
+    z_lo: i32,
+    z_hi: i32,
+    x_lo: i32,
+    x_hi: i32,
 }
 
 impl Outcoder {
     pub fn new(camera: &Camera, z_far_q4: i32, view: (i16, i16, i16, i16)) -> Self {
         let near_q4 = M7_Z_NEAR << 4;
         let near_row = camera.project_cam(0, near_q4).1;
+        let f = (camera.m7_focal() * camera.m7_view_scale_q12()) / 4096;
+        let below = view.3 as i32 - camera.m7_horizon_row();
+        let z_bottom = if below > 0 { (2080 * f) / below } else { 0 };
+        let cx = camera.center_x as i32;
         Self {
             near_q4,
             z_far_q4,
             view,
+            frustum: Frustum {
+                f,
+                z_lo: near_q4.max(z_bottom) - 32,
+                z_hi: z_far_q4 + 32,
+                x_lo: view.0 as i32 - cx - 4,
+                x_hi: view.2 as i32 - cx + 4,
+            },
             behind: if near_row > view.3 {
                 OUT_NEAR | OUT_BOTTOM
             } else {
