@@ -5823,8 +5823,8 @@ mod m7_mesh_tests {
             // GPU quad order (TL, TR, BL, BR) back to winding order.
             self.0.push(vec![*q[0], *q[1], *q[3], *q[2]]);
         }
-        fn fan(&mut self, verts: &[MeshVert]) {
-            self.0.push(verts.to_vec());
+        fn fan(&mut self, verts: &[&MeshVert]) {
+            self.0.push(verts.iter().map(|v| **v).collect());
         }
     }
 
