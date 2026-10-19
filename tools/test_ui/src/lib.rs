@@ -5842,8 +5842,8 @@ mod m7_mesh_tests {
     fn render_view(cam: Camera, force: Option<i32>, view: (i16, i16, i16, i16)) -> Raster {
         let mut ras = Raster::new(cam);
         let mut scratch = MeshScratch::new();
-        let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
-        let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
+        let ctx = (cam.pos.x.raw() >> 12) / TILE;
+        let cty = (cam.pos.y.raw() >> 12) / TILE;
         for ty in cty - 12..=cty + 12 {
             for tx in ctx - 12..=ctx + 12 {
                 let tile = (tx, ty);
@@ -6028,8 +6028,8 @@ mod m7_mesh_tests {
     fn render_counting(cam: Camera) -> usize {
         let mut scratch = MeshScratch::new();
         let mut counter = Collect(Vec::new());
-        let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
-        let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
+        let ctx = (cam.pos.x.raw() >> 12) / TILE;
+        let cty = (cam.pos.y.raw() >> 12) / TILE;
         for ty in cty - 12..=cty + 12 {
             for tx in ctx - 12..=ctx + 12 {
                 let tile = (tx, ty);

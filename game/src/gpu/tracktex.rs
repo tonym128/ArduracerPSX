@@ -3109,10 +3109,10 @@ impl GroundFog {
 
 /// Words per half of the floor's packet buffer.
 ///
-/// About fifty quads per half. The buffer is static (4 KB), so it is sized
+/// About a dozen quads per half. The buffer is static (1 KB), so it is sized
 /// against the `ci-game` RAM gate, not against a frame's worth of polygons:
 /// double-buffering means it never needs to hold a whole frame.
-const FLOOR_CHUNK_WORDS: usize = 512;
+const FLOOR_CHUNK_WORDS: usize = 128;
 
 /// The Mode 7 floor's GPU packets, double-buffered for linked-list DMA.
 ///
@@ -3133,7 +3133,9 @@ struct FloorPackets {
     cur: usize,
     /// Words used in it.
     len: usize,
-    /// Index of the last node's tag in the current half, to link the next.
+    /// One past the index of the last node's tag in the current half, to link
+    /// the next; 0 when the half is empty. Offset by one so the whole static
+    /// starts zeroed and lives in `.bss`, not `.data`.
     prev: usize,
     /// Whether a DMA walk may still be running.
     in_flight: bool,
@@ -3143,7 +3145,7 @@ static mut FLOOR_PACKETS: FloorPackets = FloorPackets {
     buf: [[0; FLOOR_CHUNK_WORDS]; 2],
     cur: 0,
     len: 0,
-    prev: usize::MAX,
+    prev: 0,
     in_flight: false,
 };
 
@@ -3152,19 +3154,23 @@ const LIST_END: u32 = 0x00FF_FFFF;
 
 impl FloorPackets {
     /// Opens a node of `words` payload words and returns them to fill.
-    #[inline(always)]
+    ///
+    /// Out of line: a call per primitive is cheap, while inlined at every
+    /// writer it cost several kilobytes of a static-RAM budget with none spare.
+    #[inline(never)]
     fn node(&mut self, words: usize) -> &mut [u32] {
         if self.len + 1 + words > FLOOR_CHUNK_WORDS {
             self.kick();
         }
         let base = self.len;
         let buf = &mut self.buf[self.cur];
-        if self.prev != usize::MAX {
+        if self.prev != 0 {
             let addr = (buf.as_ptr() as u32 + (base as u32) * 4) & 0x00FF_FFFF;
-            buf[self.prev] = (buf[self.prev] & 0xFF00_0000) | addr;
+            let tag = &mut buf[self.prev - 1];
+            *tag = (*tag & 0xFF00_0000) | addr;
         }
         buf[base] = ((words as u32) << 24) | LIST_END;
-        self.prev = base;
+        self.prev = base + 1;
         self.len = base + 1 + words;
         &mut buf[base + 1..base + 1 + words]
     }
@@ -3187,11 +3193,12 @@ impl FloorPackets {
         self.in_flight = true;
         self.cur ^= 1;
         self.len = 0;
-        self.prev = usize::MAX;
+        self.prev = 0;
     }
 
     /// Submits whatever is queued and waits for the walk to finish, so the
     /// command port is free for immediate-mode drawing again.
+    #[inline(never)]
     fn finish(&mut self) {
         self.kick();
         if self.in_flight {
@@ -3212,26 +3219,34 @@ fn floor_packets() -> &'static mut FloorPackets {
 ///
 /// The floor pass calls this itself when it ends; it is also called before a
 /// VRAM upload, since that uses the same DMA channel.
+#[inline(never)]
 pub fn finish_floor_packets() {
     floor_packets().finish();
 }
 
-/// Writes textured ground polygons as linked-list packets.
+/// Writes ground polygons as linked-list packets.
 ///
 /// Every word that is the same for the whole tile -- the command opcode, CLUT
 /// and tpage -- is packed once here, and the mesh already carries each
 /// vertex's page coordinate, so a cell costs its four vertex words, four UV
 /// words and one header.
-struct TexturedSink {
+///
+/// A tile whose texture is still decoding is drawn flat in its placeholder
+/// colour by the same sink (`flat`), rather than by a second sink type: each
+/// sink type instantiates the whole mesh pipeline again, and the copy cost
+/// ~5 KB of a static-RAM budget with none to spare.
+struct GroundSink {
     quad_cmd: u32,
     tri_cmd: u32,
     clut: u32,
     tpage: u32,
     fog: GroundFog,
+    /// Placeholder colour, when the tile is drawn flat.
+    flat: Option<u32>,
     polys: u32,
 }
 
-impl TexturedSink {
+impl GroundSink {
     /// A vertex's packed UV.
     #[inline(always)]
     fn uv(&self, v: &m7_mesh::MeshVert) -> u32 {
@@ -3246,9 +3261,17 @@ impl TexturedSink {
     }
 }
 
-impl m7_mesh::Sink for TexturedSink {
+impl m7_mesh::Sink for GroundSink {
     fn quad(&mut self, q: [&m7_mesh::MeshVert; 4]) {
         self.polys += 1;
+        if let Some(colour) = self.flat {
+            let w = floor_packets().node(5);
+            w[0] = 0x2800_0000 | colour;
+            for k in 0..4 {
+                w[1 + k] = pack_vertex(q[k].sx, q[k].sy);
+            }
+            return;
+        }
         // Fog from the diagonal: the near and far corners of a ground cell.
         let header = self.header(self.quad_cmd, q[0].z, q[3].z);
         let w = floor_packets().node(9);
@@ -3263,6 +3286,8 @@ impl m7_mesh::Sink for TexturedSink {
         w[8] = self.uv(q[3]);
     }
 
+    /// One loop for flat and textured, kept small: it is cold, but it is
+    /// static RAM all the same.
     #[cold]
     #[inline(never)]
     fn fan(&mut self, v: &[m7_mesh::MeshVert]) {
@@ -3272,51 +3297,26 @@ impl m7_mesh::Sink for TexturedSink {
             zmin = zmin.min(p.z);
             zmax = zmax.max(p.z);
         }
-        let header = self.header(self.tri_cmd, zmin, zmax);
-        let clamp = m7_needs_clamp(v);
-        let (p0, t0) = (m7_point(&v[0], clamp), self.uv(&v[0]) | self.clut);
+        let flat = self.flat;
+        let header = match flat {
+            Some(colour) => 0x2000_0000 | colour,
+            None => self.header(self.tri_cmd, zmin, zmax),
+        };
+        let words = if flat.is_some() { 4 } else { 7 };
+        let extra = [self.clut, self.tpage, 0];
         for k in 1..v.len() - 1 {
-            let (p1, p2) = (m7_point(&v[k], clamp), m7_point(&v[k + 1], clamp));
-            let w = floor_packets().node(7);
+            let tri = [&v[0], &v[k], &v[k + 1]];
+            let w = floor_packets().node(words);
             w[0] = header;
-            w[1] = pack_vertex(p0.0, p0.1);
-            w[2] = t0;
-            w[3] = pack_vertex(p1.0, p1.1);
-            w[4] = self.uv(&v[k]) | self.tpage;
-            w[5] = pack_vertex(p2.0, p2.1);
-            w[6] = self.uv(&v[k + 1]);
-        }
-    }
-}
-
-/// Draws a pending tile's ground mesh in its placeholder colour.
-struct FlatSink {
-    colour: u32,
-    polys: u32,
-}
-
-impl m7_mesh::Sink for FlatSink {
-    fn quad(&mut self, q: [&m7_mesh::MeshVert; 4]) {
-        self.polys += 1;
-        let w = floor_packets().node(5);
-        w[0] = 0x2800_0000 | self.colour;
-        w[1] = pack_vertex(q[0].sx, q[0].sy);
-        w[2] = pack_vertex(q[1].sx, q[1].sy);
-        w[3] = pack_vertex(q[2].sx, q[2].sy);
-        w[4] = pack_vertex(q[3].sx, q[3].sy);
-    }
-
-    fn fan(&mut self, v: &[m7_mesh::MeshVert]) {
-        self.polys += 1;
-        let clamp = m7_needs_clamp(v);
-        let p0 = m7_point(&v[0], clamp);
-        for k in 1..v.len() - 1 {
-            let (p1, p2) = (m7_point(&v[k], clamp), m7_point(&v[k + 1], clamp));
-            let w = floor_packets().node(4);
-            w[0] = 0x2000_0000 | self.colour;
-            w[1] = pack_vertex(p0.0, p0.1);
-            w[2] = pack_vertex(p1.0, p1.1);
-            w[3] = pack_vertex(p2.0, p2.1);
+            let mut o = 1;
+            for (p, e) in tri.iter().zip(extra) {
+                w[o] = pack_vertex(p.sx, p.sy);
+                if flat.is_none() {
+                    w[o + 1] = self.uv(p) | e;
+                    o += 1;
+                }
+                o += 1;
+            }
         }
     }
 }
@@ -3337,6 +3337,7 @@ struct FloorFrame {
 }
 
 impl FloorFrame {
+    #[inline(never)]
     fn new(camera: &Camera) -> Self {
         let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
         let material = TextureMaterial::opaque(tex.clut_word, 0, (0, 0, 0));
@@ -3384,70 +3385,37 @@ fn draw_tile_m7(
     let sides = m7_mesh::side_levels(camera, tile, tile_wu, world, n);
     let mut proj = GteGround::new(camera);
 
-    let (points, polys) = if s_idx == usize::MAX {
+    let mut sink = GroundSink {
+        quad_cmd: frame.quad_cmd,
+        tri_cmd: frame.tri_cmd,
+        clut: frame.clut,
+        tpage: 0,
+        fog: frame.fog,
+        flat: None,
+        polys: 0,
+    };
+    let map = if s_idx == usize::MAX {
         let (tx, ty) = tile;
-        let checker = ((tx ^ ty) & 1) != 0;
-        let (r, g, b) = texlayout::placeholder_tile_colour(true, checker);
-        let mut sink = FlatSink {
-            colour: r as u32 | ((g as u32) << 8) | ((b as u32) << 16),
-            polys: 0,
-        };
-        let tex = m7_mesh::TexMap::LOCAL;
-        let points = m7_mesh::build_tile(
-            camera, &rect, n, sides, tex, &frame.oc, scratch, &mut proj, &mut sink,
-        );
-        (points, sink.polys)
+        let (r, g, b) = texlayout::placeholder_tile_colour(true, ((tx ^ ty) & 1) != 0);
+        sink.flat = Some(r as u32 | ((g as u32) << 8) | ((b as u32) << 16));
+        m7_mesh::TexMap::LOCAL
     } else {
         let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
         let (tpage_idx, u_base, v_base) = tex.slot_uv(s_idx);
         let tpage = TextureMaterial::opaque(0, tex.tpages[tpage_idx].uv_tpage_word(0), (0, 0, 0))
             .tpage_word();
-        let mut sink = TexturedSink {
-            quad_cmd: frame.quad_cmd,
-            tri_cmd: frame.tri_cmd,
-            clut: frame.clut,
-            tpage: (tpage as u32) << 16,
-            fog: frame.fog,
-            polys: 0,
-        };
+        sink.tpage = (tpage as u32) << 16;
         floor_packets().node(1)[0] = frame.window;
-        let map = m7_mesh::TexMap {
+        m7_mesh::TexMap {
             u0: u_base as u16,
             v0: v_base as u16,
             u_shift: tex.u_shift,
-        };
-        let points = m7_mesh::build_tile(
-            camera, &rect, n, sides, map, &frame.oc, scratch, &mut proj, &mut sink,
-        );
-        (points, sink.polys)
+        }
     };
+    let points = m7_mesh::build_tile(
+        camera, &rect, n, sides, map, &frame.oc, scratch, &mut proj, &mut sink,
+    );
+    let polys = sink.polys;
     crate::prof::count(crate::prof::C_M7_POINTS, points as u32);
     crate::prof::count(crate::prof::C_M7_POLYS, polys);
-}
-
-/// Whether a polygon is too large for the GPU, which drops any primitive wider
-/// than 1023 or taller than 511 pixels.
-///
-/// Only stitched and clipped cells are checked: plain grid cells are a few
-/// dozen pixels at most. This keeps the last-resort clamp the fixed grid used.
-#[inline]
-fn m7_needs_clamp(poly: &[m7_mesh::MeshVert]) -> bool {
-    let (mut min_x, mut max_x, mut min_y, mut max_y) = (i16::MAX, i16::MIN, i16::MAX, i16::MIN);
-    for v in poly {
-        min_x = min_x.min(v.sx);
-        max_x = max_x.max(v.sx);
-        min_y = min_y.min(v.sy);
-        max_y = max_y.max(v.sy);
-    }
-    max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500
-}
-
-/// A vertex's screen point, pulled in when its polygon needs the clamp.
-#[inline]
-fn m7_point(v: &m7_mesh::MeshVert, clamp: bool) -> (i16, i16) {
-    if clamp {
-        (v.sx.clamp(-300, 620), v.sy.clamp(-100, 340))
-    } else {
-        (v.sx, v.sy)
-    }
 }

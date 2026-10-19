@@ -124,6 +124,7 @@ impl TileRect {
 /// Depth is linear across the ground (`x * sin h - y * cos h`), so the nearest
 /// corner is known from the heading's signs: one evaluation, not four. This
 /// runs five times per tile, for the tile and its four neighbours.
+#[inline(never)]
 pub fn tile_zmin_q4(camera: &Camera, r: &TileRect) -> i32 {
     let cam_qx = camera.pos.x.raw() >> 8;
     let cam_qy = camera.pos.y.raw() >> 8;
@@ -148,6 +149,7 @@ pub fn rect_level(camera: &Camera, r: &TileRect) -> i32 {
 }
 
 /// Cells per axis for tile `(tx, ty)`, or 0 when there is no such tile.
+#[inline(never)]
 pub fn tile_level(
     camera: &Camera,
     tile: (i32, i32),
@@ -519,6 +521,7 @@ fn make_points(
 /// interpolation. Each row and column is then tested with shifts and adds,
 /// without projecting anything. Points that are built are computed exactly as
 /// before, so neighbours still agree on every shared point.
+#[inline(never)]
 fn visible_cells(camera: &Camera, r: &TileRect, n: i32, oc: &Outcoder) -> (i32, i32, i32, i32) {
     // Coarse tiles have too few points for the test to pay for itself.
     if n < 4 {
@@ -795,13 +798,10 @@ fn emit_patched<P: Projector, S: Sink>(
     {
         return;
     }
-    // A plain four-sided cell that only came here for the near plane, but was
-    // not actually cut, is still a quad.
-    if verts.len() == 4 && !st.iter().any(|&x| x) {
-        sink.quad([&verts[0], &verts[1], &verts[3], &verts[2]]);
-    } else {
-        sink.fan(verts);
-    }
+    // Everything that comes this way goes out as a fan, even a four-sided cell
+    // the near plane did not actually cut: they are rare, and a second copy of
+    // the quad writer here cost static RAM the build does not have.
+    sink.fan(verts);
 }
 
 /// Clips the polygon `src` to `z >= near`, writing the result to `out` and
