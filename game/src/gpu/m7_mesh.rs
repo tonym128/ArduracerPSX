@@ -60,12 +60,19 @@ pub const MAX_POLY: usize = 4 + 4 * (MAX_LEVEL as usize - 1) + 1;
 ///
 /// Each band boundary is twice the last, because halving a cell quarters its
 /// affine error. The values were chosen by sweeping the host warp test
-/// (`m7_mesh_tests`): 136/272/544 holds the same worst case (~5.4 px, at the
-/// bottom corners) and the same share of pixels over 3 px (~0.4%) as the
-/// stricter 193/386/771 the error model first suggested, with a quarter fewer
-/// polygons; 115/230/460 starts to lose quality. Polygons are the expensive
-/// part on this hardware.
-pub const LEVEL_DEPTH_Q4: [i32; 3] = [136 << 4, 272 << 4, 544 << 4];
+/// (`m7_mesh_tests`), trading warp for polygons, which are the expensive part
+/// on this hardware:
+///
+/// | bands       | polygons (mean) | worst warp | pixels > 3 px |
+/// |-------------|-----------------|------------|---------------|
+/// | 136/272/544 | 322             | 5.4 px     | 0.4%          |
+/// | 102/204/408 | 220             | 7.3 px     | 1.9%          |
+/// | 68/136/272  | 148             | 15.3 px    | 9.4%          |
+///
+/// The middle row is the knee: a third fewer polygons for a worst case still
+/// half the old uniform grid's, and the error concentrates in the bottom
+/// corners. Below it warp climbs fast.
+pub const LEVEL_DEPTH_Q4: [i32; 3] = [102 << 4, 204 << 4, 408 << 4];
 
 /// Cells per axis for a tile whose nearest corner is at `zmin_q4`.
 pub const fn level_for_depth(zmin_q4: i32) -> i32 {
@@ -261,8 +268,9 @@ pub trait Sink {
     /// path nearly every cell takes and copying its corners was measurable.
     fn quad(&mut self, q: [&MeshVert; 4]);
     /// A stitched or clipped cell: a convex polygon in winding order, to be
-    /// drawn as a fan from vertex 0.
-    fn fan(&mut self, verts: &[MeshVert]);
+    /// drawn as a fan from vertex 0. By reference too: a stitched cell's
+    /// points stay where the grid built them rather than being copied out.
+    fn fan(&mut self, verts: &[&MeshVert]);
 }
 
 /// Per-frame working memory for [`build_tile`].
@@ -277,11 +285,11 @@ pub struct MeshScratch {
     work: PolyWork,
 }
 
-/// [`emit_patched`]'s buffers, apart from the points so the cell pass can keep
-/// borrowing those while it hands a cell over.
+/// [`emit_patched`]'s clipped polygon, apart from the points so the cell pass
+/// can keep borrowing those while it hands a cell over. Clipping makes new
+/// vertices, so they need somewhere to live; a stitched cell only points at
+/// grid vertices, from the stack.
 struct PolyWork {
-    ring: [u8; MAX_POLY],
-    poly: [MeshVert; MAX_POLY],
     clipped: [MeshVert; MAX_POLY],
 }
 
@@ -300,8 +308,6 @@ impl MeshScratch {
             pts: [V; MAX_POINTS],
             code: [0; MAX_POINTS],
             work: PolyWork {
-                ring: [0; MAX_POLY],
-                poly: [V; MAX_POLY],
                 clipped: [V; MAX_POLY],
             },
         }
@@ -727,6 +733,10 @@ fn emit_cells<P: Projector, S: Sink>(
 
 /// A cell on a stitched side or across the near plane: gathers its ring,
 /// clips it if needed, and sends it as a fan.
+///
+/// The ring is references into the grid, on the stack (the scratchpad): this
+/// path used to copy every 20-byte vertex into a polygon buffer in main RAM and
+/// read it back, ~1,300 cycles a cell.
 #[inline(never)]
 #[cold]
 #[allow(clippy::too_many_arguments)]
@@ -741,13 +751,7 @@ fn emit_patched<P: Projector, S: Sink>(
     proj: &mut P,
     sink: &mut S,
 ) {
-    let PolyWork {
-        ring,
-        poly,
-        clipped,
-    } = work;
     let last = l.n - 1;
-    let view = oc.view;
     // Which of this cell's sides carry stitched points.
     let st = [
         j == 0 && l.side_base[0] != usize::MAX,
@@ -759,12 +763,15 @@ fn emit_patched<P: Projector, S: Sink>(
     // Ring: top-left, along the top, top-right, down the right, bottom-right,
     // back along the bottom, bottom-left, up the left. `corner[k]` records
     // where corner k (TL, TR, BR, BL) landed.
+    let Some(first) = pts.get(corners[0]) else {
+        return;
+    };
+    let mut ring = [first; MAX_POLY];
     let mut len = 0usize;
     let mut corner = [0usize; 4];
     for (k, &cnr) in corners.iter().enumerate() {
         corner[k] = len;
-        ring[len] = cnr as u8;
-        len += 1;
+        push(&mut ring, &mut len, pts, cnr);
         if !st[k] {
             continue;
         }
@@ -776,13 +783,11 @@ fn emit_patched<P: Projector, S: Sink>(
         let (lo, hi) = (along * rr + 1, (along + 1) * rr);
         if k < 2 {
             for s in lo..hi {
-                ring[len] = (base + s) as u8;
-                len += 1;
+                push(&mut ring, &mut len, pts, base + s);
             }
         } else {
             for s in (lo..hi).rev() {
-                ring[len] = (base + s) as u8;
-                len += 1;
+                push(&mut ring, &mut len, pts, base + s);
             }
         }
     }
@@ -797,25 +802,23 @@ fn emit_patched<P: Projector, S: Sink>(
             break;
         }
     }
+    // One array, rotated in place and reused for the clipped polygon: the
+    // scratchpad stack has room for one, not three.
+    ring[..len].rotate_left(start.min(len));
 
-    let mut k = start;
-    for slot in poly.iter_mut().take(len) {
-        *slot = pts[ring[k] as usize];
-        k += 1;
-        if k == len {
-            k = 0;
-        }
+    if !near_cut {
+        // No view test: every point here lies on the cell's edges, so the
+        // corners bound the polygon, and the cell pass has already dropped a
+        // cell whose corners are all off one side of the screen.
+        sink.fan(&ring[..len]);
+        return;
     }
-
-    let verts: &[MeshVert] = if near_cut {
-        let cl = clip_near(&poly[..len], M7_Z_NEAR << 4, clipped, proj, oc);
-        if cl < 3 {
-            return;
-        }
-        &clipped[..cl]
-    } else {
-        &poly[..len]
-    };
+    let cl = clip_near(&ring[..len], M7_Z_NEAR << 4, &mut work.clipped, proj, oc);
+    if cl < 3 {
+        return;
+    }
+    let verts = &work.clipped[..cl];
+    let view = oc.view;
     if verts.iter().all(|p| p.sx < view.0)
         || verts.iter().all(|p| p.sx > view.2)
         || verts.iter().all(|p| p.sy < view.1)
@@ -823,10 +826,22 @@ fn emit_patched<P: Projector, S: Sink>(
     {
         return;
     }
+    for (slot, p) in ring.iter_mut().zip(verts) {
+        *slot = p;
+    }
     // Everything that comes this way goes out as a fan, even a four-sided cell
     // the near plane did not actually cut: they are rare, and a second copy of
     // the quad writer here cost static RAM the build does not have.
-    sink.fan(verts);
+    sink.fan(&ring[..cl]);
+}
+
+/// Appends `pts[idx]` to a ring, dropping anything past either end.
+#[inline(always)]
+fn push<'a>(ring: &mut [&'a MeshVert; MAX_POLY], len: &mut usize, pts: &'a [MeshVert], idx: usize) {
+    if let (Some(p), true) = (pts.get(idx), *len < MAX_POLY) {
+        ring[*len] = p;
+        *len += 1;
+    }
 }
 
 /// Clips the polygon `src` to `z >= near`, writing the result to `out` and
@@ -834,7 +849,7 @@ fn emit_patched<P: Projector, S: Sink>(
 #[inline(never)]
 #[cold]
 fn clip_near<P: Projector>(
-    src: &[MeshVert],
+    src: &[&MeshVert],
     near: i32,
     out: &mut [MeshVert; MAX_POLY],
     proj: &mut P,
@@ -843,8 +858,8 @@ fn clip_near<P: Projector>(
     let mut len = 0usize;
     let count = src.len();
     for e in 0..count {
-        let a = src[e];
-        let b = src[if e + 1 == count { 0 } else { e + 1 }];
+        let a = *src[e];
+        let b = *src[if e + 1 == count { 0 } else { e + 1 }];
         let a_in = a.z >= near;
         let b_in = b.z >= near;
         if a_in && len < MAX_POLY {

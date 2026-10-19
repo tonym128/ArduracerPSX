@@ -58,7 +58,7 @@ use crate::gpu::texlayout::{
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
-use psx_hw::gpu::pack_vertex;
+use psx_hw::gpu::{gp0, pack_color, pack_vertex};
 use psx_vram::{dma_copy_to_vram, upload_16bpp, upload_words, Clut, TexDepth, Tpage, VramRect};
 
 /// Capacity of the in-RAM compressed block cache (one 1024x1024 block, <= 500 KB).
@@ -2355,7 +2355,16 @@ pub fn render_track_extents(
     let y0 = (cam_y - half_h).max(0);
     let y1 = (cam_y + half_h).min(world_h);
 
+    // The sky first, as DMA packets: it is the biggest fill of the frame,
+    // and drawn immediately the CPU waited for each primitive (~85k cycles a
+    // frame of GP0 stalls). Queued here, the GPU paints it while the tile scan
+    // and decode below run on the CPU. It also stands in for the frame clear,
+    // which Mode 7 skips, so it is drawn even when there is no track.
+    if camera.mode7 {
+        draw_m7_backdrop(camera);
+    }
     if x0 >= x1 || y0 >= y1 {
+        finish_floor_packets();
         return;
     }
 
@@ -2773,7 +2782,6 @@ pub fn render_track_extents(
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
     let _quads = crate::prof::span(crate::prof::TRACK_QUADS);
     if camera.mode7 {
-        draw_m7_backdrop(camera);
         // The ground mesh projects through the GTE; load this camera once for
         // every tile below. Nothing between here and the tile loop touches the
         // GTE, and the car and prop passes reload it for themselves.
@@ -2925,6 +2933,7 @@ pub const M7_SILHOUETTE_LIFT: i16 = 5;
 
 /// Renders multi-stop Gouraud sky gradients, scrolling parallax silhouettes, and ground backdrop (`NO1-032`).
 fn draw_m7_backdrop(camera: &Camera) {
+    let mut out = floor_packets().at;
     let sky = crate::gpu::palette::sky_palette_for_circuit(unsafe { ACTIVE_CIRCUIT });
     let track_top = camera.m7_track_top().clamp(28, 140);
     let roll = (camera.roll_bam / 8).clamp(-12, 12);
@@ -2933,32 +2942,38 @@ fn draw_m7_backdrop(camera: &Camera) {
 
     // Segment 1: Zenith to Mid-sky (0 .. track_top * 3 / 5)
     let mid_y = (track_top * 3) / 5;
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(0, 0), (320, 0), (0, mid_y)],
         [sky.zenith, sky.zenith, sky.mid_sky],
     );
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(320, 0), (320, mid_y), (0, mid_y)],
         [sky.zenith, sky.mid_sky, sky.mid_sky],
     );
 
     // Segment 2: Mid-sky to Track Top (mid_y .. y_l/y_r)
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(0, mid_y), (320, mid_y), (0, y_l)],
         [sky.mid_sky, sky.mid_sky, sky.horizon],
     );
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(320, mid_y), (320, y_r), (0, y_l)],
         [sky.mid_sky, sky.horizon, sky.horizon],
     );
 
     let v_h = camera.viewport_h;
     // Ground backdrop below track top (painted over by Mode 7 track tiles)
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(0, y_l), (320, y_r), (0, v_h)],
         [sky.ground_haze, sky.ground_haze, sky.ground_deep],
     );
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(320, y_r), (320, v_h), (0, v_h)],
         [sky.ground_haze, sky.ground_deep, sky.ground_deep],
     );
@@ -2992,29 +3007,96 @@ fn draw_m7_backdrop(camera: &Camera) {
         let roll_term = (roll as i32 * (mid_x as i32 - 160) / 160) as i16;
         let base_y = (track_top - M7_SILHOUETTE_LIFT + roll_term).max(0);
         let peak_y = base_y - h;
-        let skirt_h = (v_h - base_y).max(0) as u16;
+        // The skirt only has to reach the floor's first row, wherever roll
+        // puts it under this mountain; the floor paints everything below. It
+        // used to run to the bottom of the screen: eight 44-pixel columns of
+        // fill the floor then covered, and the CPU waited for the GPU to draw
+        // each one (~60k cycles a frame of GP0 stalls).
+        let skirt_bottom = (track_top + roll.abs() + 2).min(v_h);
+        let skirt_h = (skirt_bottom - base_y).max(0) as u16;
         if sky.biome_style == 1 || sky.biome_style == 4 {
             // Solid base skirt down into ground so track tiles seamlessly overlap the skyline
-            gpu::draw_rect_flat(x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2);
+            rect_flat(
+                &mut out, x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2,
+            );
             // City skyscraper / cyber tower block
             let rx0 = x0 + 6;
             let rw = 32;
-            let tower_h = (v_h - peak_y).max(0) as u16;
-            gpu::draw_rect_flat(rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2);
-            gpu::draw_rect_flat(rx0 + 2, peak_y, 2, tower_h, col_lit.0, col_lit.1, col_lit.2);
+            let tower_h = (skirt_bottom - peak_y).max(0) as u16;
+            rect_flat(
+                &mut out, rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2,
+            );
+            rect_flat(
+                &mut out,
+                rx0 + 2,
+                peak_y,
+                2,
+                tower_h,
+                col_lit.0,
+                col_lit.1,
+                col_lit.2,
+            );
         } else {
             // Mountain / mesa / stadium triangular ridge
-            gpu::draw_tri_flat(
+            tri_flat(
+                &mut out,
                 [(x0, base_y), (mid_x, peak_y), (x1, base_y)],
                 col_dark.0,
                 col_dark.1,
                 col_dark.2,
             );
             // Solid base skirt down into ground so track tiles seamlessly overlap the mountains
-            gpu::draw_rect_flat(x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2);
-            gpu::draw_line_mono(mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2);
+            rect_flat(
+                &mut out, x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2,
+            );
+            line_mono(
+                &mut out, mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2,
+            );
         }
     }
+    // Start the GPU on it now, while the CPU scans and decodes tiles.
+    let packets = floor_packets();
+    packets.at = out;
+    packets.kick();
+}
+
+/// The backdrop's primitives, as packets in the floor's buffer; each matches
+/// the `psx_gpu` immediate-mode call of the same name.
+fn tri_gouraud(out: &mut PacketCursor, v: [(i16, i16); 3], c: [(u8, u8, u8); 3]) {
+    let w = out.node(6);
+    let op = gp0::polygon_opcode(true, false, false, false, false);
+    for k in 0..3 {
+        w[2 * k] = pack_color(c[k].0, c[k].1, c[k].2);
+        w[2 * k + 1] = pack_vertex(v[k].0, v[k].1);
+    }
+    w[0] |= op;
+}
+
+fn tri_flat(out: &mut PacketCursor, v: [(i16, i16); 3], r: u8, g: u8, b: u8) {
+    let w = out.node(4);
+    w[0] = gp0::polygon_opcode(false, false, false, false, false) | pack_color(r, g, b);
+    for k in 0..3 {
+        w[1 + k] = pack_vertex(v[k].0, v[k].1);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rect_flat(out: &mut PacketCursor, x: i16, y: i16, w: u16, h: u16, r: u8, g: u8, b: u8) {
+    let (x1, y1) = (x + w as i16, y + h as i16);
+    let p = out.node(5);
+    p[0] = gp0::polygon_opcode(false, true, false, false, false) | pack_color(r, g, b);
+    p[1] = pack_vertex(x, y);
+    p[2] = pack_vertex(x1, y);
+    p[3] = pack_vertex(x, y1);
+    p[4] = pack_vertex(x1, y1);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn line_mono(out: &mut PacketCursor, x0: i16, y0: i16, x1: i16, y1: i16, r: u8, g: u8, b: u8) {
+    let w = out.node(3);
+    w[0] = 0x4000_0000 | pack_color(r, g, b);
+    w[1] = pack_vertex(x0, y0);
+    w[2] = pack_vertex(x1, y1);
 }
 
 /// Largest ground offset (Q4) handed to the GTE, inside its `i16` input.
@@ -3061,8 +3143,10 @@ impl GteGround {
 
 impl m7_mesh::Projector for GteGround {
     /// One point at a time (`RTPS`). `RTPT` does three for less than three
-    /// times the GTE time, but its unrolled loop was three times the code, and
-    /// on this path the instruction cache is the scarcer resource.
+    /// times the GTE time, but measured here it saved almost no instructions
+    /// -- the per-point work is the depth fix-up and outcode, not the GTE --
+    /// while its unrolled loop cost ~7k cycles a frame in instruction-cache
+    /// refills: on this path the cache is the scarcer resource.
     fn project(&mut self, pts: &mut [m7_mesh::MeshVert], code: &mut [u8], oc: &m7_mesh::Outcoder) {
         use psx_gte::{math::Vec3I16, scene};
         for (p, c) in pts.iter_mut().zip(code.iter_mut()) {
@@ -3115,10 +3199,12 @@ impl GroundFog {
 
 /// Words per half of the floor's packet buffer.
 ///
-/// About a dozen quads per half. The buffer is static (1 KB), so it is sized
-/// against the `ci-game` RAM gate, not against a frame's worth of polygons:
-/// double-buffering means it never needs to hold a whole frame.
-const FLOOR_CHUNK_WORDS: usize = 128;
+/// Sized to hold the whole sky backdrop (~190 words; see
+/// [`draw_m7_backdrop`]) in one half, so it goes to the GPU in one kick that
+/// never waits: split across two, the second kick would wait for the GPU to
+/// fill the first. Double-buffering means it never needs to hold a whole
+/// frame of floor, which is ~25 quads per half.
+const FLOOR_CHUNK_WORDS: usize = 256;
 
 /// The Mode 7 floor's GPU packets, double-buffered for linked-list DMA.
 ///
@@ -3135,6 +3221,23 @@ const FLOOR_CHUNK_WORDS: usize = 128;
 /// 16-word node limit ([`gpu::MAX_NODE_WORDS`]).
 struct FloorPackets {
     buf: [[u32; FLOOR_CHUNK_WORDS]; 2],
+    /// Where the next node goes. While a tile draws, its [`GroundSink`] holds
+    /// the live copy; see [`PacketCursor`].
+    at: PacketCursor,
+    /// Whether a DMA walk may still be running.
+    in_flight: bool,
+    /// Never written by the GPU or linked; see [`PacketCursor::node`].
+    spare: [u32; NODE_MAX_WORDS],
+}
+
+/// The write position in [`FloorPackets`].
+///
+/// A tile takes a copy for itself and puts it back when it is done, so every
+/// primitive it writes reads the position from its own frame -- the scratchpad
+/// -- instead of from the static in uncached RAM. With the writer an
+/// out-of-line call that reloaded this state, opening a node cost ~90 cycles.
+#[derive(Copy, Clone)]
+struct PacketCursor {
     /// Half being filled.
     cur: usize,
     /// Words used in it.
@@ -3146,10 +3249,6 @@ struct FloorPackets {
     /// That tag's word count, already shifted into place, so linking the next
     /// node is a store rather than a read-modify-write of uncached RAM.
     prev_size: u32,
-    /// Whether a DMA walk may still be running.
-    in_flight: bool,
-    /// Never written by the GPU or linked; see [`FloorPackets::node`].
-    spare: [u32; NODE_MAX_WORDS],
 }
 
 /// Payload words of the largest floor node, a textured quad.
@@ -3158,10 +3257,12 @@ const _: () = assert!(NODE_MAX_WORDS <= gpu::MAX_NODE_WORDS);
 
 static mut FLOOR_PACKETS: FloorPackets = FloorPackets {
     buf: [[0; FLOOR_CHUNK_WORDS]; 2],
-    cur: 0,
-    len: 0,
-    prev: 0,
-    prev_size: 0,
+    at: PacketCursor {
+        cur: 0,
+        len: 0,
+        prev: 0,
+        prev_size: 0,
+    },
     in_flight: false,
     spare: [0; NODE_MAX_WORDS],
 };
@@ -3169,7 +3270,7 @@ static mut FLOOR_PACKETS: FloorPackets = FloorPackets {
 /// Tag terminating a linked-list chain.
 const LIST_END: u32 = 0x00FF_FFFF;
 
-impl FloorPackets {
+impl PacketCursor {
     /// Opens a node of `words` payload words (at most [`NODE_MAX_WORDS`]) and
     /// returns them to fill.
     ///
@@ -3178,17 +3279,18 @@ impl FloorPackets {
     /// which keeps the array inside the half; the `spare` arm is never taken,
     /// and is there only because the compiler needs one.
     ///
-    /// Out of line: a call per primitive is cheap, while inlined at every
-    /// writer it cost several kilobytes of a static-RAM budget with none spare.
-    #[inline(never)]
-    fn node(&mut self, words: usize) -> &mut [u32; NODE_MAX_WORDS] {
+    /// Inline, since it is a handful of instructions once the position is in
+    /// the caller's frame; only the half-full case goes out of line.
+    #[inline(always)]
+    fn node(&mut self, words: usize) -> &'static mut [u32; NODE_MAX_WORDS] {
         const LAST: usize = FLOOR_CHUNK_WORDS - 1 - NODE_MAX_WORDS;
         if self.len > LAST {
             self.kick();
         }
         // `kick` empties the half; the clamp only lets the compiler see it.
         let base = self.len.min(LAST);
-        let buf = &mut self.buf[self.cur & 1];
+        let packets = floor_packets();
+        let buf = &mut packets.buf[self.cur & 1];
         if self.prev != 0 {
             let addr = (buf.as_ptr() as u32 + (base as u32) * 4) & 0x00FF_FFFF;
             buf[(self.prev - 1).min(LAST)] = self.prev_size | addr;
@@ -3200,10 +3302,22 @@ impl FloorPackets {
         self.len = base + 1 + words;
         match buf[base + 1..].first_chunk_mut::<NODE_MAX_WORDS>() {
             Some(w) => w,
-            None => &mut self.spare,
+            None => &mut packets.spare,
         }
     }
 
+    /// Hands the filled half to the GPU through the shared state.
+    #[cold]
+    #[inline(never)]
+    fn kick(&mut self) {
+        let packets = floor_packets();
+        packets.at = *self;
+        packets.kick();
+        *self = packets.at;
+    }
+}
+
+impl FloorPackets {
     /// Hands the current half to the GPU and starts filling the other.
     ///
     /// Cold and out of line: inlined, the DMA kick doubled the size of every
@@ -3211,18 +3325,18 @@ impl FloorPackets {
     #[cold]
     #[inline(never)]
     fn kick(&mut self) {
-        if self.len == 0 {
+        if self.at.len == 0 {
             return;
         }
         {
             // The kick waits for the previous walk before starting this one.
             let _w = crate::prof::span(crate::prof::TRACK_M7_DMA_WAIT);
-            gpu::submit_linked_list_async(self.buf[self.cur].as_ptr());
+            gpu::submit_linked_list_async(self.buf[self.at.cur & 1].as_ptr());
         }
         self.in_flight = true;
-        self.cur ^= 1;
-        self.len = 0;
-        self.prev = 0;
+        self.at.cur ^= 1;
+        self.at.len = 0;
+        self.at.prev = 0;
     }
 
     /// Submits whatever is queued and waits for the walk to finish, so the
@@ -3273,6 +3387,8 @@ struct GroundSink {
     /// Placeholder colour, when the tile is drawn flat.
     flat: Option<u32>,
     polys: u32,
+    /// This tile's copy of the packet write position; see [`PacketCursor`].
+    out: PacketCursor,
 }
 
 impl GroundSink {
@@ -3294,7 +3410,7 @@ impl m7_mesh::Sink for GroundSink {
     fn quad(&mut self, q: [&m7_mesh::MeshVert; 4]) {
         self.polys += 1;
         if let Some(colour) = self.flat {
-            let w = floor_packets().node(5);
+            let w = self.out.node(5);
             w[0] = 0x2800_0000 | colour;
             for k in 0..4 {
                 w[1 + k] = pack_vertex(q[k].sx, q[k].sy);
@@ -3303,7 +3419,7 @@ impl m7_mesh::Sink for GroundSink {
         }
         // Fog from the diagonal: the near and far corners of a ground cell.
         let header = self.header(self.quad_cmd, q[0].z, q[3].z);
-        let w = floor_packets().node(9);
+        let w = self.out.node(9);
         w[0] = header;
         w[1] = pack_vertex(q[0].sx, q[0].sy);
         w[2] = self.uv(q[0]) | self.clut;
@@ -3319,7 +3435,7 @@ impl m7_mesh::Sink for GroundSink {
     /// static RAM all the same.
     #[cold]
     #[inline(never)]
-    fn fan(&mut self, v: &[m7_mesh::MeshVert]) {
+    fn fan(&mut self, v: &[&m7_mesh::MeshVert]) {
         self.polys += 1;
         let (mut zmin, mut zmax) = (i32::MAX, i32::MIN);
         for p in v {
@@ -3331,20 +3447,26 @@ impl m7_mesh::Sink for GroundSink {
             Some(colour) => 0x2000_0000 | colour,
             None => self.header(self.tri_cmd, zmin, zmax),
         };
-        let words = if flat.is_some() { 4 } else { 7 };
-        let extra = [self.clut, self.tpage, 0];
-        for k in 1..v.len() - 1 {
-            let tri = [&v[0], &v[k], &v[k + 1]];
-            let w = floor_packets().node(words);
-            w[0] = header;
-            let mut o = 1;
-            for (p, e) in tri.iter().zip(extra) {
-                w[o] = pack_vertex(p.sx, p.sy);
-                if flat.is_none() {
-                    w[o + 1] = self.uv(p) | e;
-                    o += 1;
-                }
-                o += 1;
+        let Some((&a, rest)) = v.split_first() else {
+            return;
+        };
+        for pair in rest.windows(2) {
+            let (b, c) = (pair[0], pair[1]);
+            if flat.is_some() {
+                let w = self.out.node(4);
+                w[0] = header;
+                w[1] = pack_vertex(a.sx, a.sy);
+                w[2] = pack_vertex(b.sx, b.sy);
+                w[3] = pack_vertex(c.sx, c.sy);
+            } else {
+                let w = self.out.node(7);
+                w[0] = header;
+                w[1] = pack_vertex(a.sx, a.sy);
+                w[2] = self.uv(a) | self.clut;
+                w[3] = pack_vertex(b.sx, b.sy);
+                w[4] = self.uv(b) | self.tpage;
+                w[5] = pack_vertex(c.sx, c.sy);
+                w[6] = self.uv(c);
             }
         }
     }
@@ -3436,6 +3558,7 @@ fn draw_tile_m7(
         fog: frame.fog,
         flat: None,
         polys: 0,
+        out: floor_packets().at,
     };
     let map = if s_idx == usize::MAX {
         let (tx, ty) = tile;
@@ -3448,7 +3571,7 @@ fn draw_tile_m7(
         let tpage = TextureMaterial::opaque(0, tex.tpages[tpage_idx].uv_tpage_word(0), (0, 0, 0))
             .tpage_word();
         sink.tpage = (tpage as u32) << 16;
-        floor_packets().node(1)[0] = frame.window;
+        sink.out.node(1)[0] = frame.window;
         m7_mesh::TexMap {
             u0: u_base as u16,
             v0: v_base as u16,
@@ -3458,6 +3581,7 @@ fn draw_tile_m7(
     let points = m7_mesh::build_tile(
         camera, &rect, n, sides, map, &frame.oc, scratch, &mut proj, &mut sink,
     );
+    floor_packets().at = sink.out;
     let polys = sink.polys;
     crate::prof::count(crate::prof::C_M7_POINTS, points as u32);
     crate::prof::count(crate::prof::C_M7_POLYS, polys);
