@@ -5,9 +5,10 @@
 //! `psx-pad` adapter and the GPU drawing live in `pause.rs`, and
 //! `tools/test_ui` exercises this file directly.
 //!
-//! It also carries the two inline graphics rows (texture format, framerate)
-//! so the player can change them mid-race without leaving the pause menu; the
-//! same [`SettingsValues`] type is shared with the standalone settings screen.
+//! It also carries the inline settings rows (view, music, metrics, controls,
+//! split) so the player can change them mid-race without leaving the pause
+//! menu; the same [`SettingsValues`] type is shared with the standalone
+//! settings screen.
 //!
 //! Why the split: this logic used to read and write a shared `prev_buttons`
 //! mask that the race loop also wrote to. Because the loop updated the mask
@@ -17,29 +18,19 @@
 //! of the edge state here makes that class of bug impossible: there is exactly
 //! one writer, and the caller cannot reach in and clobber it.
 
-/// The graphics values both menus edit.
+/// The settings values both menus edit.
 ///
 /// Defined here rather than in `settings_input.rs` because `pause_input.rs` is
 /// the file `tools/test_ui` includes first, and a re-export would otherwise
 /// give the two include paths two distinct types for the same struct.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct SettingsValues {
-    /// 0 = auto, 1 = SVG, 2 = QOI, 3 = JPEG, 4 = TIM, 5 = TIM4, 6 = TIM8. Totality lives in
-    /// `arduracer_core::texture_format::TextureFormat::from_saved`.
-    pub texture_format: u8,
-    /// 0 = 60 FPS, 1 = 30 FPS.
-    pub framerate: u8,
     /// 0 = Behind (Mode 7 Chase), 1 = Overhead (Top-down).
     pub camera_view: u8,
-    /// 0 = Off, 1 = CD-DA, 2 = XA.
-    ///
-    /// Not merely a mute. The TIM texture streamer and CD-DA both want the one
-    /// physical drive, and `cd_fs::read_sectors` pauses playback around every
-    /// read, so with music on and TIM selected the player hears the drive
-    /// changing hands several times a second. Turning the music off releases
-    /// the drive, which is the only fix -- nothing on the audio side can hide
-    /// it.
-    pub cd_audio: u8,
+    /// Whether XA music plays. There is no source choice: music is always
+    /// XA-ADPCM, which interleaves with texture reads instead of holding the
+    /// drive the way Redbook CD-DA did.
+    pub music: bool,
     /// 0 = Off, 1 = Simple FPS, 2 = Simple Graphing FPS, 3 = All Metrics.
     pub debug_metrics: u8,
     /// 0 = Classic Arcade, 1 = Modern Triggers, 2 = Dual Stick.
@@ -56,7 +47,8 @@ pub enum PauseChoice {
     None,
     Resume,
     RestartRace,
-    /// Graphics settings changed while paused; the caller applies and persists.
+    /// Settings changed while paused; the caller applies them now and
+    /// persists them when the veil closes.
     Graphics(SettingsValues),
     QuitToMenu,
 }
@@ -102,31 +94,13 @@ pub struct PauseMenu {
 /// actions and the quit, so the destructive option stays last.
 const ITEM_RESUME: u8 = 0;
 const ITEM_RESTART: u8 = 1;
-const ITEM_TEXTURE: u8 = 2;
-const ITEM_FRAMERATE: u8 = 3;
-const ITEM_VIEW: u8 = 4;
-const ITEM_CD_AUDIO: u8 = 5;
-const ITEM_METRICS: u8 = 6;
-const ITEM_CONTROLS: u8 = 7;
-const ITEM_SPLIT: u8 = 8;
-const ITEM_QUIT: u8 = 9;
-const ITEM_COUNT: u8 = 10;
-
-/// The texture-format bytes the menus offer the player.
-///
-/// Only `AUTO` (0) and `QOI` (2) are exposed for now. The engine still knows
-/// about SVG, JPEG, TIM, TIM4 and TIM8, and a save card that names one of them
-/// still loads it, but the menus cannot reach those bytes.
-pub const TEXTURE_FORMAT_BYTES: &[u8] = &[0, 2];
-
-/// Whether `v` names a texture format the menus can select.
-///
-/// Both menus share this so neither can reach a byte the other cannot. Only
-/// `AUTO` (0) and `QOI` (2) are exposed for now; the engine still knows about
-/// SVG, JPEG, TIM, TIM4 and TIM8.
-pub const fn texture_format_is_selectable(v: u8) -> bool {
-    v == 0 || v == 2
-}
+const ITEM_VIEW: u8 = 2;
+const ITEM_MUSIC: u8 = 3;
+const ITEM_METRICS: u8 = 4;
+const ITEM_CONTROLS: u8 = 5;
+const ITEM_SPLIT: u8 = 6;
+const ITEM_QUIT: u8 = 7;
+const ITEM_COUNT: u8 = 8;
 
 impl Default for PauseMenu {
     fn default() -> Self {
@@ -139,10 +113,8 @@ impl PauseMenu {
         PauseMenu {
             selected_idx: 0,
             values: SettingsValues {
-                texture_format: 0,
-                framerate: 0,
                 camera_view: 0,
-                cd_audio: 1,
+                music: true,
                 debug_metrics: 0,
                 input_profile: 0,
                 split_mode: 0,
@@ -173,22 +145,14 @@ impl PauseMenu {
     /// Steps the selected row's value, wrapping. Only the settings rows
     /// have values; the action rows report `false`.
     fn cycle_value(&mut self, dir: i32) -> bool {
-        // The texture row is no longer a contiguous byte range: only AUTO (0)
-        // and QOI (2) are offered. Cycle directly between them so the player
-        // can never land on a format this build's disc does not carry.
-        if self.selected_idx == ITEM_TEXTURE {
-            let bytes = TEXTURE_FORMAT_BYTES;
-            let cur = self.values.texture_format;
-            let idx = bytes.iter().position(|&b| b == cur).unwrap_or(0);
-            self.values.texture_format =
-                bytes[(idx as i32 + dir).rem_euclid(bytes.len() as i32) as usize];
+        // Two states either way, so both directions are a toggle.
+        if self.selected_idx == ITEM_MUSIC {
+            self.values.music = !self.values.music;
             return true;
         }
 
         let (cur, span) = match self.selected_idx {
-            ITEM_FRAMERATE => (self.values.framerate as i32, 2),
             ITEM_VIEW => (self.values.camera_view as i32, 3),
-            ITEM_CD_AUDIO => (self.values.cd_audio as i32, 3),
             ITEM_METRICS => (self.values.debug_metrics as i32, 4),
             ITEM_CONTROLS => (self.values.input_profile as i32, 3),
             ITEM_SPLIT => (self.values.split_mode as i32, 3),
@@ -196,9 +160,7 @@ impl PauseMenu {
         };
         let next = (cur + dir).rem_euclid(span) as u8;
         match self.selected_idx {
-            ITEM_FRAMERATE => self.values.framerate = next,
             ITEM_VIEW => self.values.camera_view = next,
-            ITEM_CD_AUDIO => self.values.cd_audio = next,
             ITEM_METRICS => self.values.debug_metrics = next,
             ITEM_CONTROLS => self.values.input_profile = next,
             ITEM_SPLIT => self.values.split_mode = next,
@@ -265,8 +227,7 @@ impl PauseMenu {
             match self.selected_idx {
                 ITEM_RESUME => PauseChoice::Resume,
                 ITEM_RESTART => PauseChoice::RestartRace,
-                ITEM_TEXTURE | ITEM_FRAMERATE | ITEM_VIEW | ITEM_CD_AUDIO | ITEM_METRICS
-                | ITEM_CONTROLS | ITEM_SPLIT => {
+                ITEM_VIEW | ITEM_MUSIC | ITEM_METRICS | ITEM_CONTROLS | ITEM_SPLIT => {
                     if changed {
                         PauseChoice::Graphics(self.values)
                     } else {

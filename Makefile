@@ -527,9 +527,11 @@ assets:
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/VICTORY4.STR
 	@python3 $(ROOT)/tools/audio_cook/wav2vag.py --cook-cdda $(ROOT)/assets/cdda $(ROOT)/AssetSource
 
-# Encodes the six CD-DA music masters into CD-XA-ADPCM sectors. The XA files
-# are what the `CdAudioMode::XA` option plays; without them that option is
-# silent, which is the honest outcome.
+# Encodes the six music masters into CD-XA-ADPCM sectors. XA is the only music
+# source: the cooked `assets/cdda/*.raw` PCM is an intermediate for this step and
+# is no longer mastered onto the disc as Redbook audio tracks, so the image is a
+# single data track. Without the XA files the music is silent, which is the
+# honest outcome.
 .PHONY: music-xa
 music-xa:
 	@mkdir -p $(ROOT)/assets/music
@@ -554,12 +556,6 @@ disc: assets music-xa exe
 		--file $(ROOT)/assets/QOITRACKS.BIN \
 		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/LEVELS.BIN \
-		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
-		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \
-		--cdda-track $(ROOT)/assets/cdda/track04_coastal.raw \
-		--cdda-track $(ROOT)/assets/cdda/track05_cyber.raw \
-		--cdda-track $(ROOT)/assets/cdda/track06_canyon.raw \
-		--cdda-track $(ROOT)/assets/cdda/track07_victory.raw \
 		--xa-file $(ROOT)/assets/music/MUSIC1.XA \
 		--xa-file $(ROOT)/assets/music/MUSIC2.XA \
 		--xa-file $(ROOT)/assets/music/MUSIC3.XA \

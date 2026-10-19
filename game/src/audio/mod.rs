@@ -3,7 +3,12 @@
 //! Controls hardware SPU voices (multi-layer engine synthesizer, tire screech,
 //! multi-surface texturing, crash impacts, turbo whoosh, checkpoint chimes,
 //! jump landings, countdown beeps, start horn, vocoder announcer clips) and
-//! Redbook CD-DA / XA streaming music with dynamic hardware reverb (`NO1-037`..`NO1-041`).
+//! CD-XA streaming music with dynamic hardware reverb (`NO1-037`..`NO1-041`).
+//!
+//! Music is XA only. The Redbook CD-DA tracks are no longer mastered onto the
+//! disc; [`CddaController`] stays because it owns the SPU CD-input mixer (which
+//! XA plays through) and the drive-state helpers `cd_fs` consults, but it is
+//! disabled at construction and never asked to play.
 
 pub mod audio_policy;
 pub mod cdda;
@@ -22,7 +27,7 @@ pub use spu::{init_spu_soundbank, SpuSoundbankAddrs};
 use arduracer_core::timing::StartSequence;
 use arduracer_core::{AiRacer, Fixed, SurfaceType, VehicleState};
 
-/// Returns the on-screen track title for Redbook CD-DA / XA music tracks (`NO1-041`).
+/// Returns the on-screen track title for the XA music tracks (`NO1-041`).
 pub fn music_track_title(track: u8) -> &'static str {
     match track {
         2 => "RETRO ARCADE DRIFT",
@@ -41,8 +46,8 @@ pub struct AudioSystem {
     pub sfx: SfxPlayer,
     pub cdda: CddaController,
     pub xa: crate::audio::xa::XaPlayer,
-    /// The player's chosen disc-audio mode, as a raw saved byte.
-    pub cd_audio: u8,
+    /// Whether the player has music on.
+    pub music_enabled: bool,
     /// Master sound effects volume (0..=8, default 8).
     pub sound_volume: u8,
     /// Master music volume (0..=8, default 8).
@@ -68,15 +73,17 @@ impl Default for AudioSystem {
 impl AudioSystem {
     /// Which disc-audio source is playing, for the telemetry line.
     pub fn music_source(&self) -> &'static str {
-        match arduracer_core::save::CdAudioMode::from_saved(self.cd_audio) {
-            arduracer_core::save::CdAudioMode::Xa => "xa",
-            _ => "cdda",
+        if self.music_enabled {
+            "xa"
+        } else {
+            "off"
         }
     }
 
-    /// Stores the chosen mode, so the music path and the telemetry agree.
-    pub fn set_cd_audio(&mut self, mode: u8) {
-        self.cd_audio = mode;
+    /// Stores the music on/off choice. Does not start or stop anything; see
+    /// [`Self::apply_music_mode`].
+    pub fn set_music_enabled(&mut self, on: bool) {
+        self.music_enabled = on;
     }
 
     /// Sets the master sound effects volume (0..=8) and updates SPU main registers (`NO1-040`).
@@ -111,33 +118,38 @@ impl AudioSystem {
         self.cdda.set_volume(psx_spu::CdVolume(v));
     }
 
-    /// Starts the music for `track`, on whichever source the player chose.
+    /// Starts the XA music for `track`, if music is on.
+    ///
+    /// The track is remembered even with music off, so turning it back on
+    /// resumes the music for the screen the player is on.
+    ///
+    /// This and the other music entry points are `#[inline(never)]`. They are
+    /// called from many sites in `ArduracerGame::run`, the largest function in
+    /// the program, and inlining them there pushes its branches past the
+    /// R3000A's 16-bit range: the LTO link fails with `out of range PC16 fixup`.
+    #[inline(never)]
     pub fn play_music(&mut self, track: u8, reader: &mut crate::cd_fs::DiscReader) {
         self.last_music_track = track;
-        self.toast_ticks = 150; // 2.5 seconds at 60 Hz
-        if arduracer_core::save::CdAudioMode::from_saved(self.cd_audio)
-            == arduracer_core::save::CdAudioMode::Xa
-        {
-            let name = crate::audio::xa::track_file_name(track);
-            match reader.find_file_lba(&name) {
-                Some(lba) => {
-                    crate::dbg::print("[XA] track ");
-                    crate::dbg::print_dec(track as u32);
-                    crate::dbg::print(" at LBA ");
-                    crate::dbg::print_dec(lba);
-                    crate::dbg::println("");
-                    crate::audio::xa::player().start_track(reader, lba);
-                }
-                None => {
-                    crate::dbg::print("[XA] track ");
-                    crate::dbg::print_dec(track as u32);
-                    crate::dbg::println(" not on disc");
-                }
-            }
-            self.apply_music_volume();
+        if !self.music_enabled {
             return;
         }
-        self.cdda.play_track(track);
+        self.toast_ticks = 150; // 2.5 seconds at 60 Hz
+        let name = crate::audio::xa::track_file_name(track);
+        match reader.find_file_lba(&name) {
+            Some(lba) => {
+                crate::dbg::print("[XA] track ");
+                crate::dbg::print_dec(track as u32);
+                crate::dbg::print(" at LBA ");
+                crate::dbg::print_dec(lba);
+                crate::dbg::println("");
+                crate::audio::xa::player().start_track(reader, lba);
+            }
+            None => {
+                crate::dbg::print("[XA] track ");
+                crate::dbg::print_dec(track as u32);
+                crate::dbg::println(" not on disc");
+            }
+        }
         self.apply_music_volume();
     }
 
@@ -163,35 +175,30 @@ impl AudioSystem {
         }
     }
 
-    /// Switches the music source without changing track, if music is on.
+    /// Stops the music and, if music is on, restarts the current track.
+    ///
+    /// Called when the player toggles music, so the change is heard on the
+    /// screen they are on rather than on the next one.
+    #[inline(never)]
     pub fn apply_music_mode(&mut self, reader: &mut crate::cd_fs::DiscReader) {
-        use arduracer_core::save::CdAudioMode as Mode;
-        let mode = Mode::from_saved(self.cd_audio);
-        self.cdda.stop();
         crate::audio::xa::player().stop(reader);
         self.xa.stop(reader);
-        if !mode.enabled() || self.last_music_track == 0 {
+        if !self.music_enabled || self.last_music_track == 0 {
             return;
         }
         self.play_music(self.last_music_track, reader);
     }
 
-    /// Pauses the active music stream (both CD-DA and XA) when entering the pause veil.
+    /// Pauses the XA stream when entering the pause veil.
     pub fn pause_music(&mut self) {
-        self.cdda.pause();
         crate::audio::xa::player().suspend();
     }
 
-    /// Resumes the active music stream (CD-DA or XA) when leaving the pause veil.
+    /// Resumes the XA stream when leaving the pause veil.
+    #[inline(never)]
     pub fn resume_music(&mut self, reader: &mut crate::cd_fs::DiscReader) {
-        match arduracer_core::save::CdAudioMode::from_saved(self.cd_audio) {
-            arduracer_core::save::CdAudioMode::Xa => {
-                crate::audio::xa::player().resume(reader);
-            }
-            arduracer_core::save::CdAudioMode::Cdda => {
-                self.cdda.resume();
-            }
-            arduracer_core::save::CdAudioMode::Off => {}
+        if self.music_enabled {
+            crate::audio::xa::player().resume(reader);
         }
         self.apply_music_volume();
     }
@@ -212,8 +219,11 @@ impl AudioSystem {
     pub fn new() -> Self {
         let addrs = init_spu_soundbank();
 
+        // Only the mixer half of the controller is used: there are no Redbook
+        // tracks on the disc, so its play path is switched off for good.
         let mut cdda = CddaController::new();
         cdda.init();
+        cdda.set_enabled(false);
 
         let mut sfx = SfxPlayer::new();
         sfx.set_addrs(addrs);
@@ -223,7 +233,7 @@ impl AudioSystem {
             sfx,
             cdda,
             xa: crate::audio::xa::XaPlayer::new(),
-            cd_audio: arduracer_core::save::CdAudioMode::default().as_u8(),
+            music_enabled: arduracer_core::save::CdAudioMode::default().enabled(),
             sound_volume: 8,
             music_volume: 8,
             is_ducked: false,

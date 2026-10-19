@@ -8,7 +8,6 @@
 use crate::ui::font::draw_text;
 pub use crate::ui::pause_input::PauseMenu;
 use crate::ui::pause_input::{PauseFrame, PauseInput, SettingsValues};
-use crate::ui::settings::values_to_state;
 use psx_gpu as gpu;
 use psx_pad::{button, PadState};
 
@@ -50,10 +49,10 @@ impl PauseMenu {
 
     /// Renders the dimmed pause panel.
     pub fn render(&self) {
-        // Panel grown to hold ten rows plus the footer hint.
-        gpu::draw_rect_flat(60, 28, 200, 186, 8, 10, 14);
-        gpu::draw_rect_flat(62, 30, 196, 182, 16, 20, 30);
-        gpu::draw_rect_flat(64, 32, 192, 178, 26, 30, 42);
+        // Panel sized to hold eight rows plus the footer hint.
+        gpu::draw_rect_flat(60, 28, 200, 160, 8, 10, 14);
+        gpu::draw_rect_flat(62, 30, 196, 156, 16, 20, 30);
+        gpu::draw_rect_flat(64, 32, 192, 152, 26, 30, 42);
         gpu::draw_rect_flat(64, 32, 192, 2, 220, 40, 60);
 
         draw_text(124, 38, "PAUSED", (255, 220, 0), 2);
@@ -61,21 +60,18 @@ impl PauseMenu {
         // The settings rows carry their value inline between < and >; the
         // action rows are plain labels. Values come from the menu's
         // working copy, so an in-progress edit is visible before it is applied.
-        let (fmt, fps) = values_to_state(self.values());
         let view_label = match self.values().camera_view {
             0 => "BEHIND",
             1 => "OVERHEAD",
             _ => "ROTATING",
         };
-        let rows: [(&str, Option<&str>); 10] = [
+        let rows: [(&str, Option<&str>); 8] = [
             ("RESUME", None),
             ("RESTART RACE", None),
-            ("TEXTURE", Some(fmt.label())),
-            ("FRAMERATE", Some(fps.label())),
             ("VIEW", Some(view_label)),
             (
-                "CD AUDIO",
-                Some(crate::ui::settings::cd_audio_label(self.values().cd_audio)),
+                "MUSIC",
+                Some(crate::ui::settings::music_label(self.values().music)),
             ),
             (
                 "METRICS",
@@ -96,7 +92,7 @@ impl PauseMenu {
             ("QUIT TO MENU", None),
         ];
         for (idx, (label, value)) in rows.iter().enumerate() {
-            // 13 px vertical spacing so ten rows sit cleanly inside the frame.
+            // 13 px vertical spacing so eight rows sit cleanly inside the frame.
             let y = 54 + (idx as u16) * 13;
             let selected = (idx as u8) == self.selected_idx;
             let color = if selected {
@@ -118,7 +114,7 @@ impl PauseMenu {
             }
         }
 
-        draw_text(79, 189, "L/R: CHANGE   CROSS: SELECT", (110, 130, 155), 1);
-        draw_text(121, 201, "START: RESUME", (110, 130, 155), 1);
+        draw_text(79, 163, "L/R: CHANGE   CROSS: SELECT", (110, 130, 155), 1);
+        draw_text(121, 175, "START: RESUME", (110, 130, 155), 1);
     }
 }

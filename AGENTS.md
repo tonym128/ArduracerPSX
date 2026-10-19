@@ -379,10 +379,10 @@ no TMX or `.trk` step.
   1. Source: 44.1 kHz 16-bit WAV audio.
   2. Process: Resample to 22,050 Hz or 11,025 Hz, encode to PSX 4-bit ADPCM VAG format with loop flag markers.
   3. Output: SPU sample bank binary (`sounds.bnk`) with lookup table.
-- **Soundtrack (CD-DA)**:
+- **Soundtrack (CD-XA)**:
   1. Source: Mastered stereo tracks.
-  2. Process: Encode to 44.1 kHz 16-bit uncompressed PCM stereo audio (`.raw` / `.cdda`) padded to exact 2352-byte sector boundaries.
-  3. Output: Disc image CUE sheet with Track 1 (Data) and Tracks 2–7 (Audio).
+  2. Process: Cook to 44.1 kHz 16-bit PCM (`assets/cdda/*.raw`, an intermediate only), then encode to CD-XA ADPCM (`make music-xa` -> `assets/music/MUSIC*.XA`).
+  3. Output: XA files in the ISO filesystem. The disc is a single data track; no Redbook CD-DA tracks are mastered. Music is a plain ON/OFF setting and always plays XA.
 
 ### 5.4 FMV Cinematics (`tools/fmv_cook`)
 - Input: MP4 1080p source video (Attract Intro, Ending Cinematic).
