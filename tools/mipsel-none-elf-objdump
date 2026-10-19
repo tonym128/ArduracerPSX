@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""The subset of GNU `mipsel-none-elf-objdump -D` that psoxide's post-link tools
+parse, backed by capstone.
+
+`psoxide/tools/stack_guard.py` (via `hazard_patch.disassemble`) runs
+
+    mipsel-none-elf-objdump -D -b binary -m mips:3000 -EL --adjust-vma=BASE FILE
+
+on the flat PS-EXE. Distributions rarely ship a MIPS binutils, and
+`llvm-objdump` refuses a raw binary, so `make stack-guard` points `OBJDUMP` here.
+Output matches GNU's shape where the tools look:
+
+    <addr>:\t<word>\t<mnemonic>\t<operands>
+
+with bare register names (`sp`, not `$sp`), decimal `addiu` immediates (the
+frame sizes stack_guard sums) and `.word` for anything capstone cannot decode,
+which is how the tools tell code from data in the same load.
+"""
+import re
+import struct
+import sys
+
+import capstone
+
+
+def main(argv):
+    base = 0
+    path = None
+    args = iter(argv[1:])
+    for a in args:
+        if a.startswith("--adjust-vma="):
+            base = int(a.split("=", 1)[1], 0)
+        elif a == "--adjust-vma":
+            base = int(next(args), 0)
+        elif a in ("-b", "-m"):
+            next(args)
+        elif not a.startswith("-"):
+            path = a
+    if path is None:
+        print("mipsel-none-elf-objdump: no input file", file=sys.stderr)
+        return 1
+    with open(path, "rb") as f:
+        data = f.read()
+
+    md = capstone.Cs(capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32 | capstone.CS_MODE_LITTLE_ENDIAN)
+    imm = re.compile(r"(-?)0x([0-9a-f]+)$")
+    out = [f"\n{path}:\tfile format binary\n", "Disassembly of section .data:\n"]
+    for off in range(0, len(data) - 3, 4):
+        addr = base + off
+        word = data[off:off + 4]
+        (value,) = struct.unpack("<I", word)
+        insn = next(md.disasm(word, addr, count=1), None)
+        if insn is None:
+            out.append(f"{addr:8x}:\t{value:08x}\t.word\t0x{value:08x}")
+            continue
+        ops = insn.op_str.replace("$", "")
+        if insn.mnemonic == "addiu":
+            parts = ops.split(", ")
+            m = imm.match(parts[-1])
+            if m:
+                parts[-1] = m.group(1) + str(int(m.group(2), 16))
+                ops = ", ".join(parts)
+        out.append(f"{addr:8x}:\t{value:08x}\t{insn.mnemonic}\t{ops}")
+    sys.stdout.write("\n".join(out) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

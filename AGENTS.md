@@ -327,7 +327,7 @@ summary and fill it in; each perspective signs off explicitly.
 - [ ] **`#![no_std]` & Panic Freedom**: No `.unwrap()`, `.expect()`, `panic!()`, or unbounded recursion in PSX-bound code.
 
 #### 2. Senior Systems & PSX Hardware Engineer
-- [ ] **Main RAM Footprint**: Does the PSX executable (`arduracer.exe`) stay under the `ci-game` static-RAM gate? The gate measures the link map against the linker RAM region (`RAM_GATE_MAX_PCT`, default 80% of the 2 MB window); the build currently sits at ~79.4%, so any new static allocation must fit the remaining headroom.
+- [ ] **Main RAM Footprint**: Does the PSX executable (`arduracer.exe`) stay under the `ci-game` static-RAM gate? The gate measures the link map against the linker RAM region (`RAM_GATE_MAX_PCT`, default 85% of the 2 MB window); the build currently sits at ~80.1%, so any new static allocation must fit the remaining headroom.
 - [ ] **I-Cache Locality**: Are inner loop functions compact enough to fit inside the 4 KiB direct-mapped I-cache?
 - [ ] **GPU Ordering Table & DMA**: Are GPU packets submitted via DMA list chains without blocking the CPU?
 - [ ] **VRAM Management**: Does texture / CLUT allocation stay strictly within the assigned pages without overlapping double-buffer displays?

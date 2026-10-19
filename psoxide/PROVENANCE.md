@@ -47,6 +47,15 @@ Two further files are **local additions** not present in the pin at all:
 required by the `pub mod mdec;` declarations in the modified `lib.rs` files
 above, so the pinned revision does not build this game and they must stay.
 
+`tools/stack_guard.py` and `tools/hazard_patch.py` (the guard imports its
+disassembler and jump-table resolver from it) are **post-link tools** copied in
+for `make stack-guard`, which proves the game's scratchpad stack fits. They are
+not in the pinned subset; `hazard_patch.py` is byte-identical to
+`PSoXide-emulator@390fd19`, and `stack_guard.py` comes from the matching psx-rt
+`scratchpad` module's tooling (plattypus' vendored PSoXide, 2026-10-03). Neither
+is modified. They expect GNU `mipsel-none-elf-objdump`; this repository's
+`tools/mipsel-none-elf-objdump` provides the subset they read, using capstone.
+
 To verify a tree against the pin, from a checkout of
 `EBonura/PSoXide-emulator`:
 

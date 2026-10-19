@@ -274,6 +274,12 @@ pub struct MeshScratch {
     pts: [MeshVert; MAX_POINTS],
     /// Outcode of each point; see `OUT_*`.
     code: [u8; MAX_POINTS],
+    work: PolyWork,
+}
+
+/// [`emit_patched`]'s buffers, apart from the points so the cell pass can keep
+/// borrowing those while it hands a cell over.
+struct PolyWork {
     ring: [u8; MAX_POLY],
     poly: [MeshVert; MAX_POLY],
     clipped: [MeshVert; MAX_POLY],
@@ -293,9 +299,11 @@ impl MeshScratch {
         Self {
             pts: [V; MAX_POINTS],
             code: [0; MAX_POINTS],
-            ring: [0; MAX_POLY],
-            poly: [V; MAX_POLY],
-            clipped: [V; MAX_POLY],
+            work: PolyWork {
+                ring: [0; MAX_POLY],
+                poly: [V; MAX_POLY],
+                clipped: [V; MAX_POLY],
+            },
         }
     }
 }
@@ -330,8 +338,6 @@ pub struct Layout {
     stride: usize,
     side_base: [usize; 4],
     side_step: [usize; 4],
-    /// The outcoder the points were classified with, for clipped cut points.
-    oc: Outcoder,
 }
 
 impl Layout {
@@ -369,10 +375,22 @@ pub fn build_tile<P: Projector, S: Sink>(
     sink: &mut S,
 ) -> usize {
     let n = n.clamp(1, MAX_LEVEL);
-    let cells = visible_cells(camera, r, n, oc);
-    let (count, layout) = make_points(camera, r, n, sides, tex, cells, *oc, scratch);
+    let (i0, i1, j0, j1) = visible_cells(camera, r, n, oc);
+    // Built here and filled in place: returned from `make_points` it was copied
+    // twice per tile.
+    let mut layout = Layout {
+        n,
+        i0,
+        i1,
+        j0,
+        j1,
+        stride: (i1 - i0 + 1).max(0) as usize,
+        side_base: [usize::MAX; 4],
+        side_step: [1; 4],
+    };
+    let count = make_points(camera, r, sides, tex, &mut layout, scratch);
     proj.project(&mut scratch.pts[..count], &mut scratch.code[..count], oc);
-    emit_cells(&layout, scratch, proj, sink);
+    emit_cells(&layout, oc, scratch, proj, sink);
     count
 }
 
@@ -411,7 +429,9 @@ fn line(origin_q4: i32, extent: i32, full: i32, k: i32, lg: u32, t0: u16, shift:
     )
 }
 
-/// Generates the tile's grid and stitched side points, unprojected.
+/// Generates the tile's grid and stitched side points, unprojected, for the
+/// cells `layout` names, and records where the stitched points went. Returns the
+/// point count.
 ///
 /// Deliberately small: it runs once per tile, and the whole per-tile path has
 /// to share the R3000's 4 KB instruction cache. The first version was 1.7 KB
@@ -422,33 +442,23 @@ fn line(origin_q4: i32, extent: i32, full: i32, k: i32, lg: u32, t0: u16, shift:
 fn make_points(
     camera: &Camera,
     r: &TileRect,
-    n: i32,
     sides: [i32; 4],
     tex: TexMap,
-    (i0, i1, j0, j1): (i32, i32, i32, i32),
-    oc: Outcoder,
+    layout: &mut Layout,
     scratch: &mut MeshScratch,
-) -> (usize, Layout) {
+) -> usize {
+    let Layout {
+        n, i0, i1, j0, j1, ..
+    } = *layout;
     let lg = n.trailing_zeros();
     let ox0 = r.wx0 * 16 - (camera.pos.x.raw() >> 8);
     let oy0 = r.wy0 * 16 - (camera.pos.y.raw() >> 8);
     let xl = |k: i32, lg: u32| line(ox0, r.cw, r.tw, k, lg, tex.u0, tex.u_shift);
     let yl = |k: i32, lg: u32| line(oy0, r.ch, r.th, k, lg, tex.v0, 0);
     let pts = &mut scratch.pts;
-    let mut layout = Layout {
-        n,
-        i0,
-        i1,
-        j0,
-        j1,
-        stride: (i1 - i0 + 1).max(0) as usize,
-        side_base: [usize::MAX; 4],
-        side_step: [1; 4],
-        oc,
-    };
     if i0 >= i1 || j0 >= j1 {
         layout.i1 = i0;
-        return (0, layout);
+        return 0;
     }
 
     // The visible sub-grid, row-major; columns are tabulated once.
@@ -506,7 +516,7 @@ fn make_points(
             count += 1;
         }
     }
-    (count, layout)
+    count
 }
 
 /// The cells of a tile that can reach the view, as `(i0, i1, j0, j1)`: cells
@@ -668,23 +678,36 @@ impl Outcoder {
 #[inline(never)]
 fn emit_cells<P: Projector, S: Sink>(
     l: &Layout,
+    oc: &Outcoder,
     scratch: &mut MeshScratch,
     proj: &mut P,
     sink: &mut S,
 ) {
     let n = l.n;
     let side = l.side_base.map(|b| b != usize::MAX);
+    let w = (l.i1 - l.i0) as usize;
+    let MeshScratch { pts, code, work } = scratch;
     for j in l.j0..l.j1 {
-        for i in l.i0..l.i1 {
-            let (a, c) = (l.at(i, j), l.at(i, j + 1));
-            let (b, d) = (a + 1, c + 1);
-            let code = &scratch.code;
-            let (ca, cb, cc, cd) = (code[a], code[b], code[c], code[d]);
+        // This row of corners and the next, as slices: indexing the whole
+        // point set cost a bounds check per corner per cell.
+        let top = l.at(l.i0, j);
+        let bot = top + l.stride;
+        let (Some(ct), Some(cb), Some(pt), Some(pb)) = (
+            code.get(top..=top + w),
+            code.get(bot..=bot + w),
+            pts.get(top..=top + w),
+            pts.get(bot..=bot + w),
+        ) else {
+            return;
+        };
+        for k in 0..w {
+            let (ca, cb, cc, cd) = (ct[k], ct[k + 1], cb[k], cb[k + 1]);
             // Wholly behind, beyond, or off one side of the screen. Stitched
             // points lie on the cell's edges, so they cannot rescue it.
             if ca & cb & cc & cd != 0 {
                 continue;
             }
+            let i = l.i0 + k as i32;
             let near_cut = (ca | cb | cc | cd) & OUT_NEAR != 0;
             let edge = (j == 0 && side[0])
                 || (i == n - 1 && side[1])
@@ -692,11 +715,12 @@ fn emit_cells<P: Projector, S: Sink>(
                 || (i == 0 && side[3]);
             if !near_cut && !edge {
                 // The common case: one quad, straight from the grid.
-                let pts = &scratch.pts;
-                sink.quad([&pts[a], &pts[b], &pts[c], &pts[d]]);
+                sink.quad([&pt[k], &pt[k + 1], &pb[k], &pb[k + 1]]);
                 continue;
             }
-            emit_patched(l, (i, j), [a, b, d, c], near_cut, scratch, proj, sink);
+            let (a, c) = (top + k, bot + k);
+            let corners = [a, a + 1, c + 1, c];
+            emit_patched(l, oc, (i, j), corners, near_cut, pts, work, proj, sink);
         }
     }
 }
@@ -705,24 +729,25 @@ fn emit_cells<P: Projector, S: Sink>(
 /// clips it if needed, and sends it as a fan.
 #[inline(never)]
 #[cold]
+#[allow(clippy::too_many_arguments)]
 fn emit_patched<P: Projector, S: Sink>(
     l: &Layout,
+    oc: &Outcoder,
     (i, j): (i32, i32),
     corners: [usize; 4],
     near_cut: bool,
-    scratch: &mut MeshScratch,
+    pts: &[MeshVert],
+    work: &mut PolyWork,
     proj: &mut P,
     sink: &mut S,
 ) {
-    let MeshScratch {
-        pts,
+    let PolyWork {
         ring,
         poly,
         clipped,
-        ..
-    } = scratch;
+    } = work;
     let last = l.n - 1;
-    let view = l.oc.view;
+    let view = oc.view;
     // Which of this cell's sides carry stitched points.
     let st = [
         j == 0 && l.side_base[0] != usize::MAX,
@@ -783,7 +808,7 @@ fn emit_patched<P: Projector, S: Sink>(
     }
 
     let verts: &[MeshVert] = if near_cut {
-        let cl = clip_near(&poly[..len], M7_Z_NEAR << 4, clipped, proj, &l.oc);
+        let cl = clip_near(&poly[..len], M7_Z_NEAR << 4, clipped, proj, oc);
         if cl < 3 {
             return;
         }

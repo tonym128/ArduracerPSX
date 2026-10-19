@@ -53,10 +53,11 @@ jobs:
           echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
       - name: Install media and cooking tools
-        # ffmpeg for wav2vag.py; python3-numpy and python3-pil for track atlas / city asset cookers.
+        # ffmpeg for wav2vag.py; python3-numpy and python3-pil for track atlas / city asset cookers;
+        # python3-capstone for `make stack-guard` (part of ci-game).
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg zip python3-numpy python3-pil
+          sudo apt-get install -y ffmpeg zip python3-numpy python3-pil python3-capstone
 
       - name: Show toolchain
         run: rustup show

@@ -79,8 +79,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install title image cooking tools
-        run: sudo apt-get update && sudo apt-get install -y python3-pil
+      - name: Install title image cooking tools and the stack guard's disassembler
+        # python3-capstone backs tools/mipsel-none-elf-objdump for `make stack-guard`.
+        run: sudo apt-get update && sudo apt-get install -y python3-pil python3-capstone
 
       - name: Check the vendored PSoXide SDK is present
         # psoxide/sdk is committed here (see psoxide/PROVENANCE.md). Assert it up
@@ -95,7 +96,7 @@ jobs:
       # link map that `make exe` emits, so the gate works on a stock
       # ubuntu-latest runner. (binutils-mipsel-linux-gnu was installed here for a
       # `stat -c%s` check that could not see .bss and could never fire.)
-      - name: Build PSX Executable & enforce the static RAM budget
+      - name: Build PSX Executable, enforce the static RAM budget and prove the scratchpad stack fits
         run: make ci-game
 
   disc:

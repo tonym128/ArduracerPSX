@@ -2795,15 +2795,21 @@ pub fn render_track_extents(
         }
 
         if camera.mode7 {
-            draw_tile_m7(
-                camera,
-                (tx, ty),
-                (tile_wu_x, tile_wu_y),
-                (world_w, world_h),
-                s_idx,
-                &floor_frame,
-                &mut mesh_scratch,
-            );
+            // SAFETY: see `FloorStack`. Nothing else keeps data in the
+            // scratchpad, and `make stack-guard` proves the tree fits.
+            unsafe {
+                FloorStack::run(|| {
+                    draw_tile_m7(
+                        camera,
+                        (tx, ty),
+                        (tile_wu_x, tile_wu_y),
+                        (world_w, world_h),
+                        s_idx,
+                        &floor_frame,
+                        &mut mesh_scratch,
+                    )
+                })
+            };
             continue;
         }
 
@@ -3137,42 +3143,65 @@ struct FloorPackets {
     /// the next; 0 when the half is empty. Offset by one so the whole static
     /// starts zeroed and lives in `.bss`, not `.data`.
     prev: usize,
+    /// That tag's word count, already shifted into place, so linking the next
+    /// node is a store rather than a read-modify-write of uncached RAM.
+    prev_size: u32,
     /// Whether a DMA walk may still be running.
     in_flight: bool,
+    /// Never written by the GPU or linked; see [`FloorPackets::node`].
+    spare: [u32; NODE_MAX_WORDS],
 }
+
+/// Payload words of the largest floor node, a textured quad.
+const NODE_MAX_WORDS: usize = 9;
+const _: () = assert!(NODE_MAX_WORDS <= gpu::MAX_NODE_WORDS);
 
 static mut FLOOR_PACKETS: FloorPackets = FloorPackets {
     buf: [[0; FLOOR_CHUNK_WORDS]; 2],
     cur: 0,
     len: 0,
     prev: 0,
+    prev_size: 0,
     in_flight: false,
+    spare: [0; NODE_MAX_WORDS],
 };
 
 /// Tag terminating a linked-list chain.
 const LIST_END: u32 = 0x00FF_FFFF;
 
 impl FloorPackets {
-    /// Opens a node of `words` payload words and returns them to fill.
+    /// Opens a node of `words` payload words (at most [`NODE_MAX_WORDS`]) and
+    /// returns them to fill.
+    ///
+    /// Always a full-size array, so a writer's constant indices need no bounds
+    /// checks: there were nine per quad. Every node leaves room for the largest,
+    /// which keeps the array inside the half; the `spare` arm is never taken,
+    /// and is there only because the compiler needs one.
     ///
     /// Out of line: a call per primitive is cheap, while inlined at every
     /// writer it cost several kilobytes of a static-RAM budget with none spare.
     #[inline(never)]
-    fn node(&mut self, words: usize) -> &mut [u32] {
-        if self.len + 1 + words > FLOOR_CHUNK_WORDS {
+    fn node(&mut self, words: usize) -> &mut [u32; NODE_MAX_WORDS] {
+        const LAST: usize = FLOOR_CHUNK_WORDS - 1 - NODE_MAX_WORDS;
+        if self.len > LAST {
             self.kick();
         }
-        let base = self.len;
-        let buf = &mut self.buf[self.cur];
+        // `kick` empties the half; the clamp only lets the compiler see it.
+        let base = self.len.min(LAST);
+        let buf = &mut self.buf[self.cur & 1];
         if self.prev != 0 {
             let addr = (buf.as_ptr() as u32 + (base as u32) * 4) & 0x00FF_FFFF;
-            let tag = &mut buf[self.prev - 1];
-            *tag = (*tag & 0xFF00_0000) | addr;
+            buf[(self.prev - 1).min(LAST)] = self.prev_size | addr;
         }
-        buf[base] = ((words as u32) << 24) | LIST_END;
+        let size = (words as u32) << 24;
+        buf[base] = size | LIST_END;
         self.prev = base + 1;
+        self.prev_size = size;
         self.len = base + 1 + words;
-        &mut buf[base + 1..base + 1 + words]
+        match buf[base + 1..].first_chunk_mut::<NODE_MAX_WORDS>() {
+            Some(w) => w,
+            None => &mut self.spare,
+        }
     }
 
     /// Hands the current half to the GPU and starts filling the other.
@@ -3351,6 +3380,20 @@ impl FloorFrame {
         }
     }
 }
+
+/// The stack each floor tile is drawn on: the whole 1 KB CPU scratchpad.
+///
+/// The R3000 has no data cache, and the per-cell loop keeps more live values
+/// than it has registers, so it reloads spilled values from its stack on every
+/// cell -- about 60 stall cycles a cell with the stack in main RAM, as much as
+/// it spends reading the vertices themselves. Scratchpad loads take one cycle.
+///
+/// Only `draw_tile_m7` runs here, not the tile loop around it: the loop also
+/// services the CD, whose call tree is deep and reaches the BIOS.
+/// `tools/stack_guard.py` proves the tree fits from the linked image (`make
+/// stack-guard`, part of `ci-game`). Nothing else in the game uses the
+/// scratchpad, and psx-rt's exception handler never touches `$sp`.
+type FloorStack = psx_rt::scratchpad::ScratchpadStack<0, 1024>;
 
 /// Draws one world tile through the Mode 7 projection.
 ///

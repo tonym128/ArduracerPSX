@@ -37,6 +37,8 @@ PSoXide-emulator
 /psoxide/validation/
 /psoxide/tools/*
 !/psoxide/tools/mkisopsx/
+!/psoxide/tools/stack_guard.py
+!/psoxide/tools/hazard_patch.py
 /psoxide/.components-receipt.json
 
 # The vendored font bitmaps are `*.bin`, which the build-output rule above
