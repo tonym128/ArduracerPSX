@@ -1061,6 +1061,9 @@ impl ArduracerGame {
         psx_rt::interrupts::install_vblank_counter();
         // Configure hardware root counter 2 to tick at system_clock / 8 (4.2336 MHz).
         psx_io::timers::set_mode(psx_io::timers::Timer::Timer2, 0x0200);
+        // Root counter 1 counts scanlines and restarts at every VBlank: the
+        // texture decoder's clock for how much of the frame is left.
+        psx_gpu_mod::configure_vsync_timer();
         dbg::println("[LOOP] Entering main game loop with VBlank interrupt installed.");
         dbg::check_faults();
 
@@ -3332,6 +3335,9 @@ impl ArduracerGame {
     }
 
     fn close_frame(&mut self) {
+        // The frame's work is done (the pacing wait below is not work): tell the
+        // texture decoder how long everything after it took.
+        crate::gpu::tracktex::note_frame_work_done();
         self.transition.render();
         self.transition.tick();
         crate::gpu::tracktex::pump_cd_streams();

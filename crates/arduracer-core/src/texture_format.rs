@@ -477,6 +477,67 @@ pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -
     vblanks_left.saturating_sub(catchup_ticks) as usize
 }
 
+/// Scanlines in one NTSC field: the unit [`frame_lines_left`] counts in.
+///
+/// A PAL console has 314, so there the budget simply comes out conservative.
+pub const LINES_PER_VBLANK: u32 = 263;
+
+/// Scanlines left before a frame of `period` VBlanks must be finished,
+/// `elapsed_vblanks` whole VBlanks and `line` scanlines after it began. Zero
+/// once the deadline has passed.
+pub const fn frame_lines_left(elapsed_vblanks: u32, period: u32, line: u32) -> u32 {
+    let period = if period == 0 { 1 } else { period };
+    if elapsed_vblanks >= period {
+        return 0;
+    }
+    let line = if line > LINES_PER_VBLANK {
+        LINES_PER_VBLANK
+    } else {
+        line
+    };
+    (period - elapsed_vblanks) * LINES_PER_VBLANK - line
+}
+
+/// Whether the decode loop may start another row, with `lines_left` scanlines
+/// before the frame's deadline, `reserve` of them needed by the work that
+/// follows decoding, and `rows_decoded` of the `min_rows` it must decode done.
+///
+/// Decoding runs in the middle of the frame, before the floor, props, cars and
+/// HUD. The loop used to keep decoding until the deadline had already passed,
+/// so any frame with tiles to stream finished that work a VBlank or two late:
+/// measured in a race, the 3- and 4-VBlank frames (a third of all frames)
+/// spent 160k and 310k instructions decoding against 26k in an on-time frame.
+/// Stopping at the last VBlank boundary instead still overran during long
+/// streaming stretches, where the extra simulation ticks of the late frame
+/// before make the work after decoding longer. So the reserve is measured
+/// (see [`next_decode_reserve`]) rather than assumed.
+///
+/// `min_rows` is always honoured -- one row while visible tiles are missing --
+/// so streaming can never stall.
+pub const fn decode_row_allowed(
+    lines_left: u32,
+    reserve: u32,
+    rows_decoded: usize,
+    min_rows: usize,
+) -> bool {
+    rows_decoded < min_rows || lines_left > reserve
+}
+
+/// The decode reserve after a frame whose post-decode work took `measured`
+/// scanlines: that much, or the previous reserve decayed by 1/16 if larger.
+///
+/// Tracking the recent worst case rather than the average keeps one heavy
+/// frame (a full grid of cars on screen) from overrunning right after a run of
+/// light ones, while the decay hands the time back to decoding once it passes.
+pub const fn next_decode_reserve(previous: u32, measured: u32) -> u32 {
+    let decayed = previous - previous / 16;
+    if measured > decayed {
+        measured
+    } else {
+        decayed
+    }
+}
+
 /// The even share of `total` decode rows that each of `viewports` viewports
 /// receives, discarding any remainder.
 ///
@@ -670,6 +731,46 @@ mod budget_tests {
                 "{f:?} must not take the TIM path merely because one exists"
             );
         }
+    }
+
+    /// The deadline is `period` fields after the frame began.
+    #[test]
+    fn lines_left_count_down_to_the_deadline() {
+        assert_eq!(frame_lines_left(0, 2, 0), 2 * LINES_PER_VBLANK);
+        assert_eq!(frame_lines_left(0, 2, 100), 2 * LINES_PER_VBLANK - 100);
+        assert_eq!(frame_lines_left(1, 2, 10), LINES_PER_VBLANK - 10);
+        assert_eq!(frame_lines_left(2, 2, 0), 0);
+        assert_eq!(
+            frame_lines_left(5, 2, 0),
+            0,
+            "a late frame has nothing left"
+        );
+        assert_eq!(frame_lines_left(0, 0, 0), LINES_PER_VBLANK, "period 0 is 1");
+        assert_eq!(frame_lines_left(1, 2, 999), 0, "a stray count never wraps");
+    }
+
+    /// Rows stop once only the reserve is left, but the guaranteed rows are
+    /// decoded however late the frame is, so streaming can never stall.
+    #[test]
+    fn decode_stops_at_the_reserve_but_never_below_the_minimum() {
+        assert!(decode_row_allowed(300, 200, 5, 1));
+        assert!(!decode_row_allowed(200, 200, 5, 1));
+        assert!(!decode_row_allowed(0, 200, 5, 1));
+        assert!(decode_row_allowed(0, 200, 0, 1));
+        assert!(!decode_row_allowed(0, 0, 1, 1));
+    }
+
+    /// The reserve jumps to a heavier frame at once and decays slowly after.
+    #[test]
+    fn reserve_tracks_the_recent_worst_case() {
+        assert_eq!(next_decode_reserve(160, 240), 240);
+        assert_eq!(next_decode_reserve(160, 100), 150);
+        let mut r = 240;
+        for _ in 0..100 {
+            r = next_decode_reserve(r, 100);
+        }
+        assert_eq!(r, 100, "settles on the work actually measured");
+        assert_eq!(next_decode_reserve(0, 0), 0);
     }
 
     /// 60 FPS is the regression: one row must be admitted on the first
