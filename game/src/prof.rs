@@ -189,7 +189,7 @@ const _: () = assert!(HUD == STAGE_COUNT - 1);
 // ---------------------------------------------------------------------------
 
 /// Number of counter slots. Sized to the highest counter constant plus one.
-pub const COUNTER_COUNT: usize = 11;
+pub const COUNTER_COUNT: usize = 13;
 
 /// 64x64 tiles decompressed from JPEG into VRAM this frame.
 pub const C_TILE_DECODES: usize = 0;
@@ -243,8 +243,12 @@ pub const C_UPLOAD_DMA: usize = 9;
 /// paths, so these two counters summing to the tile count is the invariant that
 /// proves the fallback is being taken deliberately rather than by accident.
 pub const C_UPLOAD_FIFO: usize = 10;
+/// Ground mesh points projected (Mode 7), the GTE's share of the floor.
+pub const C_M7_POINTS: usize = 11;
+/// Ground polygons submitted (Mode 7); a fan counts once.
+pub const C_M7_POLYS: usize = 12;
 
-const _: () = assert!(C_UPLOAD_FIFO == COUNTER_COUNT - 1);
+const _: () = assert!(C_M7_POLYS == COUNTER_COUNT - 1);
 
 // ---------------------------------------------------------------------------
 // Instrumentation on
@@ -310,6 +314,8 @@ static COUNTER_NAMES: [&str; COUNTER_COUNT] = [
     "decode-rows",
     "uploads-dma",
     "uploads-fifo",
+    "m7-points",
+    "m7-polys",
 ];
 
 /// Cycle totals summed over the frames in the current window.

@@ -63,6 +63,9 @@ pub mod ui {
 #[allow(unused_imports, dead_code)]
 pub mod gte_proj;
 
+#[path = "../../../game/src/gpu/m7_mesh.rs"]
+pub mod m7_mesh;
+
 #[path = "../../../game/src/gpu/props_renderer.rs"]
 #[allow(unused_imports, dead_code)]
 pub mod props_renderer;
@@ -75,6 +78,7 @@ pub mod gpu {
     // `::palette` imports resolve to the same modules the game uses.
     pub use super::camera;
     pub use super::gte_proj;
+    pub use super::m7_mesh;
     pub use super::palette;
     pub use super::props_renderer;
 }
@@ -5589,134 +5593,424 @@ mod m7_skyline_clearance_tests {
     }
 }
 
-/// Mode 7 tile seams showed a sawtooth of backdrop between tiles. Each tile
-/// chose its subdivision from its *own* centre depth, so two tiles sharing one
-/// straight edge cut it at different world positions -- which project to
-/// different screen points, leaving a wedge of background visible between them.
+/// The Mode 7 ground mesh, driven through a software rasterizer.
+///
+/// Two earlier fixes pulled in opposite directions: subdividing near tiles
+/// finer (to stop affine warping) opened a sawtooth of backdrop along tile
+/// seams, and the seam fix gave every tile the same coarse 3x3 grid, which
+/// warped by up to 7 px in front of the car. These tests hold both properties
+/// at once against the real `m7_mesh`: every ground pixel is covered exactly
+/// once, and no pixel's texel lands more than a couple of pixels from where
+/// perspective puts it.
 #[cfg(test)]
-mod m7_tile_seam_tests {
-    const TRACKTEX_SRC: &str = include_str!("../../../game/src/gpu/tracktex.rs");
-    const CAMERA_SRC: &str = include_str!("../../../game/src/gpu/camera.rs");
-    use super::camera::tile_subdivision;
+mod m7_mesh_tests {
+    use super::camera::{Camera, M7_Z_NEAR};
+    use super::m7_mesh::{self, MeshScratch, MeshVert, SoftwareProjector, TileRect};
+    use arduracer_core::{Fixed, Vec2};
 
-    /// World-x positions, strictly inside a tile, where a subdivision cuts.
-    fn interior_vertices(extent: i32, n: i32) -> Vec<i32> {
-        (0..=n)
-            .map(|i| extent * i / n)
-            .filter(|v| *v > 0 && *v < extent)
-            .collect()
+    const TILE: i32 = 160;
+    const WORLD: i32 = 40 * TILE;
+    /// A virtual screen taller and wider than the real one, so the rows below
+    /// the visible bottom -- where the near plane cuts cells -- are checked too.
+    const VX0: i32 = -200;
+    const VY0: i32 = 0;
+    const VW: i32 = 720;
+    const VH: i32 = 300;
+
+    struct Raster {
+        cover: Vec<u8>,
+        /// Worst texel displacement seen, in screen pixels, over the real screen.
+        worst_px: f64,
+        polys: usize,
+        /// Polygons cut by the near plane.
+        clipped: usize,
+        cam: Camera,
+        cam_wx: f64,
+        cam_wy: f64,
+        // Tile-local UV origin of the polygon being drawn.
+        tile: (i32, i32),
+        /// Real-screen ground pixels sampled, and how many sit over 3 px off.
+        pixels: u64,
+        over_3px: u64,
     }
 
-    /// The subdivision must depend only on the tile's untrimmed extent, so
-    /// every tile of a circuit picks the same count.
-    #[test]
-    fn every_tile_of_a_circuit_subdivides_identically() {
-        for tw in [32i32, 64, 128, 160, 256, 320, 640] {
-            let first = tile_subdivision(tw, tw);
-            // Every interior tile has the same untrimmed extent, so repeated
-            // calls must agree exactly -- this is what closes the seam.
-            for _ in 0..8 {
-                assert_eq!(
-                    tile_subdivision(tw, tw),
-                    first,
-                    "tile extent {tw} produced a varying subdivision"
-                );
+    fn camera_at(x: i32, y: i32, heading: u16, far: bool) -> Camera {
+        let mut c = Camera::new_chase(
+            Vec2 {
+                x: Fixed::from_int(x),
+                y: Fixed::from_int(y),
+            },
+            heading,
+        );
+        c.set_extended_view_distance(far);
+        c
+    }
+
+    impl Raster {
+        fn new(cam: Camera) -> Self {
+            let cam_wx = (cam.pos.x.raw() >> 8) as f64 / 16.0;
+            let cam_wy = (cam.pos.y.raw() >> 8) as f64 / 16.0;
+            Raster {
+                cover: vec![0; (VW * VH) as usize],
+                worst_px: 0.0,
+                polys: 0,
+                clipped: 0,
+                cam,
+                cam_wx,
+                cam_wy,
+                tile: (0, 0),
+                pixels: 0,
+                over_3px: 0,
+            }
+        }
+
+        /// Ground point (world units) seen through pixel sample (sx, sy).
+        fn unproject(&self, sx: f64, sy: f64) -> Option<(f64, f64, f64)> {
+            let f = 120.0;
+            let h = self.cam.m7_horizon_row() as f64;
+            if sy <= h + 0.5 {
+                return None;
+            }
+            let z_q4 = 2080.0 * f / (sy - h);
+            let r_q4 = (sx - self.cam.center_x as f64) * z_q4 / f;
+            let fwd = z_q4 - 1920.0;
+            let (s, c) = (
+                self.cam.hsin() as f64 / 4096.0,
+                self.cam.hcos() as f64 / 4096.0,
+            );
+            let dx = r_q4 * c + fwd * s;
+            let dy = r_q4 * s - fwd * c;
+            Some((self.cam_wx + dx / 16.0, self.cam_wy + dy / 16.0, z_q4))
+        }
+
+        /// Screen position of ground point (wx, wy), unrounded.
+        fn project(&self, wx: f64, wy: f64) -> Option<(f64, f64)> {
+            let dx = (wx - self.cam_wx) * 16.0;
+            let dy = (wy - self.cam_wy) * 16.0;
+            let (s, c) = (
+                self.cam.hsin() as f64 / 4096.0,
+                self.cam.hcos() as f64 / 4096.0,
+            );
+            let r = dx * c + dy * s;
+            let z = dx * s - dy * c + 1920.0;
+            if z <= 0.0 {
+                return None;
+            }
+            let f = 120.0;
+            Some((
+                self.cam.center_x as f64 + r * f / z,
+                self.cam.m7_horizon_row() as f64 + 2080.0 * f / z,
+            ))
+        }
+
+        fn tri(&mut self, p: [(i16, i16); 3], uv: [(i32, i32); 3]) {
+            let pt = |k: usize| (p[k].0 as i64, p[k].1 as i64);
+            let (mut a, mut b, c) = (pt(0), pt(1), pt(2));
+            let (mut ua, mut ub, uc) = (uv[0], uv[1], uv[2]);
+            let area = (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0);
+            if area == 0 {
+                return;
+            }
+            if area < 0 {
+                core::mem::swap(&mut a, &mut b);
+                core::mem::swap(&mut ua, &mut ub);
+            }
+            let area = area.abs();
+            // Edge functions in doubled coordinates, sampling pixel centres;
+            // a top-left rule settles samples exactly on an edge.
+            let edge = |p: (i64, i64), q: (i64, i64), x: i64, y: i64| {
+                (q.0 - p.0) * 2 * (y - 2 * p.1) - (q.1 - p.1) * 2 * (x - 2 * p.0)
+            };
+            let top_left = |p: (i64, i64), q: (i64, i64)| {
+                let (dx, dy) = (q.0 - p.0, q.1 - p.1);
+                dy < 0 || (dy == 0 && dx > 0)
+            };
+            let x0 = a.0.min(b.0).min(c.0).max(VX0 as i64);
+            let x1 = a.0.max(b.0).max(c.0).min((VX0 + VW - 1) as i64);
+            let y0 = a.1.min(b.1).min(c.1).max(VY0 as i64);
+            let y1 = a.1.max(b.1).max(c.1).min((VY0 + VH - 1) as i64);
+            for y in y0..=y1 {
+                for x in x0..=x1 {
+                    let (sx, sy) = (2 * x + 1, 2 * y + 1);
+                    let w0 = edge(b, c, sx, sy);
+                    let w1 = edge(c, a, sx, sy);
+                    let w2 = edge(a, b, sx, sy);
+                    let inside = |w: i64, p, q| w > 0 || (w == 0 && top_left(p, q));
+                    if !(inside(w0, b, c) && inside(w1, c, a) && inside(w2, a, b)) {
+                        continue;
+                    }
+                    let i = ((y - VY0 as i64) * VW as i64 + (x - VX0 as i64)) as usize;
+                    self.cover[i] = self.cover[i].saturating_add(1);
+
+                    // Affine UV, exactly as the GPU interpolates it.
+                    if !(0..320).contains(&x) || !(0..240).contains(&y) {
+                        continue;
+                    }
+                    let (l0, l1, l2) = (
+                        w0 as f64 / (4.0 * area as f64),
+                        w1 as f64 / (4.0 * area as f64),
+                        w2 as f64 / (4.0 * area as f64),
+                    );
+                    let u = l0 * ua.0 as f64 + l1 * ub.0 as f64 + l2 * uc.0 as f64;
+                    let v = l0 * ua.1 as f64 + l1 * ub.1 as f64 + l2 * uc.1 as f64;
+                    let Some((wx, wy, z_q4)) = self.unproject(x as f64 + 0.5, y as f64 + 0.5)
+                    else {
+                        continue;
+                    };
+                    let _ = (wx, wy, z_q4);
+                    // Where the GPU's texel actually sits on the ground, and
+                    // where that ground point projects: the warp is the screen
+                    // distance from the pixel showing it.
+                    let gx = (self.tile.0 * TILE) as f64 + u * TILE as f64 / 1024.0;
+                    let gy = (self.tile.1 * TILE) as f64 + v * TILE as f64 / 1024.0;
+                    let Some((px_x, px_y)) = self.project(gx, gy) else {
+                        continue;
+                    };
+                    let px = ((px_x - (x as f64 + 0.5)).powi(2)
+                        + (px_y - (y as f64 + 0.5)).powi(2))
+                    .sqrt();
+                    self.pixels += 1;
+                    if px > 3.0 {
+                        self.over_3px += 1;
+                    }
+                    if px > self.worst_px {
+                        self.worst_px = px;
+                    }
+                }
+            }
+        }
+
+        fn poly(&mut self, poly: &[MeshVert], zmin: i32) {
+            self.polys += 1;
+            if zmin == M7_Z_NEAR << 4 {
+                self.clipped += 1;
+            }
+            let p: Vec<(i16, i16)> = poly.iter().map(|v| (v.sx, v.sy)).collect();
+            let uv: Vec<(i32, i32)> = poly.iter().map(|v| (v.u as i32, v.v as i32)).collect();
+            if poly.len() == 4 {
+                // The GPU splits a quad v0..v3 as (v0,v1,v2) + (v1,v2,v3), and
+                // the renderer passes the ring as [0, 1, 3, 2].
+                self.tri([p[0], p[1], p[3]], [uv[0], uv[1], uv[3]]);
+                self.tri([p[1], p[3], p[2]], [uv[1], uv[3], uv[2]]);
+            } else {
+                for k in 1..poly.len() - 1 {
+                    self.tri([p[0], p[k], p[k + 1]], [uv[0], uv[k], uv[k + 1]]);
+                }
             }
         }
     }
 
-    /// Two horizontally adjacent tiles must cut their shared edge identically.
-    /// This is the invariant the old depth-dependent count violated.
+    /// Draws every tile around the camera, at the levels the renderer picks
+    /// unless `force` pins one level everywhere.
+    fn render(cam: Camera, force: Option<i32>) -> Raster {
+        let mut ras = Raster::new(cam);
+        let mut scratch = MeshScratch::new();
+        let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
+        let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
+        let view = (VX0 as i16, VY0 as i16, (VX0 + VW) as i16, (VY0 + VH) as i16);
+        for ty in cty - 12..=cty + 12 {
+            for tx in ctx - 12..=ctx + 12 {
+                let tile = (tx, ty);
+                let Some(rect) = TileRect::new(tile, (TILE, TILE), (WORLD, WORLD)) else {
+                    continue;
+                };
+                let (n, sides) = match force {
+                    Some(n) => (n, [n; 4]),
+                    None => {
+                        let n = m7_mesh::rect_level(&cam, &rect);
+                        (
+                            n,
+                            m7_mesh::side_levels(&cam, tile, (TILE, TILE), (WORLD, WORLD), n),
+                        )
+                    }
+                };
+                ras.tile = tile;
+                let mut polys = Vec::new();
+                m7_mesh::build_tile(
+                    &cam,
+                    &rect,
+                    n,
+                    sides,
+                    cam.z_far << 4,
+                    view,
+                    &mut scratch,
+                    &mut SoftwareProjector(&cam),
+                    |p, zmin, _| polys.push((p.to_vec(), zmin)),
+                );
+                for (p, zmin) in &polys {
+                    ras.poly(p, *zmin);
+                }
+            }
+        }
+        ras
+    }
+
+    /// Camera poses: off-grid positions, every octant of heading and the odd
+    /// angles between, which is where a rotated tile's edges are least aligned.
+    fn poses() -> Vec<Camera> {
+        let mut out = Vec::new();
+        let mut seed = 0x1234_5678u32;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            seed
+        };
+        for k in 0..24 {
+            let x = WORLD / 2 + (next() % TILE as u32) as i32;
+            let y = WORLD / 2 + (next() % TILE as u32) as i32;
+            let heading = if k < 8 {
+                (k * 512) as u16
+            } else {
+                (next() & 0x0FFF) as u16
+            };
+            out.push(camera_at(x, y, heading, k % 3 != 0));
+        }
+        out
+    }
+
+    /// Every ground pixel between the near plane and the far plane must be
+    /// drawn. Zero is a hole -- the sawtooth.
+    ///
+    /// Overlaps are bounded rather than forbidden. Far cells are two or three
+    /// pixels tall, and rounding their corners to whole pixels can make one
+    /// slightly concave; the GPU's fixed quad diagonal then draws a pixel twice.
+    /// That cannot open a hole (the larger triangle contains the cell) and the
+    /// old grid did it too. What it rules out is the 2 px guard band this mesh
+    /// replaced, which overlapped every cell edge on screen.
     #[test]
-    fn adjacent_tiles_cut_a_shared_edge_identically() {
-        let tw = 160i32;
-        let (nx, _) = tile_subdivision(tw, tw);
-        // Both tiles use the same extent, so the interior cuts coincide.
+    fn ground_has_no_holes() {
+        let mut clipped = 0;
+        for cam in poses() {
+            let ras = render(cam, None);
+            clipped += ras.clipped;
+            let near_q4 = (M7_Z_NEAR << 4) as f64;
+            let far_q4 = (cam.z_far << 4) as f64;
+            let mut holes = 0;
+            let mut overlaps = 0;
+            for y in VY0..VY0 + VH {
+                for x in VX0..VX0 + VW {
+                    let c = ras.cover[((y - VY0) * VW + (x - VX0)) as usize];
+                    if c > 1 {
+                        overlaps += 1;
+                    }
+                    let Some((_, _, z_q4)) = ras.unproject(x as f64 + 0.5, y as f64 + 0.5) else {
+                        continue;
+                    };
+                    // Stay a pixel's depth clear of the planes themselves.
+                    if z_q4 > near_q4 * 1.02 && z_q4 < far_q4 * 0.98 && c == 0 {
+                        holes += 1;
+                    }
+                }
+            }
+            let at = (cam.heading, cam.pos.x.raw() >> 12, cam.pos.y.raw() >> 12);
+            assert_eq!(holes, 0, "{at:?}: holes in the ground mesh");
+            assert!(overlaps <= 16, "{at:?}: {overlaps} doubly drawn pixels");
+        }
+        // The virtual screen reaches below the near plane, so the clipped
+        // cells are among those checked; make sure there were some.
+        assert!(clipped > 0, "no polygon crossed the near plane");
+    }
+
+    /// The depth bands keep the texture where perspective puts it.
+    ///
+    /// Measured on screen: the ground point the GPU's affinely interpolated
+    /// texel belongs to is projected back, and its distance from the pixel
+    /// showing it is the warp. Over 24 poses the worst is ~5.4 px, in the
+    /// bottom corners where cells hang below the screen edge, and fewer than
+    /// 0.4% of ground pixels exceed 3 px. A uniform 4x4 grid -- finer than the
+    /// 3x3 this replaced -- reaches ~15 px, so the test discriminates.
+    #[test]
+    fn texture_warp_stays_small() {
+        let mut worst = 0.0f64;
+        let (mut pixels, mut over) = (0u64, 0u64);
+        for cam in poses() {
+            let r = render(cam, None);
+            worst = worst.max(r.worst_px);
+            pixels += r.pixels;
+            over += r.over_3px;
+        }
+        assert!(worst <= 6.0, "worst texel displacement {worst:.2} px");
+        assert!(
+            over * 100 <= pixels,
+            "{over} of {pixels} ground pixels are more than 3 px off"
+        );
+
+        let mut uniform = 0.0f64;
+        for cam in poses() {
+            uniform = uniform.max(render(cam, Some(4)).worst_px);
+        }
+        assert!(
+            uniform > 10.0,
+            "a uniform 4x4 grid should warp visibly, got {uniform:.2} px"
+        );
+    }
+
+    /// The finer grid must stay affordable: count the polygons a frame submits.
+    #[test]
+    fn polygon_count_stays_bounded() {
+        let mut worst = 0;
+        for cam in poses() {
+            let mut cam = cam;
+            cam.set_extended_view_distance(true);
+            // Only the real screen counts toward the GPU's work.
+            let ras = render_counting(cam);
+            worst = worst.max(ras);
+        }
+        // 528 over these poses; the old fixed grid drew roughly 200.
+        assert!(worst <= 600, "{worst} polygons in one frame");
+    }
+
+    fn render_counting(cam: Camera) -> usize {
+        let mut scratch = MeshScratch::new();
+        let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
+        let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
+        let mut count = 0;
+        for ty in cty - 12..=cty + 12 {
+            for tx in ctx - 12..=ctx + 12 {
+                let tile = (tx, ty);
+                let Some(rect) = TileRect::new(tile, (TILE, TILE), (WORLD, WORLD)) else {
+                    continue;
+                };
+                let n = m7_mesh::rect_level(&cam, &rect);
+                let sides = m7_mesh::side_levels(&cam, tile, (TILE, TILE), (WORLD, WORLD), n);
+                m7_mesh::build_tile(
+                    &cam,
+                    &rect,
+                    n,
+                    sides,
+                    cam.z_far << 4,
+                    (0, 0, 320, 240),
+                    &mut scratch,
+                    &mut SoftwareProjector(&cam),
+                    |_, _, _| count += 1,
+                );
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn levels_are_powers_of_two_and_coarsen_with_depth() {
+        let mut last = m7_mesh::MAX_LEVEL;
+        for z in (0..20_000).step_by(16) {
+            let n = m7_mesh::level_for_depth(z);
+            assert!(n.count_ones() == 1 && n <= m7_mesh::MAX_LEVEL, "level {n}");
+            assert!(n <= last, "level rose with depth at z {z}");
+            last = n;
+        }
+    }
+
+    #[test]
+    fn a_tile_outside_the_world_has_no_level() {
+        let cam = camera_at(WORLD / 2, WORLD / 2, 0, true);
         assert_eq!(
-            interior_vertices(tw, nx),
-            interior_vertices(tw, nx),
-            "a shared edge must be cut at the same positions"
+            m7_mesh::tile_level(&cam, (-1, 3), (TILE, TILE), (WORLD, WORLD)),
+            0
         );
-        // And explicitly: no depth input exists to make them differ.
-        let (other_nx, _) = tile_subdivision(tw, tw);
-        assert_eq!(nx, other_nx, "no depth input may perturb the count");
-    }
-
-    /// The regression itself: the old per-tile depth rule gave a near tile 3 and
-    /// its far neighbour 2 across one shared edge.
-    #[test]
-    fn the_old_depth_rule_split_a_shared_edge() {
-        fn old_nx(extent: i32, z_q4: i32) -> i32 {
-            let target = if z_q4 < (160 << 4) { 64 } else { 128 };
-            ((extent + target - 1) / target).clamp(1, 3)
-        }
-        let tw = 160i32;
-        let near = old_nx(tw, 120 << 4);
-        let far = old_nx(tw, 300 << 4);
-        assert_eq!(near, 3, "the near tile should have picked 3");
-        assert_eq!(far, 2, "the far tile should have picked 2");
-        assert_ne!(
-            interior_vertices(tw, near),
-            interior_vertices(tw, far),
-            "the old rule is supposed to be the broken one"
-        );
-    }
-
-    /// Subdivision stays bounded, which is what caps the cost of making it
-    /// uniform: no tile is ever more than a 3x3 grid.
-    #[test]
-    fn subdivision_stays_within_three_by_three() {
-        for extent in [1i32, 16, 32, 63, 64, 65, 128, 160, 192, 256, 320, 640, 4096] {
-            let (nx, ny) = tile_subdivision(extent, extent);
-            assert!(
-                (1..=3).contains(&nx),
-                "extent {extent}: nx={nx} out of range"
-            );
-            assert!(
-                (1..=3).contains(&ny),
-                "extent {extent}: ny={ny} out of range"
-            );
-        }
-    }
-
-    /// A degenerate or tiny tile must still produce a usable grid rather than
-    /// dividing by zero or collapsing.
-    #[test]
-    fn tiny_and_degenerate_tiles_still_produce_a_valid_grid() {
-        assert_eq!(tile_subdivision(0, 0), (1, 1));
-        assert_eq!(tile_subdivision(1, 1), (1, 1));
-        assert_eq!(tile_subdivision(64, 64), (1, 1));
-        assert_eq!(tile_subdivision(65, 65), (2, 2));
-        assert_eq!(tile_subdivision(128, 128), (2, 2));
-        assert_eq!(tile_subdivision(129, 129), (3, 3));
-    }
-
-    /// The renderer must actually call the shared helper rather than keeping a
-    /// private per-tile copy, which would pass every test above while the
-    /// renderer stayed broken.
-    #[test]
-    fn the_renderer_uses_the_shared_subdivision_helper() {
-        assert!(
-            TRACKTEX_SRC.contains("let (nx, ny) = tile_subdivision(tw, th);"),
-            "tracktex.rs must use the shared tile_subdivision helper"
-        );
-        assert!(
-            !TRACKTEX_SRC.contains("let target = if zc < (160 << 4)"),
-            "tracktex.rs must not pick a per-tile depth-dependent subdivision"
-        );
-        // The helper must take no depth, or the seam returns. It lives in
-        // camera.rs alongside the projection it feeds.
-        let helper = CAMERA_SRC
-            .split("pub const fn tile_subdivision")
-            .nth(1)
-            .expect("tile_subdivision must exist in camera.rs");
-        let sig = helper
-            .split(')')
-            .next()
-            .expect("helper must have a signature");
-        assert!(
-            !sig.contains('z') && !sig.contains("depth"),
-            "tile_subdivision must not take a depth: {sig})"
+        assert_eq!(
+            m7_mesh::tile_level(&cam, (40, 3), (TILE, TILE), (WORLD, WORLD)),
+            0
         );
     }
 }

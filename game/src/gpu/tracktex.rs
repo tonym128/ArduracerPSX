@@ -47,9 +47,10 @@ use arduracer_core::{Fixed, TrackDef, Vec2, FP_SHIFT};
 
 use crate::cd_fs::{DiscReader, SectorPoll};
 use crate::gpu::camera::{
-    tile_subdivision, Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR,
-    M7_Z_FAR_COMPRESSED, M7_Z_NEAR,
+    Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR, M7_Z_FAR_COMPRESSED,
+    M7_Z_NEAR,
 };
+use crate::gpu::m7_mesh;
 use crate::gpu::texlayout::{
     self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES,
     TIM8_TPAGE_COUNT, TIM8_VRAM_PAGES, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
@@ -2770,7 +2771,13 @@ pub fn render_track_extents(
     let _quads = crate::prof::span(crate::prof::TRACK_QUADS);
     if camera.mode7 {
         draw_m7_backdrop(camera);
+        // The ground mesh projects through the GTE; load this camera once for
+        // every tile below. Nothing between here and the tile loop touches the
+        // GTE, and the car and prop passes reload it for themselves.
+        crate::gpu::gte_proj::load_m7_camera_gte(camera);
     }
+    // One mesh workspace for every tile this frame; see `MeshScratch`.
+    let mut mesh_scratch = m7_mesh::MeshScratch::new();
     for i in 0..vis_count {
         if (i & 3) == 0 {
             pump_cd_streams();
@@ -2789,6 +2796,7 @@ pub fn render_track_extents(
                 (tile_wu_x, tile_wu_y),
                 (world_w, world_h),
                 s_idx,
+                &mut mesh_scratch,
             );
             continue;
         }
@@ -2994,13 +3002,52 @@ fn draw_m7_backdrop(camera: &Camera) {
     }
 }
 
+/// Screen rectangle the ground mesh culls against.
+const M7_VIEW: (i16, i16, i16, i16) = (0, 0, 320, 240);
+
+/// Projects ground offsets through the GTE, three at a time (`RTPT`).
+///
+/// Requires [`gte_proj::load_m7_camera_gte`] for the camera being drawn. The
+/// GTE does the heading rotation and the perspective divide that the software
+/// path spent two R3000 `DIV`s per vertex on, which is what pays for the finer
+/// near-camera grid. Points behind the camera come back saturated; the mesh
+/// never draws one, because it clips every polygon to `M7_Z_NEAR` first.
+struct GteGround;
+
+impl m7_mesh::Projector for GteGround {
+    fn project(&mut self, offs: &[(i32, i32)], out: &mut [(i16, i16)]) {
+        use psx_gte::{math::Vec3I16, scene};
+        let v = |o: (i32, i32)| {
+            Vec3I16::new(
+                o.0.clamp(-32_000, 32_000) as i16,
+                0,
+                o.1.clamp(-32_000, 32_000) as i16,
+            )
+        };
+        let mut k = 0;
+        while k + 3 <= offs.len() {
+            let p = scene::project_triangle_scheduled(v(offs[k]), v(offs[k + 1]), v(offs[k + 2]));
+            out[k] = (p[0].sx, p[0].sy);
+            out[k + 1] = (p[1].sx, p[1].sy);
+            out[k + 2] = (p[2].sx, p[2].sy);
+            k += 3;
+        }
+        while k < offs.len() {
+            let p = scene::project_vertex_scheduled(v(offs[k]));
+            out[k] = (p.sx, p.sy);
+            k += 1;
+        }
+    }
+}
+
 /// Draws one world tile through the Mode 7 projection.
 ///
-/// The GPU maps textures affinely, so a big perspective quad swims. Each
-/// textured tile is therefore a grid of small cells, finer near the camera
-/// (where perspective changes fastest) and coarser far away; neighbouring
-/// cells share projected corners, so the grid has no cracks. Pending tiles
-/// are a single flat quad. Distance fog darkens the texture modulation.
+/// The mesh -- depth-banded subdivision, stitching against finer neighbours and
+/// near-plane clipping -- is built by [`m7_mesh::build_tile`]; see that module
+/// for why each part exists. This only turns its polygons into GPU primitives:
+/// a four-sided cell is one quad, a stitched or clipped cell a fan from vertex
+/// 0. Pending tiles draw the same mesh flat-shaded. Distance fog darkens the
+/// texture modulation.
 #[inline(never)]
 fn draw_tile_m7(
     camera: &Camera,
@@ -3008,172 +3055,85 @@ fn draw_tile_m7(
     tile_wu: (i32, i32),
     world: (i32, i32),
     s_idx: usize,
+    scratch: &mut m7_mesh::MeshScratch,
 ) {
-    let (tx, ty) = tile;
-    let (tw, th) = tile_wu;
-    let wx0 = tx * tw;
-    let wy0 = ty * th;
-    let cw = (wx0 + tw).min(world.0) - wx0;
-    let ch = (wy0 + th).min(world.1) - wy0;
-    if cw <= 0 || ch <= 0 {
+    let Some(rect) = m7_mesh::TileRect::new(tile, tile_wu, world) else {
         return;
-    }
-    let cam_qx = camera.pos.x.raw() >> 8;
-    let cam_qy = camera.pos.y.raw() >> 8;
+    };
+    let n = m7_mesh::rect_level(camera, &rect);
+    let sides = m7_mesh::side_levels(camera, tile, tile_wu, world, n);
+    let z_far_q4 = camera.z_far << 4;
+    let (tx, ty) = tile;
 
-    let textured = s_idx != usize::MAX;
-    // Subdivision count for this tile.
-    //
-    // Two adjacent tiles share one straight world-space edge. If they cut that
-    // edge at different world positions, those positions project to different
-    // screen points, and a wedge of backdrop shows through the seam -- the
-    // sawtooth along every tile boundary. So the count must depend only on
-    // quantities neighbours *agree* on.
-    //
-    // Deriving it from the tile's own centre depth did not: a near tile picked
-    // 3 and its far neighbour 2, across one shared edge. Neither does a
-    // corner anchor, because each tile samples its own corner. The only
-    // guaranteed-shared inputs are the tile's untrimmed size and the depth at
-    // the shared boundary, and the depth varies continuously along that
-    // boundary -- so a depth term would still differ across it.
-    //
-    // The count is therefore a function of the untrimmed tile extent alone,
-    // which every interior tile of a circuit shares exactly. Tiles trimmed by
-    // the world edge keep their own count: they have no neighbour along the
-    // trimmed axis, so they cannot open a seam there.
-    //
-    // The cost is that a distant tile is subdivided as finely as a near one.
-    // That is bounded -- the count is capped at 3, so a tile is at most a 3x3
-    // grid either way -- and it is the same cost the near tiles already pay.
-    let (nx, ny) = tile_subdivision(tw, th);
-
-    // Projected grid corners, row stride 4 (since nx, ny <= 3).
-    let mut pts = [(0i16, 0i16); 16];
-    let mut pz = [0i32; 16];
-
-    let mut wx = [0i32; 4];
-    for i in 0..=nx {
-        wx[i as usize] = wx0 + cw * i / nx;
-    }
-    let mut wy = [0i32; 4];
-    for j in 0..=ny {
-        wy[j as usize] = wy0 + ch * j / ny;
-    }
-
-    for j in 0..=ny {
-        let wy_q = wy[j as usize] * 16 - cam_qy;
-        let row_k = (j * 4) as usize;
-        for i in 0..=nx {
-            let (r, z) = camera.view_from_offset_q4(wx[i as usize] * 16 - cam_qx, wy_q);
-            let k = row_k + i as usize;
-            pts[k] = camera.project_cam(r, z);
-            pz[k] = z;
-        }
-    }
-
-    if !textured {
+    if s_idx == usize::MAX {
         let checker = ((tx ^ ty) & 1) != 0;
         let (cr, cg, cb) = texlayout::placeholder_tile_colour(true, checker);
-        for j in 0..ny {
-            let row_a = (j * 4) as usize;
-            let row_c = row_a + 4;
-            for i in 0..nx {
-                let a = row_a + i as usize;
-                let b = a + 1;
-                let c = row_c + i as usize;
-                let d = c + 1;
-                let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
-                let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
-                if zmax < (M7_Z_NEAR << 4) || zmin > (camera.z_far << 4) {
-                    continue;
+        let mut polys = 0u32;
+        let points = m7_mesh::build_tile(
+            camera,
+            &rect,
+            n,
+            sides,
+            z_far_q4,
+            M7_VIEW,
+            scratch,
+            &mut GteGround,
+            |poly, _, _| {
+                polys += 1;
+                let clamp = m7_needs_clamp(poly);
+                let pt = |k: usize| m7_point(&poly[k], clamp);
+                if poly.len() == 4 {
+                    gpu::draw_quad_flat([pt(0), pt(1), pt(3), pt(2)], cr, cg, cb);
+                } else {
+                    for k in 1..poly.len() - 1 {
+                        gpu::draw_tri_flat([pt(0), pt(k), pt(k + 1)], cr, cg, cb);
+                    }
                 }
-                let (mut pa, mut pb, mut pc, mut pd) = (pts[a], pts[b], pts[c], pts[d]);
-                let min_x = pa.0.min(pb.0).min(pc.0).min(pd.0);
-                let max_x = pa.0.max(pb.0).max(pc.0).max(pd.0);
-                let min_y = pa.1.min(pb.1).min(pc.1).min(pd.1);
-                let max_y = pa.1.max(pb.1).max(pc.1).max(pd.1);
-                if max_x < 0 || min_x > 320 || max_y < 0 || min_y > 240 {
-                    continue;
-                }
-                if max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500 {
-                    pa.0 = pa.0.clamp(-300, 620);
-                    pb.0 = pb.0.clamp(-300, 620);
-                    pc.0 = pc.0.clamp(-300, 620);
-                    pd.0 = pd.0.clamp(-300, 620);
-                    pa.1 = pa.1.clamp(-100, 340);
-                    pb.1 = pb.1.clamp(-100, 340);
-                    pc.1 = pc.1.clamp(-100, 340);
-                    pd.1 = pd.1.clamp(-100, 340);
-                }
-                gpu::draw_quad_flat([pa, pb, pc, pd], cr, cg, cb);
-            }
-        }
+            },
+        );
+        crate::prof::count(crate::prof::C_M7_POINTS, points as u32);
+        crate::prof::count(crate::prof::C_M7_POLYS, polys);
         return;
     }
 
-    let (tpage_idx, u_base, v_base) = active_texture(unsafe { ACTIVE_CIRCUIT }).slot_uv(s_idx);
     let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
-    let tpage = tex.tpages[tpage_idx];
-    let tpage_word = tpage.uv_tpage_word(0);
+    let (tpage_idx, u_base, v_base) = tex.slot_uv(s_idx);
+    let tpage_word = tex.tpages[tpage_idx].uv_tpage_word(0);
     let u_shift = tex.u_shift;
     let clut_word = tex.clut_word;
-
-    let mut u_coords = [0u8; 4];
-    for i in 0..=nx {
-        let lu = ((cw * i / nx) * 64 / tw) as u32;
-        u_coords[i as usize] = (((u_base as u32 + lu) >> u_shift).min(255)) as u8;
-    }
-    let mut v_coords = [0u8; 4];
-    for j in 0..=ny {
-        let lv = ((ch * j / ny) * 64 / th) as u32;
-        v_coords[j as usize] = ((v_base as u32 + lv).min(255)) as u8;
-    }
-
     let is_night = is_night_circuit();
-    for j in 0..ny {
-        let v0 = v_coords[j as usize];
-        let v1 = v_coords[(j + 1) as usize];
-        let row_a = (j * 4) as usize;
-        let row_c = row_a + 4;
-        for i in 0..nx {
-            let a = row_a + i as usize;
-            let b = a + 1;
-            let c = row_c + i as usize;
-            let d = c + 1;
-            let zmax = pz[a].max(pz[b]).max(pz[c]).max(pz[d]);
-            let zmin = pz[a].min(pz[b]).min(pz[c]).min(pz[d]);
-            if zmax < (M7_Z_NEAR << 4) || zmin > (camera.z_far << 4) {
-                continue;
-            }
-            let (mut pa, mut pb, mut pc, mut pd) = (pts[a], pts[b], pts[c], pts[d]);
-            let min_x = pa.0.min(pb.0).min(pc.0).min(pd.0);
-            let max_x = pa.0.max(pb.0).max(pc.0).max(pd.0);
-            let min_y = pa.1.min(pb.1).min(pc.1).min(pd.1);
-            let max_y = pa.1.max(pb.1).max(pc.1).max(pd.1);
-            // Off screen, or too large for the GPU's 1023x511 primitive limit.
-            if max_x < 0 || min_x > 320 || max_y < 0 || min_y > 240 {
-                continue;
-            }
-            if max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500 {
-                pa.0 = pa.0.clamp(-300, 620);
-                pb.0 = pb.0.clamp(-300, 620);
-                pc.0 = pc.0.clamp(-300, 620);
-                pd.0 = pd.0.clamp(-300, 620);
-                pa.1 = pa.1.clamp(-100, 340);
-                pb.1 = pb.1.clamp(-100, 340);
-                pc.1 = pc.1.clamp(-100, 340);
-                pd.1 = pd.1.clamp(-100, 340);
-            }
+    let far = camera.z_far;
+    // Tile-local 1/16 texels -> atlas texels, rounded to nearest.
+    let uv_of = |v: &m7_mesh::MeshVert| {
+        let lu = ((v.u as u32 + 8) >> 4).min(64);
+        let lv = ((v.v as u32 + 8) >> 4).min(64);
+        (
+            (((u_base as u32 + lu) >> u_shift).min(255)) as u8,
+            ((v_base as u32 + lv).min(255)) as u8,
+        )
+    };
 
-            let u0 = u_coords[i as usize];
-            let u1 = u_coords[(i + 1) as usize];
-
+    // Called once per polygon, so it builds nothing it does not send: no
+    // per-polygon arrays to zero (on the R3000 the stack is uncached RAM, and
+    // that memset was a measurable slice of the frame).
+    let mut polys = 0u32;
+    let points = m7_mesh::build_tile(
+        camera,
+        &rect,
+        n,
+        sides,
+        z_far_q4,
+        M7_VIEW,
+        scratch,
+        &mut GteGround,
+        |poly, zmin, zmax| {
+            polys += 1;
             // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
             let z_units = (zmax + zmin) >> 5;
             let base_shade = if z_units <= 150 {
                 128
             } else {
-                let fade_range = (camera.z_far - 150).max(1);
+                let fade_range = (far - 150).max(1);
                 (128 - (z_units - 150) * 58 / fade_range).max(70)
             };
             let shade = if is_night {
@@ -3182,29 +3142,58 @@ fn draw_tile_m7(
                 base_shade as u8
             };
             let material = TextureMaterial::opaque(clut_word, tpage_word, (shade, shade, shade));
-            // Cover raster cracks between independently drawn cells.
-            // Keep the UV endpoints fixed so the overlap stays within each
-            // cell's border texels instead of reaching into an atlas neighbour.
-            let verts = m7_guard_band([pa, pb, pc, pd]);
-            gpu::draw_quad_textured_material(
-                verts,
-                [(u0, v0), (u1, v0), (u0, v1), (u1, v1)],
-                material,
-            );
-        }
-    }
+            let clamp = m7_needs_clamp(poly);
+            let pt = |k: usize| m7_point(&poly[k], clamp);
+            if poly.len() == 4 {
+                gpu::draw_quad_textured_material(
+                    [pt(0), pt(1), pt(3), pt(2)],
+                    [
+                        uv_of(&poly[0]),
+                        uv_of(&poly[1]),
+                        uv_of(&poly[3]),
+                        uv_of(&poly[2]),
+                    ],
+                    material,
+                );
+            } else {
+                let (p0, t0) = (pt(0), uv_of(&poly[0]));
+                for k in 1..poly.len() - 1 {
+                    gpu::draw_tri_textured_material(
+                        [p0, pt(k), pt(k + 1)],
+                        [t0, uv_of(&poly[k]), uv_of(&poly[k + 1])],
+                        material,
+                    );
+                }
+            }
+        },
+    );
+    crate::prof::count(crate::prof::C_M7_POINTS, points as u32);
+    crate::prof::count(crate::prof::C_M7_POLYS, polys);
 }
 
-/// Expand a projected Mode 7 cell by two pixels at its outer edges.
+/// Whether a polygon is too large for the GPU, which drops any primitive wider
+/// than 1023 or taller than 511 pixels.
+///
+/// The mesh keeps cells small enough that this should not trigger; it keeps the
+/// same last-resort clamp the fixed grid used.
 #[inline]
-fn m7_guard_band(mut verts: [(i16, i16); 4]) -> [(i16, i16); 4] {
-    let center_x = verts.iter().map(|p| p.0 as i32).sum::<i32>() / 4;
-    let center_y = verts.iter().map(|p| p.1 as i32).sum::<i32>() / 4;
-    for point in &mut verts {
-        point.0 = (point.0 as i32 + if (point.0 as i32) < center_x { -2 } else { 2 })
-            .clamp(i16::MIN as i32, i16::MAX as i32) as i16;
-        point.1 = (point.1 as i32 + if (point.1 as i32) < center_y { -2 } else { 2 })
-            .clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+fn m7_needs_clamp(poly: &[m7_mesh::MeshVert]) -> bool {
+    let (mut min_x, mut max_x, mut min_y, mut max_y) = (i16::MAX, i16::MIN, i16::MAX, i16::MIN);
+    for v in poly {
+        min_x = min_x.min(v.sx);
+        max_x = max_x.max(v.sx);
+        min_y = min_y.min(v.sy);
+        max_y = max_y.max(v.sy);
     }
-    verts
+    max_x as i32 - min_x as i32 > 1000 || max_y as i32 - min_y as i32 > 500
+}
+
+/// A vertex's screen point, pulled in when its polygon needs the clamp.
+#[inline]
+fn m7_point(v: &m7_mesh::MeshVert, clamp: bool) -> (i16, i16) {
+    if clamp {
+        (v.sx.clamp(-300, 620), v.sy.clamp(-100, 340))
+    } else {
+        (v.sx, v.sy)
+    }
 }
