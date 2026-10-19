@@ -2069,6 +2069,59 @@ pub fn render_track(
     );
 }
 
+/// Scanlines the work after texture decoding needs, the recent worst case
+/// (`next_decode_reserve`). Starts at most of a field, and is measured from
+/// the first frame on.
+static mut DECODE_RESERVE_LINES: u32 = 200;
+/// Scanlines one decode row takes, the recent worst case: a row started when
+/// the check passes still has to finish, and a QOI row is ~45 scanlines
+/// (~70k instructions), not a rounding error.
+static mut DECODE_ROW_LINES: u32 = 48;
+/// When this frame's decoding stopped, as `display_time`; `None` on frames
+/// that drew no track.
+static mut DECODE_END: Option<(u32, u32)> = None;
+
+/// The VBlank count and the scanline within the current field (root counter
+/// 1, restarted at every VBlank), read as one consistent pair.
+fn display_time() -> (u32, u32) {
+    loop {
+        let vblank = psx_rt::interrupts::vblank_count();
+        let line = psx_io::timers::counter(psx_io::timers::Timer::Timer1) as u32;
+        if psx_rt::interrupts::vblank_count() == vblank {
+            return (vblank, line);
+        }
+    }
+}
+
+/// Folds the scanlines between two `display_time` readings into a decaying
+/// worst case (`next_decode_reserve`).
+fn next_row_lines(previous: u32, from: (u32, u32), to: (u32, u32)) -> u32 {
+    use arduracer_core::texture_format::{next_decode_reserve, LINES_PER_VBLANK};
+    let lines = (to.0.wrapping_sub(from.0) * LINES_PER_VBLANK + to.1).saturating_sub(from.1);
+    if lines > LINES_PER_VBLANK {
+        return previous;
+    }
+    next_decode_reserve(previous, lines)
+}
+
+/// Measures how long the frame's work after decoding took and folds it into
+/// the decode reserve. Called once a frame when its work is done.
+pub fn note_frame_work_done() {
+    use arduracer_core::texture_format::{next_decode_reserve, LINES_PER_VBLANK};
+    // SAFETY: single-threaded; never touched from an interrupt.
+    let end = unsafe { core::ptr::replace(core::ptr::addr_of_mut!(DECODE_END), None) };
+    let Some((vb0, line0)) = end else {
+        return;
+    };
+    let (vb1, line1) = display_time();
+    let lines = (vb1.wrapping_sub(vb0) * LINES_PER_VBLANK + line1).saturating_sub(line0);
+    // A frame stalled for longer than this (loading, a pause screen) says
+    // nothing about the next one.
+    if lines <= 2 * LINES_PER_VBLANK {
+        unsafe { DECODE_RESERVE_LINES = next_decode_reserve(DECODE_RESERVE_LINES, lines) };
+    }
+}
+
 /// Tile reference tuple: `(tile_x, tile_y, block_x, block_y, sub_tx, sub_ty)`.
 /// Shared by the visible list and the prefetch list so one scheduler can read
 /// either.
@@ -2718,8 +2771,8 @@ pub fn render_track_extents(
     }
 
     // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
-    // Up to `max_rows` can be processed, provided the frame stays inside its own
-    // VBlank period. If the period elapses during decode, or the budget is exhausted, stop.
+    // Up to `max_rows` can be processed, while more than the measured reserve
+    // for the rest of the frame is left (`decode_row_allowed`).
     let mut rows_decoded = 0;
     let period = frame_period();
     let is_multiblock = visual_tex::circuit_block_grid(active_circuit).0 > 1;
@@ -2735,10 +2788,29 @@ pub fn render_track_extents(
         }
     };
     let max_rows = (max_decode_rows * rows_per_budget).max(min_rows);
+    let reserve = unsafe { DECODE_RESERVE_LINES + DECODE_ROW_LINES };
+    let mut row_start = display_time();
     while rows_decoded < max_rows {
-        let elapsed_vblanks = psx_rt::interrupts::vblank_count().wrapping_sub(last_flip_vblank);
-        // Only stop if we have exceeded the frame period and have already processed min_rows
-        if elapsed_vblanks >= period && rows_decoded >= min_rows {
+        let (vblank, line) = display_time();
+        if rows_decoded > 0 {
+            // SAFETY: single-threaded; never touched from an interrupt.
+            unsafe {
+                DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, (vblank, line))
+            };
+        }
+        row_start = (vblank, line);
+        let lines_left = arduracer_core::texture_format::frame_lines_left(
+            vblank.wrapping_sub(last_flip_vblank),
+            period,
+            line,
+        );
+        // Leave the rest of the frame enough time; see `decode_row_allowed`.
+        if !arduracer_core::texture_format::decode_row_allowed(
+            lines_left,
+            reserve,
+            rows_decoded,
+            min_rows,
+        ) {
             break;
         }
 
@@ -2763,6 +2835,15 @@ pub fn render_track_extents(
             break;
         }
         rows_decoded += 1;
+    }
+
+    let decode_end = display_time();
+    // SAFETY: single-threaded; never touched from an interrupt.
+    unsafe {
+        if rows_decoded > 0 {
+            DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, decode_end);
+        }
+        DECODE_END = Some(decode_end);
     }
 
     // In Mode 7, sort visible tiles by depth descending (far to near) so painter's algorithm
