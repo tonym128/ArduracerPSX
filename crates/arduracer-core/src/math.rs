@@ -186,6 +186,28 @@ impl Vec2 {
         Fixed(sat_i32(isqrt_u64(sq) as i64))
     }
 
+    /// `self.length() < r`, exactly, without the square root.
+    ///
+    /// `length` takes a bit-by-bit 64-bit square root, which on the R3000 is
+    /// a few hundred cycles; the lap timer ran it for every checkpoint and car
+    /// sample point each tick just to test a radius, about 8% of a race frame.
+    /// For an integer `r`, `floor(sqrt(s)) < r` holds exactly when `s < r^2`,
+    /// and a component at least `r` long settles it before any multiply.
+    #[inline]
+    pub fn shorter_than(self, r: Fixed) -> bool {
+        if r.0 <= 0 {
+            return false;
+        }
+        let r = r.0 as u32;
+        let (ax, ay) = (self.x.0.unsigned_abs(), self.y.0.unsigned_abs());
+        if ax >= r || ay >= r {
+            return false;
+        }
+        // Both below 2^31, so the sum of squares is below 2^63.
+        let (ax, ay, r) = (ax as u64, ay as u64, r as u64);
+        ax * ax + ay * ay < r * r
+    }
+
     #[inline]
     pub fn scale(self, factor: Fixed) -> Vec2 {
         Vec2 {
@@ -290,6 +312,49 @@ mod tests {
 
     fn v(x: i32, y: i32) -> Vec2 {
         Vec2::new(Fixed::from_int(x), Fixed::from_int(y))
+    }
+
+    #[test]
+    fn shorter_than_matches_length() {
+        let radii = [
+            Fixed::ZERO,
+            Fixed::from_raw(1),
+            Fixed::from_int(48),
+            Fixed::from_int(48) + Fixed::from_raw(1),
+            Fixed::from_int(BIG),
+            Fixed::from_raw(i32::MAX),
+        ];
+        // Exact edges, both signs, and a pseudo-random spread out past the
+        // largest world separation.
+        let mut comps = vec![
+            0,
+            1,
+            -1,
+            48 * FP_ONE,
+            -48 * FP_ONE,
+            34 * FP_ONE,
+            i32::MIN,
+            i32::MAX,
+        ];
+        let mut x = 0x1234_5678u32;
+        for _ in 0..400 {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            comps.push((x as i32) >> (x % 24));
+        }
+        for &a in &comps {
+            for &b in comps.iter().step_by(7) {
+                let p = Vec2::new(Fixed::from_raw(a), Fixed::from_raw(b));
+                for &r in &radii {
+                    assert_eq!(p.shorter_than(r), p.length() < r, "{a} {b} {}", r.raw());
+                }
+            }
+        }
+        // (48, 0) is not shorter than 48; one raw unit less is.
+        assert!(!v(48, 0).shorter_than(Fixed::from_int(48)));
+        assert!(Vec2::new(Fixed::from_raw(48 * FP_ONE - 1), Fixed::ZERO)
+            .shorter_than(Fixed::from_int(48)));
     }
 
     #[test]

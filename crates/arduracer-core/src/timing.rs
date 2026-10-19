@@ -803,7 +803,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
             // 3. Proximity to start_gate centre in world space (< 48 units)
             if self.start_gate.is_active() {
                 let sc = TrackDef::gate_centre(&self.start_gate);
-                if (sc - pt).length() < Fixed::from_int(48) {
+                if (sc - pt).shorter_than(Fixed::from_int(48)) {
                     return true;
                 }
             }
@@ -868,7 +868,7 @@ impl<const MAX_CHECKPOINTS: usize> LapTimer<MAX_CHECKPOINTS> {
                 }
 
                 // b. Proximity in world units (< 48 units = 1.5 tiles)
-                if (gate_centre - pt).length() < Fixed::from_int(48) {
+                if (gate_centre - pt).shorter_than(Fixed::from_int(48)) {
                     touched = true;
                     break;
                 }
