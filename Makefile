@@ -47,13 +47,15 @@ RETROARCH_PS1_CORES := \
 	mednafen_psx_libretro.so \
 	pcsx_rearmed_libretro.so
 
-.PHONY: all help test playtest atlas circuits atlas-and-calibrate require-track-images clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets title-background deps require-sdk require-version
+.PHONY: all help test test-core test-py playtest atlas circuits atlas-and-calibrate require-track-images clippy clippy-host clippy-game fmt fmt-check ci ci-host ci-game ci-disc exe iso disc release web clean run assets title-background deps require-sdk require-version
 
 all: test exe
 
 help:
 	@echo "Arduracer PSX - Build Targets:"
 	@echo "  make test      - Run automated host-side game logic tests (arduracer-core)"
+	@echo "  make test-core - Run only the arduracer-core suite (fast inner loop)"
+	@echo "  make test-py   - Run Python/Node tooling tests under tests/"
 	@echo "  make playtest  - Verify all authored circuits and strict medal-par drift (player + 5 AI rivals)"
 	@echo "                  and that the stored par times still match the physics."
 	@echo "                  Par drift is a FAILURE. Escape hatch for the recalibration"
@@ -118,7 +120,7 @@ ci: ci-host ci-game
 	@echo "  ALL ARDURACER CI CHECKS PASSED SUCCESSFULLY!"
 	@echo "=========================================================="
 
-ci-host: fmt-check clippy test playtest
+ci-host: fmt-check clippy test playtest test-py
 	@echo "--- CI Host Verification Passed ---"
 
 ci-game: exe
@@ -340,6 +342,26 @@ test: require-sdk levels-bin
 	@echo "(AI obstacle avoidance, championship progression, interior-wall exit)"
 	python3 tools/run_test_suite.py tools/playtest/Cargo.toml
 
+# Fast inner loop: the pure-logic crate only. Use this for the edit/verify cycle;
+# `make test` (or `make ci`) is the commit gate that also runs the harness, UI,
+# audio, memcard and playtest suites.
+test-core: require-sdk levels-bin
+	@echo "Running arduracer-core unit + integration tests only (fast loop)..."
+	python3 tools/run_test_suite.py crates/arduracer-core/Cargo.toml
+
+# Python + Node tests for the host tooling. These live under tests/ rather than
+# in a crate, so they are intentionally outside `make test`; they are wired into
+# `make ci` (and CI) here. The Node test is skipped if node is not installed.
+test-py:
+	@echo "Running Python tooling tests under tests/..."
+	python3 -m unittest discover -s tests -p "test_*.py"
+	@if command -v node >/dev/null 2>&1; then \
+		echo "Running Web Arcade cache tests (node)..."; \
+		node tests/test_web_cache.js; \
+	else \
+		echo "node not found; skipping tests/test_web_cache.js"; \
+	fi
+
 # Simulates real laps on all authored circuits with the real core physics.
 # This is the gate that would have caught the unplayable-lap regressions.
 #
@@ -380,7 +402,7 @@ playtest: require-sdk
 # JPEG (`tracks/<Circuit>.jpg`, always), segmented QOI
 # (`tracks/<Circuit>.qoi`, where the art fits the 500 KB block losslessly) and
 # SVG-derived ARSV (`tracks/<Circuit>.arsv`, where the circuit has an SVG).
-# See AGENT.md 2.1.
+# See AGENTS.md 2.1.
 atlas:
 	@$(MAKE) --no-print-directory require-track-images
 	@python3 tools/track_cook/build_atlas.py

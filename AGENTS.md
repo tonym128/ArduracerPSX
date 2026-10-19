@@ -1,4 +1,4 @@
-# AGENT.md: Multi-Agent Parallel Engineering & Review Protocol
+# AGENTS.md: Multi-Agent Parallel Engineering & Review Protocol
 
 > **Operational manual for autonomous agents collaborating on Arduracer PSX.**  
 > *Setting the standard for high-concurrency development, strict peer-review gates, Git worktree isolation, and zero-defect hardware engineering.*
@@ -20,14 +20,14 @@
 ```mermaid
 graph TD
     subgraph Host Development & Verification
-        TC[Track & Tile Assets<br/>TMX / CSV / PNG] -->|tools/track_cook| TRK[Binary Track Chunks<br/>.trk]
+        TC[Authored Circuits<br/>tracks/**/*.png] -->|tools/track_cook| TRK[Track Data<br/>levels.rs + .BIN assets]
         AUD[Audio Assets<br/>WAV / MP3] -->|tools/audio_cook| VAG[SPU ADPCM .vag<br/>CD-DA .cdda]
-        VID[Cinematics<br/>MP4] -->|tools/encode_mdec| STR[MDEC Stream<br/>.STR]
+        VID[Cinematics<br/>MP4] -->|tools/fmv_cook| STR[MDEC Stream<br/>.STR]
         
         COOK[tools/track_cook/build_atlas.py<br/>Authored circuit images in tracks/*.png<br/>Validates gates & surfaces]
         CORE[crates/arduracer-core<br/>Pure #![no_std] Game Engine<br/>Physics, Collision, Timing, AI, Saves]
         TEST[tools/test_game_logic<br/>Host Test Suite<br/>Sweeps, Fuzzers, Bit-flip Verification]
-        PLAY[tools/playtest<br/>Circuit Playability Verifier<br/>Simulates real laps on all 24 tracks]
+        PLAY[tools/playtest<br/>Circuit Playability Verifier<br/>Simulates real laps on all 40 tracks]
         CAL[tools/track_cook/par_calibration.json<br/>Measured Medal Targets]
         COOK -->|levels.rs| CORE
         TEST -->|Direct Dependency| CORE
@@ -80,7 +80,7 @@ graph TD
   - Host test harness testing `crates/arduracer-core`.
   - Runs in milliseconds under standard `cargo test` on developer workstations and CI.
 - **`tools/playtest/`**:
-  - **Circuit playability verifier.** Simulates a full 5-lap race on all 24
+  - **Circuit playability verifier.** Simulates a full 5-lap race on all 40
     circuits with a reference driver *and* all 5 rival personalities, then
     asserts per-circuit geometry, gate validity, route ordering and medal
     reachability. This is the gate that catches "the game builds but is not
@@ -235,7 +235,7 @@ All worktrees reside in `.worktrees/`:
 ├── .worktrees/
 │   ├── wt-physics-core/    # Agent A: Vehicle dynamics & drift math
 │   ├── wt-gpu-renderer/    # Agent B: GPU ordering table & tile blitter
-│   ├── wt-track-pipeline/  # Agent C: TMX importer & Arduracer FX track conversion
+│   ├── wt-track-pipeline/  # Agent C: circuit authoring & track_cook pipeline
 │   ├── wt-audio-spu/       # Agent D: SPU sound driver & engine pitch modulation
 │   ├── wt-ui-screens/      # Agent E: Tuning garage & championship menus
 │   └── wt-ai-opponents/    # Agent F: Grid AI & waypoint racing
@@ -248,33 +248,37 @@ ROOT="/home/tonym/Projects/ArduracerPSX"
 NAME="wt-feature-name"
 BRANCH="feat/feature-name"
 
-# 1. Add worktree on a new branch branched from main
+# Add a worktree on a new branch branched from main. `psoxide/` and
+# `ArduRacerFx/` are committed in-tree, so there is no linking/submodule step:
+# the new worktree already carries the SDK.
 git worktree add "$ROOT/.worktrees/$NAME" -b "$BRANCH" main
-
-# 2. Link vendored psoxide (if submodule/vendored folder is used)
-if [ -d "$ROOT/psoxide" ]; then
-    rmdir "$ROOT/.worktrees/$NAME/psoxide" 2>/dev/null || true
-    ln -s "$ROOT/psoxide" "$ROOT/.worktrees/$NAME/psoxide"
-fi
 ```
 
 ### 3.3 Building & Verifying Inside a Worktree
-- **Host Tests** (fast iteration):
+Run every command from the worktree root. **There is no root Cargo workspace**,
+so raw `cargo fmt` / `cargo clippy` at the tree root do not work -- use the Make
+targets, which drive each crate through its own manifest.
+
+- **Fast inner loop** (the edit/verify cycle; seconds):
   ```bash
   cd "$ROOT/.worktrees/$NAME"
-  make test        # unit suite + host harness
-  make playtest    # simulate real laps on every circuit
+  make test-core   # arduracer-core unit + integration tests only
   ```
-- **PSX Target Compilation** (bare-metal cross-build):
-  ```bash
-  cd "$ROOT/.worktrees/$NAME/game"
-  cargo build --release
-  ```
-- **Format & Lint Check**:
+- **Commit gate** (run before every commit; this is what CI runs):
   ```bash
   cd "$ROOT/.worktrees/$NAME"
-  cargo fmt --all -- --check
-  cargo clippy --all-targets -- -D warnings
+  make fmt-check   # formatting across all crates
+  make clippy      # clippy on every crate, game included (-D warnings)
+  make test        # full host suite (unit, harness, memcard, UI, audio, playtest)
+  make playtest    # simulate real laps on every circuit + par-drift gate
+  make test-py     # Python + Node tooling tests under tests/
+  # all of the above at once, plus the cross-build and RAM gate:
+  make ci
+  ```
+- **PSX target compilation** (bare-metal cross-build + link map):
+  ```bash
+  cd "$ROOT/.worktrees/$NAME"
+  make exe         # dist/arduracer.exe + .map
   ```
 
 ### 3.4 Merging & Cleaning Up
@@ -313,6 +317,9 @@ Before ANY worktree branch is merged into `main`, it must undergo a structured r
 
 ### 4.1 Review Perspective Checklists
 
+Copy [`docs/REVIEW-TEMPLATE.md`](docs/REVIEW-TEMPLATE.md) into the merge/PR
+summary and fill it in; each perspective signs off explicitly.
+
 #### 1. Principal Architect
 - [ ] **Boundary Cleanliness**: Does `crates/arduracer-core` remain 100% free of PSX hardware headers, graphics types, or IO handles?
 - [ ] **No Code Duplication**: Are structs, constants, or algorithms declared once in `core` rather than mirrored in tests or game submodules?
@@ -320,7 +327,7 @@ Before ANY worktree branch is merged into `main`, it must undergo a structured r
 - [ ] **`#![no_std]` & Panic Freedom**: No `.unwrap()`, `.expect()`, `panic!()`, or unbounded recursion in PSX-bound code.
 
 #### 2. Senior Systems & PSX Hardware Engineer
-- [ ] **Main RAM Footprint**: Does the PSX executable (`arduracer.exe`) remain well under the 2 MB limit (ideal: < 500 KB total)?
+- [ ] **Main RAM Footprint**: Does the PSX executable (`arduracer.exe`) stay under the `ci-game` static-RAM gate? The gate measures the link map against the linker RAM region (`RAM_GATE_MAX_PCT`, default 80% of the 2 MB window); the build currently sits at ~79.4%, so any new static allocation must fit the remaining headroom.
 - [ ] **I-Cache Locality**: Are inner loop functions compact enough to fit inside the 4 KiB direct-mapped I-cache?
 - [ ] **GPU Ordering Table & DMA**: Are GPU packets submitted via DMA list chains without blocking the CPU?
 - [ ] **VRAM Management**: Does texture / CLUT allocation stay strictly within the assigned pages without overlapping double-buffer displays?
@@ -335,7 +342,7 @@ Before ANY worktree branch is merged into `main`, it must undergo a structured r
 #### 4. Verification & QA Engineer
 - [ ] **Automated Host Tests**: All unit and integration tests pass with `cargo test`.
 - [ ] **Edge Cases Covered**: Boundary collisions, reverse-direction checkpoint crossings, maximum speed overflows, and timer wrap-arounds tested.
-- [ ] **Playability Proven**: `make playtest` completes 5 timed laps on all 24 circuits for the player *and* every rival personality. A green unit suite is **not** sufficient evidence that the game is playable - the lap simulation is.
+- [ ] **Playability Proven**: `make playtest` completes 5 timed laps on all 40 circuits for the player *and* every rival personality. A green unit suite is **not** sufficient evidence that the game is playable - the lap simulation is.
 - [ ] **Formatting & Linting**: `cargo fmt --check` clean; `cargo clippy -D warnings` clean across all crates.
 - [ ] **Lockfile Consistency**: Cargo dependencies locked and reproducible.
 
@@ -344,20 +351,28 @@ Before ANY worktree branch is merged into `main`, it must undergo a structured r
 ## 5. Media & Asset Pipeline Protocols
 
 ### 5.1 Track & Level Pipeline (`tools/track_cook`)
-- Input: TMX (Tiled JSON/XML) and CSV files from `ArduRacerFx/Levels/`.
-- Process:
-  1. Parse tile IDs, checkpoint polyline triggers, start grid coordinates, and surface property flags.
-  2. Optimize tile arrays into 16×16 spatial chunks for fast camera culling and minimal VRAM texture swaps.
-  3. Generate waypoint graph nodes with curvature metadata for AI pathing.
-- Output: Compact binary `.trk` file loaded directly into PSX RAM or streamed off disc.
+The authored source is the **colour-coded circuit images** under `tracks/`
+(see [`LEVEL-FORMAT.md`](LEVEL-FORMAT.md)); each circuit carries its
+`*.level.json` / `*.line.json` / `*.palette.json` alongside the PNGs. There is
+no TMX or `.trk` step.
+- Input: `tracks/**/*.png` (+ per-circuit JSON) and the legacy ArduRacer FX
+  level CSVs under `ArduRacerFx/Levels/`.
+- Process: `tools/track_cook/build_atlas.py` parses the images, validates every
+  gate (reachable, on-surface, start box inside the racing surface), builds the
+  texture blocks, and emits the generated Rust tables.
+- Output: `crates/arduracer-core/src/levels.rs` + `visual_tex.rs`, the cooked
+  `levels/*.ardlvl`, and the disc texture assets (`assets/*.BIN`). Run
+  `make atlas`; never hand-edit the generated files.
 
-### 5.2 Sprites & Textures (`tools/texture_cook`)
-- Input: High-resolution PNG sprite sheets and tile maps.
-- Process:
-  1. Quantize to 16-color (4-bit CLUT) or 256-color (8-bit CLUT) optimized palettes.
-  2. Generate 64-directional vehicle rotation frames with dynamic lighting highlights.
-  3. Pack into Sony PSX TIM file format with page coordinates and CLUT VRAM coordinates.
-- Output: Compressed `.tim` binaries ready for DMA transfer into VRAM.
+### 5.2 Sprites & Textures (`tools/track_cook`, `tools/title_cook`)
+- Circuit textures are emitted by `make atlas` in five formats with a pure
+  fallback chain (SVG -> QOI -> JPEG, plus explicit TIM / TIM4) -- see §2.1.
+  `tools/track_cook/verify_tim.py` checks the uncompressed assets against the
+  source raster.
+- Single images convert to PSX TIM with `tools/psx_texture_converter.py`
+  (`--bpp`, `--colors`; `--atlas` for megatexture packing).
+- The title/menu backdrop is cooked by
+  `tools/title_cook/cook_title_background.py`.
 
 ### 5.3 Audio Pipeline (`tools/audio_cook`)
 - **Sound Effects (SPU)**:
@@ -369,7 +384,7 @@ Before ANY worktree branch is merged into `main`, it must undergo a structured r
   2. Process: Encode to 44.1 kHz 16-bit uncompressed PCM stereo audio (`.raw` / `.cdda`) padded to exact 2352-byte sector boundaries.
   3. Output: Disc image CUE sheet with Track 1 (Data) and Tracks 2–7 (Audio).
 
-### 5.4 FMV Cinematics (`tools/encode_mdec`)
+### 5.4 FMV Cinematics (`tools/fmv_cook`)
 - Input: MP4 1080p source video (Attract Intro, Ending Cinematic).
 - Process:
   1. Downscale to 320×240 @ 15 fps (or 30 fps).

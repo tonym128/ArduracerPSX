@@ -255,7 +255,7 @@ We will execute these items **one by one** inside `.worktrees/no1`, verifying ea
 ## Execution Protocol in `.worktrees/no1`
 
 For every single item `NO1-XXX` we tackle:
-1. Implement the change cleanly following `AGENT.md` rules (`#![no_std]`, zero panics/unwraps in `game/src/`, strict separation between `crates/arduracer-core` and `game/src/`).
+1. Implement the change cleanly following `AGENTS.md` rules (`#![no_std]`, zero panics/unwraps in `game/src/`, strict separation between `crates/arduracer-core` and `game/src/`).
 2. Add or update unit/integration tests in `crates/arduracer-core` and `tools/test_*`.
 3. Run the verification gates inside `.worktrees/no1`:
    - `make test`

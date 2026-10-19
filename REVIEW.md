@@ -573,7 +573,7 @@ is a small fraction of the 16.67 ms slice on a 33.87 MHz R3000A.
   start box, nitro meter, lap-crossing rule, delta split).
 - [x] **The tests test real code** — `tools/test_game_logic` and the new
   `tools/playtest` both link `arduracer-core` directly; there is no mirror
-  implementation anywhere (AGENT.md §1.3 satisfied).
+  implementation anywhere (AGENTS.md §1.3 satisfied).
 - [x] **New end-to-end gate** — `make playtest` simulates a full 5-lap race on
   all 24 circuits with a reference driver **and** runs all 5 rival personalities
   on all 24 circuits, then asserts per-circuit: tile-array size, start on
