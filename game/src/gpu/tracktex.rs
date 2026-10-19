@@ -2779,8 +2779,10 @@ pub fn render_track_extents(
         // GTE, and the car and prop passes reload it for themselves.
         crate::gpu::gte_proj::load_m7_camera_gte(camera);
     }
-    // One mesh workspace for every tile this frame; see `MeshScratch`.
+    // One mesh workspace and one set of per-frame floor constants for every
+    // tile this frame; see `MeshScratch` and `FloorFrame`.
     let mut mesh_scratch = m7_mesh::MeshScratch::new();
+    let floor_frame = FloorFrame::new(camera);
     for i in 0..vis_count {
         if (i & 3) == 0 {
             pump_cd_streams();
@@ -2799,6 +2801,7 @@ pub fn render_track_extents(
                 (tile_wu_x, tile_wu_y),
                 (world_w, world_h),
                 s_idx,
+                &floor_frame,
                 &mut mesh_scratch,
             );
             continue;
@@ -3051,31 +3054,17 @@ impl GteGround {
 }
 
 impl m7_mesh::Projector for GteGround {
+    /// One point at a time (`RTPS`). `RTPT` does three for less than three
+    /// times the GTE time, but its unrolled loop was three times the code, and
+    /// on this path the instruction cache is the scarcer resource.
     fn project(&mut self, pts: &mut [m7_mesh::MeshVert], code: &mut [u8], oc: &m7_mesh::Outcoder) {
         use psx_gte::{math::Vec3I16, scene};
-        // No clamp: `draw_tile_m7` never meshes a tile with a corner outside
-        // the `i16` range (see `M7_GTE_REACH_Q4`). The clamps were six compare-
-        // and-branch pairs per triple, a fifth of this loop.
-        let v = |p: &m7_mesh::MeshVert| Vec3I16::new(p.dx as i16, 0, p.dy as i16);
-        let mut chunks = pts.chunks_exact_mut(3);
-        let mut codes = code.chunks_exact_mut(3);
-        for (t, c) in (&mut chunks).zip(&mut codes) {
-            let [r0, r1, r2] = scene::project_triangle_scheduled(v(&t[0]), v(&t[1]), v(&t[2]));
-            self.finish(&mut t[0], r0);
-            self.finish(&mut t[1], r1);
-            self.finish(&mut t[2], r2);
-            c[0] = oc.code(&t[0]);
-            c[1] = oc.code(&t[1]);
-            c[2] = oc.code(&t[2]);
-        }
-        for (q, c) in chunks
-            .into_remainder()
-            .iter_mut()
-            .zip(codes.into_remainder().iter_mut())
-        {
-            let r = scene::project_vertex_scheduled(v(q));
-            self.finish(q, r);
-            *c = oc.code(q);
+        for (p, c) in pts.iter_mut().zip(code.iter_mut()) {
+            // No clamp: `draw_tile_m7` never meshes a tile with a corner outside
+            // the `i16` range (see `M7_GTE_REACH_Q4`).
+            let r = scene::project_vertex_scheduled(Vec3I16::new(p.dx as i16, 0, p.dy as i16));
+            self.finish(p, r);
+            *c = oc.code(p);
         }
     }
 }
@@ -3269,6 +3258,8 @@ impl m7_mesh::Sink for TexturedSink {
         w[8] = self.uv(q[3]);
     }
 
+    #[cold]
+    #[inline(never)]
     fn fan(&mut self, v: &[m7_mesh::MeshVert]) {
         self.polys += 1;
         let (mut zmin, mut zmax) = (i32::MAX, i32::MIN);
@@ -3325,6 +3316,36 @@ impl m7_mesh::Sink for FlatSink {
     }
 }
 
+/// Everything about drawing the floor that is the same for every tile in a
+/// frame, worked out once.
+///
+/// Per-tile setup used to rebuild these -- an outcoder with two divides, the
+/// fog reciprocal, the material words -- and the per-tile path is what has to
+/// fit the 4 KB instruction cache.
+struct FloorFrame {
+    oc: m7_mesh::Outcoder,
+    fog: GroundFog,
+    quad_cmd: u32,
+    tri_cmd: u32,
+    clut: u32,
+    window: u32,
+}
+
+impl FloorFrame {
+    fn new(camera: &Camera) -> Self {
+        let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
+        let material = TextureMaterial::opaque(tex.clut_word, 0, (0, 0, 0));
+        Self {
+            oc: m7_mesh::Outcoder::new(camera, camera.z_far << 4, M7_VIEW),
+            fog: GroundFog::new(camera.z_far, is_night_circuit()),
+            quad_cmd: material.flat_textured_polygon_header(true),
+            tri_cmd: material.flat_textured_polygon_header(false),
+            clut: (material.clut_word() as u32) << 16,
+            window: material.texture_window_word(),
+        }
+    }
+}
+
 /// Draws one world tile through the Mode 7 projection.
 ///
 /// The mesh -- depth-banded subdivision, stitching against finer neighbours and
@@ -3339,6 +3360,7 @@ fn draw_tile_m7(
     tile_wu: (i32, i32),
     world: (i32, i32),
     s_idx: usize,
+    frame: &FloorFrame,
     scratch: &mut m7_mesh::MeshScratch,
 ) {
     let Some(rect) = m7_mesh::TileRect::new(tile, tile_wu, world) else {
@@ -3355,70 +3377,42 @@ fn draw_tile_m7(
     }
     let n = m7_mesh::rect_level(camera, &rect);
     let sides = m7_mesh::side_levels(camera, tile, tile_wu, world, n);
-    let z_far_q4 = camera.z_far << 4;
-    let (tx, ty) = tile;
+    let mut proj = GteGround::new(camera);
 
     let (points, polys) = if s_idx == usize::MAX {
+        let (tx, ty) = tile;
         let checker = ((tx ^ ty) & 1) != 0;
         let (r, g, b) = texlayout::placeholder_tile_colour(true, checker);
         let mut sink = FlatSink {
             colour: r as u32 | ((g as u32) << 8) | ((b as u32) << 16),
             polys: 0,
         };
+        let tex = m7_mesh::TexMap::LOCAL;
         let points = m7_mesh::build_tile(
-            camera,
-            &rect,
-            n,
-            sides,
-            m7_mesh::TexMap::LOCAL,
-            z_far_q4,
-            M7_VIEW,
-            scratch,
-            &mut GteGround::new(camera),
-            &mut sink,
+            camera, &rect, n, sides, tex, &frame.oc, scratch, &mut proj, &mut sink,
         );
         (points, sink.polys)
     } else {
         let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
         let (tpage_idx, u_base, v_base) = tex.slot_uv(s_idx);
-        let material = TextureMaterial::opaque(
-            tex.clut_word,
-            tex.tpages[tpage_idx].uv_tpage_word(0),
-            (0, 0, 0),
-        );
+        let tpage = TextureMaterial::opaque(0, tex.tpages[tpage_idx].uv_tpage_word(0), (0, 0, 0))
+            .tpage_word();
         let mut sink = TexturedSink {
-            quad_cmd: material.flat_textured_polygon_header(true),
-            tri_cmd: material.flat_textured_polygon_header(false),
-            clut: (material.clut_word() as u32) << 16,
-            tpage: (material.tpage_word() as u32) << 16,
-            fog: GroundFog::new(camera.z_far, is_night_circuit()),
+            quad_cmd: frame.quad_cmd,
+            tri_cmd: frame.tri_cmd,
+            clut: frame.clut,
+            tpage: (tpage as u32) << 16,
+            fog: frame.fog,
             polys: 0,
         };
-        floor_packets().node(1)[0] = material.texture_window_word();
-        let (points, layout) = {
-            let _s = crate::prof::span(crate::prof::TRACK_M7_POINTS);
-            m7_mesh::prepare(
-                camera,
-                &rect,
-                n,
-                sides,
-                m7_mesh::TexMap {
-                    u0: u_base as u16,
-                    v0: v_base as u16,
-                    u_shift: tex.u_shift,
-                },
-                z_far_q4,
-                M7_VIEW,
-                scratch,
-                &mut GteGround::new(camera),
-            )
+        floor_packets().node(1)[0] = frame.window;
+        let map = m7_mesh::TexMap {
+            u0: u_base as u16,
+            v0: v_base as u16,
+            u_shift: tex.u_shift,
         };
-        m7_mesh::emit(
-            &layout,
-            M7_VIEW,
-            scratch,
-            &mut GteGround::new(camera),
-            &mut sink,
+        let points = m7_mesh::build_tile(
+            camera, &rect, n, sides, map, &frame.oc, scratch, &mut proj, &mut sink,
         );
         (points, sink.polys)
     };

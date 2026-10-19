@@ -217,14 +217,6 @@ impl TexMap {
         v0: 0,
         u_shift: 0,
     };
-
-    fn u(self, texel: i32) -> u8 {
-        ((self.u0 as i32 + texel) >> self.u_shift).min(255) as u8
-    }
-
-    fn v(self, texel: i32) -> u8 {
-        (self.v0 as i32 + texel).min(255) as u8
-    }
 }
 
 /// Projects mesh vertices: reads each `dx`/`dy` ground offset and writes
@@ -354,11 +346,14 @@ impl Layout {
 /// `n` is the tile's own level from [`rect_level`], `sides` the points per
 /// side from [`side_levels`]. Both must be powers of two in `1..=MAX_LEVEL`
 /// with each side at least `n`. `tex` places the tile's texels in the texture
-/// page. Polygons wholly outside `view` (`x0, y0, x1, y1`) are dropped.
+/// page. `oc` carries the far plane and the view; polygons wholly outside the
+/// view are dropped. It depends only on the camera, so build it once a frame.
 ///
-/// The work is split into out-of-line stages on purpose. Inlined together they
-/// were 17 KB of code against the R3000's 4 KB instruction cache, and the cell
-/// loop -- the part that runs per primitive -- was refilling it constantly.
+/// The stages are out of line and kept small on purpose. This runs once per
+/// visible tile, and everything it executes has to share the R3000's 4 KB
+/// instruction cache: inlined together the first version was 17 KB, and even
+/// split up, a 7 KB per-tile path refilled the cache from RAM on every tile --
+/// about 7,000 cycles a tile before any real work.
 #[allow(clippy::too_many_arguments)]
 pub fn build_tile<P: Projector, S: Sink>(
     camera: &Camera,
@@ -366,51 +361,48 @@ pub fn build_tile<P: Projector, S: Sink>(
     n: i32,
     sides: [i32; 4],
     tex: TexMap,
-    z_far_q4: i32,
-    view: (i16, i16, i16, i16),
+    oc: &Outcoder,
     scratch: &mut MeshScratch,
     proj: &mut P,
     sink: &mut S,
 ) -> usize {
-    let (count, layout) = prepare(camera, r, n, sides, tex, z_far_q4, view, scratch, proj);
-    emit(&layout, view, scratch, proj, sink);
+    let n = n.clamp(1, MAX_LEVEL);
+    let cells = visible_cells(camera, r, n, oc.z_far_q4, oc.view);
+    let (count, layout) = make_points(camera, r, n, sides, tex, cells, *oc, scratch);
+    proj.project(&mut scratch.pts[..count], &mut scratch.code[..count], oc);
+    emit_cells(&layout, scratch, proj, sink);
     count
 }
 
-/// The first half of [`build_tile`]: every point generated, projected and
-/// outcoded. Separate so a profiler can time the two halves.
-#[allow(clippy::too_many_arguments)]
-pub fn prepare<P: Projector>(
-    camera: &Camera,
-    r: &TileRect,
-    n: i32,
-    sides: [i32; 4],
-    tex: TexMap,
-    z_far_q4: i32,
-    view: (i16, i16, i16, i16),
-    scratch: &mut MeshScratch,
-    proj: &mut P,
-) -> (usize, Layout) {
-    let n = n.clamp(1, MAX_LEVEL);
-    let cells = visible_cells(camera, r, n, z_far_q4, view);
-    let oc = Outcoder::new(camera, z_far_q4, view);
-    let (count, layout) = make_points(camera, r, n, sides, tex, cells, oc, scratch);
-    proj.project(&mut scratch.pts[..count], &mut scratch.code[..count], &oc);
-    (count, layout)
-}
-
-/// The second half of [`build_tile`]: every visible polygon to `sink`.
-pub fn emit<P: Projector, S: Sink>(
-    l: &Layout,
-    view: (i16, i16, i16, i16),
-    scratch: &mut MeshScratch,
-    proj: &mut P,
-    sink: &mut S,
-) {
-    emit_cells(l, view, scratch, proj, sink);
+/// Camera-relative offset (Q4) and page coordinate of grid line `k` of `2^lg`
+/// along one tile axis.
+///
+/// The one formula every point goes through, grid and stitched side alike, so
+/// a point two tiles share -- or a tile's grid and its own side -- is built from
+/// identical integers. `origin_q4` is the axis origin's offset from the camera,
+/// `extent` the trimmed and `full` the untrimmed length, `t0` and `shift` the
+/// tile's place in its texture page. An untrimmed tile's lines fall on whole
+/// texels, `64k / 2^lg`; only a tile cut by the circuit edge divides.
+#[inline(always)]
+fn line(origin_q4: i32, extent: i32, full: i32, k: i32, lg: u32, t0: u16, shift: u8) -> (i32, u8) {
+    let o = (extent * k) >> lg;
+    let texel = if extent == full {
+        (64 * k) >> lg
+    } else {
+        (o * 64 + full / 2) / full
+    };
+    (
+        origin_q4 + o * 16,
+        ((t0 as i32 + texel) >> shift).min(255) as u8,
+    )
 }
 
 /// Generates the tile's grid and stitched side points, unprojected.
+///
+/// Deliberately small: it runs once per tile, and the whole per-tile path has
+/// to share the R3000's 4 KB instruction cache. The first version was 1.7 KB
+/// of closures and a four-armed side `match`, and with the rest of the path it
+/// refilled the cache from RAM on every tile.
 #[inline(never)]
 #[allow(clippy::too_many_arguments)]
 fn make_points(
@@ -424,130 +416,83 @@ fn make_points(
     scratch: &mut MeshScratch,
 ) -> (usize, Layout) {
     let lg = n.trailing_zeros();
-    let cam_qx = camera.pos.x.raw() >> 8;
-    let cam_qy = camera.pos.y.raw() >> 8;
+    let ox0 = r.wx0 * 16 - (camera.pos.x.raw() >> 8);
+    let oy0 = r.wy0 * 16 - (camera.pos.y.raw() >> 8);
+    let xl = |k: i32, lg: u32| line(ox0, r.cw, r.tw, k, lg, tex.u0, tex.u_shift);
+    let yl = |k: i32, lg: u32| line(oy0, r.ch, r.th, k, lg, tex.v0, 0);
     let pts = &mut scratch.pts;
-
-    // World point -> mesh vertex. Every point goes through this, so a point
-    // two tiles share is built from identical integers on both sides. Depth is
-    // filled in by the projector.
-    let point = |wx: i32, wy: i32, u: u8, v: u8| -> MeshVert {
-        let dx = wx * 16 - cam_qx;
-        let dy = wy * 16 - cam_qy;
-        MeshVert {
-            dx,
-            dy,
-            z: 0,
-            sx: 0,
-            sy: 0,
-            u,
-            v,
-        }
+    let mut layout = Layout {
+        n,
+        i0,
+        i1,
+        j0,
+        j1,
+        stride: (i1 - i0 + 1).max(0) as usize,
+        side_base: [usize::MAX; 4],
+        side_step: [1; 4],
+        oc,
     };
-    // Texture coordinate of a local offset: the nearest of the tile's 64
-    // texels, then into the page.
-    let tex_u = |ox: i32| tex.u((ox * 64 + r.tw / 2) / r.tw);
-    let tex_v = |oy: i32| tex.v((oy * 64 + r.th / 2) / r.th);
-    // The same at grid line `k` of `2^lg`. An untrimmed tile's lines fall on
-    // whole texels, `64k / 2^lg`, so the divide is only needed at the circuit
-    // edge; it was otherwise one per line per tile.
-    let line_u = |k: i32, lg: u32, ox: i32| {
-        if r.cw == r.tw {
-            tex.u((64 * k) >> lg)
-        } else {
-            tex_u(ox)
-        }
-    };
-    let line_v = |k: i32, lg: u32, oy: i32| {
-        if r.ch == r.th {
-            tex.v((64 * k) >> lg)
-        } else {
-            tex_v(oy)
-        }
-    };
-
-    let mut count = 0usize;
-
-    // The visible sub-grid, row-major. Offsets and texture coordinates are per
-    // column and per row, so the divides run once per line, not per point.
-    // An empty range builds nothing.
     if i0 >= i1 || j0 >= j1 {
-        return (
-            0,
-            Layout {
-                n,
-                i0: 0,
-                i1: 0,
-                j0: 0,
-                j1: 0,
-                stride: 0,
-                side_base: [usize::MAX; 4],
-                side_step: [1; 4],
-                oc,
-            },
-        );
-    }
-    let stride = (i1 - i0 + 1) as usize;
-    let mut col = [(0i32, 0u8); GRID];
-    let mut row = [(0i32, 0u8); GRID];
-    for k in i0..=i1 {
-        let ox = (r.cw * k) >> lg;
-        col[(k - i0) as usize] = (r.wx0 + ox, line_u(k, lg, ox));
-    }
-    for k in j0..=j1 {
-        let oy = (r.ch * k) >> lg;
-        row[(k - j0) as usize] = (r.wy0 + oy, line_v(k, lg, oy));
-    }
-    for &(wy, v) in &row[..=(j1 - j0) as usize] {
-        for &(wx, u) in &col[..stride] {
-            pts[count] = point(wx, wy, u, v);
-            count += 1;
-        }
+        layout.i1 = i0;
+        return (0, layout);
     }
 
-    // Stitched sides: all `m + 1` points of each side finer than the tile.
-    // `(L * k) >> lg(m)` equals the neighbour's own `(L * k') >> lg(n')` at
-    // every shared point, because the counts are powers of two.
-    let mut side_base = [usize::MAX; 4];
-    let mut side_step = [1usize; 4];
-    // A side only matters if the built sub-grid reaches it.
-    let reached = [j0 == 0, i1 == n, j1 == n, i0 == 0];
-    for (s, &m_req) in sides.iter().enumerate() {
-        let m = m_req.clamp(n, MAX_LEVEL);
-        if m == n || !reached[s] {
-            continue;
-        }
-        let lm = m.trailing_zeros();
-        side_base[s] = count;
-        side_step[s] = (m / n) as usize;
-        let (u_end, v_end) = (tex_u(r.cw), tex_v(r.ch));
-        let (u_start, v_start) = (tex_u(0), tex_v(0));
-        for k in 0..=m {
-            let ox = (r.cw * k) >> lm;
-            let oy = (r.ch * k) >> lm;
-            pts[count] = match s {
-                0 => point(r.wx0 + ox, r.wy0, line_u(k, lm, ox), v_start),
-                1 => point(r.wx0 + r.cw, r.wy0 + oy, u_end, line_v(k, lm, oy)),
-                2 => point(r.wx0 + ox, r.wy0 + r.ch, line_u(k, lm, ox), v_end),
-                _ => point(r.wx0, r.wy0 + oy, u_start, line_v(k, lm, oy)),
+    // The visible sub-grid, row-major; columns are tabulated once.
+    let mut col = [(0i32, 0u8); GRID];
+    for (slot, k) in col.iter_mut().zip(i0..=i1) {
+        *slot = xl(k, lg);
+    }
+    let mut count = 0usize;
+    for k in j0..=j1 {
+        let (dy, v) = yl(k, lg);
+        for &(dx, u) in &col[..layout.stride] {
+            pts[count] = MeshVert {
+                dx,
+                dy,
+                z: 0,
+                sx: 0,
+                sy: 0,
+                u,
+                v,
             };
             count += 1;
         }
     }
-    (
-        count,
-        Layout {
-            n,
-            i0,
-            i1,
-            j0,
-            j1,
-            stride,
-            side_base,
-            side_step,
-            oc,
-        },
-    )
+
+    // Stitched sides: all `m + 1` points of each side finer than the tile,
+    // if the built sub-grid reaches that side. Top and bottom (0, 2) run along
+    // x at y line 0 or 1 of 1; right and left (1, 3) along y at x line 1 or 0.
+    let reached = [j0 == 0, i1 == n, j1 == n, i0 == 0];
+    for s in 0..4 {
+        let m = sides[s].clamp(n, MAX_LEVEL);
+        if m == n || !reached[s] {
+            continue;
+        }
+        let lm = m.trailing_zeros();
+        let at_end = (s == 1 || s == 2) as i32;
+        layout.side_base[s] = count;
+        layout.side_step[s] = (m / n) as usize;
+        for k in 0..=m {
+            let (dx, u, dy, v) = if s & 1 == 0 {
+                let (a, b) = (xl(k, lm), yl(at_end, 0));
+                (a.0, a.1, b.0, b.1)
+            } else {
+                let (a, b) = (xl(at_end, 0), yl(k, lm));
+                (a.0, a.1, b.0, b.1)
+            };
+            pts[count] = MeshVert {
+                dx,
+                dy,
+                z: 0,
+                sx: 0,
+                sy: 0,
+                u,
+                v,
+            };
+            count += 1;
+        }
+    }
+    (count, layout)
 }
 
 /// The cells of a tile that can reach the view, as `(i0, i1, j0, j1)`: cells
@@ -687,7 +632,6 @@ impl Outcoder {
 #[inline(never)]
 fn emit_cells<P: Projector, S: Sink>(
     l: &Layout,
-    view: (i16, i16, i16, i16),
     scratch: &mut MeshScratch,
     proj: &mut P,
     sink: &mut S,
@@ -716,7 +660,7 @@ fn emit_cells<P: Projector, S: Sink>(
                 sink.quad([&pts[a], &pts[b], &pts[c], &pts[d]]);
                 continue;
             }
-            emit_patched(l, (i, j), [a, b, d, c], near_cut, view, scratch, proj, sink);
+            emit_patched(l, (i, j), [a, b, d, c], near_cut, scratch, proj, sink);
         }
     }
 }
@@ -724,13 +668,12 @@ fn emit_cells<P: Projector, S: Sink>(
 /// A cell on a stitched side or across the near plane: gathers its ring,
 /// clips it if needed, and sends it as a fan.
 #[inline(never)]
-#[allow(clippy::too_many_arguments)]
+#[cold]
 fn emit_patched<P: Projector, S: Sink>(
     l: &Layout,
     (i, j): (i32, i32),
     corners: [usize; 4],
     near_cut: bool,
-    view: (i16, i16, i16, i16),
     scratch: &mut MeshScratch,
     proj: &mut P,
     sink: &mut S,
@@ -743,6 +686,7 @@ fn emit_patched<P: Projector, S: Sink>(
         ..
     } = scratch;
     let last = l.n - 1;
+    let view = l.oc.view;
     // Which of this cell's sides carry stitched points.
     let st = [
         j == 0 && l.side_base[0] != usize::MAX,
@@ -829,6 +773,8 @@ fn emit_patched<P: Projector, S: Sink>(
 
 /// Clips the polygon `src` to `z >= near`, writing the result to `out` and
 /// projecting the new vertices. Returns the vertex count.
+#[inline(never)]
+#[cold]
 fn clip_near<P: Projector>(
     src: &[MeshVert],
     near: i32,

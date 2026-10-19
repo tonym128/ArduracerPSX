@@ -5605,7 +5605,7 @@ mod m7_skyline_clearance_tests {
 #[cfg(test)]
 mod m7_mesh_tests {
     use super::camera::{Camera, M7_Z_NEAR};
-    use super::m7_mesh::{self, MeshScratch, MeshVert, SoftwareProjector, TileRect};
+    use super::m7_mesh::{self, MeshScratch, MeshVert, Outcoder, SoftwareProjector, TileRect};
     use arduracer_core::{Fixed, Vec2};
 
     const TILE: i32 = 160;
@@ -5860,8 +5860,7 @@ mod m7_mesh_tests {
                     n,
                     sides,
                     m7_mesh::TexMap::LOCAL,
-                    cam.z_far << 4,
-                    view,
+                    &Outcoder::new(&cam, cam.z_far << 4, view),
                     &mut scratch,
                     &mut SoftwareProjector(&cam),
                     &mut polys,
@@ -6037,8 +6036,7 @@ mod m7_mesh_tests {
                     n,
                     sides,
                     m7_mesh::TexMap::LOCAL,
-                    cam.z_far << 4,
-                    (0, 0, 320, 240),
+                    &Outcoder::new(&cam, cam.z_far << 4, (0, 0, 320, 240)),
                     &mut scratch,
                     &mut SoftwareProjector(&cam),
                     &mut counter,
