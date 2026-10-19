@@ -5761,8 +5761,10 @@ mod m7_mesh_tests {
                     // Where the GPU's texel actually sits on the ground, and
                     // where that ground point projects: the warp is the screen
                     // distance from the pixel showing it.
-                    let gx = (self.tile.0 * TILE) as f64 + u * TILE as f64 / 1024.0;
-                    let gy = (self.tile.1 * TILE) as f64 + v * TILE as f64 / 1024.0;
+                    // 63 texel steps span a tile (see `m7_mesh::line`); u/v
+                    // are in 1/16 texel.
+                    let gx = (self.tile.0 * TILE) as f64 + u * TILE as f64 / (63.0 * 16.0);
+                    let gy = (self.tile.1 * TILE) as f64 + v * TILE as f64 / (63.0 * 16.0);
                     let Some((px_x, px_y)) = self.project(gx, gy) else {
                         continue;
                     };
@@ -5784,6 +5786,16 @@ mod m7_mesh_tests {
         /// submits it: four vertices as a GPU quad, more as a fan.
         fn poly(&mut self, poly: &[MeshVert]) {
             self.polys += 1;
+            // Texel 64 is the next tile's first column in the atlas; a vertex
+            // addressing it bleeds a line of foreign colour along the edge.
+            for v in poly {
+                assert!(
+                    v.u <= 63 && v.v <= 63,
+                    "vertex addresses texel ({}, {})",
+                    v.u,
+                    v.v
+                );
+            }
             if poly.iter().any(|v| v.z == M7_Z_NEAR << 4) {
                 self.clipped += 1;
             }
@@ -5986,7 +5998,8 @@ mod m7_mesh_tests {
             pixels += r.pixels;
             over += r.over_3px;
         }
-        assert!(worst <= 6.0, "worst texel displacement {worst:.2} px");
+        // ~6.5 px since tiles map 63 texel steps (the bleed fix), up from ~5.4.
+        assert!(worst <= 7.0, "worst texel displacement {worst:.2} px");
         assert!(
             over * 100 <= pixels,
             "{over} of {pixels} ground pixels are more than 3 px off"

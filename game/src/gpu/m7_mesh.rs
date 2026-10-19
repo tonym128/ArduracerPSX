@@ -381,8 +381,17 @@ pub fn build_tile<P: Projector, S: Sink>(
 /// a point two tiles share -- or a tile's grid and its own side -- is built from
 /// identical integers. `origin_q4` is the axis origin's offset from the camera,
 /// `extent` the trimmed and `full` the untrimmed length, `t0` and `shift` the
-/// tile's place in its texture page. An untrimmed tile's lines fall on whole
-/// texels, `64k / 2^lg`; only a tile cut by the circuit edge divides.
+/// tile's place in its texture page.
+///
+/// The tile's texels are addressed `0..=63`, not `0..=64`. Texel 64 is the
+/// first column of the *next* tile in the atlas, and the GPU's fill rule draws
+/// a polygon's left and top edge pixels, so whichever of a tile's u = 64 /
+/// v = 64 edges faces screen-left or screen-top sampled its neighbour: a
+/// one-pixel line of foreign colour along tile edges. The old fixed grid hid it
+/// with a 2-pixel overdraw band that pushed that coordinate outside the drawn
+/// area; a watertight mesh has no overdraw, so the coordinates themselves must
+/// stay in the slot. The 1/64 stretch is invisible; one cell per tile is a
+/// texel narrower than the rest.
 ///
 /// Out of line on purpose: inlined at each call site it made `make_points`
 /// 5 KB under LTO, more than the whole instruction cache.
@@ -390,9 +399,9 @@ pub fn build_tile<P: Projector, S: Sink>(
 fn line(origin_q4: i32, extent: i32, full: i32, k: i32, lg: u32, t0: u16, shift: u8) -> (i32, u8) {
     let o = (extent * k) >> lg;
     let texel = if extent == full {
-        (64 * k) >> lg
+        (63 * k + ((1 << lg) >> 1)) >> lg
     } else {
-        (o * 64 + full / 2) / full
+        (o * 63 + full / 2) / full
     };
     (
         origin_q4 + o * 16,
