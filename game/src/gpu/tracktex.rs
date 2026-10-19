@@ -58,7 +58,7 @@ use crate::gpu::texlayout::{
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
-use psx_hw::gpu::pack_vertex;
+use psx_hw::gpu::{gp0, pack_color, pack_vertex};
 use psx_vram::{dma_copy_to_vram, upload_16bpp, upload_words, Clut, TexDepth, Tpage, VramRect};
 
 /// Capacity of the in-RAM compressed block cache (one 1024x1024 block, <= 500 KB).
@@ -2355,7 +2355,16 @@ pub fn render_track_extents(
     let y0 = (cam_y - half_h).max(0);
     let y1 = (cam_y + half_h).min(world_h);
 
+    // The sky first, as DMA packets: it is the biggest fill of the frame,
+    // and drawn immediately the CPU waited for each primitive (~85k cycles a
+    // frame of GP0 stalls). Queued here, the GPU paints it while the tile scan
+    // and decode below run on the CPU. It also stands in for the frame clear,
+    // which Mode 7 skips, so it is drawn even when there is no track.
+    if camera.mode7 {
+        draw_m7_backdrop(camera);
+    }
     if x0 >= x1 || y0 >= y1 {
+        finish_floor_packets();
         return;
     }
 
@@ -2773,7 +2782,6 @@ pub fn render_track_extents(
     // Phase 3: Render visible quads (textured for resident tiles, placeholder flat for pending)
     let _quads = crate::prof::span(crate::prof::TRACK_QUADS);
     if camera.mode7 {
-        draw_m7_backdrop(camera);
         // The ground mesh projects through the GTE; load this camera once for
         // every tile below. Nothing between here and the tile loop touches the
         // GTE, and the car and prop passes reload it for themselves.
@@ -2925,6 +2933,7 @@ pub const M7_SILHOUETTE_LIFT: i16 = 5;
 
 /// Renders multi-stop Gouraud sky gradients, scrolling parallax silhouettes, and ground backdrop (`NO1-032`).
 fn draw_m7_backdrop(camera: &Camera) {
+    let mut out = floor_packets().at;
     let sky = crate::gpu::palette::sky_palette_for_circuit(unsafe { ACTIVE_CIRCUIT });
     let track_top = camera.m7_track_top().clamp(28, 140);
     let roll = (camera.roll_bam / 8).clamp(-12, 12);
@@ -2933,32 +2942,38 @@ fn draw_m7_backdrop(camera: &Camera) {
 
     // Segment 1: Zenith to Mid-sky (0 .. track_top * 3 / 5)
     let mid_y = (track_top * 3) / 5;
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(0, 0), (320, 0), (0, mid_y)],
         [sky.zenith, sky.zenith, sky.mid_sky],
     );
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(320, 0), (320, mid_y), (0, mid_y)],
         [sky.zenith, sky.mid_sky, sky.mid_sky],
     );
 
     // Segment 2: Mid-sky to Track Top (mid_y .. y_l/y_r)
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(0, mid_y), (320, mid_y), (0, y_l)],
         [sky.mid_sky, sky.mid_sky, sky.horizon],
     );
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(320, mid_y), (320, y_r), (0, y_l)],
         [sky.mid_sky, sky.horizon, sky.horizon],
     );
 
     let v_h = camera.viewport_h;
     // Ground backdrop below track top (painted over by Mode 7 track tiles)
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(0, y_l), (320, y_r), (0, v_h)],
         [sky.ground_haze, sky.ground_haze, sky.ground_deep],
     );
-    gpu::draw_tri_gouraud(
+    tri_gouraud(
+        &mut out,
         [(320, y_r), (320, v_h), (0, v_h)],
         [sky.ground_haze, sky.ground_deep, sky.ground_deep],
     );
@@ -2992,29 +3007,96 @@ fn draw_m7_backdrop(camera: &Camera) {
         let roll_term = (roll as i32 * (mid_x as i32 - 160) / 160) as i16;
         let base_y = (track_top - M7_SILHOUETTE_LIFT + roll_term).max(0);
         let peak_y = base_y - h;
-        let skirt_h = (v_h - base_y).max(0) as u16;
+        // The skirt only has to reach the floor's first row, wherever roll
+        // puts it under this mountain; the floor paints everything below. It
+        // used to run to the bottom of the screen: eight 44-pixel columns of
+        // fill the floor then covered, and the CPU waited for the GPU to draw
+        // each one (~60k cycles a frame of GP0 stalls).
+        let skirt_bottom = (track_top + roll.abs() + 2).min(v_h);
+        let skirt_h = (skirt_bottom - base_y).max(0) as u16;
         if sky.biome_style == 1 || sky.biome_style == 4 {
             // Solid base skirt down into ground so track tiles seamlessly overlap the skyline
-            gpu::draw_rect_flat(x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2);
+            rect_flat(
+                &mut out, x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2,
+            );
             // City skyscraper / cyber tower block
             let rx0 = x0 + 6;
             let rw = 32;
-            let tower_h = (v_h - peak_y).max(0) as u16;
-            gpu::draw_rect_flat(rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2);
-            gpu::draw_rect_flat(rx0 + 2, peak_y, 2, tower_h, col_lit.0, col_lit.1, col_lit.2);
+            let tower_h = (skirt_bottom - peak_y).max(0) as u16;
+            rect_flat(
+                &mut out, rx0, peak_y, rw, tower_h, col_dark.0, col_dark.1, col_dark.2,
+            );
+            rect_flat(
+                &mut out,
+                rx0 + 2,
+                peak_y,
+                2,
+                tower_h,
+                col_lit.0,
+                col_lit.1,
+                col_lit.2,
+            );
         } else {
             // Mountain / mesa / stadium triangular ridge
-            gpu::draw_tri_flat(
+            tri_flat(
+                &mut out,
                 [(x0, base_y), (mid_x, peak_y), (x1, base_y)],
                 col_dark.0,
                 col_dark.1,
                 col_dark.2,
             );
             // Solid base skirt down into ground so track tiles seamlessly overlap the mountains
-            gpu::draw_rect_flat(x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2);
-            gpu::draw_line_mono(mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2);
+            rect_flat(
+                &mut out, x0, base_y, 44, skirt_h, col_dark.0, col_dark.1, col_dark.2,
+            );
+            line_mono(
+                &mut out, mid_x, peak_y, x1, base_y, col_lit.0, col_lit.1, col_lit.2,
+            );
         }
     }
+    // Start the GPU on it now, while the CPU scans and decodes tiles.
+    let packets = floor_packets();
+    packets.at = out;
+    packets.kick();
+}
+
+/// The backdrop's primitives, as packets in the floor's buffer; each matches
+/// the `psx_gpu` immediate-mode call of the same name.
+fn tri_gouraud(out: &mut PacketCursor, v: [(i16, i16); 3], c: [(u8, u8, u8); 3]) {
+    let w = out.node(6);
+    let op = gp0::polygon_opcode(true, false, false, false, false);
+    for k in 0..3 {
+        w[2 * k] = pack_color(c[k].0, c[k].1, c[k].2);
+        w[2 * k + 1] = pack_vertex(v[k].0, v[k].1);
+    }
+    w[0] |= op;
+}
+
+fn tri_flat(out: &mut PacketCursor, v: [(i16, i16); 3], r: u8, g: u8, b: u8) {
+    let w = out.node(4);
+    w[0] = gp0::polygon_opcode(false, false, false, false, false) | pack_color(r, g, b);
+    for k in 0..3 {
+        w[1 + k] = pack_vertex(v[k].0, v[k].1);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rect_flat(out: &mut PacketCursor, x: i16, y: i16, w: u16, h: u16, r: u8, g: u8, b: u8) {
+    let (x1, y1) = (x + w as i16, y + h as i16);
+    let p = out.node(5);
+    p[0] = gp0::polygon_opcode(false, true, false, false, false) | pack_color(r, g, b);
+    p[1] = pack_vertex(x, y);
+    p[2] = pack_vertex(x1, y);
+    p[3] = pack_vertex(x, y1);
+    p[4] = pack_vertex(x1, y1);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn line_mono(out: &mut PacketCursor, x0: i16, y0: i16, x1: i16, y1: i16, r: u8, g: u8, b: u8) {
+    let w = out.node(3);
+    w[0] = 0x4000_0000 | pack_color(r, g, b);
+    w[1] = pack_vertex(x0, y0);
+    w[2] = pack_vertex(x1, y1);
 }
 
 /// Largest ground offset (Q4) handed to the GTE, inside its `i16` input.
@@ -3117,10 +3199,12 @@ impl GroundFog {
 
 /// Words per half of the floor's packet buffer.
 ///
-/// About a dozen quads per half. The buffer is static (1 KB), so it is sized
-/// against the `ci-game` RAM gate, not against a frame's worth of polygons:
-/// double-buffering means it never needs to hold a whole frame.
-const FLOOR_CHUNK_WORDS: usize = 128;
+/// Sized to hold the whole sky backdrop (~190 words; see
+/// [`draw_m7_backdrop`]) in one half, so it goes to the GPU in one kick that
+/// never waits: split across two, the second kick would wait for the GPU to
+/// fill the first. Double-buffering means it never needs to hold a whole
+/// frame of floor, which is ~25 quads per half.
+const FLOOR_CHUNK_WORDS: usize = 256;
 
 /// The Mode 7 floor's GPU packets, double-buffered for linked-list DMA.
 ///

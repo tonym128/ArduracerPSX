@@ -1887,8 +1887,11 @@ impl ArduracerGame {
                     crate::gpu::tracktex::pump_cd_streams();
 
                     // Render Pass:
-                    // a. Clear background
-                    {
+                    // a. Clear background -- except for a single Mode 7 view,
+                    // whose sky and ground backdrop paints every pixel first
+                    // thing in the track pass; a full-screen fill under it is
+                    // GPU time the CPU then waits behind.
+                    if self.is_2p_mode || !self.camera.mode7 {
                         let _s = prof::span(prof::CLEAR);
                         self.fb.clear(18, 20, 26);
                     }
