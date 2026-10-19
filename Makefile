@@ -231,12 +231,7 @@ ci-disc: disc
 	    exit 1; \
 	  fi; \
 	done; \
-	if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then echo "ERROR: assets/TRACKS.BIN missing"; exit 1; fi; \
 	if [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ]; then echo "ERROR: assets/QOITRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
-	if [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ]; then echo "ERROR: assets/SVGTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
-	if [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ]; then echo "ERROR: assets/TIMTRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
-	if [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ]; then echo "ERROR: assets/TIM4TRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
-	if [ ! -f "$(ROOT)/assets/TIM8TRACKS.BIN" ]; then echo "ERROR: assets/TIM8TRACKS.BIN missing; re-run 'make atlas'"; exit 1; fi; \
 	cuefile=$$(sed -n 's/^[[:space:]]*FILE[[:space:]]*"\(.*\)".*/\1/p' "$$cue" | head -1); \
 	echo "CUE FILE entry: '$$cuefile'"; \
 	if [ "$$cuefile" != "arduracer.bin" ]; then \
@@ -486,9 +481,6 @@ profile-exe: require-sdk title-background
 .PHONY: profile-disc
 profile-disc: profile-exe assets
 	@case "$(PROFILE_FEATURES)" in \
-	  *profile-tim8*) texture=$(ROOT)/assets/TIM8TRACKS.BIN ;; \
-	  *profile-tim4*) texture=$(ROOT)/assets/TIM4TRACKS.BIN ;; \
-	  *profile-tim*) texture=$(ROOT)/assets/TIMTRACKS.BIN ;; \
 	  *profile-qoi*) texture=$(ROOT)/assets/QOITRACKS.BIN ;; \
 	  *) echo "ERROR: select a supported profile codec in PROFILE_FEATURES"; exit 1 ;; \
 	esac; \
@@ -496,12 +488,8 @@ profile-disc: profile-exe assets
 	  --exe $(DIST)/arduracer-profile.exe \
 	  --out $(DIST)/arduracer-profile.bin \
 	  --volume ARDURACER_PROFILE \
-	  --file $(ROOT)/assets/TRACKS.BIN \
 	  --file $(ROOT)/assets/QOITRACKS.BIN \
-	  --file $(ROOT)/assets/SVGTRACKS.BIN \
-	  --file $(ROOT)/assets/TIMTRACKS.BIN \
-	  --file $(ROOT)/assets/TIM4TRACKS.BIN \
-	  --file $(ROOT)/assets/TIM8TRACKS.BIN \
+	  --file $(ROOT)/assets/TRACKS.BIN \
 	  --file $(ROOT)/assets/LEVELS.BIN
 	@echo "PROFILE CUE -> $(DIST)/arduracer-profile.cue"
 
@@ -511,12 +499,8 @@ iso: exe
 		--exe $(DIST)/arduracer.exe \
 		--out $(DIST)/arduracer.iso \
 		--volume ARDURACER \
-		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
-		--file $(ROOT)/assets/SVGTRACKS.BIN \
-		--file $(ROOT)/assets/TIMTRACKS.BIN \
-		--file $(ROOT)/assets/TIM4TRACKS.BIN \
-		--file $(ROOT)/assets/TIM8TRACKS.BIN \
+		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/LEVELS.BIN \
 		--iso
 	@echo "SUCCESS! Mastered ISO: $(DIST)/arduracer.iso"
@@ -533,8 +517,7 @@ levels-bin:
 	python3 $(ROOT)/tools/track_cook/make_levels_bin.py
 
 assets:
-	@if [ ! -f "$(ROOT)/assets/TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] \
-	    || [ ! -f "$(ROOT)/assets/SVGTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIMTRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM4TRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TIM8TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
+	@if [ ! -f "$(ROOT)/assets/QOITRACKS.BIN" ] || [ ! -f "$(ROOT)/assets/TRACKS.BIN" ]; then $(MAKE) --no-print-directory atlas; fi
 	@$(MAKE) --no-print-directory levels-bin
 	@mkdir -p $(ROOT)/assets/cdda
 	@python3 $(ROOT)/tools/fmv_cook/cook_intro_str.py $(ROOT)/assets/INTRO.STR
@@ -568,12 +551,8 @@ disc: assets music-xa exe
 		--xa-file $(ROOT)/assets/VICTORY2.STR \
 		--xa-file $(ROOT)/assets/VICTORY3.STR \
 		--xa-file $(ROOT)/assets/VICTORY4.STR \
-		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/QOITRACKS.BIN \
-		--file $(ROOT)/assets/SVGTRACKS.BIN \
-		--file $(ROOT)/assets/TIMTRACKS.BIN \
-		--file $(ROOT)/assets/TIM4TRACKS.BIN \
-		--file $(ROOT)/assets/TIM8TRACKS.BIN \
+		--file $(ROOT)/assets/TRACKS.BIN \
 		--file $(ROOT)/assets/LEVELS.BIN \
 		--cdda-track $(ROOT)/assets/cdda/track02_title.raw \
 		--cdda-track $(ROOT)/assets/cdda/track03_circuit.raw \

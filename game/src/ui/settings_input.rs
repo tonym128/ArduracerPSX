@@ -34,7 +34,7 @@ pub struct SettingsInput {
 
 // The value type lives in `pause_input.rs` so both menus share one definition
 // even when `tools/test_ui` includes the two files by path in either order.
-pub use super::pause_input::SettingsValues;
+pub use super::pause_input::{SettingsValues, TEXTURE_FORMAT_BYTES};
 
 /// What the caller must do after an update.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -46,11 +46,6 @@ pub enum SettingsChoice {
     /// The screen should close.
     Exit,
 }
-
-/// Highest legal `texture_format` value; see `pause_input::MAX_TEXTURE_FORMAT`,
-/// which the pause menu's own copy of the row uses. Both menus cycle the byte
-/// directly, so they share the ceiling rather than each keeping a list.
-const MAX_TEXTURE_FORMAT: u8 = super::pause_input::MAX_TEXTURE_FORMAT;
 
 pub struct SettingsMenu {
     pub selected_row: u8,
@@ -126,8 +121,18 @@ impl SettingsMenu {
 
     /// Steps the selected row's value, wrapping in both directions.
     fn cycle(&mut self, dir: i32) -> bool {
+        // The texture row is no longer a contiguous byte range: only AUTO (0)
+        // and QOI (2) are offered. Cycle directly between them.
+        if self.selected_row == ROW_TEXTURE {
+            let bytes = TEXTURE_FORMAT_BYTES;
+            let cur = self.values.texture_format;
+            let idx = bytes.iter().position(|&b| b == cur).unwrap_or(0);
+            self.values.texture_format =
+                bytes[(idx as i32 + dir).rem_euclid(bytes.len() as i32) as usize];
+            return true;
+        }
+
         let span = match self.selected_row {
-            ROW_TEXTURE => MAX_TEXTURE_FORMAT as i32 + 1,
             ROW_FRAMERATE => 2,
             ROW_VIEW => 3,
             ROW_CD_AUDIO => 3,
@@ -137,7 +142,6 @@ impl SettingsMenu {
             _ => return false,
         };
         let cur = match self.selected_row {
-            ROW_TEXTURE => self.values.texture_format as i32,
             ROW_FRAMERATE => self.values.framerate as i32,
             ROW_VIEW => self.values.camera_view as i32,
             ROW_CD_AUDIO => self.values.cd_audio as i32,
@@ -148,7 +152,6 @@ impl SettingsMenu {
         };
         let next = (cur + dir).rem_euclid(span) as u8;
         match self.selected_row {
-            ROW_TEXTURE => self.values.texture_format = next,
             ROW_FRAMERATE => self.values.framerate = next,
             ROW_VIEW => self.values.camera_view = next,
             ROW_CD_AUDIO => self.values.cd_audio = next,

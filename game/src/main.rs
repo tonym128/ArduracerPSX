@@ -123,23 +123,14 @@ static mut SILICON_REPORTED: bool = false;
 #[cfg_attr(target_arch = "mips", link_section = ".data")]
 static mut CD_SILICON_REPORTED: bool = false;
 
-/// Compiling more than one format pin would silently pick one.
-#[cfg(any(
-    all(feature = "profile-tim", feature = "profile-tim4"),
-    all(feature = "profile-tim", feature = "profile-tim8"),
-    all(feature = "profile-tim", feature = "profile-qoi"),
-    all(feature = "profile-tim4", feature = "profile-tim8"),
-    all(feature = "profile-tim4", feature = "profile-qoi"),
-    all(feature = "profile-tim8", feature = "profile-qoi")
-))]
-compile_error!("enable exactly one of profile-tim / profile-tim4 / profile-tim8 / profile-qoi");
-
 /// The texture format a headless comparison run is pinned to, if any.
 ///
-/// The format normally comes from the memory card, so a headless run always
-/// boots at `AUTO` -> `SVG`, and the TIM/TIM4 DMA upload paths never execute.
-/// That made a format comparison impossible without a save file authored for
-/// each case, so the `profile-tim*` features pin it at build time instead.
+/// The format normally comes from the memory card, so a headless run boots at
+/// `AUTO`, which resolves to QOI now that SVG, JPEG, TIM, TIM4 and TIM8 are no
+/// longer offered in the settings menu or mastered on the disc. Pinning QOI at
+/// build time makes a format comparison reproducible without a save file
+/// authored for it; the TIM/TIM4 DMA upload paths never execute in a headless
+/// run.
 ///
 /// Pinning is a *build* choice rather than a runtime one on purpose: it costs
 /// the shipped binary nothing, it cannot be left switched on by a stray runtime
@@ -149,28 +140,11 @@ compile_error!("enable exactly one of profile-tim / profile-tim4 / profile-tim8 
 #[inline]
 #[allow(unused_variables)]
 fn headless_texture_format(saved: u8) -> TextureFormat {
-    #[cfg(feature = "profile-tim")]
-    {
-        return TextureFormat::Tim;
-    }
-    #[cfg(feature = "profile-tim4")]
-    {
-        return TextureFormat::Tim4;
-    }
-    #[cfg(feature = "profile-tim8")]
-    {
-        return TextureFormat::Tim8;
-    }
     #[cfg(feature = "profile-qoi")]
     {
         return TextureFormat::Qoi;
     }
-    #[cfg(all(
-        not(feature = "profile-tim"),
-        not(feature = "profile-tim4"),
-        not(feature = "profile-tim8"),
-        not(feature = "profile-qoi")
-    ))]
+    #[cfg(not(feature = "profile-qoi"))]
     {
         TextureFormat::from_saved(saved)
     }

@@ -112,18 +112,20 @@ const ITEM_SPLIT: u8 = 8;
 const ITEM_QUIT: u8 = 9;
 const ITEM_COUNT: u8 = 10;
 
-/// Highest legal `texture_format` value; see `TextureFormat::from_saved`.
-pub const MAX_TEXTURE_FORMAT: u8 = 6;
-
-/// Whether `v` names a selectable texture format.
+/// The texture-format bytes the menus offer the player.
 ///
-/// Both menus need this: they cycle the byte directly rather than going through
-/// the enum, so without a shared ceiling each would keep its own stale copy of
-/// the list. It already went wrong once -- the ceiling was 3 when TIM took byte
-/// 4 -- and the symptom is a format that saves fine and then cannot be reached
-/// again, or a cycle that skips one.
+/// Only `AUTO` (0) and `QOI` (2) are exposed for now. The engine still knows
+/// about SVG, JPEG, TIM, TIM4 and TIM8, and a save card that names one of them
+/// still loads it, but the menus cannot reach those bytes.
+pub const TEXTURE_FORMAT_BYTES: &[u8] = &[0, 2];
+
+/// Whether `v` names a texture format the menus can select.
+///
+/// Both menus share this so neither can reach a byte the other cannot. Only
+/// `AUTO` (0) and `QOI` (2) are exposed for now; the engine still knows about
+/// SVG, JPEG, TIM, TIM4 and TIM8.
 pub const fn texture_format_is_selectable(v: u8) -> bool {
-    v <= MAX_TEXTURE_FORMAT
+    v == 0 || v == 2
 }
 
 impl Default for PauseMenu {
@@ -171,11 +173,19 @@ impl PauseMenu {
     /// Steps the selected row's value, wrapping. Only the settings rows
     /// have values; the action rows report `false`.
     fn cycle_value(&mut self, dir: i32) -> bool {
+        // The texture row is no longer a contiguous byte range: only AUTO (0)
+        // and QOI (2) are offered. Cycle directly between them so the player
+        // can never land on a format this build's disc does not carry.
+        if self.selected_idx == ITEM_TEXTURE {
+            let bytes = TEXTURE_FORMAT_BYTES;
+            let cur = self.values.texture_format;
+            let idx = bytes.iter().position(|&b| b == cur).unwrap_or(0);
+            self.values.texture_format =
+                bytes[(idx as i32 + dir).rem_euclid(bytes.len() as i32) as usize];
+            return true;
+        }
+
         let (cur, span) = match self.selected_idx {
-            ITEM_TEXTURE => (
-                self.values.texture_format as i32,
-                MAX_TEXTURE_FORMAT as i32 + 1,
-            ),
             ITEM_FRAMERATE => (self.values.framerate as i32, 2),
             ITEM_VIEW => (self.values.camera_view as i32, 3),
             ITEM_CD_AUDIO => (self.values.cd_audio as i32, 3),
@@ -186,7 +196,6 @@ impl PauseMenu {
         };
         let next = (cur + dir).rem_euclid(span) as u8;
         match self.selected_idx {
-            ITEM_TEXTURE => self.values.texture_format = next,
             ITEM_FRAMERATE => self.values.framerate = next,
             ITEM_VIEW => self.values.camera_view = next,
             ITEM_CD_AUDIO => self.values.cd_audio = next,

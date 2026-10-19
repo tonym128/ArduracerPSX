@@ -3556,29 +3556,24 @@ mod graphics_settings {
         i
     }
 
-    /// The texture format must wrap in both directions rather than clamp, so
-    /// the player can reach every option from any other in a single press.
-    ///
-    /// Seven options now: AUTO, SVG, QOI, JPEG, TIM, TIM4, TIM8. The cycle is byte-linear,
-    /// matching `TextureFormat::next`, so TIM8 is reached from TIM4.
+    /// The texture row now offers only AUTO (0) and QOI (2); SVG, JPEG, TIM,
+    /// TIM4 and TIM8 are no longer reachable from the menu, although the engine
+    /// still decodes them and a save card naming one of them still loads. The
+    /// two remaining options cycle and wrap in both directions.
     #[test]
-    fn texture_format_cycles_through_every_option_and_wraps() {
+    fn texture_format_cycles_through_the_two_options_and_wraps() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..7 {
+        for _ in 0..4 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
         }
-        assert_eq!(
-            seen,
-            vec![0, 1, 2, 3, 4, 5, 6, 0],
-            "right must cycle and wrap"
-        );
+        assert_eq!(seen, vec![0, 2, 0, 2, 0], "right must cycle and wrap");
 
-        // Backwards from Auto lands on TIM8, the last option.
+        // Left from Auto lands on QOI, the other offered option.
         m.update(press(|i| i.left = true));
-        assert_eq!(m.values().texture_format, 6, "left must wrap to the end");
+        assert_eq!(m.values().texture_format, 2, "left must wrap to QOI");
     }
 
     #[test]
@@ -3646,7 +3641,7 @@ mod graphics_settings {
             changes, 1,
             "a held direction changed the value {changes} times"
         );
-        assert_eq!(m.values().texture_format, 1);
+        assert_eq!(m.values().texture_format, 2);
     }
 
     #[test]
@@ -3689,7 +3684,7 @@ mod graphics_settings {
         // A change alone must not close the screen.
         match m.update(press(|i| i.right = true)) {
             SettingsChoice::Changed(v) => assert_eq!(
-                v.texture_format, 1,
+                v.texture_format, 2,
                 "a change must report the value it moved to"
             ),
             other => panic!("expected a change, got {other:?}"),
@@ -3747,7 +3742,7 @@ mod graphics_settings {
             "right on a settings row must report a change, got {:?}",
             out.choice
         );
-        assert_eq!(p.values().texture_format, 1);
+        assert_eq!(p.values().texture_format, 2);
         // Editing a value must not move the cursor or activate the row.
         assert_eq!(p.selected_idx, 2, "the row should stay selected");
     }
@@ -3824,18 +3819,19 @@ mod graphics_settings {
     }
 
     /// Every value the settings screen can produce must be one the save
-    /// sanitiser accepts, and the screen must never emit a byte the reader
-    /// would clamp. A mismatch here would silently reset the setting on the
-    /// next boot.
+    /// sanitiser accepts. The menu only offers AUTO (0) and QOI (2) now; the
+    /// engine still decodes SVG, JPEG, TIM, TIM4 and TIM8, and a card naming one
+    /// of them still loads, but the menus cannot reach those bytes.
     #[test]
     fn every_reachable_value_is_persistable() {
         let mut m = SettingsMenu::new(values());
         let mut seen = vec![m.values().texture_format];
-        for _ in 0..7 {
+        for _ in 0..4 {
             m.update(press(|i| i.right = true));
             m.update(SettingsInput::default());
             seen.push(m.values().texture_format);
         }
+        assert_eq!(seen, vec![0, 2, 0, 2, 0]);
         for v in seen {
             assert!(
                 texture_format_is_selectable(v),
@@ -4105,25 +4101,25 @@ mod graphics_settings {
         assert_eq!(p.selected_idx, 0);
     }
 
-    /// `MAX_TEXTURE_FORMAT` is shared between both menus precisely so a new
-    /// format cannot be added to one and forgotten in the other. Both must
-    /// therefore be able to reach every byte the core enum can name.
+    /// The settings menu shares `TEXTURE_FORMAT_BYTES` with the pause menu, so
+    /// neither can offer a byte the other cannot. Only AUTO (0) and QOI (2) are
+    /// offered; SVG, JPEG, TIM, TIM4 and TIM8 are still decoded by the engine
+    /// but are no longer reachable from the settings menu.
     #[test]
-    fn both_menus_reach_every_texture_format_byte() {
-        for menu_span in [pause_input::MAX_TEXTURE_FORMAT] {
-            for v in 0..=menu_span {
-                let mut m = SettingsMenu::new(values());
-                let mut reached = false;
-                for _ in 0..=menu_span {
-                    if m.values().texture_format == v {
-                        reached = true;
-                        break;
-                    }
-                    m.update(press(|i| i.right = true));
-                    m.update(SettingsInput::default());
-                }
-                assert!(reached, "settings screen could not reach format {v}");
-            }
+    fn both_menus_reach_only_the_offered_texture_format_bytes() {
+        let mut m = SettingsMenu::new(values());
+        let mut seen = vec![m.values().texture_format];
+        for _ in 0..4 {
+            m.update(press(|i| i.right = true));
+            m.update(SettingsInput::default());
+            seen.push(m.values().texture_format);
+        }
+        assert_eq!(seen, vec![0, 2, 0, 2, 0]);
+        for v in seen {
+            assert!(
+                texture_format_is_selectable(v),
+                "settings reached non-selectable texture byte {v}"
+            );
         }
     }
 

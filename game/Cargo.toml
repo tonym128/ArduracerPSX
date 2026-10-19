@@ -94,13 +94,10 @@ profiling = []
 
 # Pin the texture format for headless A/B/C comparison runs, so a run can be
 # reproduced from its feature list alone instead of depending on which save the
-# memory card happens to hold. Each implies `profiling`; combining them is a
-# compile error (see main.rs) rather than a silent winner.
+# memory card happens to hold. Implies `profiling`; only QOI is offered in the
+# settings menu, so QOI is the only remaining texture-format pin.
 #
-#   cargo build --release --features profiling,profile-tim
-profile-tim = ["profiling"]
-profile-tim4 = ["profiling"]
-profile-tim8 = ["profiling"]
+#   cargo build --release --features profiling,profile-qoi
 profile-qoi = ["profiling"]
 # Cycle-sweep every authored course, switching after ten report windows.
 profile-all-tracks = ["profiling"]
