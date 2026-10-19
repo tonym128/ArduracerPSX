@@ -5780,13 +5780,20 @@ mod m7_mesh_tests {
             }
         }
 
-        fn poly(&mut self, poly: &[MeshVert], zmin: i32) {
+        /// Rasterizes one polygon in winding order, exactly as the renderer
+        /// submits it: four vertices as a GPU quad, more as a fan.
+        fn poly(&mut self, poly: &[MeshVert]) {
             self.polys += 1;
-            if zmin == M7_Z_NEAR << 4 {
+            if poly.iter().any(|v| v.z == M7_Z_NEAR << 4) {
                 self.clipped += 1;
             }
             let p: Vec<(i16, i16)> = poly.iter().map(|v| (v.sx, v.sy)).collect();
-            let uv: Vec<(i32, i32)> = poly.iter().map(|v| (v.u as i32, v.v as i32)).collect();
+            // The mesh is built with `TexMap::LOCAL`, so u/v are tile-local
+            // texels; the warp check works in 1/16 texel.
+            let uv: Vec<(i32, i32)> = poly
+                .iter()
+                .map(|v| (v.u as i32 * 16, v.v as i32 * 16))
+                .collect();
             if poly.len() == 4 {
                 // The GPU splits a quad v0..v3 as (v0,v1,v2) + (v1,v2,v3), and
                 // the renderer passes the ring as [0, 1, 3, 2].
@@ -5800,14 +5807,35 @@ mod m7_mesh_tests {
         }
     }
 
+    /// Collects the mesh's polygons, each in winding order.
+    struct Collect(Vec<Vec<MeshVert>>);
+
+    impl m7_mesh::Sink for Collect {
+        fn quad(&mut self, q: [&MeshVert; 4]) {
+            // GPU quad order (TL, TR, BL, BR) back to winding order.
+            self.0.push(vec![*q[0], *q[1], *q[3], *q[2]]);
+        }
+        fn fan(&mut self, verts: &[MeshVert]) {
+            self.0.push(verts.to_vec());
+        }
+    }
+
     /// Draws every tile around the camera, at the levels the renderer picks
     /// unless `force` pins one level everywhere.
     fn render(cam: Camera, force: Option<i32>) -> Raster {
+        render_view(
+            cam,
+            force,
+            (VX0 as i16, VY0 as i16, (VX0 + VW) as i16, (VY0 + VH) as i16),
+        )
+    }
+
+    /// [`render`] culling against `view` instead of the tall virtual screen.
+    fn render_view(cam: Camera, force: Option<i32>, view: (i16, i16, i16, i16)) -> Raster {
         let mut ras = Raster::new(cam);
         let mut scratch = MeshScratch::new();
         let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
         let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
-        let view = (VX0 as i16, VY0 as i16, (VX0 + VW) as i16, (VY0 + VH) as i16);
         for ty in cty - 12..=cty + 12 {
             for tx in ctx - 12..=ctx + 12 {
                 let tile = (tx, ty);
@@ -5825,20 +5853,21 @@ mod m7_mesh_tests {
                     }
                 };
                 ras.tile = tile;
-                let mut polys = Vec::new();
+                let mut polys = Collect(Vec::new());
                 m7_mesh::build_tile(
                     &cam,
                     &rect,
                     n,
                     sides,
+                    m7_mesh::TexMap::LOCAL,
                     cam.z_far << 4,
                     view,
                     &mut scratch,
                     &mut SoftwareProjector(&cam),
-                    |p, zmin, _| polys.push((p.to_vec(), zmin)),
+                    &mut polys,
                 );
-                for (p, zmin) in &polys {
-                    ras.poly(p, *zmin);
+                for p in &polys.0 {
+                    ras.poly(p);
                 }
             }
         }
@@ -5912,6 +5941,34 @@ mod m7_mesh_tests {
         assert!(clipped > 0, "no polygon crossed the near plane");
     }
 
+    /// Against the real 320x240 screen the near plane meets the ground below
+    /// the view, so cells it cuts are culled by outcode instead of clipped.
+    /// That shortcut must not drop anything visible.
+    #[test]
+    fn culling_cut_cells_below_the_screen_leaves_no_holes() {
+        for cam in poses() {
+            let ras = render_view(cam, None, (0, 0, 320, 240));
+            let far_q4 = (cam.z_far << 4) as f64;
+            let mut holes = 0;
+            for y in 0..240 {
+                for x in 0..320 {
+                    let c = ras.cover[((y - VY0) * VW + (x - VX0)) as usize];
+                    let Some((_, _, z_q4)) = ras.unproject(x as f64 + 0.5, y as f64 + 0.5) else {
+                        continue;
+                    };
+                    if z_q4 < far_q4 * 0.98 && c == 0 {
+                        holes += 1;
+                    }
+                }
+            }
+            assert_eq!(
+                holes, 0,
+                "heading {}: holes on the real screen",
+                cam.heading
+            );
+        }
+    }
+
     /// The depth bands keep the texture where perspective puts it.
     ///
     /// Measured on screen: the ground point the GPU's affinely interpolated
@@ -5963,9 +6020,9 @@ mod m7_mesh_tests {
 
     fn render_counting(cam: Camera) -> usize {
         let mut scratch = MeshScratch::new();
+        let mut counter = Collect(Vec::new());
         let ctx = (cam.pos.x.raw() >> 12) / TILE as i32;
         let cty = (cam.pos.y.raw() >> 12) / TILE as i32;
-        let mut count = 0;
         for ty in cty - 12..=cty + 12 {
             for tx in ctx - 12..=ctx + 12 {
                 let tile = (tx, ty);
@@ -5979,15 +6036,16 @@ mod m7_mesh_tests {
                     &rect,
                     n,
                     sides,
+                    m7_mesh::TexMap::LOCAL,
                     cam.z_far << 4,
                     (0, 0, 320, 240),
                     &mut scratch,
                     &mut SoftwareProjector(&cam),
-                    |_, _, _| count += 1,
+                    &mut counter,
                 );
             }
         }
-        count
+        counter.0.len()
     }
 
     #[test]

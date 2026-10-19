@@ -58,6 +58,7 @@ use crate::gpu::texlayout::{
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
+use psx_hw::gpu::pack_vertex;
 use psx_vram::{dma_copy_to_vram, upload_16bpp, upload_words, Clut, TexDepth, Tpage, VramRect};
 
 /// Capacity of the in-RAM compressed block cache (one 1024x1024 block, <= 500 KB).
@@ -1249,6 +1250,8 @@ fn tile_vram_rect_and_words(codec: Codec, target_slot: usize) -> (VramRect, usiz
 /// back to GP0 FIFO if the DMA channel did not report complete.
 #[inline(never)]
 fn upload_tile_to_vram(codec: Codec, target_slot: usize, src: *const u32) {
+    // Same DMA channel as the floor's packets; let any walk finish first.
+    finish_floor_packets();
     let (rect, word_count) = tile_vram_rect_and_words(codec, target_slot);
     let _upload = crate::prof::span(crate::prof::TRACK_VRAM_UPLOAD);
     let via_dma = dma_copy_to_vram(rect, src);
@@ -2866,6 +2869,9 @@ pub fn render_track_extents(
             );
         }
     }
+    // The Mode 7 floor went out as DMA packets; everything drawn after this
+    // writes the command port directly, so the walk must be done first.
+    finish_floor_packets();
 }
 
 // ---------------------------------------------------------------------------
@@ -3002,6 +3008,9 @@ fn draw_m7_backdrop(camera: &Camera) {
     }
 }
 
+/// Largest ground offset (Q4) handed to the GTE, inside its `i16` input.
+const M7_GTE_REACH_Q4: i32 = 32_000;
+
 /// Screen rectangle the ground mesh culls against.
 const M7_VIEW: (i16, i16, i16, i16) = (0, 0, 320, 240);
 
@@ -3010,32 +3019,308 @@ const M7_VIEW: (i16, i16, i16, i16) = (0, 0, 320, 240);
 /// Requires [`gte_proj::load_m7_camera_gte`] for the camera being drawn. The
 /// GTE does the heading rotation and the perspective divide that the software
 /// path spent two R3000 `DIV`s per vertex on, which is what pays for the finer
-/// near-camera grid. Points behind the camera come back saturated; the mesh
-/// never draws one, because it clips every polygon to `M7_Z_NEAR` first.
-struct GteGround;
+/// near-camera grid, and it leaves each point's depth in `SZ`, exactly the
+/// value `Camera::view_from_offset_q4` computes. `SZ` saturates at zero, so a
+/// point nearer than the near plane gets its true (possibly negative) depth
+/// recomputed in software; its screen position is never used, because the mesh
+/// clips every polygon to `M7_Z_NEAR` first.
+struct GteGround {
+    hsin: i32,
+    hcos: i32,
+}
+
+impl GteGround {
+    fn new(camera: &Camera) -> Self {
+        Self {
+            hsin: camera.hsin(),
+            hcos: camera.hcos(),
+        }
+    }
+
+    #[inline(always)]
+    fn finish(&self, p: &mut m7_mesh::MeshVert, r: psx_gte::scene::Projected) {
+        p.sx = r.sx;
+        p.sy = r.sy;
+        let sz = r.sz as i32;
+        p.z = if sz >= M7_Z_NEAR << 4 {
+            sz
+        } else {
+            ((p.dx * self.hsin - p.dy * self.hcos) >> 12) + (M7_Z0 << 4)
+        };
+    }
+}
 
 impl m7_mesh::Projector for GteGround {
-    fn project(&mut self, offs: &[(i32, i32)], out: &mut [(i16, i16)]) {
+    fn project(&mut self, pts: &mut [m7_mesh::MeshVert], code: &mut [u8], oc: &m7_mesh::Outcoder) {
         use psx_gte::{math::Vec3I16, scene};
-        let v = |o: (i32, i32)| {
-            Vec3I16::new(
-                o.0.clamp(-32_000, 32_000) as i16,
-                0,
-                o.1.clamp(-32_000, 32_000) as i16,
-            )
-        };
-        let mut k = 0;
-        while k + 3 <= offs.len() {
-            let p = scene::project_triangle_scheduled(v(offs[k]), v(offs[k + 1]), v(offs[k + 2]));
-            out[k] = (p[0].sx, p[0].sy);
-            out[k + 1] = (p[1].sx, p[1].sy);
-            out[k + 2] = (p[2].sx, p[2].sy);
-            k += 3;
+        // No clamp: `draw_tile_m7` never meshes a tile with a corner outside
+        // the `i16` range (see `M7_GTE_REACH_Q4`). The clamps were six compare-
+        // and-branch pairs per triple, a fifth of this loop.
+        let v = |p: &m7_mesh::MeshVert| Vec3I16::new(p.dx as i16, 0, p.dy as i16);
+        let mut chunks = pts.chunks_exact_mut(3);
+        let mut codes = code.chunks_exact_mut(3);
+        for (t, c) in (&mut chunks).zip(&mut codes) {
+            let [r0, r1, r2] = scene::project_triangle_scheduled(v(&t[0]), v(&t[1]), v(&t[2]));
+            self.finish(&mut t[0], r0);
+            self.finish(&mut t[1], r1);
+            self.finish(&mut t[2], r2);
+            c[0] = oc.code(&t[0]);
+            c[1] = oc.code(&t[1]);
+            c[2] = oc.code(&t[2]);
         }
-        while k < offs.len() {
-            let p = scene::project_vertex_scheduled(v(offs[k]));
-            out[k] = (p.sx, p.sy);
-            k += 1;
+        for (q, c) in chunks
+            .into_remainder()
+            .iter_mut()
+            .zip(codes.into_remainder().iter_mut())
+        {
+            let r = scene::project_vertex_scheduled(v(q));
+            self.finish(q, r);
+            *c = oc.code(q);
+        }
+    }
+}
+
+/// Distance fog for the ground: full brightness out to 150 units, fading to
+/// ~55% at the far plane, darker again at night.
+///
+/// The fade divides by the same range for every polygon, so it is a
+/// reciprocal taken once per tile and one multiply per polygon -- a per-polygon
+/// `DIV` was a measurable share of the floor on the R3000.
+#[derive(Copy, Clone)]
+struct GroundFog {
+    /// `58 / (far - 150)` in Q16.
+    fade_q16: i32,
+    night: bool,
+}
+
+impl GroundFog {
+    fn new(z_far: i32, night: bool) -> Self {
+        Self {
+            fade_q16: (58 << 16) / (z_far - 150).max(1),
+            night,
+        }
+    }
+
+    /// Modulation for a polygon whose depth runs `za..zb` (Q4).
+    #[inline(always)]
+    fn shade(self, za: i32, zb: i32) -> u8 {
+        let z_units = (za + zb) >> 5;
+        let base = if z_units <= 150 {
+            128
+        } else {
+            (128 - (((z_units - 150) * self.fade_q16) >> 16)).max(70)
+        };
+        if self.night {
+            ((base * 86) >> 7) as u8
+        } else {
+            base as u8
+        }
+    }
+}
+
+/// Words per half of the floor's packet buffer.
+///
+/// About fifty quads per half. The buffer is static (4 KB), so it is sized
+/// against the `ci-game` RAM gate, not against a frame's worth of polygons:
+/// double-buffering means it never needs to hold a whole frame.
+const FLOOR_CHUNK_WORDS: usize = 512;
+
+/// The Mode 7 floor's GPU packets, double-buffered for linked-list DMA.
+///
+/// Why not write GP0 directly, as every other draw does: each primitive then
+/// costs a ready-wait on the GPU plus a port write per word, and with the CPU
+/// stalled for every one of them the finer floor mesh spent over a thousand
+/// cycles per polygon just handing them over. Here the CPU writes packets to
+/// RAM, and each half is given to DMA channel 2 as soon as it fills, so the
+/// GPU draws one half while the CPU builds the next. The walk waits for the
+/// previous one before it starts, so a half is never rewritten while the GPU
+/// is still reading it.
+///
+/// Every primitive is its own node, which keeps each under the GPU FIFO's
+/// 16-word node limit ([`gpu::MAX_NODE_WORDS`]).
+struct FloorPackets {
+    buf: [[u32; FLOOR_CHUNK_WORDS]; 2],
+    /// Half being filled.
+    cur: usize,
+    /// Words used in it.
+    len: usize,
+    /// Index of the last node's tag in the current half, to link the next.
+    prev: usize,
+    /// Whether a DMA walk may still be running.
+    in_flight: bool,
+}
+
+static mut FLOOR_PACKETS: FloorPackets = FloorPackets {
+    buf: [[0; FLOOR_CHUNK_WORDS]; 2],
+    cur: 0,
+    len: 0,
+    prev: usize::MAX,
+    in_flight: false,
+};
+
+/// Tag terminating a linked-list chain.
+const LIST_END: u32 = 0x00FF_FFFF;
+
+impl FloorPackets {
+    /// Opens a node of `words` payload words and returns them to fill.
+    #[inline(always)]
+    fn node(&mut self, words: usize) -> &mut [u32] {
+        if self.len + 1 + words > FLOOR_CHUNK_WORDS {
+            self.kick();
+        }
+        let base = self.len;
+        let buf = &mut self.buf[self.cur];
+        if self.prev != usize::MAX {
+            let addr = (buf.as_ptr() as u32 + (base as u32) * 4) & 0x00FF_FFFF;
+            buf[self.prev] = (buf[self.prev] & 0xFF00_0000) | addr;
+        }
+        buf[base] = ((words as u32) << 24) | LIST_END;
+        self.prev = base;
+        self.len = base + 1 + words;
+        &mut buf[base + 1..base + 1 + words]
+    }
+
+    /// Hands the current half to the GPU and starts filling the other.
+    fn kick(&mut self) {
+        if self.len == 0 {
+            return;
+        }
+        {
+            // The kick waits for the previous walk before starting this one.
+            let _w = crate::prof::span(crate::prof::TRACK_M7_DMA_WAIT);
+            gpu::submit_linked_list_async(self.buf[self.cur].as_ptr());
+        }
+        self.in_flight = true;
+        self.cur ^= 1;
+        self.len = 0;
+        self.prev = usize::MAX;
+    }
+
+    /// Submits whatever is queued and waits for the walk to finish, so the
+    /// command port is free for immediate-mode drawing again.
+    fn finish(&mut self) {
+        self.kick();
+        if self.in_flight {
+            let _w = crate::prof::span(crate::prof::TRACK_M7_DMA_WAIT);
+            gpu::submit_linked_list_wait();
+            self.in_flight = false;
+        }
+    }
+}
+
+/// The floor's packet buffer.
+#[inline(always)]
+fn floor_packets() -> &'static mut FloorPackets {
+    unsafe { &mut *core::ptr::addr_of_mut!(FLOOR_PACKETS) }
+}
+
+/// Drains the floor's DMA before anything else talks to the GPU.
+///
+/// The floor pass calls this itself when it ends; it is also called before a
+/// VRAM upload, since that uses the same DMA channel.
+pub fn finish_floor_packets() {
+    floor_packets().finish();
+}
+
+/// Writes textured ground polygons as linked-list packets.
+///
+/// Every word that is the same for the whole tile -- the command opcode, CLUT
+/// and tpage -- is packed once here, and the mesh already carries each
+/// vertex's page coordinate, so a cell costs its four vertex words, four UV
+/// words and one header.
+struct TexturedSink {
+    quad_cmd: u32,
+    tri_cmd: u32,
+    clut: u32,
+    tpage: u32,
+    fog: GroundFog,
+    polys: u32,
+}
+
+impl TexturedSink {
+    /// A vertex's packed UV.
+    #[inline(always)]
+    fn uv(&self, v: &m7_mesh::MeshVert) -> u32 {
+        v.u as u32 | ((v.v as u32) << 8)
+    }
+
+    /// Header word for a polygon spanning depths `za..zb` (Q4).
+    #[inline(always)]
+    fn header(&self, cmd: u32, za: i32, zb: i32) -> u32 {
+        let s = self.fog.shade(za, zb) as u32;
+        cmd | s | (s << 8) | (s << 16)
+    }
+}
+
+impl m7_mesh::Sink for TexturedSink {
+    fn quad(&mut self, q: [&m7_mesh::MeshVert; 4]) {
+        self.polys += 1;
+        // Fog from the diagonal: the near and far corners of a ground cell.
+        let header = self.header(self.quad_cmd, q[0].z, q[3].z);
+        let w = floor_packets().node(9);
+        w[0] = header;
+        w[1] = pack_vertex(q[0].sx, q[0].sy);
+        w[2] = self.uv(q[0]) | self.clut;
+        w[3] = pack_vertex(q[1].sx, q[1].sy);
+        w[4] = self.uv(q[1]) | self.tpage;
+        w[5] = pack_vertex(q[2].sx, q[2].sy);
+        w[6] = self.uv(q[2]);
+        w[7] = pack_vertex(q[3].sx, q[3].sy);
+        w[8] = self.uv(q[3]);
+    }
+
+    fn fan(&mut self, v: &[m7_mesh::MeshVert]) {
+        self.polys += 1;
+        let (mut zmin, mut zmax) = (i32::MAX, i32::MIN);
+        for p in v {
+            zmin = zmin.min(p.z);
+            zmax = zmax.max(p.z);
+        }
+        let header = self.header(self.tri_cmd, zmin, zmax);
+        let clamp = m7_needs_clamp(v);
+        let (p0, t0) = (m7_point(&v[0], clamp), self.uv(&v[0]) | self.clut);
+        for k in 1..v.len() - 1 {
+            let (p1, p2) = (m7_point(&v[k], clamp), m7_point(&v[k + 1], clamp));
+            let w = floor_packets().node(7);
+            w[0] = header;
+            w[1] = pack_vertex(p0.0, p0.1);
+            w[2] = t0;
+            w[3] = pack_vertex(p1.0, p1.1);
+            w[4] = self.uv(&v[k]) | self.tpage;
+            w[5] = pack_vertex(p2.0, p2.1);
+            w[6] = self.uv(&v[k + 1]);
+        }
+    }
+}
+
+/// Draws a pending tile's ground mesh in its placeholder colour.
+struct FlatSink {
+    colour: u32,
+    polys: u32,
+}
+
+impl m7_mesh::Sink for FlatSink {
+    fn quad(&mut self, q: [&m7_mesh::MeshVert; 4]) {
+        self.polys += 1;
+        let w = floor_packets().node(5);
+        w[0] = 0x2800_0000 | self.colour;
+        w[1] = pack_vertex(q[0].sx, q[0].sy);
+        w[2] = pack_vertex(q[1].sx, q[1].sy);
+        w[3] = pack_vertex(q[2].sx, q[2].sy);
+        w[4] = pack_vertex(q[3].sx, q[3].sy);
+    }
+
+    fn fan(&mut self, v: &[m7_mesh::MeshVert]) {
+        self.polys += 1;
+        let clamp = m7_needs_clamp(v);
+        let p0 = m7_point(&v[0], clamp);
+        for k in 1..v.len() - 1 {
+            let (p1, p2) = (m7_point(&v[k], clamp), m7_point(&v[k + 1], clamp));
+            let w = floor_packets().node(4);
+            w[0] = 0x2000_0000 | self.colour;
+            w[1] = pack_vertex(p0.0, p0.1);
+            w[2] = pack_vertex(p1.0, p1.1);
+            w[3] = pack_vertex(p2.0, p2.1);
         }
     }
 }
@@ -3044,10 +3329,9 @@ impl m7_mesh::Projector for GteGround {
 ///
 /// The mesh -- depth-banded subdivision, stitching against finer neighbours and
 /// near-plane clipping -- is built by [`m7_mesh::build_tile`]; see that module
-/// for why each part exists. This only turns its polygons into GPU primitives:
-/// a four-sided cell is one quad, a stitched or clipped cell a fan from vertex
-/// 0. Pending tiles draw the same mesh flat-shaded. Distance fog darkens the
-/// texture modulation.
+/// for why each part exists. The sinks above turn it into GPU primitives: a
+/// plain cell is one quad, a stitched or clipped cell a fan. Pending tiles draw
+/// the same mesh flat-shaded.
 #[inline(never)]
 fn draw_tile_m7(
     camera: &Camera,
@@ -3060,113 +3344,84 @@ fn draw_tile_m7(
     let Some(rect) = m7_mesh::TileRect::new(tile, tile_wu, world) else {
         return;
     };
+    // The GTE takes 16-bit offsets. A tile reaching past them is thousands of
+    // units away, far beyond the far plane, so it is simply not drawn.
+    let (cam_qx, cam_qy) = (camera.pos.x.raw() >> 8, camera.pos.y.raw() >> 8);
+    let reach = |w: i32, extent: i32, cam: i32| {
+        (w * 16 - cam).abs().max(((w + extent) * 16 - cam).abs()) <= M7_GTE_REACH_Q4
+    };
+    if !reach(rect.wx0, rect.cw, cam_qx) || !reach(rect.wy0, rect.ch, cam_qy) {
+        return;
+    }
     let n = m7_mesh::rect_level(camera, &rect);
     let sides = m7_mesh::side_levels(camera, tile, tile_wu, world, n);
     let z_far_q4 = camera.z_far << 4;
     let (tx, ty) = tile;
 
-    if s_idx == usize::MAX {
+    let (points, polys) = if s_idx == usize::MAX {
         let checker = ((tx ^ ty) & 1) != 0;
-        let (cr, cg, cb) = texlayout::placeholder_tile_colour(true, checker);
-        let mut polys = 0u32;
+        let (r, g, b) = texlayout::placeholder_tile_colour(true, checker);
+        let mut sink = FlatSink {
+            colour: r as u32 | ((g as u32) << 8) | ((b as u32) << 16),
+            polys: 0,
+        };
         let points = m7_mesh::build_tile(
             camera,
             &rect,
             n,
             sides,
+            m7_mesh::TexMap::LOCAL,
             z_far_q4,
             M7_VIEW,
             scratch,
-            &mut GteGround,
-            |poly, _, _| {
-                polys += 1;
-                let clamp = m7_needs_clamp(poly);
-                let pt = |k: usize| m7_point(&poly[k], clamp);
-                if poly.len() == 4 {
-                    gpu::draw_quad_flat([pt(0), pt(1), pt(3), pt(2)], cr, cg, cb);
-                } else {
-                    for k in 1..poly.len() - 1 {
-                        gpu::draw_tri_flat([pt(0), pt(k), pt(k + 1)], cr, cg, cb);
-                    }
-                }
-            },
+            &mut GteGround::new(camera),
+            &mut sink,
         );
-        crate::prof::count(crate::prof::C_M7_POINTS, points as u32);
-        crate::prof::count(crate::prof::C_M7_POLYS, polys);
-        return;
-    }
-
-    let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
-    let (tpage_idx, u_base, v_base) = tex.slot_uv(s_idx);
-    let tpage_word = tex.tpages[tpage_idx].uv_tpage_word(0);
-    let u_shift = tex.u_shift;
-    let clut_word = tex.clut_word;
-    let is_night = is_night_circuit();
-    let far = camera.z_far;
-    // Tile-local 1/16 texels -> atlas texels, rounded to nearest.
-    let uv_of = |v: &m7_mesh::MeshVert| {
-        let lu = ((v.u as u32 + 8) >> 4).min(64);
-        let lv = ((v.v as u32 + 8) >> 4).min(64);
-        (
-            (((u_base as u32 + lu) >> u_shift).min(255)) as u8,
-            ((v_base as u32 + lv).min(255)) as u8,
-        )
+        (points, sink.polys)
+    } else {
+        let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
+        let (tpage_idx, u_base, v_base) = tex.slot_uv(s_idx);
+        let material = TextureMaterial::opaque(
+            tex.clut_word,
+            tex.tpages[tpage_idx].uv_tpage_word(0),
+            (0, 0, 0),
+        );
+        let mut sink = TexturedSink {
+            quad_cmd: material.flat_textured_polygon_header(true),
+            tri_cmd: material.flat_textured_polygon_header(false),
+            clut: (material.clut_word() as u32) << 16,
+            tpage: (material.tpage_word() as u32) << 16,
+            fog: GroundFog::new(camera.z_far, is_night_circuit()),
+            polys: 0,
+        };
+        floor_packets().node(1)[0] = material.texture_window_word();
+        let (points, layout) = {
+            let _s = crate::prof::span(crate::prof::TRACK_M7_POINTS);
+            m7_mesh::prepare(
+                camera,
+                &rect,
+                n,
+                sides,
+                m7_mesh::TexMap {
+                    u0: u_base as u16,
+                    v0: v_base as u16,
+                    u_shift: tex.u_shift,
+                },
+                z_far_q4,
+                M7_VIEW,
+                scratch,
+                &mut GteGround::new(camera),
+            )
+        };
+        m7_mesh::emit(
+            &layout,
+            M7_VIEW,
+            scratch,
+            &mut GteGround::new(camera),
+            &mut sink,
+        );
+        (points, sink.polys)
     };
-
-    // Called once per polygon, so it builds nothing it does not send: no
-    // per-polygon arrays to zero (on the R3000 the stack is uncached RAM, and
-    // that memset was a measurable slice of the frame).
-    let mut polys = 0u32;
-    let points = m7_mesh::build_tile(
-        camera,
-        &rect,
-        n,
-        sides,
-        z_far_q4,
-        M7_VIEW,
-        scratch,
-        &mut GteGround,
-        |poly, zmin, zmax| {
-            polys += 1;
-            // Fog: full brightness out to 150 units, fading to ~55% at the far plane.
-            let z_units = (zmax + zmin) >> 5;
-            let base_shade = if z_units <= 150 {
-                128
-            } else {
-                let fade_range = (far - 150).max(1);
-                (128 - (z_units - 150) * 58 / fade_range).max(70)
-            };
-            let shade = if is_night {
-                (base_shade * 86 / 128) as u8
-            } else {
-                base_shade as u8
-            };
-            let material = TextureMaterial::opaque(clut_word, tpage_word, (shade, shade, shade));
-            let clamp = m7_needs_clamp(poly);
-            let pt = |k: usize| m7_point(&poly[k], clamp);
-            if poly.len() == 4 {
-                gpu::draw_quad_textured_material(
-                    [pt(0), pt(1), pt(3), pt(2)],
-                    [
-                        uv_of(&poly[0]),
-                        uv_of(&poly[1]),
-                        uv_of(&poly[3]),
-                        uv_of(&poly[2]),
-                    ],
-                    material,
-                );
-            } else {
-                let (p0, t0) = (pt(0), uv_of(&poly[0]));
-                for k in 1..poly.len() - 1 {
-                    gpu::draw_tri_textured_material(
-                        [p0, pt(k), pt(k + 1)],
-                        [t0, uv_of(&poly[k]), uv_of(&poly[k + 1])],
-                        material,
-                    );
-                }
-            }
-        },
-    );
     crate::prof::count(crate::prof::C_M7_POINTS, points as u32);
     crate::prof::count(crate::prof::C_M7_POLYS, polys);
 }
@@ -3174,8 +3429,8 @@ fn draw_tile_m7(
 /// Whether a polygon is too large for the GPU, which drops any primitive wider
 /// than 1023 or taller than 511 pixels.
 ///
-/// The mesh keeps cells small enough that this should not trigger; it keeps the
-/// same last-resort clamp the fixed grid used.
+/// Only stitched and clipped cells are checked: plain grid cells are a few
+/// dozen pixels at most. This keeps the last-resort clamp the fixed grid used.
 #[inline]
 fn m7_needs_clamp(poly: &[m7_mesh::MeshVert]) -> bool {
     let (mut min_x, mut max_x, mut min_y, mut max_y) = (i16::MAX, i16::MIN, i16::MAX, i16::MIN);

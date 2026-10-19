@@ -89,7 +89,7 @@ pub const WINDOW_FRAMES: u32 = 30;
 
 /// Number of stage slots. Sized to the highest stage constant plus one; the
 /// compile-time guard below keeps that honest.
-pub const STAGE_COUNT: usize = 22;
+pub const STAGE_COUNT: usize = 24;
 
 /// A frame spent blocked in VBlank, waiting for the display period.
 ///
@@ -182,7 +182,15 @@ pub const PARTICLES: usize = 20;
 /// In-game HUD overlay.
 pub const HUD: usize = 21;
 
-const _: () = assert!(HUD == STAGE_COUNT - 1);
+/// Mode 7 ground mesh points: generation, GTE projection and outcodes. Nested
+/// inside [`TRACK_QUADS`]; the rest of that row is polygon emission.
+pub const TRACK_M7_POINTS: usize = 22;
+
+/// Time the Mode 7 floor spends waiting for its own DMA walks -- the GPU still
+/// drawing the previous packet half. Nested inside [`TRACK_QUADS`].
+pub const TRACK_M7_DMA_WAIT: usize = 23;
+
+const _: () = assert!(TRACK_M7_DMA_WAIT == STAGE_COUNT - 1);
 
 // ---------------------------------------------------------------------------
 // Counters
@@ -270,6 +278,8 @@ const fn is_nested_in_render_track(stage: usize) -> bool {
             | TRACK_DECODE
             | TRACK_VRAM_UPLOAD
             | TRACK_QUADS
+            | TRACK_M7_POINTS
+            | TRACK_M7_DMA_WAIT
     )
 }
 
@@ -298,6 +308,8 @@ static STAGE_NAMES: [&str; STAGE_COUNT] = [
     "cars",
     "particles",
     "hud",
+    "track:m7-points",
+    "track:m7-dma-wait",
 ];
 
 /// Human-readable counter name, indexed by the counter constants above.
