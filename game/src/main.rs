@@ -692,6 +692,7 @@ impl ArduracerGame {
 
     /// Resets the current race state to the starting grid.
     pub fn reset_race(&mut self) {
+        crate::gpu::props_renderer::reset_prop_cache();
         let track = self.current_track;
         let is_mania_sprint = (self.state_mgr.championship.is_none()
             && self.state_mgr.track_select.mode == GameMode::Mania

@@ -269,7 +269,7 @@ fn render_checkpoint_arch(camera: &Camera, gate: &CheckpointGate, cleared: bool,
 /// standing in the racing line, with no collision to explain why the car drove
 /// straight through them.
 fn render_biome_props(camera: &Camera, track: &TrackDef, biome_style: u8, _ticks: u32) {
-    for pos in biome_prop_placements(track).iter() {
+    for pos in cached_placements(track).iter() {
         match biome_style {
             0 => draw_palm_tree(camera, pos),
             1 => draw_cyber_pylon(camera, pos),
@@ -279,6 +279,45 @@ fn render_biome_props(camera: &Camera, track: &TrackDef, biome_style: u8, _ticks
             _ => draw_stadium_floodlight(camera, pos),
         }
     }
+}
+
+/// The current race's prop positions, computed on first use.
+///
+/// The scan probes outward from every fourth route node with a `cos`/`sin` per
+/// probe, and redone every frame it cost ~146k cycles -- 8% of a race frame,
+/// twice that in split screen -- for positions that depend only on the track.
+struct PropCache {
+    /// The track the placements were computed for; 0 when there are none.
+    track: usize,
+    placements: biome_prop_placements::Placements,
+}
+
+static mut PROP_CACHE: PropCache = PropCache {
+    track: 0,
+    placements: biome_prop_placements::Placements::EMPTY,
+};
+
+/// Forgets the cached prop positions. Call when a race is (re)started.
+///
+/// The track pointer alone cannot tell two custom circuits apart: each is
+/// compiled into the same static. The positions are recomputed on the next
+/// frame, by which time the circuit's tile grid has been loaded.
+pub fn reset_prop_cache() {
+    // SAFETY: the renderer is single-threaded and never touches this from an
+    // interrupt.
+    unsafe { (*core::ptr::addr_of_mut!(PROP_CACHE)).track = 0 };
+}
+
+fn cached_placements(track: &TrackDef) -> &'static biome_prop_placements::Placements {
+    // SAFETY: as in `reset_prop_cache`; the reference is dropped before the
+    // next frame can reset the cache.
+    let cache = unsafe { &mut *core::ptr::addr_of_mut!(PROP_CACHE) };
+    let key = track as *const TrackDef as usize;
+    if cache.track != key {
+        cache.placements = biome_prop_placements(track);
+        cache.track = key;
+    }
+    &cache.placements
 }
 
 /// Route node `idx` of `n`, for either route representation.
@@ -327,6 +366,12 @@ pub mod biome_prop_placements {
     }
 
     impl Placements {
+        /// No props.
+        pub const EMPTY: Placements = Placements {
+            points: [Vec2::ZERO; PROP_MAX_PROP_COUNT],
+            count: 0,
+        };
+
         /// Positions in draw order.
         pub fn iter(&self) -> impl Iterator<Item = Vec2> + '_ {
             self.points[..self.count].iter().copied()
