@@ -67,6 +67,11 @@ jobs:
         # (PLAYTEST_FLAGS=--allow-par-drift) but CI runs the strict default.
         run: make playtest
 
+      - name: Run Python & Node tooling tests
+        # tests/ holds host-tooling suites that are not crate tests, so they are
+        # outside `make test` and have their own target. Node ships on the runner.
+        run: make test-py
+
   game:
     name: PSX cross-build & RAM budget gate
     runs-on: ubuntu-latest

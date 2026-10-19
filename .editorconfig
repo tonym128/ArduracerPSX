@@ -1,0 +1,31 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown uses trailing double-spaces for hard line breaks; do not strip them.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.rs]
+indent_style = space
+indent_size = 4
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+# Make recipes are tab-indented; never convert to spaces.
+[Makefile]
+indent_style = tab
+
+[*.{json,jsonc,yml,yaml,toml}]
+indent_style = space
+indent_size = 2
+
+[*.{js,ts}]
+indent_style = space
+indent_size = 2

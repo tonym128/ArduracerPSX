@@ -1,0 +1,25 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "formatter": true,
+  "worktree": {
+    "directory": ".worktrees"
+  },
+  "watcher": {
+    "ignore": [
+      "dist/**",
+      "build/**",
+      "target/**",
+      "**/target/**",
+      ".worktrees/**",
+      "assets/**",
+      "__pycache__/**"
+    ]
+  },
+  "permissions": [
+    { "action": "shell", "resource": "git push --force*", "effect": "deny" },
+    { "action": "shell", "resource": "git push -f*", "effect": "deny" },
+    { "action": "shell", "resource": "git push *", "effect": "ask" },
+    { "action": "edit", "resource": "crates/arduracer-core/src/levels.rs", "effect": "deny" },
+    { "action": "edit", "resource": "crates/arduracer-core/src/visual_tex.rs", "effect": "deny" }
+  ]
+}
