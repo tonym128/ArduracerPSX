@@ -1606,11 +1606,46 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
+    // The grid floor needs each tile at its world-position slot, and the
+    // first frame would otherwise drop a cache laid out any other way and
+    // stream the whole view again. Where two tiles share a slot the nearer
+    // (earlier, after the sort above) keeps it.
+    let grid = grid_floor_wanted(camera, active_circuit, (tile_wu_x, tile_wu_y));
+    unsafe { GRID_FLOOR = grid };
     let n_slots = active_texture(active_circuit).slot_count();
-    let count = cand_count.min(n_slots).min(candidates.len());
-    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); 128];
-    for (i, c) in candidates[..count].iter().enumerate() {
-        tiles[i] = (c.0, c.1, c.2, c.3, c.4);
+    let mut taken = [false; MAX_VRAM_SLOTS];
+    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32, 0usize); 128];
+    let mut count = 0;
+    let mut shadowed = [false; 128];
+    for (k, c) in candidates[..cand_count].iter().enumerate() {
+        if count >= n_slots.min(tiles.len()) {
+            break;
+        }
+        let slot = if grid { grid_slot(c.2, c.3) } else { count };
+        if taken[slot] {
+            shadowed[k] = true;
+            continue;
+        }
+        taken[slot] = true;
+        tiles[count] = (c.0, c.1, c.2, c.3, c.4, slot);
+        count += 1;
+    }
+    // A tile whose slot a nearer one took goes to a free one, where the
+    // track pass finds it and draws it over the grid.
+    let mut free = 0;
+    for (k, c) in candidates[..cand_count].iter().enumerate() {
+        if !shadowed[k] || count >= tiles.len() {
+            continue;
+        }
+        while free < n_slots && taken[free] {
+            free += 1;
+        }
+        if free >= n_slots {
+            break;
+        }
+        taken[free] = true;
+        tiles[count] = (c.0, c.1, c.2, c.3, c.4, free);
+        count += 1;
     }
 
     // Sort by tile_idx (disc LBA / block index) across ALL formats:
@@ -1625,8 +1660,8 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
-    for (slot_idx, &(bx, by, sub_tx, sub_ty, _)) in tiles[..count].iter().enumerate() {
-        decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot_idx);
+    for &(bx, by, sub_tx, sub_ty, _, slot) in tiles[..count].iter() {
+        decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot);
     }
 }
 
