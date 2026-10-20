@@ -2082,6 +2082,7 @@ struct SpareDecode {
     last_flip_vblank: u32,
     rows_left: usize,
     visible: [TileRef; VISIBLE_TILES_MAX],
+    visible_depths: [i32; VISIBLE_TILES_MAX],
     visible_count: usize,
     prefetch: [TileRef; PREFETCH_MAX],
     prefetch_count: usize,
@@ -2098,6 +2099,7 @@ static mut SPARE_DECODE: SpareDecode = SpareDecode {
     last_flip_vblank: 0,
     rows_left: 0,
     visible: [(0, 0, 0, 0, 0, 0); VISIBLE_TILES_MAX],
+    visible_depths: [0; VISIBLE_TILES_MAX],
     visible_count: 0,
     prefetch: [(0, 0, 0, 0, 0, 0); PREFETCH_MAX],
     prefetch_count: 0,
@@ -2204,6 +2206,7 @@ pub fn decode_in_spare_time() {
             spare.active_circuit,
             &TileCandidates {
                 visible: &spare.visible,
+                visible_depths: &spare.visible_depths,
                 visible_count: spare.visible_count,
                 prefetch: &spare.prefetch,
                 prefetch_count: spare.prefetch_count,
@@ -2251,7 +2254,8 @@ fn tile_resident(vram_slots: &[VramSlot], circuit: usize, tile: &TileRef) -> boo
     vram_slots.iter().any(|slot| slot.key == target_key)
 }
 
-/// Unified priority key across all 6 texture codecs:
+/// Priority key for a prefetch tile, across all 6 texture codecs (visible
+/// tiles use `visible_decode_priority`, by exact nearest depth):
 ///   - Needs RAM block (0 = already resident in RAM or uncompressed, 1 = requires async block switch)
 ///   - In Mode 7: depth tier (0 = near [z < 150], 1 = mid [150 <= z < 220], 2 = far [z >= 220])
 ///   - Sub-tile index in disc / span order (sub_ty * 16 + sub_tx)
@@ -2262,17 +2266,8 @@ fn tile_priority_key(
     uncompressed: bool,
     tile: &TileRef,
 ) -> u32 {
-    let (tx, ty, bx, by, sub_tx, sub_ty) = *tile;
-    let needs_ram_block = if uncompressed || is_ram_block_resident(active_circuit, bx, by) {
-        0u32
-    } else {
-        let job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
-        if job.active && job.circuit == active_circuit && job.block_x == bx && job.block_y == by {
-            1u32
-        } else {
-            2u32
-        }
-    };
+    let (tx, ty, _, _, _, _) = *tile;
+    let needs_ram_block = ram_block_state(active_circuit, uncompressed, tile);
 
     let depth_tier = if candidates.camera.mode7 {
         let cam_qx = candidates.camera.pos.x.raw() >> 8;
@@ -2295,10 +2290,34 @@ fn tile_priority_key(
         0u32
     };
 
+    (needs_ram_block << 28)
+        | (depth_tier << 20)
+        | (tile_disc_order(active_circuit, tile) & 0x000F_FFFF)
+}
+
+/// 0 when `tile`'s compressed block is in RAM (or the codec has none), 1 while
+/// it is streaming in, 2 when it is not loaded.
+#[inline(always)]
+fn ram_block_state(active_circuit: usize, uncompressed: bool, tile: &TileRef) -> u32 {
+    let (_, _, bx, by, _, _) = *tile;
+    if uncompressed || is_ram_block_resident(active_circuit, bx, by) {
+        return 0;
+    }
+    let job = unsafe { &*core::ptr::addr_of!(ASYNC_BLOCK_JOB) };
+    if job.active && job.circuit == active_circuit && job.block_x == bx && job.block_y == by {
+        1
+    } else {
+        2
+    }
+}
+
+/// `tile`'s position in disc / span order across the circuit's blocks.
+#[inline(always)]
+fn tile_disc_order(active_circuit: usize, tile: &TileRef) -> u32 {
+    let (_, _, bx, by, sub_tx, sub_ty) = *tile;
     let b_idx = visual_tex::circuit_block_index(active_circuit, bx, by) as u32;
-    let idx = b_idx * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS) as u32
-        + (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32;
-    (needs_ram_block << 28) | (depth_tier << 20) | (idx & 0x000F_FFFF)
+    b_idx * (TILES_PER_BLOCK_AXIS * TILES_PER_BLOCK_AXIS) as u32
+        + (sub_ty * TILES_PER_BLOCK_AXIS + sub_tx) as u32
 }
 
 /// The tile lists one frame's decode scheduler draws candidates from.
@@ -2308,6 +2327,8 @@ fn tile_priority_key(
 struct TileCandidates<'a> {
     /// Tiles inside the screen rectangle. Phase 3 draws these.
     visible: &'a [TileRef],
+    /// Each visible tile's nearest view depth (Q4); 0 outside Mode 7.
+    visible_depths: &'a [i32],
     visible_count: usize,
     /// One tile row above and below the visible rectangle. Decode-only.
     prefetch: &'a [TileRef],
@@ -2349,7 +2370,11 @@ fn step_or_schedule_decode_row(
         for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
             if slot == usize::MAX {
                 let tile = candidates.visible[i];
-                let key = tile_priority_key(candidates, active_circuit, uncompressed, &tile);
+                let key = arduracer_core::texture_format::visible_decode_priority(
+                    ram_block_state(active_circuit, uncompressed, &tile),
+                    candidates.visible_depths[i] >> 4,
+                    tile_disc_order(active_circuit, &tile),
+                );
                 if best_vis.is_none() || key < best_vis.unwrap().4 {
                     let (_, _, bx, by, sub_tx, sub_ty) = tile;
                     best_vis = Some((bx, by, sub_tx, sub_ty, key));
@@ -2903,6 +2928,7 @@ pub fn render_track_extents(
             active_circuit,
             &TileCandidates {
                 visible: &visible_tiles,
+                visible_depths: &vis_depths,
                 visible_count: vis_count,
                 prefetch: &prefetch_tiles,
                 prefetch_count,
@@ -2935,6 +2961,7 @@ pub fn render_track_extents(
             spare.last_flip_vblank = last_flip_vblank;
             spare.rows_left = max_rows - rows_decoded;
             spare.visible = visible_tiles;
+            spare.visible_depths = vis_depths;
             spare.visible_count = vis_count;
             spare.prefetch = prefetch_tiles;
             spare.prefetch_count = prefetch_count;

@@ -600,6 +600,32 @@ pub const fn decode_row_budget_for_viewport(total: usize, viewports: usize, inde
     }
 }
 
+/// Decode order for a visible tile still missing its texture: lower decodes
+/// first.
+///
+/// `block_state` is 0 when the tile's compressed block is already in RAM, 1
+/// while it is streaming in, 2 when it is not loaded; a tile that can be
+/// decoded now always goes before one that would wait on the disc. Within a
+/// state, the tile whose nearest point is closest to the camera (`nearest_z`,
+/// world units, negative under the camera) goes first: it covers the most of
+/// the screen, so it is the placeholder most worth replacing. `order` (disc
+/// order) only breaks ties.
+///
+/// Visible tiles used to be ranked by three depth bands at the tile centre,
+/// then disc order, so within the near band the tile under the car could wait
+/// behind one 100 units ahead of it.
+pub const fn visible_decode_priority(block_state: u32, nearest_z: i32, order: u32) -> u32 {
+    let state = if block_state > 3 { 3 } else { block_state };
+    let z = if nearest_z < 0 {
+        0
+    } else if nearest_z > 0xFFFF {
+        0xFFFF
+    } else {
+        nearest_z as u32
+    };
+    (state << 28) | (z << 12) | (order & 0xFFF)
+}
+
 /// Returns the number of MCU decode rows (or uncompressed tile uploads) admitted
 /// per unit of frame budget, tailored to each codec's CPU cycle cost on the PS1
 /// R3000A MIPS CPU and GPU DMA upload profile.
@@ -648,6 +674,23 @@ pub const fn rows_per_budget_for_codec(codec: Codec, is_multiblock: bool) -> usi
 
 #[cfg(test)]
 mod budget_tests {
+    #[test]
+    fn nearer_visible_tiles_decode_first() {
+        use super::visible_decode_priority as p;
+        // Nearer wins regardless of disc order.
+        assert!(p(0, 20, 900) < p(0, 120, 1));
+        // A tile under the camera is as near as it gets.
+        assert_eq!(p(0, -40, 7), p(0, 0, 7));
+        // A decodable tile beats a nearer one waiting on its block.
+        assert!(p(0, 400, 0) < p(1, 0, 0));
+        assert!(p(1, 400, 0) < p(2, 0, 0));
+        // Disc order breaks ties.
+        assert!(p(0, 50, 3) < p(0, 50, 4));
+        // Out-of-range inputs saturate instead of spilling into other fields.
+        assert!(p(0, i32::MAX, 0xFFF) < p(1, 0, 0));
+        assert_eq!(p(9, 0, 0), p(3, 0, 0));
+    }
+
     #[test]
     fn lines_since_vblank_counts_from_the_interrupt() {
         assert_eq!(super::lines_since_vblank(53, 53), 0);
