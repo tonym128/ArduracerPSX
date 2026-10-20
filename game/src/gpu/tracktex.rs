@@ -2069,28 +2069,73 @@ pub fn render_track(
     );
 }
 
-/// Scanlines the work after texture decoding needs, the recent worst case
-/// (`next_decode_reserve`). Starts at most of a field, and is measured from
-/// the first frame on.
-static mut DECODE_RESERVE_LINES: u32 = 200;
 /// Scanlines one decode row takes, the recent worst case: a row started when
 /// the check passes still has to finish, and a QOI row is ~45 scanlines
 /// (~70k instructions), not a rounding error.
 static mut DECODE_ROW_LINES: u32 = 48;
-/// When this frame's decoding stopped, as `display_time`; `None` on frames
-/// that drew no track.
-static mut DECODE_END: Option<(u32, u32)> = None;
+/// What the end-of-frame decode works from: this frame's candidate tiles, as
+/// the track pass left them. See [`decode_in_spare_time`].
+struct SpareDecode {
+    valid: bool,
+    current_frame: u32,
+    active_circuit: usize,
+    last_flip_vblank: u32,
+    rows_left: usize,
+    visible: [TileRef; VISIBLE_TILES_MAX],
+    visible_count: usize,
+    prefetch: [TileRef; PREFETCH_MAX],
+    prefetch_count: usize,
+    camera: Option<Camera>,
+    tile_wu: (i32, i32),
+    slot_for_tile: [usize; VISIBLE_TILES_MAX],
+    used_slots: [bool; MAX_VRAM_SLOTS],
+}
 
-/// The VBlank count and the scanline within the current field (root counter
-/// 1, restarted at every VBlank), read as one consistent pair.
+static mut SPARE_DECODE: SpareDecode = SpareDecode {
+    valid: false,
+    current_frame: 0,
+    active_circuit: 0,
+    last_flip_vblank: 0,
+    rows_left: 0,
+    visible: [(0, 0, 0, 0, 0, 0); VISIBLE_TILES_MAX],
+    visible_count: 0,
+    prefetch: [(0, 0, 0, 0, 0, 0); PREFETCH_MAX],
+    prefetch_count: 0,
+    camera: None,
+    tile_wu: (0, 0),
+    slot_for_tile: [usize::MAX; VISIBLE_TILES_MAX],
+    used_slots: [false; MAX_VRAM_SLOTS],
+};
+
+/// Track passes drawn this frame; split-screen draws two.
+static mut TRACK_PASSES: u32 = 0;
+
+/// The VBlank count and the scanlines since that VBlank, read as one
+/// consistent pair. Root counter 1 free-runs on HBlank; the VBlank handler
+/// records it at every edge (`psx_rt::interrupts::vblank_timer1`).
 fn display_time() -> (u32, u32) {
     loop {
         let vblank = psx_rt::interrupts::vblank_count();
-        let line = psx_io::timers::counter(psx_io::timers::Timer::Timer1) as u32;
+        let at_vblank = psx_rt::interrupts::vblank_timer1();
+        let raw = psx_io::timers::counter(psx_io::timers::Timer::Timer1) as u32;
         if psx_rt::interrupts::vblank_count() == vblank {
-            return (vblank, line);
+            return (
+                vblank,
+                arduracer_core::texture_format::lines_since_vblank(raw, at_vblank),
+            );
         }
     }
+}
+
+/// Scanlines left before the deadline of the frame that began at
+/// `last_flip_vblank`; zero once it has passed.
+pub fn frame_slack_lines(last_flip_vblank: u32) -> u32 {
+    let (vblank, line) = display_time();
+    arduracer_core::texture_format::frame_lines_left(
+        vblank.wrapping_sub(last_flip_vblank),
+        frame_period(),
+        line,
+    )
 }
 
 /// Folds the scanlines between two `display_time` readings into a decaying
@@ -2104,23 +2149,85 @@ fn next_row_lines(previous: u32, from: (u32, u32), to: (u32, u32)) -> u32 {
     next_decode_reserve(previous, lines)
 }
 
-/// Measures how long the frame's work after decoding took and folds it into
-/// the decode reserve. Called once a frame when its work is done.
-pub fn note_frame_work_done() {
-    use arduracer_core::texture_format::{next_decode_reserve, LINES_PER_VBLANK};
+/// Decodes texture rows in the time left before the frame's deadline, once
+/// everything else in the frame is drawn. Called once a frame, before the
+/// pacing wait.
+///
+/// The track pass decodes only the row a missing visible tile forces. It used
+/// to decode further rows mid-frame, against a measured reserve for the floor,
+/// props, cars and HUD still to come, but in a race the floor after decoding
+/// ranged from 130k to 300k instructions, so the guess came up short exactly
+/// on the heavy frames. Here the time left is known, so a row only starts when
+/// one fits ([`DECODE_ROW_LINES`], the recent worst case).
+pub fn decode_in_spare_time() {
     // SAFETY: single-threaded; never touched from an interrupt.
-    let end = unsafe { core::ptr::replace(core::ptr::addr_of_mut!(DECODE_END), None) };
-    let Some((vb0, line0)) = end else {
+    let spare = unsafe { &mut *core::ptr::addr_of_mut!(SPARE_DECODE) };
+    unsafe { TRACK_PASSES = 0 };
+    if !spare.valid {
+        return;
+    }
+    spare.valid = false;
+    let Some(camera) = spare.camera else {
         return;
     };
-    let (vb1, line1) = display_time();
-    let lines = (vb1.wrapping_sub(vb0) * LINES_PER_VBLANK + line1).saturating_sub(line0);
-    // A frame stalled for longer than this (loading, a pause screen) says
-    // nothing about the next one.
-    if lines <= 2 * LINES_PER_VBLANK {
-        unsafe { DECODE_RESERVE_LINES = next_decode_reserve(DECODE_RESERVE_LINES, lines) };
+    if unsafe { ACTIVE_CIRCUIT } != spare.active_circuit {
+        return;
+    }
+    let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
+    let period = frame_period();
+    let mut row_start = display_time();
+    let mut rows = 0;
+    while rows < spare.rows_left {
+        let (vblank, line) = display_time();
+        if rows > 0 {
+            unsafe {
+                DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, (vblank, line))
+            };
+        }
+        row_start = (vblank, line);
+        let lines_left = arduracer_core::texture_format::frame_lines_left(
+            vblank.wrapping_sub(spare.last_flip_vblank),
+            period,
+            line,
+        );
+        if !arduracer_core::texture_format::decode_row_allowed(
+            lines_left,
+            unsafe { DECODE_ROW_LINES } + SPARE_MARGIN_LINES,
+            0,
+            0,
+        ) {
+            break;
+        }
+        pump_cd_streams();
+        let did_work = step_or_schedule_decode_row(
+            spare.current_frame,
+            spare.active_circuit,
+            &TileCandidates {
+                visible: &spare.visible,
+                visible_count: spare.visible_count,
+                prefetch: &spare.prefetch,
+                prefetch_count: spare.prefetch_count,
+                camera: &camera,
+                tile_wu: spare.tile_wu,
+            },
+            &mut spare.slot_for_tile,
+            &mut spare.used_slots,
+            vram_slots,
+        );
+        if !did_work {
+            break;
+        }
+        rows += 1;
+    }
+    if rows > 0 {
+        let end = display_time();
+        unsafe { DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, end) };
     }
 }
+
+/// Scanlines kept clear of the deadline after the last spare-time row, for
+/// the frame close and the flip.
+const SPARE_MARGIN_LINES: u32 = 8;
 
 /// Tile reference tuple: `(tile_x, tile_y, block_x, block_y, sub_tx, sub_ty)`.
 /// Shared by the visible list and the prefetch list so one scheduler can read
@@ -2770,11 +2877,10 @@ pub fn render_track_extents(
         }
     }
 
-    // Phase 2: Progress the active time-sliced decode job dynamically based on frame budget.
-    // Up to `max_rows` can be processed, while more than the measured reserve
-    // for the rest of the frame is left (`decode_row_allowed`).
-    let mut rows_decoded = 0;
-    let period = frame_period();
+    // Phase 2: Progress the active time-sliced decode job. Only the row a
+    // missing visible tile forces is decoded here, before the floor; the rest
+    // of the budget waits for the end of the frame (`decode_in_spare_time`),
+    // where the time left is known rather than guessed.
     let is_multiblock = visual_tex::circuit_block_grid(active_circuit).0 > 1;
     let active_codec = codec_for_circuit(active_circuit);
     let rows_per_budget =
@@ -2788,34 +2894,10 @@ pub fn render_track_extents(
         }
     };
     let max_rows = (max_decode_rows * rows_per_budget).max(min_rows);
-    let reserve = unsafe { DECODE_RESERVE_LINES + DECODE_ROW_LINES };
-    let mut row_start = display_time();
-    while rows_decoded < max_rows {
-        let (vblank, line) = display_time();
-        if rows_decoded > 0 {
-            // SAFETY: single-threaded; never touched from an interrupt.
-            unsafe {
-                DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, (vblank, line))
-            };
-        }
-        row_start = (vblank, line);
-        let lines_left = arduracer_core::texture_format::frame_lines_left(
-            vblank.wrapping_sub(last_flip_vblank),
-            period,
-            line,
-        );
-        // Leave the rest of the frame enough time; see `decode_row_allowed`.
-        if !arduracer_core::texture_format::decode_row_allowed(
-            lines_left,
-            reserve,
-            rows_decoded,
-            min_rows,
-        ) {
-            break;
-        }
-
+    let mut rows_decoded = 0;
+    let row_start = display_time();
+    while rows_decoded < min_rows {
         pump_cd_streams();
-
         let did_work = step_or_schedule_decode_row(
             current_frame,
             active_circuit,
@@ -2836,14 +2918,31 @@ pub fn render_track_extents(
         }
         rows_decoded += 1;
     }
-
-    let decode_end = display_time();
     // SAFETY: single-threaded; never touched from an interrupt.
     unsafe {
         if rows_decoded > 0 {
-            DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, decode_end);
+            DECODE_ROW_LINES = next_row_lines(DECODE_ROW_LINES, row_start, display_time());
         }
-        DECODE_END = Some(decode_end);
+        // Split-screen draws two passes a frame; the spare time goes to each
+        // viewport's candidates on alternate frames.
+        let pass = TRACK_PASSES;
+        TRACK_PASSES += 1;
+        if pass == 0 || current_frame & 1 == 1 {
+            let spare = &mut *core::ptr::addr_of_mut!(SPARE_DECODE);
+            spare.valid = true;
+            spare.current_frame = current_frame;
+            spare.active_circuit = active_circuit;
+            spare.last_flip_vblank = last_flip_vblank;
+            spare.rows_left = max_rows - rows_decoded;
+            spare.visible = visible_tiles;
+            spare.visible_count = vis_count;
+            spare.prefetch = prefetch_tiles;
+            spare.prefetch_count = prefetch_count;
+            spare.camera = Some(*camera);
+            spare.tile_wu = (tile_wu_x, tile_wu_y);
+            spare.slot_for_tile = slot_for_tile;
+            spare.used_slots = used_slots;
+        }
     }
 
     // In Mode 7, sort visible tiles by depth descending (far to near) so painter's algorithm
