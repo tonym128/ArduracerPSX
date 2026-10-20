@@ -66,6 +66,9 @@ pub mod gte_proj;
 #[path = "../../../game/src/gpu/m7_mesh.rs"]
 pub mod m7_mesh;
 
+#[path = "../../../game/src/gpu/m7_grid.rs"]
+pub mod m7_grid;
+
 #[path = "../../../game/src/gpu/props_renderer.rs"]
 #[allow(unused_imports, dead_code)]
 pub mod props_renderer;
@@ -6054,6 +6057,227 @@ mod m7_mesh_tests {
             }
         }
         counter.0.len()
+    }
+
+    // --- The fixed screen-space grid (`m7_grid`) ---------------------------
+
+    use super::m7_grid::{GridFrame, GridShape, GridSink, GridVert, PAGE_Q8, SHAPE};
+
+    /// Texels per tile side, as the game streams them.
+    const TILE_TEX: i32 = 64;
+    const WORLD_TEX: i32 = WORLD / TILE * TILE_TEX;
+
+    /// Rasterizes the grid's polygons, checking each stays inside its page.
+    struct GridRaster<'a>(&'a mut Raster);
+
+    impl GridRaster<'_> {
+        fn world(v: &GridVert) -> (f64, f64) {
+            let k = TILE as f64 / TILE_TEX as f64 / 256.0;
+            (v.u as f64 * k, v.v as f64 * k)
+        }
+        fn check_page(page: (i32, i32), v: &GridVert) {
+            let (lu, lv) = (v.u - page.0 * PAGE_Q8, v.v - page.1 * PAGE_Q8);
+            assert!(
+                (0..=PAGE_Q8).contains(&lu) && (0..=PAGE_Q8).contains(&lv),
+                "vertex {v:?} outside page {page:?}"
+            );
+            assert!(
+                v.u >= 0 && v.v >= 0 && v.u <= WORLD_TEX << 8 && v.v <= WORLD_TEX << 8,
+                "vertex {v:?} outside the world"
+            );
+        }
+    }
+
+    impl GridSink for GridRaster<'_> {
+        fn row(&mut self, _z_far: i32, _z_near: i32) {}
+        fn quad(&mut self, page: (i32, i32), q: [&GridVert; 4]) {
+            self.0.polys += 1;
+            for v in q {
+                Self::check_page(page, v);
+            }
+            let p = |v: &GridVert| (v.sx, v.sy);
+            // GPU order: (v0, v1, v2) + (v1, v2, v3).
+            self.0.tri(
+                [p(q[0]), p(q[1]), p(q[2])],
+                [Self::world(q[0]), Self::world(q[1]), Self::world(q[2])],
+            );
+            self.0.tri(
+                [p(q[1]), p(q[2]), p(q[3])],
+                [Self::world(q[1]), Self::world(q[2]), Self::world(q[3])],
+            );
+        }
+        fn fan(&mut self, page: (i32, i32), v: &[&GridVert]) {
+            self.0.polys += 1;
+            for x in v {
+                Self::check_page(page, x);
+            }
+            let p = |v: &GridVert| (v.sx, v.sy);
+            for k in 1..v.len() - 1 {
+                self.0.tri(
+                    [p(v[0]), p(v[k]), p(v[k + 1])],
+                    [Self::world(v[0]), Self::world(v[k]), Self::world(v[k + 1])],
+                );
+            }
+        }
+    }
+
+    fn render_grid(cam: Camera, shape: GridShape) -> Raster {
+        let mut ras = Raster::new(cam);
+        let frame = GridFrame::new(&cam, shape, TILE, TILE_TEX, (WORLD_TEX, WORLD_TEX));
+        frame.emit(&mut GridRaster(&mut ras));
+        ras
+    }
+
+    /// Every real-screen ground pixel nearer than the far plane is drawn once.
+    #[test]
+    fn grid_has_no_holes() {
+        for cam in poses() {
+            let ras = render_grid(cam, SHAPE);
+            let far_q4 = (cam.z_far << 4) as f64;
+            let (mut holes, mut overlaps) = (0, 0);
+            for y in 0..240 {
+                for x in 0..320 {
+                    let c = ras.cover[((y - VY0) * VW + (x - VX0)) as usize];
+                    if c > 1 {
+                        overlaps += 1;
+                    }
+                    let Some((_, _, z_q4)) = ras.unproject(x as f64 + 0.5, y as f64 + 0.5) else {
+                        continue;
+                    };
+                    if z_q4 < far_q4 * 0.98 && c == 0 {
+                        holes += 1;
+                        if std::env::var("GRID_DEBUG").is_ok() {
+                            eprintln!("hole at ({x}, {y}) z {z_q4:.0}");
+                        }
+                    }
+                }
+            }
+            let at = (cam.heading, cam.pos.x.raw() >> 12, cam.pos.y.raw() >> 12);
+            assert_eq!(holes, 0, "{at:?}: holes in the grid");
+            assert!(overlaps <= 16, "{at:?}: {overlaps} doubly drawn pixels");
+        }
+    }
+
+    /// Near a corner of the world the grid stops at the world's edge: nothing
+    /// outside it is drawn, and nothing inside it is missed.
+    #[test]
+    fn grid_stops_at_the_world_edge() {
+        for heading in (0..4096u16).step_by(256) {
+            let cam = camera_at(150, 230, heading, true);
+            let ras = render_grid(cam, SHAPE);
+            let far_q4 = (cam.z_far << 4) as f64;
+            let (mut holes, mut outside) = (0, 0);
+            for y in 0..240 {
+                for x in 0..320 {
+                    let c = ras.cover[((y - VY0) * VW + (x - VX0)) as usize];
+                    let Some((wx, wy, z_q4)) = ras.unproject(x as f64 + 0.5, y as f64 + 0.5) else {
+                        continue;
+                    };
+                    if z_q4 >= far_q4 * 0.98 {
+                        continue;
+                    }
+                    // A pixel's ground footprint: near the horizon one scanline
+                    // spans tens of units in depth.
+                    let z = z_q4 / 16.0;
+                    let margin = 3.0 + z * z / 15_600.0;
+                    let inside = wx > margin && wy > margin;
+                    let out = wx < -margin || wy < -margin;
+                    if inside && c == 0 {
+                        holes += 1;
+                    }
+                    if out && c > 0 {
+                        outside += 1;
+                        if std::env::var("GRID_DEBUG").is_ok() {
+                            eprintln!("outside at ({x}, {y}) world ({wx:.1}, {wy:.1}) z {z_q4:.0}");
+                        }
+                    }
+                }
+            }
+            assert_eq!(holes, 0, "heading {heading}: holes inside the world");
+            assert_eq!(outside, 0, "heading {heading}: drawn outside the world");
+        }
+    }
+
+    /// The grid keeps the texture where perspective puts it, at least as well
+    /// as the per-tile mesh (`texture_warp_stays_small`), with far fewer
+    /// polygons.
+    #[test]
+    fn grid_warp_and_polygons_beat_the_tile_mesh() {
+        let (worst, over, pixels, polys) = grid_metrics(SHAPE);
+        // ~2.5 px and ~111 polygons; the tile mesh is ~7.3 px from ~320.
+        assert!(worst <= 3.0, "worst texel displacement {worst:.2} px");
+        assert!(over * 1000 <= pixels, "{over} of {pixels} pixels over 3 px");
+        assert!(polys <= 130, "{polys} polygons in one frame");
+    }
+
+    fn grid_metrics(shape: GridShape) -> (f64, u64, u64, usize) {
+        let (mut worst, mut over, mut pixels, mut polys) = (0.0f64, 0u64, 0u64, 0usize);
+        for cam in poses() {
+            let mut cam = cam;
+            cam.set_extended_view_distance(true);
+            let r = render_grid(cam, shape);
+            worst = worst.max(r.worst_px);
+            over += r.over_3px;
+            pixels += r.pixels;
+            polys = polys.max(r.polys);
+        }
+        (worst, over, pixels, polys)
+    }
+
+    /// Prints warp and polygon counts over a range of shapes, and the tile
+    /// mesh for comparison. `cargo test -- --ignored --nocapture grid_sweep`.
+    #[test]
+    #[ignore]
+    fn grid_sweep() {
+        let (mut worst, mut over, mut pixels) = (0.0f64, 0u64, 0u64);
+        for cam in poses() {
+            let mut cam = cam;
+            cam.set_extended_view_distance(true);
+            let r = render_view(cam, None, (0, 0, 320, 240));
+            worst = worst.max(r.worst_px);
+            over += r.over_3px;
+            pixels += r.pixels;
+        }
+        println!(
+            "tile mesh: worst {worst:.2} px, {:.2}% over 3 px",
+            100.0 * over as f64 / pixels as f64
+        );
+        {
+            struct Count(usize, usize);
+            impl GridSink for Count {
+                fn row(&mut self, _: i32, _: i32) {}
+                fn quad(&mut self, _: (i32, i32), _: [&GridVert; 4]) {
+                    self.0 += 1;
+                }
+                fn fan(&mut self, _: (i32, i32), _: &[&GridVert]) {
+                    self.1 += 1;
+                }
+            }
+            for cam in poses().into_iter().take(6) {
+                let mut cam = cam;
+                cam.set_extended_view_distance(true);
+                let f = GridFrame::new(&cam, SHAPE, TILE, TILE_TEX, (WORLD_TEX, WORLD_TEX));
+                let mut c = Count(0, 0);
+                f.emit(&mut c);
+                println!("heading {}: quads {} fans {}", cam.heading, c.0, c.1);
+            }
+        }
+        for rows in [6, 8, 10, 12, 16] {
+            for cols in [5, 6, 8, 10] {
+                for geometric_q8 in [192, 256] {
+                    let shape = GridShape {
+                        rows,
+                        cols,
+                        geometric_q8,
+                    };
+                    let (w, o, p, n) = grid_metrics(shape);
+                    println!(
+                        "rows {rows:2} cols {cols:2} geo {geometric_q8:3}: worst {w:5.2} px, {:5.2}% over 3 px, {n} polys",
+                        100.0 * o as f64 / p as f64
+                    );
+                }
+            }
+        }
     }
 
     #[test]

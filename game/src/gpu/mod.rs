@@ -10,6 +10,7 @@ pub mod debug_overlay;
 pub mod effects_sim;
 pub mod gte_proj;
 pub mod hud_renderer;
+pub mod m7_grid;
 pub mod m7_mesh;
 pub mod ot_pass;
 pub mod palette;

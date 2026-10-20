@@ -10,8 +10,9 @@
 //! streaks of up to 8 for exactly that reason. Now a frame that follows a late
 //! one runs only the ticks an on-time frame would; the rest is carried and paid
 //! back one tick at a time, only in frames following one that finished with
-//! [`REPAY_SLACK_LINES`] to spare. Carry beyond [`MAX_CARRY_TICKS`] is dropped,
-//! so a long overload slows the race slightly instead of stuttering.
+//! [`REPAY_SLACK_LINES`] to spare. Once [`MAX_CARRY_TICKS`] are carried the
+//! frames are late as a rule, so every frame repays one; only what is owed
+//! beyond that is dropped.
 
 /// Units one simulation tick costs.
 pub const TICK_COST: u32 = 5;
@@ -69,11 +70,18 @@ impl SimPacer {
         } else {
             elapsed_vblanks
         };
+        // Carried from earlier frames, before this one's time is added.
+        let full = self.units >= MAX_CARRY_TICKS * TICK_COST;
         self.units = self.units.saturating_add(elapsed * units_per_vblank);
         let frame_vblanks = if frame_vblanks == 0 { 1 } else { frame_vblanks };
         // What an on-time frame runs, rounded up: 2 on NTSC, 3 on PAL.
         let on_time = (frame_vblanks * units_per_vblank).div_ceil(TICK_COST);
-        let cap = if slack_lines >= REPAY_SLACK_LINES {
+        // Repay a carried tick after a frame with room for it -- or whenever
+        // the carry is full, which means the frames are late as a rule rather
+        // than now and then (60 FPS mode on a scene that cannot hold 60).
+        // Without that the carry is dropped every frame and the race runs in
+        // slow motion: measured at ~0.6x in 60 FPS mode at ~39 FPS.
+        let cap = if slack_lines >= REPAY_SLACK_LINES || full {
             on_time + 1
         } else {
             on_time
@@ -135,17 +143,32 @@ mod tests {
     fn carry_is_bounded() {
         let mut p = SimPacer::new();
         for _ in 0..50 {
-            assert_eq!(p.ticks(4, NTSC, 2, 0), 2);
+            assert!(p.ticks(4, NTSC, 2, 0) <= 3);
+            assert!(p.carried_units() < (MAX_CARRY_TICKS + 1) * TICK_COST);
         }
-        assert_eq!(
-            p.carried_units(),
-            MAX_CARRY_TICKS * TICK_COST + TICK_COST - 1
-        );
         let mut repaid = 0;
         for _ in 0..10 {
             repaid += p.ticks(2, NTSC, 2, ROOMY) - 2;
         }
-        assert_eq!(repaid, MAX_CARRY_TICKS);
+        assert!(repaid <= MAX_CARRY_TICKS);
+        assert!(p.carried_units() < TICK_COST);
+    }
+
+    #[test]
+    fn steady_overload_keeps_real_time() {
+        // 60 FPS mode where frames take 1.5 VBlanks on average: the race must
+        // not fall into slow motion.
+        let mut p = SimPacer::new();
+        let (mut ticks, mut vblanks) = (0, 0);
+        for i in 0..600 {
+            let elapsed = 1 + (i & 1);
+            ticks += p.ticks(elapsed, NTSC, 1, 0);
+            vblanks += elapsed;
+        }
+        assert!(
+            vblanks - ticks <= MAX_CARRY_TICKS + 1,
+            "{ticks} of {vblanks}"
+        );
     }
 
     #[test]

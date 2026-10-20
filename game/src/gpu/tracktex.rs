@@ -50,11 +50,12 @@ use crate::gpu::camera::{
     Camera, M7_SCAN_RADIUS, M7_SCAN_RADIUS_COMPRESSED, M7_Z0, M7_Z_FAR, M7_Z_FAR_COMPRESSED,
     M7_Z_NEAR,
 };
+use crate::gpu::m7_grid;
 use crate::gpu::m7_mesh;
 use crate::gpu::texlayout::{
-    self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES,
-    TIM8_TPAGE_COUNT, TIM8_VRAM_PAGES, TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT,
-    VRAM_TILE_DIM,
+    self, MAX_VRAM_SLOTS, TILES_PER_BLOCK_AXIS, TILES_PER_TPAGE, TILES_PER_TPAGE_AXIS,
+    TIM4_TPAGE_COUNT, TIM4_VRAM_PAGES, TIM8_TPAGE_COUNT, TIM8_VRAM_PAGES, TRACK_SLOT_COUNT,
+    TRACK_TPAGE_COUNT, TRACK_VRAM_SLOTS, VRAM_SLOT_COUNT, VRAM_TILE_DIM,
 };
 use psx_gpu as gpu;
 use psx_gpu::material::TextureMaterial;
@@ -217,6 +218,11 @@ fn pack_tile_key(circuit: usize, bx: usize, by: usize, tx: usize, ty: usize) -> 
 #[derive(Copy, Clone)]
 struct VramSlot {
     key: u32,
+    /// The tile this slot has been filled for -- with its pixels once `key`
+    /// matches, or its placeholder colour while it decodes. The grid floor
+    /// samples a slot whatever it holds, so a slot must never show a tile
+    /// other than the one the world places there; see [`claim_slot`].
+    claim: u32,
     resident_circuit: usize,
     resident_block_x: usize,
     resident_block_y: usize,
@@ -229,6 +235,7 @@ impl VramSlot {
     const fn empty() -> Self {
         Self {
             key: u32::MAX,
+            claim: u32::MAX,
             resident_circuit: usize::MAX,
             resident_block_x: usize::MAX,
             resident_block_y: usize::MAX,
@@ -324,6 +331,59 @@ static mut BLOCK_STAGING: StagingData = StagingData([0u8; STAGING_SECTORS * 2048
 /// first 128 and every direct-colour codec the first 64. See
 /// [`TrackTexture::slot_count`].
 static mut VRAM_SLOTS: [VramSlot; MAX_VRAM_SLOTS] = [VramSlot::empty(); MAX_VRAM_SLOTS];
+
+/// Whether the floor is drawn as the screen-space grid (`m7_grid`), with every
+/// visible tile at the slot its world position fixes ([`grid_slot`]).
+static mut GRID_FLOOR: bool = false;
+
+/// `slot_for_tile` value for a visible tile whose [`grid_slot`] a nearer
+/// visible tile holds. Eight tiles apart is 1,280 world units, so this only
+/// happens at the far corners of the view, ~1 tile a frame beyond 420 units;
+/// such a tile is drawn flat over the grid instead.
+const SLOT_CONFLICT: usize = usize::MAX - 1;
+
+/// The cache slot a tile occupies on the grid floor: tile `(x mod 8, y mod 8)`,
+/// so a 4x4 block of tiles is one 256x256 texture page and neighbouring tiles
+/// are neighbouring texels. Blocks are 16 tiles a side, so the in-block tile
+/// index has the same residues as the world one.
+#[inline(always)]
+const fn grid_slot(sub_tx: usize, sub_ty: usize) -> usize {
+    let page = ((sub_ty >> 2) & 1) * 2 + ((sub_tx >> 2) & 1);
+    page * TILES_PER_TPAGE + (sub_ty & 3) * TILES_PER_TPAGE_AXIS + (sub_tx & 3)
+}
+
+/// Whether this frame's floor can be the grid: a full-screen Mode 7 view of a
+/// direct-colour circuit with 160-unit tiles, whose 64 slots form the 8x8
+/// tile window [`grid_slot`] needs.
+fn grid_floor_wanted(camera: &Camera, circuit: usize, tile_wu: (i32, i32)) -> bool {
+    let tex = active_texture(circuit);
+    camera.mode7
+        && camera.viewport_w == 320
+        && camera.viewport_h == 240
+        && tex.bpp == 15
+        && tex.slot_count() == TRACK_SLOT_COUNT
+        && !codec_is_uncompressed(circuit)
+        && tile_wu == (160, 160)
+}
+
+/// Fills `slot` with the placeholder colour of the tile `key` and makes it that
+/// tile's, until its rows land. Cancels a decode still writing another tile
+/// into it.
+#[inline(never)]
+fn claim_slot(vram_slots: &mut [VramSlot; MAX_VRAM_SLOTS], slot: usize, key: u32, checker: bool) {
+    let job = unsafe { &mut *core::ptr::addr_of_mut!(ACTIVE_JOB) };
+    if job.active && job.target_slot == slot {
+        job.active = false;
+    }
+    // The fill and the uploads after it share the GPU's command stream with
+    // the floor's DMA, so let that finish first, as an upload does.
+    finish_floor_packets();
+    let (x, y, _, _, _) = texlayout::vram_slot_coords(slot);
+    let (r, g, b) = texlayout::placeholder_tile_colour(true, checker);
+    gpu::fill_rect(x, y, VRAM_TILE_DIM, VRAM_TILE_DIM, r, g, b);
+    vram_slots[slot] = VramSlot::empty();
+    vram_slots[slot].claim = key;
+}
 
 /// Active incremental decode job stepping 1 MCU row per frame (~20% frame budget).
 static mut ACTIVE_JOB: DecodeJob = DecodeJob::empty();
@@ -1283,6 +1343,7 @@ fn mark_vram_slot_resident(
 ) {
     let vram_slots = unsafe { &mut *core::ptr::addr_of_mut!(VRAM_SLOTS) };
     vram_slots[target_slot].key = pack_tile_key(circuit, bx, by, sub_tx, sub_ty);
+    vram_slots[target_slot].claim = vram_slots[target_slot].key;
     vram_slots[target_slot].resident_circuit = circuit;
     vram_slots[target_slot].resident_block_x = bx;
     vram_slots[target_slot].resident_block_y = by;
@@ -1545,11 +1606,46 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
+    // The grid floor needs each tile at its world-position slot, and the
+    // first frame would otherwise drop a cache laid out any other way and
+    // stream the whole view again. Where two tiles share a slot the nearer
+    // (earlier, after the sort above) keeps it.
+    let grid = grid_floor_wanted(camera, active_circuit, (tile_wu_x, tile_wu_y));
+    unsafe { GRID_FLOOR = grid };
     let n_slots = active_texture(active_circuit).slot_count();
-    let count = cand_count.min(n_slots).min(candidates.len());
-    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32); 128];
-    for (i, c) in candidates[..count].iter().enumerate() {
-        tiles[i] = (c.0, c.1, c.2, c.3, c.4);
+    let mut taken = [false; MAX_VRAM_SLOTS];
+    let mut tiles = [(0usize, 0usize, 0usize, 0usize, 0u32, 0usize); 128];
+    let mut count = 0;
+    let mut shadowed = [false; 128];
+    for (k, c) in candidates[..cand_count].iter().enumerate() {
+        if count >= n_slots.min(tiles.len()) {
+            break;
+        }
+        let slot = if grid { grid_slot(c.2, c.3) } else { count };
+        if taken[slot] {
+            shadowed[k] = true;
+            continue;
+        }
+        taken[slot] = true;
+        tiles[count] = (c.0, c.1, c.2, c.3, c.4, slot);
+        count += 1;
+    }
+    // A tile whose slot a nearer one took goes to a free one, where the
+    // track pass finds it and draws it over the grid.
+    let mut free = 0;
+    for (k, c) in candidates[..cand_count].iter().enumerate() {
+        if !shadowed[k] || count >= tiles.len() {
+            continue;
+        }
+        while free < n_slots && taken[free] {
+            free += 1;
+        }
+        if free >= n_slots {
+            break;
+        }
+        taken[free] = true;
+        tiles[count] = (c.0, c.1, c.2, c.3, c.4, free);
+        count += 1;
     }
 
     // Sort by tile_idx (disc LBA / block index) across ALL formats:
@@ -1564,8 +1660,8 @@ pub fn prewarm_starting_tiles(world_w: i32, world_h: i32, camera: &Camera) {
         }
     }
 
-    for (slot_idx, &(bx, by, sub_tx, sub_ty, _)) in tiles[..count].iter().enumerate() {
-        decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot_idx);
+    for &(bx, by, sub_tx, sub_ty, _, slot) in tiles[..count].iter() {
+        decode_and_upload_full_tile(active_circuit, bx, by, sub_tx, sub_ty, slot);
     }
 }
 
@@ -2368,14 +2464,14 @@ fn step_or_schedule_decode_row(
         // 1. Check visible tiles first (highest priority)
         let mut best_vis: Option<(usize, usize, usize, usize, u32)> = None;
         for (i, &slot) in slot_for_tile.iter().enumerate().take(vis_count) {
-            if slot == usize::MAX {
+            if slot == usize::MAX || slot == SLOT_CONFLICT {
                 let tile = candidates.visible[i];
                 let key = arduracer_core::texture_format::visible_decode_priority(
                     ram_block_state(active_circuit, uncompressed, &tile),
                     candidates.visible_depths[i] >> 4,
                     tile_disc_order(active_circuit, &tile),
                 );
-                if best_vis.is_none() || key < best_vis.unwrap().4 {
+                if best_vis.is_none_or(|b| key < b.4) {
                     let (_, _, bx, by, sub_tx, sub_ty) = tile;
                     best_vis = Some((bx, by, sub_tx, sub_ty, key));
                 }
@@ -2387,10 +2483,22 @@ fn step_or_schedule_decode_row(
         } else {
             // 2. All visible tiles are resident: consider prefetch lookahead
             let mut best_prefetch: Option<(usize, usize, usize, usize, u32)> = None;
+            let grid = unsafe { GRID_FLOOR };
             for tile in &candidates.prefetch[..candidates.prefetch_count] {
+                let (_, _, pbx, pby, psx, psy) = *tile;
+                // On the grid a tile can only go to its own slot; skip it
+                // while a visible tile holds that.
+                if grid {
+                    let s = grid_slot(psx, psy);
+                    if used_slots[s]
+                        && vram_slots[s].claim != pack_tile_key(active_circuit, pbx, pby, psx, psy)
+                    {
+                        continue;
+                    }
+                }
                 if !tile_resident(vram_slots, active_circuit, tile) {
                     let key = tile_priority_key(candidates, active_circuit, uncompressed, tile);
-                    if best_prefetch.is_none() || key < best_prefetch.unwrap().4 {
+                    if best_prefetch.is_none_or(|b| key < b.4) {
                         let (_, _, bx, by, sub_tx, sub_ty) = *tile;
                         best_prefetch = Some((bx, by, sub_tx, sub_ty, key));
                     }
@@ -2460,13 +2568,29 @@ fn step_or_schedule_decode_row(
             }
         }
 
+        // On the grid a tile goes to its own slot, unless a nearer visible
+        // tile holds that; then to the spare slot chosen above.
+        let key = pack_tile_key(active_circuit, bx, by, sub_tx, sub_ty);
+        let own = grid_slot(sub_tx, sub_ty);
+        let grid_own = unsafe { GRID_FLOOR } && (!used_slots[own] || vram_slots[own].claim == key);
+        if grid_own {
+            best_slot = own;
+        }
         if best_slot == usize::MAX {
             return false;
         }
 
         // Invalidate the slot immediately so Phase 1 in this or subsequent frames
-        // will not hit the old tile key and draw stale/wrong textures!
-        vram_slots[best_slot] = VramSlot::empty();
+        // will not hit the old tile key and draw stale/wrong textures! On the
+        // grid the slot is also painted this tile's placeholder colour, since
+        // the grid shows whatever a slot holds.
+        if grid_own {
+            if vram_slots[best_slot].claim != key {
+                claim_slot(vram_slots, best_slot, key, ((sub_tx ^ sub_ty) & 1) != 0);
+            }
+        } else {
+            vram_slots[best_slot] = VramSlot::empty();
+        }
 
         // Reserve this slot so subsequent decodes in this frame won't evict it
         used_slots[best_slot] = true;
@@ -2819,8 +2943,67 @@ pub fn render_track_extents(
     let mut slot_for_tile = [usize::MAX; VISIBLE_TILES_MAX];
     let mut used_slots = [false; MAX_VRAM_SLOTS];
 
+    // The grid floor needs every tile at its world-position slot; switching to
+    // or from it drops the cache, as a codec switch does.
+    let grid = grid_floor_wanted(camera, active_circuit, (tile_wu_x, tile_wu_y));
+    if grid != unsafe { GRID_FLOOR } {
+        for slot in vram_slots.iter_mut() {
+            *slot = VramSlot::empty();
+        }
+        unsafe {
+            (*core::ptr::addr_of_mut!(ACTIVE_JOB)).active = false;
+            GRID_FLOOR = grid;
+        }
+    }
+
+    // Visible tiles drawn over the grid floor from a slot other than their
+    // own (bit per visible index); see `SLOT_CONFLICT`.
+    let mut overlay = 0u64;
+    const _: () = assert!(VISIBLE_TILES_MAX <= 64);
+
     // Phase 1: Match already-resident 64x64 tiles in VRAM LRU cache
-    {
+    if grid {
+        // Nearest first, so where two visible tiles share a slot the nearer
+        // one keeps it.
+        let _probe = crate::prof::span(crate::prof::TRACK_CACHE_PROBE);
+        let mut order = [0u8; VISIBLE_TILES_MAX];
+        for i in 0..vis_count {
+            let mut j = i;
+            while j > 0 && vis_depths[order[j - 1] as usize] > vis_depths[i] {
+                order[j] = order[j - 1];
+                j -= 1;
+            }
+            order[j] = i as u8;
+        }
+        for &o in order.iter().take(vis_count) {
+            let i = o as usize;
+            let (tx, ty, bx, by, sub_tx, sub_ty) = visible_tiles[i];
+            let key = pack_tile_key(active_circuit, bx, by, sub_tx, sub_ty);
+            let s = grid_slot(sub_tx, sub_ty);
+            if used_slots[s] {
+                // Its own slot is taken: it may be decoded in a spare one
+                // (see the scheduler), and is then drawn over the grid.
+                slot_for_tile[i] = SLOT_CONFLICT;
+                for (k, slot) in vram_slots.iter().enumerate().take(TRACK_SLOT_COUNT) {
+                    if slot.key == key && !used_slots[k] {
+                        slot_for_tile[i] = k;
+                        overlay |= 1u64 << i;
+                        used_slots[k] = true;
+                        break;
+                    }
+                }
+                continue;
+            }
+            used_slots[s] = true;
+            if vram_slots[s].key == key {
+                slot_for_tile[i] = s;
+                vram_slots[s].last_used = current_frame;
+                crate::prof::count(crate::prof::C_TILE_HITS, 1);
+            } else if vram_slots[s].claim != key {
+                claim_slot(vram_slots, s, key, ((tx ^ ty) & 1) != 0);
+            }
+        }
+    } else {
         let _probe = crate::prof::span(crate::prof::TRACK_CACHE_PROBE);
         let n_slots = tex.slot_count();
         for i in 0..vis_count {
@@ -2998,6 +3181,46 @@ pub fn render_track_extents(
     // tile this frame; see `MeshScratch` and `FloorFrame`.
     let mut mesh_scratch = m7_mesh::MeshScratch::new();
     let floor_frame = FloorFrame::new(camera);
+    if grid {
+        let pending = (0..vis_count)
+            .filter(|&i| slot_for_tile[i] >= SLOT_CONFLICT)
+            .count();
+        crate::prof::count(crate::prof::C_PLACEHOLDERS, pending as u32);
+        draw_grid_floor(
+            camera,
+            &floor_frame,
+            (tile_wu_x, tile_wu_y),
+            (world_w, world_h),
+        );
+        // A tile whose slot a nearer one holds would show that tile's
+        // texture through the grid, so it is drawn over it with the tile
+        // mesh: textured from a spare slot once decoded, flat until then.
+        for i in 0..vis_count {
+            let s_idx = slot_for_tile[i];
+            let decoded_elsewhere = overlay & (1u64 << i) != 0;
+            if s_idx != SLOT_CONFLICT && !decoded_elsewhere {
+                continue;
+            }
+            let s_idx = if decoded_elsewhere { s_idx } else { usize::MAX };
+            let (tx, ty, _, _, _, _) = visible_tiles[i];
+            // SAFETY: see `FloorStack`.
+            unsafe {
+                FloorStack::run(|| {
+                    draw_tile_m7(
+                        camera,
+                        (tx, ty),
+                        (tile_wu_x, tile_wu_y),
+                        (world_w, world_h),
+                        s_idx,
+                        &floor_frame,
+                        &mut mesh_scratch,
+                    )
+                })
+            };
+        }
+        finish_floor_packets();
+        return;
+    }
     for i in 0..vis_count {
         if (i & 3) == 0 {
             pump_cd_streams();
@@ -3677,6 +3900,120 @@ impl m7_mesh::Sink for GroundSink {
             }
         }
     }
+}
+
+/// Writes the grid floor's polygons as linked-list packets, like
+/// [`GroundSink`] does the tile mesh's.
+struct GridPackets {
+    quad_cmd: u32,
+    tri_cmd: u32,
+    clut: u32,
+    /// Each texture page's tpage word, already in place.
+    tpages: [u32; TRACK_TPAGE_COUNT],
+    fog: GroundFog,
+    /// The current row's fogged headers.
+    quad_header: u32,
+    tri_header: u32,
+    polys: u32,
+    out: PacketCursor,
+}
+
+impl GridPackets {
+    /// A vertex's texel coordinate within `page`, rounded. The far edge of a
+    /// page is texel 256, which a byte cannot hold; it is drawn from 255.
+    #[inline(always)]
+    fn uv(v: &m7_grid::GridVert, page: (i32, i32)) -> u32 {
+        let u = (((v.u + 128) >> 8) - (page.0 << 8)).clamp(0, 255) as u32;
+        let t = (((v.v + 128) >> 8) - (page.1 << 8)).clamp(0, 255) as u32;
+        u | (t << 8)
+    }
+
+    #[inline(always)]
+    fn tpage(&self, page: (i32, i32)) -> u32 {
+        self.tpages[(((page.1 & 1) << 1) | (page.0 & 1)) as usize]
+    }
+}
+
+impl m7_grid::GridSink for GridPackets {
+    fn row(&mut self, z_far: i32, z_near: i32) {
+        let s = self.fog.shade(z_far, z_near) as u32;
+        let shade = s | (s << 8) | (s << 16);
+        self.quad_header = self.quad_cmd | shade;
+        self.tri_header = self.tri_cmd | shade;
+    }
+
+    fn quad(&mut self, page: (i32, i32), q: [&m7_grid::GridVert; 4]) {
+        self.polys += 1;
+        let tpage = self.tpage(page);
+        let w = self.out.node(9);
+        w[0] = self.quad_header;
+        w[1] = pack_vertex(q[0].sx, q[0].sy);
+        w[2] = Self::uv(q[0], page) | self.clut;
+        w[3] = pack_vertex(q[1].sx, q[1].sy);
+        w[4] = Self::uv(q[1], page) | tpage;
+        w[5] = pack_vertex(q[2].sx, q[2].sy);
+        w[6] = Self::uv(q[2], page);
+        w[7] = pack_vertex(q[3].sx, q[3].sy);
+        w[8] = Self::uv(q[3], page);
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn fan(&mut self, page: (i32, i32), v: &[&m7_grid::GridVert]) {
+        self.polys += 1;
+        let tpage = self.tpage(page);
+        let Some((&a, rest)) = v.split_first() else {
+            return;
+        };
+        for pair in rest.windows(2) {
+            let (b, c) = (pair[0], pair[1]);
+            let w = self.out.node(7);
+            w[0] = self.tri_header;
+            w[1] = pack_vertex(a.sx, a.sy);
+            w[2] = Self::uv(a, page) | self.clut;
+            w[3] = pack_vertex(b.sx, b.sy);
+            w[4] = Self::uv(b, page) | tpage;
+            w[5] = pack_vertex(c.sx, c.sy);
+            w[6] = Self::uv(c, page);
+        }
+    }
+}
+
+/// Draws the whole Mode 7 floor as the screen-space grid (`m7_grid`).
+#[inline(never)]
+fn draw_grid_floor(camera: &Camera, frame: &FloorFrame, tile_wu: (i32, i32), world: (i32, i32)) {
+    let tex = active_texture(unsafe { ACTIVE_CIRCUIT });
+    let mut tpages = [0u32; TRACK_TPAGE_COUNT];
+    for (t, p) in tpages.iter_mut().zip(tex.tpages.iter()) {
+        let word = TextureMaterial::opaque(0, p.uv_tpage_word(0), (0, 0, 0)).tpage_word();
+        *t = (word as u32) << 16;
+    }
+    let tile_tex = VRAM_TILE_DIM as i32;
+    let grid = m7_grid::GridFrame::new(
+        camera,
+        m7_grid::SHAPE,
+        tile_wu.0,
+        tile_tex,
+        (
+            world.0 * tile_tex / tile_wu.0.max(1),
+            world.1 * tile_tex / tile_wu.1.max(1),
+        ),
+    );
+    let mut sink = GridPackets {
+        quad_cmd: frame.quad_cmd,
+        tri_cmd: frame.tri_cmd,
+        clut: frame.clut,
+        tpages,
+        fog: frame.fog,
+        quad_header: frame.quad_cmd,
+        tri_header: frame.tri_cmd,
+        polys: 0,
+        out: floor_packets().at,
+    };
+    sink.out.node(1)[0] = frame.window;
+    grid.emit(&mut sink);
+    floor_packets().at = sink.out;
+    crate::prof::count(crate::prof::C_M7_POLYS, sink.polys);
 }
 
 /// Everything about drawing the floor that is the same for every tile in a
