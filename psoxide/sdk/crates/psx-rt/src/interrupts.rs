@@ -31,6 +31,13 @@ __psx_rt_exception_handler:
     addiu $27, $27, 1
     sw    $27, %lo(__psx_rt_vblank_count)($26)
 
+    # Root counter 1 at this edge, so a free-running HBlank count gives the
+    # scanlines since the VBlank (`vblank_timer1`).
+    lui   $26, 0x1f80
+    lw    $27, 0x1110($26)
+    lui   $26, %hi(__psx_rt_vblank_timer1)
+    sw    $27, %lo(__psx_rt_vblank_timer1)($26)
+
     # Apply one queued GP1 word exactly at the blank edge (deferred display
     # flip). Zero means no request; a display-start word is never zero.
     # Only apply once GPUSTAT bit 24 is set: the frame's work ends with
@@ -188,6 +195,10 @@ __psx_rt_exception_handler:
 /// Monotonic VBlank IRQ count.
 #[no_mangle]
 pub static mut __psx_rt_vblank_count: u32 = 0;
+
+/// Root counter 1's value when the latest VBlank IRQ was taken.
+#[no_mangle]
+pub static mut __psx_rt_vblank_timer1: u32 = 0;
 
 /// Count of exceptions that were NOT interrupts: bus errors, address
 /// errors, reserved instructions.
@@ -377,6 +388,19 @@ pub fn fault_epc() -> u32 {
 #[inline]
 pub fn vblank_count() -> u32 {
     unsafe { core::ptr::read_volatile(&raw const __psx_rt_vblank_count) }
+}
+
+/// Root counter 1's value when the latest VBlank IRQ was taken.
+///
+/// With counter 1 free-running on HBlank (mode `0x0100`), the counter minus
+/// this, modulo 2^16, is the scanlines since that VBlank. Its sync mode that
+/// restarts it at VBlank is no substitute: PSoXide restarts it ~20 lines after
+/// the interrupt, at a point that varies by a few lines, while the free-running
+/// count advances exactly 263 lines per NTSC field. Read it together with
+/// [`vblank_count`] (count, this, count again) for a consistent pair.
+#[inline]
+pub fn vblank_timer1() -> u32 {
+    unsafe { core::ptr::read_volatile(&raw const __psx_rt_vblank_timer1) }
 }
 
 /// Queue one GP1 word for the VBlank handler to apply at a blank edge

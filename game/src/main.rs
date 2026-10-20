@@ -26,6 +26,7 @@ pub mod ui;
 pub mod video;
 use arduracer_core::levels::GameMode;
 use arduracer_core::save::CdAudioMode;
+use arduracer_core::sim_pacing::SimPacer;
 use arduracer_core::{
     compute_standings, grid_slot_offset_on, grid_slot_position_on, resolve_field, AiRacer,
     ChampionshipSession, Difficulty, Fixed, LapTimer, StartPhase, StartSequence, TrackDef, Vec2,
@@ -289,7 +290,10 @@ pub struct ArduracerGame {
     /// Three lights, then GO. The lap clock arms on GO, not at load.
     pub start: StartSequence,
     /// Fixed-timestep accumulator for 60 Hz simulation updates.
-    pub sim_accumulator: u32,
+    pub sim_pacer: SimPacer,
+    /// Scanlines before its deadline the last frame's work finished; see
+    /// `SimPacer::ticks`.
+    pub last_frame_slack_lines: u32,
     /// Last sampled VBlank counter value for measuring elapsed display periods.
     pub last_vblank_count: u32,
     /// Monotonic count of simulation ticks executed.
@@ -470,7 +474,8 @@ impl ArduracerGame {
             state_mgr,
             ghost: LapGhostRecorder::new(0),
             start: StartSequence::new(),
-            sim_accumulator: 0,
+            sim_pacer: SimPacer::new(),
+            last_frame_slack_lines: 0,
             last_vblank_count: 0,
             sim_tick_counter: 0,
             last_flip_vblank: 0,
@@ -788,7 +793,7 @@ impl ArduracerGame {
         self.show_hud = true;
         self.finish_slowdown = 0;
         self.finish_recorded = false;
-        self.sim_accumulator = 0;
+        self.sim_pacer.reset();
         self.last_vblank_count = psx_rt::interrupts::vblank_count();
         self.sim_tick_counter = 0;
         self.last_flip_vblank = psx_rt::interrupts::vblank_count();
@@ -1061,9 +1066,9 @@ impl ArduracerGame {
         psx_rt::interrupts::install_vblank_counter();
         // Configure hardware root counter 2 to tick at system_clock / 8 (4.2336 MHz).
         psx_io::timers::set_mode(psx_io::timers::Timer::Timer2, 0x0200);
-        // Root counter 1 counts scanlines and restarts at every VBlank: the
-        // texture decoder's clock for how much of the frame is left.
-        psx_gpu_mod::configure_vsync_timer();
+        // Root counter 1 free-runs on HBlank, and the VBlank handler records
+        // it at every edge: the frame-deadline clock (`tracktex::display_time`).
+        psx_io::timers::set_mode(psx_io::timers::Timer::Timer1, 0x0100);
         dbg::println("[LOOP] Entering main game loop with VBlank interrupt installed.");
         dbg::check_faults();
 
@@ -1642,7 +1647,7 @@ impl ArduracerGame {
                             // Leaving the veil: write whatever was changed in it.
                             self.persist_settings();
                             self.audio.resume_music(crate::gpu::tracktex::disc_reader());
-                            self.sim_accumulator = 0;
+                            self.sim_pacer.reset();
                             self.last_vblank_count = psx_rt::interrupts::vblank_count();
                             self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                         }
@@ -1667,7 +1672,7 @@ impl ArduracerGame {
                                     self.paused = false;
                                     self.audio.set_paused(false);
                                     self.audio.resume_music(crate::gpu::tracktex::disc_reader());
-                                    self.sim_accumulator = 0;
+                                    self.sim_pacer.reset();
                                     self.last_vblank_count = psx_rt::interrupts::vblank_count();
                                     self.last_flip_vblank = psx_rt::interrupts::vblank_count();
                                 }
@@ -2439,21 +2444,13 @@ impl ArduracerGame {
         if elapsed_vblanks == 0 {
             return 1;
         }
-        let clamped_vblanks = elapsed_vblanks.min(4);
-        const TICK_COST: u32 = 5;
         let units_per_vblank = if is_pal_mode() { 6 } else { 5 };
-        self.sim_accumulator = self
-            .sim_accumulator
-            .saturating_add(clamped_vblanks * units_per_vblank);
-        let mut ticks = 0u32;
-        while self.sim_accumulator >= TICK_COST && ticks < 4 {
-            self.sim_accumulator -= TICK_COST;
-            ticks += 1;
-        }
-        if ticks >= 4 {
-            self.sim_accumulator = 0;
-        }
-        ticks.max(1)
+        self.sim_pacer.ticks(
+            elapsed_vblanks,
+            units_per_vblank,
+            self.framerate.vblanks_per_frame(),
+            self.last_frame_slack_lines,
+        )
     }
 
     #[inline(never)]
@@ -3335,12 +3332,15 @@ impl ArduracerGame {
     }
 
     fn close_frame(&mut self) {
-        // The frame's work is done (the pacing wait below is not work): tell the
-        // texture decoder how long everything after it took.
-        crate::gpu::tracktex::note_frame_work_done();
         self.transition.render();
         self.transition.tick();
+        // The frame's work is done: measured before the spare-time decode, so
+        // a frame that had room for a carried simulation tick still counts as
+        // having it.
+        self.last_frame_slack_lines =
+            crate::gpu::tracktex::frame_slack_lines(self.last_flip_vblank);
         crate::gpu::tracktex::pump_cd_streams();
+        crate::gpu::tracktex::decode_in_spare_time();
         psx_gpu_mod::signal_draw_done();
         #[cfg(target_arch = "mips")]
         {

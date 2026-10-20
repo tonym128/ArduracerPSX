@@ -28,6 +28,7 @@ pub mod melbourne;
 pub mod qoi;
 pub mod route;
 pub mod save;
+pub mod sim_pacing;
 pub mod surface;
 pub mod svgtex;
 pub mod xa;

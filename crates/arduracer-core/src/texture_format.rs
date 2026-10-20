@@ -482,6 +482,24 @@ pub fn decode_row_budget(ticks_to_run: u32, elapsed_vblanks: u32, period: u32) -
 /// A PAL console has 314, so there the budget simply comes out conservative.
 pub const LINES_PER_VBLANK: u32 = 263;
 
+/// Scanlines since the last VBlank interrupt, from a free-running HBlank
+/// count `raw` (root counter 1) and its value `at_vblank` when the interrupt
+/// was taken; both 16-bit. Clamped to one field.
+///
+/// The counter's sync mode that restarts it at VBlank was used for this at
+/// first, taking the raw reading as "lines into the field". In PSoXide the
+/// restart comes ~20 lines after the interrupt, at a point that varies, so
+/// every deadline was that much too late and spare-time texture decoding
+/// overran in about one frame in ten.
+pub const fn lines_since_vblank(raw: u32, at_vblank: u32) -> u32 {
+    let lines = raw.wrapping_sub(at_vblank) & 0xFFFF;
+    if lines >= LINES_PER_VBLANK {
+        LINES_PER_VBLANK - 1
+    } else {
+        lines
+    }
+}
+
 /// Scanlines left before a frame of `period` VBlanks must be finished,
 /// `elapsed_vblanks` whole VBlanks and `line` scanlines after it began. Zero
 /// once the deadline has passed.
@@ -499,18 +517,16 @@ pub const fn frame_lines_left(elapsed_vblanks: u32, period: u32, line: u32) -> u
 }
 
 /// Whether the decode loop may start another row, with `lines_left` scanlines
-/// before the frame's deadline, `reserve` of them needed by the work that
-/// follows decoding, and `rows_decoded` of the `min_rows` it must decode done.
+/// before the frame's deadline, `reserve` of them needed by what must still
+/// fit (the row itself, and any work after it), and `rows_decoded` of the
+/// `min_rows` it must decode done.
 ///
-/// Decoding runs in the middle of the frame, before the floor, props, cars and
-/// HUD. The loop used to keep decoding until the deadline had already passed,
-/// so any frame with tiles to stream finished that work a VBlank or two late:
-/// measured in a race, the 3- and 4-VBlank frames (a third of all frames)
-/// spent 160k and 310k instructions decoding against 26k in an on-time frame.
-/// Stopping at the last VBlank boundary instead still overran during long
-/// streaming stretches, where the extra simulation ticks of the late frame
-/// before make the work after decoding longer. So the reserve is measured
-/// (see [`next_decode_reserve`]) rather than assumed.
+/// The game decodes the rows a missing visible tile forces before drawing the
+/// floor, and any others at the end of the frame, once nothing but the flip is
+/// left to fit. An earlier version kept decoding mid-frame until the deadline
+/// had passed, so any frame with tiles to stream finished a VBlank or two
+/// late; a later one stopped against a measured reserve for the work still to
+/// come, which came up short on the heavy frames.
 ///
 /// `min_rows` is always honoured -- one row while visible tiles are missing --
 /// so streaming can never stall.
@@ -523,12 +539,12 @@ pub const fn decode_row_allowed(
     rows_decoded < min_rows || lines_left > reserve
 }
 
-/// The decode reserve after a frame whose post-decode work took `measured`
-/// scanlines: that much, or the previous reserve decayed by 1/16 if larger.
+/// A decaying worst case: `measured`, or `previous` decayed by 1/16 if larger.
+/// The game tracks how long one decode row takes with it.
 ///
-/// Tracking the recent worst case rather than the average keeps one heavy
-/// frame (a full grid of cars on screen) from overrunning right after a run of
-/// light ones, while the decay hands the time back to decoding once it passes.
+/// Tracking the recent worst case rather than the average keeps one slow
+/// sample from being forgotten right away, while the decay lets the estimate
+/// come back down once it passes.
 pub const fn next_decode_reserve(previous: u32, measured: u32) -> u32 {
     let decayed = previous - previous / 16;
     if measured > decayed {
@@ -632,6 +648,21 @@ pub const fn rows_per_budget_for_codec(codec: Codec, is_multiblock: bool) -> usi
 
 #[cfg(test)]
 mod budget_tests {
+    #[test]
+    fn lines_since_vblank_counts_from_the_interrupt() {
+        assert_eq!(super::lines_since_vblank(53, 53), 0);
+        assert_eq!(super::lines_since_vblank(316, 53), 263 - 1);
+        assert_eq!(super::lines_since_vblank(153, 53), 100);
+        // The 16-bit counter wraps between the edge and the reading.
+        assert_eq!(super::lines_since_vblank(10, 0xFFF0), 26);
+        // Garbage above 16 bits is ignored; a stale edge clamps to a field.
+        assert_eq!(super::lines_since_vblank(0x1_0005, 0x2_0000), 5);
+        assert_eq!(
+            super::lines_since_vblank(5000, 0),
+            super::LINES_PER_VBLANK - 1
+        );
+    }
+
     use super::*;
 
     /// The regression this module's `selects_tim` was added for: a disc that

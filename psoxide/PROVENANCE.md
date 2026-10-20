@@ -33,7 +33,7 @@ paths depend on them:
 | File | Why it matters here |
 | :--- | :--- |
 | `sdk/crates/psx-vram/src/lib.rs` | adds `upload_words_with`, servicing a polled device mid-upload so long VRAM writes do not starve the CD sector stream |
-| `sdk/crates/psx-rt/src/interrupts.rs` | clears the CPU-side CDROM latch so an enabled CD IRQ does not become an interrupt storm |
+| `sdk/crates/psx-rt/src/interrupts.rs` | clears the CPU-side CDROM latch so an enabled CD IRQ does not become an interrupt storm; records root counter 1 at each VBlank (`vblank_timer1`) for scanline-accurate frame deadlines |
 | `sdk/crates/psx-pack/src/cd.rs` | XA-ADPCM SetMode handling (`prepare_xa`) |
 | `sdk/crates/psx-fmv/src/mdec.rs` | MDEC decode changes used by the intro FMV |
 | `sdk/crates/psx-io/src/cdrom.rs` | `select_index` moved next to its callers |
