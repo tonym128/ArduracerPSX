@@ -2471,7 +2471,7 @@ fn step_or_schedule_decode_row(
                     candidates.visible_depths[i] >> 4,
                     tile_disc_order(active_circuit, &tile),
                 );
-                if best_vis.is_none() || key < best_vis.unwrap().4 {
+                if best_vis.is_none_or(|b| key < b.4) {
                     let (_, _, bx, by, sub_tx, sub_ty) = tile;
                     best_vis = Some((bx, by, sub_tx, sub_ty, key));
                 }
@@ -2498,7 +2498,7 @@ fn step_or_schedule_decode_row(
                 }
                 if !tile_resident(vram_slots, active_circuit, tile) {
                     let key = tile_priority_key(candidates, active_circuit, uncompressed, tile);
-                    if best_prefetch.is_none() || key < best_prefetch.unwrap().4 {
+                    if best_prefetch.is_none_or(|b| key < b.4) {
                         let (_, _, bx, by, sub_tx, sub_ty) = *tile;
                         best_prefetch = Some((bx, by, sub_tx, sub_ty, key));
                     }
